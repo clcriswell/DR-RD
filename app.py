@@ -79,11 +79,28 @@ if st.session_state.obfuscated:
     from agents.router import route
     if st.button("Run Query Router"):
         with st.spinner("Contacting external services…"):
-            answers = {
+            st.session_state.answers = {
                 d: route(d, p) for d, p in st.session_state.obfuscated.items()
             }
-        st.success("Results")
-        for d, ans in answers.items():
+    if "answers" in st.session_state:
+        st.success("Round-1 Results")
+        for d, ans in st.session_state.answers.items():
+            st.markdown(f"**{d}**")
+            st.write(ans)
+            st.markdown("---")
+
+# ---- 4. Loop Orchestrator ----
+if "answers" in st.session_state:
+    from agents.orchestrator import refine_once
+    if st.button("Refine Research (Loop Orchestrator)"):
+        with st.spinner("Reviewing answers & issuing follow-ups…"):
+            st.session_state.answers = refine_once(
+                st.session_state.plan, st.session_state.answers
+            )
+
+    if st.button("Show Latest Answers"):
+        st.header("📑 Current Answer Set")
+        for d, ans in st.session_state.answers.items():
             st.markdown(f"**{d}**")
             st.write(ans)
             st.markdown("---")
