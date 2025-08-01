@@ -49,3 +49,27 @@ def synthesize(idea: str, answers: Dict[str, str]) -> str:
         ],
     )
     return resp.choices[0].message.content.strip()
+
+
+def compose_final_proposal(idea: str, answers: Dict[str, str]) -> str:
+    """Compose a final Markdown proposal integrating all agent responses."""
+    model = "gpt-4"
+    prompt = (
+        f"We have an R&D project idea: {idea}\n\n"
+        "Below are contributions from various team members (Planner, CTO, Research Scientist, Engineer, QA, Regulatory, Patent, Documentation) addressing different aspects of the project.\n"
+        "Please synthesize these contributions into one cohesive proposal. The proposal should start with a **Summary** section (covering the main points of the idea), followed by a **Table of Contents**, and then a detailed section for each aspect contributed by the team. Ensure the final document is well-structured and written in a single voice.\n\n"
+        "Contributions:\n"
+    )
+    for role, content in answers.items():
+        prompt += f"{role} Contribution:\n{content}\n\n"
+    prompt += (
+        "End of contributions.\n"
+        "Now draft the complete R&D proposal in Markdown as described, with clear section headings (Summary, Table of Contents, and one section per role)."
+    )
+
+    response = openai.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    final_document = response.choices[0].message.content
+    return final_document
