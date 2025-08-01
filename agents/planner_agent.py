@@ -7,7 +7,7 @@ class PlannerAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="Planner",
-            model="gpt-4",
+            model="gpt-4-1106-preview",
             system_message=(
                 "You are an expert project planner specializing in turning ideas into actionable plans."
             ),
