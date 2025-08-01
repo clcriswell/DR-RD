@@ -37,6 +37,7 @@ if run_btn and idea.strip():
         response = openai.chat.completions.create(
             model="gpt-4o-mini",   # or "gpt-4o"
             temperature=0.3,
+            response_format={"type": "json_object"},
             messages=[
                 {
                     "role": "system",
