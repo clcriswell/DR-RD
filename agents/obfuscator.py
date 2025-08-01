@@ -21,7 +21,7 @@ SYSTEM_PROMPT = (
 
 def obfuscate_task(domain: str, task: str) -> str:
     """Return an obfuscated version of a single domain task."""
-    resp = openai.ChatCompletion.create(
+    resp = openai.chat.completions.create(
         model="gpt-4o-mini",   # or gpt-4o
         temperature=0.5,
         messages=[

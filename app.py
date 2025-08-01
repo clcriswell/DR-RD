@@ -34,7 +34,7 @@ run_btn = st.button("Generate Task Plan")
 # ---------- Planner logic ----------
 if run_btn and idea.strip():
     with st.spinner("Thinking 🤔 …"):
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4o-mini",   # or "gpt-4o"
             temperature=0.3,
             messages=[
