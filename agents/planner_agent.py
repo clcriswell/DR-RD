@@ -17,3 +17,21 @@ class PlannerAgent(BaseAgent):
                 "Conclude with a JSON summary of the key planning steps and deadlines."
             ),
         )
+
+    def run(self, idea: str, task: str) -> dict:
+        """Return the planner's JSON summary as a Python dict."""
+        import openai, json
+
+        prompt = self.user_prompt_template.format(idea=idea, task=task)
+        response = openai.chat.completions.create(
+            model=self.model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": self.system_message},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        try:
+            return json.loads(response.choices[0].message.content)
+        except json.JSONDecodeError as e:
+            raise ValueError("Planner returned invalid JSON") from e
