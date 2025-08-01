@@ -35,9 +35,14 @@ if not idea:
 if st.button("1⃣ Generate Research Plan"):
     with st.spinner("📝 Planning..."):
         try:
-            plan = agents["Planner"].run(
+            raw_plan = agents["Planner"].run(
                 idea, "Break down the project into role-specific tasks"
             )
+            # keep only keys that have a matching agent
+            plan = {role: task for role, task in raw_plan.items() if role in agents}
+            dropped = [r for r in raw_plan if r not in agents]
+            if dropped:
+                st.warning(f"Dropped unrecognized roles: {', '.join(dropped)}")
         except Exception as e:
             st.error(f"Planner failed: {e}")
             st.stop()

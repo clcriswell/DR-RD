@@ -63,10 +63,13 @@ def test_generate_plan_updates_state(monkeypatch):
         {"1\u20e3 Generate Research Plan": True},
     )
     patches = {
-        "agents.planner_agent.PlannerAgent.run": lambda self, idea, task: {"X": "Y"}
+        "agents.planner_agent.PlannerAgent.run": (
+            lambda self, idea, task: {"CTO": "foo", "X": "Y"}
+        )
     }
     reload_app(monkeypatch, st, patches)
-    assert st.session_state["plan"] == {"X": "Y"}
+    assert st.session_state["plan"] == {"CTO": "foo"}
+    st.warning.assert_called_with("Dropped unrecognized roles: X")
 
 
 def test_run_domain_experts(monkeypatch):

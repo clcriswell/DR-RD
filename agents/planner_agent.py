@@ -12,9 +12,18 @@ class PlannerAgent(BaseAgent):
                 "You are an expert project planner specializing in turning ideas into actionable plans."
             ),
             user_prompt_template=(
-                "Project Idea: {idea}\nAs the Planner, your task is {task}. "
-                "Provide a detailed project plan in Markdown format, including milestones and timelines. "
-                "Conclude with a JSON summary of the key planning steps and deadlines."
+                "Project Idea: {idea}\n"
+                "As the Planner, your task is {task}.\n\n"
+                "Return **only** a JSON object mapping each of these roles exactly:\n"
+                "  - CTO\n"
+                "  - Research Scientist\n"
+                "  - Engineer\n"
+                "  - QA Specialist\n"
+                "  - Regulatory Specialist\n"
+                "  - Patent Specialist\n"
+                "  - Documentation Specialist\n\n"
+                "to one or two succinct research or implementation tasks each.\n"
+                "Do not include any other keys."
             ),
         )
 
