@@ -73,8 +73,26 @@ if run_btn and idea.strip():
     st.success("Creation Planner output:")
     st.json(plan)
 
-    st.info(
-        "✅ **Next step preview**: Each task will be obfuscated and routed to the "
-        "appropriate tool/API in the following iterations of the pipeline."
-    )
-________________________________________
+    # ---------- NEW: Obfuscate each task ----------
+    st.header("🔒 Prompt Obfuscation")
+    obfuscated = {}
+    if st.button("Run Obfuscator"):
+        with st.spinner("Obfuscating prompts…"):
+            from agents.obfuscator import obfuscate_task  # local import to avoid circulars
+            for domain, task in plan.items():
+                try:
+                    obfuscated[domain] = obfuscate_task(domain, task)
+                except Exception as e:
+                    obfuscated[domain] = f"(error: {e})"
+
+        st.subheader("Original ➜ Obfuscated")
+        for d in plan:
+            st.markdown(f"**{d}**")
+            st.write("• Original:", plan[d])
+            st.write("• Obfuscated:", obfuscated[d])
+            st.markdown("---")
+
+        st.info(
+            "✅ **Next step preview**: Each obfuscated prompt will be routed "
+            "through the API Query Router (IP rotation, header randomization, etc.)."
+        )
