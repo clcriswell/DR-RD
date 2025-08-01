@@ -58,7 +58,7 @@ def route(domain: str, prompt: str) -> str:
 # ---------- back-ends ----------
 def _openai_chat(prompt: str, domain: str) -> str:
     openai.api_key = _pick(_OAI_KEYS)
-    resp = openai.ChatCompletion.create(
+    resp = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         temperature=0.4,
         messages=[

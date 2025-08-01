@@ -28,7 +28,7 @@ idea = st.text_area(
 # ---- 1. Creation Planner ----
 if st.button("Generate Task Plan") and idea.strip():
     with st.spinner("Planning…"):
-        resp = openai.ChatCompletion.create(
+        resp = openai.chat.completions.create(
             model="gpt-4o-mini",
             temperature=0.3,
             response_format={"type": "json_object"},
