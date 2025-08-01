@@ -104,3 +104,22 @@ if "answers" in st.session_state:
             st.markdown(f"**{d}**")
             st.write(ans)
             st.markdown("---")
+
+# ---------- 5. Prototype Synthesizer ----------
+if "answers" in st.session_state:
+    from agents.synthesizer import synthesize
+    if st.button("Generate Integrated Prototype Plan"):
+        with st.spinner("Composing final report…"):
+            st.session_state.final_report = synthesize(
+                idea, st.session_state.answers
+            )
+
+if "final_report" in st.session_state:
+    st.header("📝 Integrated R&D Plan")
+    st.markdown(st.session_state.final_report, unsafe_allow_html=True)
+    st.download_button(
+        label="⬇️ Download as Markdown",
+        data=st.session_state.final_report,
+        file_name="prototype_plan.md",
+        mime="text/markdown",
+    )
