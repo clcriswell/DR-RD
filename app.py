@@ -71,12 +71,17 @@ if run_btn and idea.strip():
         st.code(raw)
         st.stop()
 
+    # persist plan for later use
+    st.session_state["plan"] = plan
+
+if "plan" in st.session_state:
+    plan = st.session_state["plan"]
     st.success("Creation Planner output:")
     st.json(plan)
 
     # ---------- NEW: Obfuscate each task ----------
     st.header("🔒 Prompt Obfuscation")
-    obfuscated = {}
+    obfuscated = st.session_state.get("obfuscated", {})
     if st.button("Run Obfuscator"):
         with st.spinner("Obfuscating prompts…"):
             from agents.obfuscator import obfuscate_task  # local import to avoid circulars
@@ -86,11 +91,15 @@ if run_btn and idea.strip():
                 except Exception as e:
                     obfuscated[domain] = f"(error: {e})"
 
+        # store results for persistence across reruns
+        st.session_state["obfuscated"] = obfuscated
+
+    if obfuscated:
         st.subheader("Original ➜ Obfuscated")
         for d in plan:
             st.markdown(f"**{d}**")
             st.write("• Original:", plan[d])
-            st.write("• Obfuscated:", obfuscated[d])
+            st.write("• Obfuscated:", obfuscated.get(d, ""))
             st.markdown("---")
 
         st.info(
