@@ -1,108 +1,89 @@
-import json
-import os
-import streamlit as st
-import openai
+import json, os, streamlit as st, openai
 
-# ---------- Streamlit page config ----------
-st.set_page_config(
-    page_title="AI R&D Center",
-    page_icon="🔬",
-    layout="centered"
+# ---- Streamlit config & key handling ----
+st.set_page_config(page_title="AI R&D Center", page_icon="🔬")
+if "plan" not in st.session_state:
+    st.session_state["plan"] = None
+if "obfuscated" not in st.session_state:
+    st.session_state["obfuscated"] = None
+
+api_key = (
+    st.secrets.get("OPENAI_API_KEY")
+    or os.getenv("OPENAI_API_KEY")
+    or st.sidebar.text_input("Enter your OpenAI API key", type="password")
 )
-
-# ---------- API key handling ----------
-# 1) Prefer Streamlit secrets (for Streamlit Cloud)
-# 2) Fallback to an env var
-# 3) Allow user paste-in (dev only)
-api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 if not api_key:
-    api_key = st.sidebar.text_input("Enter your OpenAI API key", type="password")
-if not api_key:
-    st.stop()        # Don’t run until key provided
+    st.stop()
 openai.api_key = api_key
 
-# ---------- UI ----------
+# ---- UI ----
 st.title("🔬 AI Research & Development Center")
-st.markdown(
-    "Enter a **high-level idea**. Step 1 will run the *Creation Planner* "
-    "to break your goal into domain-specific research tasks."
+
+idea = st.text_area(
+    "Your idea or goal",
+    height=150,
+    placeholder="e.g. lightweight, heat-resistant material for Mars landers",
 )
 
-idea = st.text_area("Your idea or goal", height=150, placeholder="e.g. a lightweight, heat-resistant material for Mars landers")
-run_btn = st.button("Generate Task Plan")
-
-# ---------- Planner logic ----------
-if run_btn and idea.strip():
-    with st.spinner("Thinking 🤔 …"):
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",   # or "gpt-4o"
+# ---- 1. Creation Planner ----
+if st.button("Generate Task Plan") and idea.strip():
+    with st.spinner("Planning…"):
+        resp = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
             temperature=0.3,
             response_format={"type": "json_object"},
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "You are an expert R&D planner who divides complex projects "
-                        "into domain-specific research tasks."
-                    )
+                    "content": "You are an expert R&D planner who divides "
+                               "complex projects into domain-specific tasks."
                 },
                 {
                     "role": "user",
                     "content": (
-                        f"Project goal: {idea}\n\n"
-                        "Return a **pure JSON** object mapping each of the following "
-                        "domains to **one or two key research questions or tasks**:\n"
-                        " - Physics\n - Chemistry\n - Material Science and Engineering\n"
-                        " - Chemical Engineering\n - Mechanical Engineering\n"
-                        " - Electrical and Computer Engineering\n - Aerospace Engineering\n"
-                        " - Civil and Environmental Engineering\n - Nuclear Engineering\n"
-                        " - Industrial and Systems Engineering\n\n"
-                        "Use short, imperative task phrases."
+                        f"Project goal: {idea}\n\nReturn a pure JSON object mapping "
+                        "each domain (Physics, Chemistry, Material Science and "
+                        "Engineering, Chemical Engineering, Mechanical Engineering, "
+                        "Electrical and Computer Engineering, Aerospace Engineering, "
+                        "Civil and Environmental Engineering, Nuclear Engineering, "
+                        "Industrial and Systems Engineering) to one or two short, "
+                        "imperative research tasks."
                     )
-                }
-            ]
+                },
+            ],
         )
-
-    raw = response.choices[0].message.content
-    try:
-        plan = json.loads(raw)
-    except json.JSONDecodeError:
-        st.error("Planner did not return valid JSON. Raw output shown below:")
-        st.code(raw)
-        st.stop()
-
-    # persist plan for later use
-    st.session_state["plan"] = plan
-
-if "plan" in st.session_state:
-    plan = st.session_state["plan"]
+    st.session_state.plan = json.loads(resp.choices[0].message.content)
+    st.session_state.obfuscated = None  # reset downstream
     st.success("Creation Planner output:")
-    st.json(plan)
+    st.json(st.session_state.plan)
 
-    # ---------- NEW: Obfuscate each task ----------
-    st.header("🔒 Prompt Obfuscation")
-    obfuscated = st.session_state.get("obfuscated", {})
+# ---- 2. Obfuscator ----
+if st.session_state.plan:
+    from agents.obfuscator import obfuscate_task
     if st.button("Run Obfuscator"):
-        with st.spinner("Obfuscating prompts…"):
-            from agents.obfuscator import obfuscate_task  # local import to avoid circulars
-            for domain, task in plan.items():
-                try:
-                    obfuscated[domain] = obfuscate_task(domain, task)
-                except Exception as e:
-                    obfuscated[domain] = f"(error: {e})"
-
-        # store results for persistence across reruns
-        st.session_state["obfuscated"] = obfuscated
-
-    if obfuscated:
+        with st.spinner("Obfuscating…"):
+            st.session_state.obfuscated = {
+                d: obfuscate_task(d, t)
+                for d, t in st.session_state.plan.items()
+            }
+    if st.session_state.obfuscated:
         st.subheader("Original ➜ Obfuscated")
-        for d in plan:
+        for d in st.session_state.plan:
             st.markdown(f"**{d}**")
-            st.write("• Original:", plan[d])
-            st.write("• Obfuscated:", obfuscated.get(d, ""))
+            st.write("• Original:", st.session_state.plan[d])
+            st.write("• Obfuscated:", st.session_state.obfuscated[d])
             st.markdown("---")
 
-        st.info(
-            "✅ **Next step preview**: Each obfuscated prompt will be routed "
-            "through the API Query Router (IP rotation, header randomization, etc.)."
-        )
+# ---- 3. Query Router ----
+if st.session_state.obfuscated:
+    from agents.router import route
+    if st.button("Run Query Router"):
+        with st.spinner("Contacting external services…"):
+            answers = {
+                d: route(d, p) for d, p in st.session_state.obfuscated.items()
+            }
+        st.success("Results")
+        for d, ans in answers.items():
+            st.markdown(f"**{d}**")
+            st.write(ans)
+            st.markdown("---")
