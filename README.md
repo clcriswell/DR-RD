@@ -7,6 +7,8 @@ prototype or development plan.
 _Current repo state_  
 **Step 1:** Minimal Streamlit front-end + “Creation Planner” prompt.
 
+The planner now uses OpenAI's JSON mode for reliable parsing.
+
 ## Quick start (local)
 
 ```bash
@@ -16,3 +18,4 @@ python -m venv .venv && source .venv/bin/activate   # PowerShell: .venv\Scripts\
 pip install -r requirements.txt
 export OPENAI_API_KEY="sk-..."
 streamlit run app.py
+```
