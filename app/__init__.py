@@ -36,8 +36,8 @@ if similar_ideas:
 # 2. Generate the role→task plan
 if st.button("1⃣ Generate Research Plan"):
     logging.info(f"User generated plan for idea: {idea}")
-    with st.spinner("📝 Planning..."):
-        try:
+    try:
+        with st.spinner("📝 Planning..."):
             logging.debug("Planner start")
             raw_plan = agents["Planner"].run(idea, "Break down the project into role-specific tasks")
             logging.debug(f"Raw plan: {raw_plan}")
@@ -47,9 +47,9 @@ if st.button("1⃣ Generate Research Plan"):
             logging.debug(f"Filtered plan: {plan}, dropped roles: {dropped}")
             if dropped:
                 st.warning(f"Dropped unrecognized roles: {', '.join(dropped)}")
-        except Exception as e:
-            st.error(f"Planner failed: {e}")
-            st.stop()
+    except Exception as e:
+        st.exception(e)
+        st.stop()
     st.session_state["plan"] = plan
     # Log the plan generation step
     audit_logger.log_step(st.session_state["project_id"], "Planner", "Output", "Plan generated", success=True)
