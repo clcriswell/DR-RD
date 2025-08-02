@@ -13,6 +13,6 @@ def make_openai_response(text: str):
 @patch('openai.chat.completions.create')
 def test_planner_agent_returns_dict(mock_create):
     mock_create.return_value = make_openai_response('{"X": "Y"}')
-    agent = PlannerAgent()
+    agent = PlannerAgent("gpt-4")
     result = agent.run('idea', 'task')
     assert result == {"X": "Y"}

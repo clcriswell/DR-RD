@@ -4,10 +4,10 @@ from agents.base_agent import BaseAgent
 class CTOAgent(BaseAgent):
     """Agent that provides technical direction and architecture for the project idea."""
 
-    def __init__(self):
+    def __init__(self, model):
         super().__init__(
             name="CTO",
-            model="gpt-4",
+            model=model,
             system_message="You are a Chief Technology Officer with deep technical expertise and strategic vision.",
             user_prompt_template=(
                 "Project Idea: {idea}\nAs the CTO, your task is {task}. "
