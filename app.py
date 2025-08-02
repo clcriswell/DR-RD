@@ -11,6 +11,8 @@ from agents.synthesizer import compose_final_proposal
 from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
+from simulation.simulation_manager import SimulationManager
+from agents.simulation_agent import SimulationAgent
 
 # --- Instantiate Agents ---
 agents = {
@@ -28,8 +30,8 @@ agents = {
 memory_manager = MemoryManager()
 
 # --- Streamlit UI ---
-st.set_page_config(page_title="DR-RD Phase 3: Multi-Agent R&D", layout="wide")
-st.title("DR-RD AI R&D Engine — Phase 3")
+st.set_page_config(page_title="DR-RD Phase 4: Simulated Multi-Agent R&D", layout="wide")
+st.title("DR-RD AI R&D Engine — Phase 4")
 
 # 1. Get the user’s idea
 idea = st.text_input("🧠 Enter your project idea:")
@@ -58,11 +60,17 @@ if st.button("1⃣ Generate Research Plan"):
     st.json(plan)
     st.session_state["plan"] = plan
 
-# 3. Execute each specialist agent (with optional refinement rounds)
+# 3. Execute each specialist agent (with optional refinement rounds and simulations)
 if "plan" in st.session_state:
     refinement_rounds = st.slider("🔁 Refinement Rounds", 1, 3, value=1)
+    # Simulation options
+    simulate_enabled = st.checkbox("Enable Simulations", value=False)
+    re_run_simulations = st.checkbox("Re-run simulations after each refinement round", value=False) if simulate_enabled else False
+
     if st.button("2⃣ Run All Domain Experts"):
         answers = {}
+        simulation_agent = SimulationAgent() if simulate_enabled else None
+
         # Initial execution by all expert agents
         for role, task in st.session_state["plan"].items():
             agent = agents.get(role)
@@ -89,11 +97,17 @@ if "plan" in st.session_state:
                         result = agent.run(idea, task)
                 except Exception as e:
                     result = f"❌ {role} failed: {e}"
+            # Append simulation results if enabled and no further refinement rounds will modify this output
+            if simulate_enabled and refinement_rounds == 1:
+                sim_text = simulation_agent.run_simulation(role, result)
+                if sim_text:
+                    result = f"{result}\n\n{sim_text}"
             answers[role] = result
+
             # Display initial outputs immediately if no refinement rounds selected
             if refinement_rounds == 1:
                 st.markdown(f"---\n### {role} Output")
-                st.markdown(result)
+                st.markdown(answers[role])
         # Save initial answers
         st.session_state["answers"] = answers
 
@@ -101,14 +115,27 @@ if "plan" in st.session_state:
         if "CTO" in answers and "Research Scientist" in answers:
             with st.spinner("🔄 CTO and Research Scientist collaborating..."):
                 try:
-                    updated_cto, updated_rs = agent_chat(agents["CTO"], agents["Research Scientist"], idea, answers["CTO"], answers["Research Scientist"])
+                    updated_cto, updated_rs = agent_chat(
+                        agents["CTO"], agents["Research Scientist"],
+                        idea, answers["CTO"], answers["Research Scientist"]
+                    )
                     answers["CTO"] = updated_cto
                     answers["Research Scientist"] = updated_rs
                     # Display revised outputs if no further refinement rounds
                     if refinement_rounds == 1:
                         st.markdown(f"---\n### CTO Output (Revised after collaboration)")
+                        if simulate_enabled:
+                            sim_cto = simulation_agent.run_simulation("CTO", updated_cto)
+                            if sim_cto:
+                                updated_cto = f"{updated_cto}\n\n{sim_cto}"
+                                answers["CTO"] = updated_cto
                         st.markdown(updated_cto)
                         st.markdown(f"---\n### Research Scientist Output (Revised after collaboration)")
+                        if simulate_enabled:
+                            sim_rs = simulation_agent.run_simulation("Research Scientist", updated_rs)
+                            if sim_rs:
+                                updated_rs = f"{updated_rs}\n\n{sim_rs}"
+                                answers["Research Scientist"] = updated_rs
                         st.markdown(updated_rs)
                 except Exception as e:
                     st.warning(f"Agent collaboration failed: {e}")
@@ -132,7 +159,14 @@ if "plan" in st.session_state:
                             refined_output = f"❌ {role} refinement failed: {e}"
                     new_answers[role] = refined_output
                 answers = new_answers
-            # After all refinement rounds, display final expert outputs
+            # After all refinement rounds, append simulation results if enabled (re-run simulations for final outputs)
+            if simulate_enabled:
+                for role, output in answers.items():
+                    sim_text = SimulationAgent().run_simulation(role, output) if re_run_simulations or True else ""
+                    # Note: We always run final simulation if enabled to display up-to-date metrics
+                    if sim_text:
+                        answers[role] = f"{output}\n\n{sim_text}"
+            # Display final expert outputs after refinements
             st.subheader("Final Expert Outputs after Refinement")
             for role, output in answers.items():
                 st.markdown(f"---\n### {role} Output (Refined)")
@@ -144,7 +178,7 @@ if "answers" in st.session_state:
     if st.button("3⃣ Compile Final Proposal"):
         with st.spinner("🚀 Synthesizing final R&D proposal..."):
             try:
-                final_doc = compose_final_proposal(idea, st.session_state["answers"])
+                final_doc = compose_final_proposal(idea, st.session_state["answers"], include_simulations=simulate_enabled)
             except Exception as e:
                 st.error(f"Synthesizer failed: {e}")
                 st.stop()

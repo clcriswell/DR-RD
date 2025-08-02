@@ -51,25 +51,36 @@ def synthesize(idea: str, answers: Dict[str, str]) -> str:
     return resp.choices[0].message.content.strip()
 
 
-def compose_final_proposal(idea: str, answers: Dict[str, str]) -> str:
-    """Compose a final Markdown proposal integrating all agent responses."""
+def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulations: bool = False) -> str:
+    """Compose a final Markdown proposal integrating all agent responses (and simulation results if requested)."""
     model = "gpt-4"
+    # Begin prompt with project idea and context
     prompt = (
         f"We have an R&D project idea: {idea}\n\n"
-        "Below are contributions from various team members (Planner, CTO, Research Scientist, Engineer, QA, Regulatory, Patent, Documentation) addressing different aspects of the project.\n"
+        "Below are contributions from various team members (Planner, CTO, Research Scientist, Engineer, QA, Regulatory, Patent, Documentation), each addressing different aspects of the project.\n"
         "Please synthesize these contributions into one cohesive proposal. The proposal should start with a **Summary** section (covering the main points of the idea), followed by a **Table of Contents**, and then a detailed section for each aspect contributed by the team. Ensure the final document is well-structured and written in a single voice.\n\n"
         "Contributions:\n"
     )
+    # Append each role's contribution (which may include simulation results if present)
     for role, content in answers.items():
         prompt += f"{role} Contribution:\n{content}\n\n"
-    prompt += (
-        "End of contributions.\n"
-        "Now draft the complete R&D proposal in Markdown as described, with clear section headings (Summary, Table of Contents, and one section per role)."
-    )
-
+    prompt += "End of contributions.\n"
+    # Add instruction for Simulation Results section if needed
+    if include_simulations:
+        prompt += (
+            "Now draft the complete R&D proposal in Markdown as described, with clear section headings "
+            "(Summary, Table of Contents, one section per role, **Simulation Results**). "
+            "Include a dedicated **Simulation Results** section at the end that compiles and summarizes all the performance metrics from the simulations above, rather than listing them in each role’s section."
+        )
+    else:
+        prompt += (
+            "Now draft the complete R&D proposal in Markdown as described, with clear section headings "
+            "(Summary, Table of Contents, and one section per role)."
+        )
+    # Call the OpenAI API to generate the proposal
     response = openai.chat.completions.create(
         model=model,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": prompt}]
     )
     final_document = response.choices[0].message.content
     return final_document

@@ -34,6 +34,7 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
         markdown=MagicMock(),
         warning=MagicMock(),
         slider=MagicMock(return_value=1),
+        checkbox=MagicMock(return_value=False),
     )
     return st
 
@@ -80,22 +81,26 @@ def test_run_domain_experts(monkeypatch):
         {"2\u20e3 Run All Domain Experts": True},
         state=state,
     )
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
     patches = {
-        "agents.base_agent.BaseAgent.run": lambda self, idea, task: "out"
+        "agents.base_agent.BaseAgent.run": lambda self, idea, task: "out",
+        "openai.chat.completions.create": lambda *a, **k: type('R', (), {'choices': [type('C', (), {'message': type('M', (), {'content': 'out'})()})()]})()
     }
     reload_app(monkeypatch, st, patches)
     assert st.session_state["answers"] == {"CTO": "out", "Engineer": "out"}
 
 
 def test_compile_final_proposal(monkeypatch):
-    state = {"answers": {"CTO": "out"}}
+    state = {"answers": {"CTO": "out"}, "plan": {}}
     st = make_streamlit(
         "idea",
         {"3\u20e3 Compile Final Proposal": True},
         state=state,
     )
     patches = {
-        "agents.synthesizer.compose_final_proposal": lambda idea, answers: "final"
+        "agents.synthesizer.compose_final_proposal": (
+            lambda idea, answers, include_simulations=False: "final"
+        )
     }
     reload_app(monkeypatch, st, patches)
     st.markdown.assert_called_with("final")
