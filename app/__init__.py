@@ -38,10 +38,13 @@ if st.button("1⃣ Generate Research Plan"):
     logging.info(f"User generated plan for idea: {idea}")
     with st.spinner("📝 Planning..."):
         try:
+            logging.debug("Planner start")
             raw_plan = agents["Planner"].run(idea, "Break down the project into role-specific tasks")
+            logging.debug(f"Raw plan: {raw_plan}")
             # keep only keys that have a matching agent
             plan = {role: task for role, task in raw_plan.items() if role in agents}
             dropped = [r for r in raw_plan if r not in agents]
+            logging.debug(f"Filtered plan: {plan}, dropped roles: {dropped}")
             if dropped:
                 st.warning(f"Dropped unrecognized roles: {', '.join(dropped)}")
         except Exception as e:
