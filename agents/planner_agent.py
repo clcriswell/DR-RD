@@ -1,4 +1,5 @@
 from agents.base_agent import BaseAgent
+import logging
 
 """Planner Agent for developing project plans."""
 class PlannerAgent(BaseAgent):
@@ -50,7 +51,9 @@ class PlannerAgent(BaseAgent):
             kwargs["response_format"] = {"type": "json_object"}
 
         response = openai.chat.completions.create(**kwargs)
+        raw_text = response.choices[0].message.content
+        logging.debug("Planner raw response: %s", raw_text)
         try:
-            return json.loads(response.choices[0].message.content)
+            return json.loads(raw_text)
         except json.JSONDecodeError as e:
-            raise ValueError("Planner returned invalid JSON") from e
+            raise ValueError(f"Planner returned invalid JSON: {raw_text}") from e
