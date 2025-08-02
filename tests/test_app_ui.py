@@ -2,7 +2,6 @@ import importlib
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
-
 import pytest
 
 
@@ -16,10 +15,19 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
     class DummySpinner:
         def __enter__(self):
             return None
-
         def __exit__(self, exc_type, exc, tb):
             return False
 
+    class DummySidebar:
+        def expander(self, *args, **kwargs):
+            class DummyExpander:
+                def __enter__(self_inner):
+                    return None
+                def __exit__(self_inner, exc_type, exc, tb):
+                    return False
+            return DummyExpander()
+
+    # Added selectbox to dummy streamlit with default "Medium"
     st = SimpleNamespace(
         session_state=state,
         set_page_config=lambda *a, **k: None,
@@ -35,6 +43,9 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
         warning=MagicMock(),
         slider=MagicMock(return_value=1),
         checkbox=MagicMock(return_value=False),
+        selectbox=MagicMock(return_value="Medium"),  # Design Depth default
+        write=MagicMock(),
+        sidebar=DummySidebar(),
     )
     return st
 
@@ -62,7 +73,7 @@ def test_empty_idea_shows_info(monkeypatch):
 def test_generate_plan_updates_state(monkeypatch):
     st = make_streamlit(
         "idea",
-        {"1\u20e3 Generate Research Plan": True},
+        {"1⃣ Generate Research Plan": True},
     )
     patches = {
         "agents.planner_agent.PlannerAgent.run": (
@@ -78,12 +89,13 @@ def test_run_domain_experts(monkeypatch):
     state = {"plan": {"CTO": "task", "Engineer": "task"}}
     st = make_streamlit(
         "idea",
-        {"2\u20e3 Run All Domain Experts": True},
+        {"2⃣ Run All Domain Experts": True},
         state=state,
     )
     monkeypatch.setenv("OPENAI_API_KEY", "x")
     patches = {
-        "agents.base_agent.BaseAgent.run": lambda self, idea, task: "out",
+        # Adjust BaseAgent.run patch to accept design_depth parameter
+        "agents.base_agent.BaseAgent.run": lambda self, idea, task, design_depth="Medium": "out",
         "openai.chat.completions.create": lambda *a, **k: type('R', (), {'choices': [type('C', (), {'message': type('M', (), {'content': 'out'})()})()]})()
     }
     reload_app(monkeypatch, st, patches)
@@ -94,7 +106,7 @@ def test_compile_final_proposal(monkeypatch):
     state = {"answers": {"CTO": "out"}, "plan": {}}
     st = make_streamlit(
         "idea",
-        {"3\u20e3 Compile Final Proposal": True},
+        {"3⃣ Compile Final Proposal": True},
         state=state,
     )
     patches = {
@@ -104,3 +116,4 @@ def test_compile_final_proposal(monkeypatch):
     }
     reload_app(monkeypatch, st, patches)
     st.markdown.assert_called_with("final")
+
