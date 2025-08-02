@@ -57,21 +57,21 @@ if st.button("1⃣ Generate Research Plan"):
             logging.debug(f"Filtered plan: {plan}, dropped roles: {dropped}")
             if dropped:
                 st.warning(f"Dropped unrecognized roles: {', '.join(dropped)}")
+        st.session_state["plan"] = plan
+        # Log the plan generation step
+        safe_log_step(st.session_state["project_id"], "Planner", "Output", "Plan generated", success=True)
     except openai.OpenAIError as e:
         logging.exception("OpenAI error during plan generation: %s", e)
         st.error("Planning failed: Unable to generate plan. Please check your API key or try again later.")
-        st.stop()
+        st.write("Plan generation failed:", e)
     except json.JSONDecodeError as e:
         logging.exception("JSON decode error during plan generation: %s", e)
         st.error("Planning failed: Plan generation output was not understood – the AI did not return a proper plan.")
-        st.stop()
+        st.write("Plan generation failed:", e)
     except Exception as e:
         logging.exception("Unexpected error during plan generation: %s", e)
         st.error("Planning failed: An unexpected error occurred.")
-        st.stop()
-    st.session_state["plan"] = plan
-    # Log the plan generation step
-    safe_log_step(st.session_state["project_id"], "Planner", "Output", "Plan generated", success=True)
+        st.write("Plan generation failed:", e)
 
 # Display the plan if it exists in session state
 if "plan" in st.session_state:
