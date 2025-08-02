@@ -33,6 +33,7 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
         json=MagicMock(),
         markdown=MagicMock(),
         warning=MagicMock(),
+        slider=MagicMock(return_value=1),
     )
     return st
 
