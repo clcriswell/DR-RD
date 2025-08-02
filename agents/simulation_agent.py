@@ -28,10 +28,12 @@ class SimulationAgent:
             # Roles without a designated simulation type
             return ""
 
-        # Run the chosen simulation and get metrics
+        # Run the chosen simulation and get metrics (including pass/fail info)
         metrics = self.sim_manager.simulate(sim_type, design_spec)
-        # Format the metrics as a Markdown section
+        # Format the metrics as a Markdown section (excluding internal pass/fail keys)
         lines = [f"**Simulation ({sim_type.capitalize()}) Results:**"]
         for metric, value in metrics.items():
+            if metric in ["pass", "failed"]:
+                continue  # skip internal status keys in output
             lines.append(f"- **{metric}**: {value}")
         return "\n".join(lines)
