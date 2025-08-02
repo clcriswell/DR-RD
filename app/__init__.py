@@ -1,3 +1,5 @@
+from app.logging_setup import init_gcp_logging  # (this import auto-runs init_gcp_logging())
+import logging
 import streamlit as st
 from agents import initialize_agents
 from agents.synthesizer import compose_final_proposal
@@ -33,6 +35,7 @@ if similar_ideas:
 
 # 2. Generate the role→task plan
 if st.button("1⃣ Generate Research Plan"):
+    logging.info(f"User generated plan for idea: {idea}")
     with st.spinner("📝 Planning..."):
         try:
             raw_plan = agents["Planner"].run(idea, "Break down the project into role-specific tasks")
@@ -58,6 +61,10 @@ if "plan" in st.session_state:
     re_run_simulations = st.checkbox("Re-run simulations after each refinement round", value=False) if simulate_enabled else False
 
     if st.button("2⃣ Run All Domain Experts"):
+        logging.info(
+            f"Running domain experts with refinement_rounds={refinement_rounds}, "
+            f"design_depth={design_depth_choice}, simulate_enabled={simulate_enabled}"
+        )
         answers = {}
         simulation_agent = SimulationAgent() if simulate_enabled else None
 
@@ -67,6 +74,7 @@ if "plan" in st.session_state:
             if not agent:
                 st.warning(f"No agent registered for role: {role}")
                 continue
+            logging.info(f"Executing agent {role} with task: {task}")
             with st.spinner(f"🤖 {role} working..."):
                 try:
                     # Include memory context if similar projects found
@@ -115,6 +123,7 @@ if "plan" in st.session_state:
                     )
                 else:
                     sim_type = ""
+                logging.info(f"Running {sim_type or 'default'} simulation for role {role}")
                 sim_metrics = simulation_agent.sim_manager.simulate(sim_type, result)
                 # Check simulation results
                 if not sim_metrics.get("pass", True):
@@ -261,6 +270,7 @@ if "plan" in st.session_state:
 # 4. Synthesize final proposal
 if "answers" in st.session_state:
     if st.button("3⃣ Compile Final Proposal"):
+        logging.info("User compiled final proposal")
         with st.spinner("🚀 Synthesizing final R&D proposal..."):
             try:
                 final_doc = compose_final_proposal(idea, st.session_state["answers"], include_simulations=simulate_enabled)

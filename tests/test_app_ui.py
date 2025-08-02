@@ -30,6 +30,7 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
     # Added selectbox to dummy streamlit with default "Medium"
     st = SimpleNamespace(
         session_state=state,
+        secrets={"gcp_service_account": {}},
         set_page_config=lambda *a, **k: None,
         title=lambda *a, **k: None,
         text_input=lambda *a, **k: text_input,
@@ -52,11 +53,23 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
 
 def reload_app(monkeypatch, st, patches=None, expect_exit=False):
     monkeypatch.setitem(sys.modules, "streamlit", st)
+    # Patch Google Cloud logging to avoid needing real credentials
+    monkeypatch.setattr(
+        "google.oauth2.service_account.Credentials.from_service_account_info",
+        lambda info: None,
+    )
+    class DummyClient:
+        def __init__(self, credentials=None):
+            pass
+        def setup_logging(self):
+            pass
+    monkeypatch.setattr("google.cloud.logging.Client", lambda credentials=None: DummyClient())
     if patches:
         for target, ret in patches.items():
             monkeypatch.setattr(target, ret)
-    if "app" in sys.modules:
-        del sys.modules["app"]
+    for mod in list(sys.modules):
+        if mod.startswith("app"):
+            del sys.modules[mod]
     if expect_exit:
         with pytest.raises(SystemExit):
             importlib.import_module("app")
