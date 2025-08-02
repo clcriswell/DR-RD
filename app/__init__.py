@@ -47,14 +47,16 @@ if st.button("1⃣ Generate Research Plan"):
         except Exception as e:
             st.error(f"Planner failed: {e}")
             st.stop()
-    st.subheader("Project Plan (Role → Task)")
-    st.json(plan)
     st.session_state["plan"] = plan
     # Log the plan generation step
     audit_logger.log_step(st.session_state["project_id"], "Planner", "Output", "Plan generated", success=True)
 
-# 3. Execute each specialist agent (with optional refinement rounds, simulations, and design depth)
+# Display the plan if it exists in session state
 if "plan" in st.session_state:
+    st.subheader("Project Plan (Role → Task)")
+    st.json(st.session_state["plan"])
+
+    # 3. Execute each specialist agent (with optional refinement rounds, simulations, and design depth)
     refinement_rounds = st.slider("🔁 Refinement Rounds", 1, 3, value=1)
     design_depth_choice = st.selectbox("🎛️ Design Depth", ["Low", "Medium", "High"], index=1)
     simulate_enabled = st.checkbox("Enable Simulations", value=False)
