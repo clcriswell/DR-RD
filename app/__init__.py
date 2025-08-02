@@ -18,6 +18,14 @@ agents = initialize_agents()
 # Initialize persistent memory manager
 memory_manager = MemoryManager()
 
+
+def safe_log_step(project_id, role, step_type, content, success=True):
+    """Safely log audit steps without crashing the app."""
+    try:
+        audit_logger.log_step(project_id, role, step_type, content, success=success)
+    except Exception as e:
+        logging.warning(f"Audit logging failed: {e}")
+
 # Set or generate a project_id for logging
 if "project_id" not in st.session_state:
     st.session_state["project_id"] = str(uuid.uuid4())
@@ -63,7 +71,7 @@ if st.button("1⃣ Generate Research Plan"):
         st.stop()
     st.session_state["plan"] = plan
     # Log the plan generation step
-    audit_logger.log_step(st.session_state["project_id"], "Planner", "Output", "Plan generated", success=True)
+    safe_log_step(st.session_state["project_id"], "Planner", "Output", "Plan generated", success=True)
 
 # Display the plan if it exists in session state
 if "plan" in st.session_state:
@@ -146,7 +154,7 @@ if "plan" in st.session_state:
                     # Log initial output failure
                     failed_list = sim_metrics.get("failed", [])
                     fail_desc = ", ".join(failed_list) if failed_list else "criteria"
-                    audit_logger.log_step(st.session_state["project_id"], role, "Output", f"Failed {fail_desc}", success=False)
+                    safe_log_step(st.session_state["project_id"], role, "Output", f"Failed {fail_desc}", success=False)
                     # Attempt up to 2 refinements based on failed criteria
                     for attempt in range(1, 3):  # attempt = 1 for first retry, 2 for second retry
                         # Prepare feedback context with failed criteria
@@ -174,7 +182,7 @@ if "plan" in st.session_state:
                             # Success on retry
                             result = new_result
                             # Log successful retry attempt
-                            audit_logger.log_step(st.session_state["project_id"], role, f"Retry {attempt}", "Passed Simulation", success=True)
+                            safe_log_step(st.session_state["project_id"], role, f"Retry {attempt}", "Passed Simulation", success=True)
                             # Format simulation results for output if showing immediately
                             if refinement_rounds == 1:
                                 sim_text = simulation_agent.run_simulation(role, result)
@@ -187,18 +195,18 @@ if "plan" in st.session_state:
                             fail_desc = ", ".join(failed_list) if failed_list else "criteria"
                             result = new_result  # update result to the latest attempt for potential display
                             # Log the failed retry attempt
-                            audit_logger.log_step(st.session_state["project_id"], role, f"Retry {attempt}", f"Failed {fail_desc}", success=False)
+                            safe_log_step(st.session_state["project_id"], role, f"Retry {attempt}", f"Failed {fail_desc}", success=False)
                             if attempt == 2:
                                 # After 2 retries (total 3 attempts including initial) still failing
                                 st.error(f"{role} could not meet simulation constraints after 2 attempts. Halting execution.")
                                 # Log halting scenario
-                                audit_logger.log_step(st.session_state["project_id"], role, "Abort", "Simulation constraints unmet after 2 retries", success=False)
+                                safe_log_step(st.session_state["project_id"], role, "Abort", "Simulation constraints unmet after 2 retries", success=False)
                                 st.stop()
                     # If loop exited without break, it means we exhausted retries and handled stop.
                     # If broke out (success), 'result' is updated and logged.
                 else:
                     # Simulation passed on first try
-                    audit_logger.log_step(st.session_state["project_id"], role, "Output", "Passed Simulation", success=True)
+                    safe_log_step(st.session_state["project_id"], role, "Output", "Passed Simulation", success=True)
                     # Append simulation metrics to the output if no further refinement rounds
                     if refinement_rounds == 1:
                         sim_text = simulation_agent.run_simulation(role, result)
@@ -208,9 +216,9 @@ if "plan" in st.session_state:
                 # Simulations not enabled or result is an error
                 # Log the output as completed (success=True by default if no simulation)
                 if not result.startswith("❌"):
-                    audit_logger.log_step(st.session_state["project_id"], role, "Output", "Completed", success=True)
+                    safe_log_step(st.session_state["project_id"], role, "Output", "Completed", success=True)
                 else:
-                    audit_logger.log_step(st.session_state["project_id"], role, "Output", "Failed to generate", success=False)
+                    safe_log_step(st.session_state["project_id"], role, "Output", "Failed to generate", success=False)
 
             answers[role] = result
 
