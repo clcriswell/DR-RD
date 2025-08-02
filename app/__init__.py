@@ -51,6 +51,10 @@ if st.button("1⃣ Generate Research Plan"):
             logging.debug("Planner start")
             raw_plan = agents["Planner"].run(idea, "Break down the project into role-specific tasks")
             logging.debug(f"Raw plan: {raw_plan}")
+            if not isinstance(raw_plan, dict):
+                logging.error(f"Planner returned unexpected format: {raw_plan}")
+                st.error("Plan generation failed – received an unexpected response format.")
+                st.stop()
             # keep only keys that have a matching agent
             plan = {role: task for role, task in raw_plan.items() if role in agents}
             dropped = [r for r in raw_plan if r not in agents]
