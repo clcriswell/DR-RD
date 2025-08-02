@@ -1,1 +1,3 @@
 __pycache__/
+memory/audit_log/
+memory/project_memory.json
