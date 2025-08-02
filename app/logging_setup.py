@@ -1,9 +1,9 @@
 """Logging configuration for the Streamlit app.
 
-This module attempts to initialize Google Cloud Logging based on
-credentials provided via ``st.secrets``. If the credentials are missing or
-invalid, the application will continue to run with standard Python logging
-instead of crashing at import time.
+This module exposes :func:`init_gcp_logging` which attempts to initialize
+Google Cloud Logging based on credentials provided via ``st.secrets``. If the
+credentials are missing or invalid, the application will continue to run with
+standard Python logging instead of crashing.
 """
 
 import logging
@@ -39,6 +39,5 @@ def init_gcp_logging() -> bool:
         return False
 
 
-# Run on import but ignore failures
-init_gcp_logging()
+__all__ = ["init_gcp_logging"]
 

@@ -70,11 +70,12 @@ def reload_app(monkeypatch, st, patches=None, expect_exit=False):
     for mod in list(sys.modules):
         if mod.startswith("app"):
             del sys.modules[mod]
+    module = importlib.import_module("app")
     if expect_exit:
         with pytest.raises(SystemExit):
-            importlib.import_module("app")
+            module.main()
     else:
-        importlib.import_module("app")
+        module.main()
 
 
 def test_empty_idea_shows_info(monkeypatch):
