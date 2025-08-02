@@ -1,14 +1,14 @@
 # Static model assignments to reduce cost in DR-RD
 
 AGENT_MODEL_MAP = {
-    "Planner": "gpt-4",
-    "CTO": "gpt-4",
-    "Research Scientist": "gpt-4",
-    "Engineer": "gpt-4",
-    "QA Specialist": "gpt-3.5-turbo",
-    "Regulatory Specialist": "gpt-3.5-turbo",
-    "Patent Specialist": "gpt-3.5-turbo",
-    "Documentation Specialist": "gpt-3.5-turbo",
-    "Sustainability Specialist": "gpt-3.5-turbo",  # Optional: can upgrade later if needed
-    "Synthesizer": "gpt-4"  # Used only in synthesizer.py
+    "Planner": "gpt-4o",
+    "CTO": "gpt-4o",
+    "Research Scientist": "gpt-4o",
+    "Engineer": "gpt-4o",
+    "QA Specialist": "gpt-4o-mini",
+    "Regulatory Specialist": "gpt-4o-mini",
+    "Patent Specialist": "gpt-4o-mini",
+    "Documentation Specialist": "gpt-4o-mini",
+    "Sustainability Specialist": "gpt-4o-mini",  # Optional: can upgrade later if needed
+    "Synthesizer": "gpt-4o"  # Used only in synthesizer.py
 }
