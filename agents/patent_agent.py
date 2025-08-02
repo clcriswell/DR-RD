@@ -4,10 +4,10 @@ from agents.base_agent import BaseAgent
 class PatentAgent(BaseAgent):
     """Agent that evaluates patentability and IP strategy for the project idea."""
 
-    def __init__(self):
+    def __init__(self, model):
         super().__init__(
             name="Patent",
-            model="gpt-4",
+            model=model,
             system_message="You are a patent attorney and innovation expert focusing on intellectual property.",
             user_prompt_template=(
                 "Project Idea: {idea}\nAs the Patent expert, your task is {task}. "

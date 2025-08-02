@@ -4,10 +4,10 @@ from agents.base_agent import BaseAgent
 class DocumentationAgent(BaseAgent):
     """Agent that outlines the documentation strategy and requirements for the project."""
 
-    def __init__(self):
+    def __init__(self, model):
         super().__init__(
             name="Documentation",
-            model="gpt-4",
+            model=model,
             system_message="You are a technical writer and documentation expert skilled in creating clear project documentation.",
             user_prompt_template=(
                 "Project Idea: {idea}\nAs the Documentation specialist, your task is {task}. "

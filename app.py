@@ -1,30 +1,13 @@
 import streamlit as st
-from agents.planner_agent import PlannerAgent
-from agents.cto_agent import CTOAgent
-from agents.research_scientist_agent import ResearchScientistAgent
-from agents.engineer_agent import EngineerAgent
-from agents.qa_agent import QAAgent
-from agents.regulatory_agent import RegulatoryAgent
-from agents.patent_agent import PatentAgent
-from agents.documentation_agent import DocumentationAgent
+from agents import initialize_agents
 from agents.synthesizer import compose_final_proposal
 from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
-from simulation.simulation_manager import SimulationManager
 from agents.simulation_agent import SimulationAgent
 
 # --- Instantiate Agents ---
-agents = {
-    "Planner": PlannerAgent(),
-    "CTO": CTOAgent(),
-    "Research Scientist": ResearchScientistAgent(),
-    "Engineer": EngineerAgent(),
-    "QA Specialist": QAAgent(),
-    "Regulatory Specialist": RegulatoryAgent(),
-    "Patent Specialist": PatentAgent(),
-    "Documentation Specialist": DocumentationAgent(),
-}
+agents = initialize_agents()
 
 # Initialize persistent memory manager
 memory_manager = MemoryManager()

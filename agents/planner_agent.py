@@ -4,10 +4,10 @@ from agents.base_agent import BaseAgent
 class PlannerAgent(BaseAgent):
     """Agent that creates a detailed project plan for the given idea."""
 
-    def __init__(self):
+    def __init__(self, model):
         super().__init__(
             name="Planner",
-            model="gpt-4-1106-preview",
+            model=model,
             system_message=(
                 "You are an expert project planner specializing in turning ideas into actionable plans."
             ),
@@ -21,7 +21,8 @@ class PlannerAgent(BaseAgent):
                 "  - QA Specialist\n"
                 "  - Regulatory Specialist\n"
                 "  - Patent Specialist\n"
-                "  - Documentation Specialist\n\n"
+                "  - Documentation Specialist\n"
+                "  - Sustainability Specialist\n\n"
                 "to one or two succinct research or implementation tasks each.\n"
                 "Do not include any other keys."
             ),

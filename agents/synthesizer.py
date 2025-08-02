@@ -11,6 +11,7 @@ Call:
 """
 from typing import Dict
 import openai
+from config.agent_models import AGENT_MODEL_MAP
 
 _TEMPLATE = """\
 You are a multi-disciplinary R&D lead.
@@ -41,7 +42,7 @@ def synthesize(idea: str, answers: Dict[str, str]) -> str:
     prompt = _TEMPLATE.format(idea=idea, findings_md=findings_md)
 
     resp = openai.chat.completions.create(
-        model="gpt-4o-mini",         # upgrade to gpt-4o if you like
+        model=AGENT_MODEL_MAP["Synthesizer"],
         temperature=0.3,
         messages=[
             {"role": "system", "content": "You are an expert R&D writer."},
@@ -53,7 +54,7 @@ def synthesize(idea: str, answers: Dict[str, str]) -> str:
 
 def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulations: bool = False) -> str:
     """Compose a final Markdown proposal integrating all agent responses (and simulation results if requested)."""
-    model = "gpt-4"
+    model = AGENT_MODEL_MAP["Synthesizer"]
     # Begin prompt with project idea and context
     prompt = (
         f"We have an R&D project idea: {idea}\n\n"

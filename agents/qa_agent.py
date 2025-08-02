@@ -4,10 +4,10 @@ from agents.base_agent import BaseAgent
 class QAAgent(BaseAgent):
     """Agent that outlines testing strategies and quality assurance plans for the project."""
 
-    def __init__(self):
+    def __init__(self, model):
         super().__init__(
             name="QA",
-            model="gpt-4",
+            model=model,
             system_message="You are a quality assurance expert focused on testing, validation, and reliability.",
             user_prompt_template=(
                 "Project Idea: {idea}\nAs the QA specialist, your task is {task}. "
