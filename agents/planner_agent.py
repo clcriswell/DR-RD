@@ -33,14 +33,23 @@ class PlannerAgent(BaseAgent):
         import openai, json
 
         prompt = self.user_prompt_template.format(idea=idea, task=task)
-        response = openai.chat.completions.create(
-            model=self.model,
-            response_format={"type": "json_object"},
-            messages=[
+
+        kwargs = {
+            "model": self.model,
+            "messages": [
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
             ],
-        )
+        }
+
+        # Only newer models (e.g. gpt-4o, gpt-4.1) support the
+        # `response_format` parameter for structured JSON output. Older
+        # completion models will raise a 400 error if it is supplied. To keep
+        # compatibility with both we add the parameter conditionally.
+        if self.model.startswith(("gpt-4o", "gpt-4.1")):
+            kwargs["response_format"] = {"type": "json_object"}
+
+        response = openai.chat.completions.create(**kwargs)
         try:
             return json.loads(response.choices[0].message.content)
         except json.JSONDecodeError as e:
