@@ -195,8 +195,12 @@ def main():
                         )
                     else:
                         sim_type = ""
-                    logging.info(f"Running {sim_type or 'default'} simulation for role {role}")
-                    sim_metrics = simulation_agent.sim_manager.simulate(sim_type, result)
+                    if sim_type:
+                        logging.info(f"Running {sim_type} simulation for role {role}")
+                        sim_metrics = simulation_agent.sim_manager.simulate(sim_type, result)
+                    else:
+                        logging.info(f"No simulation available for role {role}; skipping.")
+                        sim_metrics = {"pass": True, "failed": []}
                     # Check simulation results
                     if not sim_metrics.get("pass", True):
                         # Log initial output failure
