@@ -12,13 +12,27 @@ from utils.refinement import refine_agent_output
 from agents.simulation_agent import SimulationAgent
 import uuid
 import io
+import fitz
 from markdown_pdf import MarkdownPdf, Section
 
 
 def generate_pdf(markdown_text):
     pdf = MarkdownPdf(toc_level=2)
     pdf.add_section(Section(markdown_text))
-    return pdf.export()
+    pdf.writer.close()
+    pdf.out_file.seek(0)
+    doc = fitz.Story.add_pdf_links(pdf.out_file, pdf.hrefs)
+    doc.set_metadata(pdf.meta)
+    if pdf.toc_level > 0:
+        doc.set_toc(pdf.toc)
+    buffer = io.BytesIO()
+    if pdf.optimize:
+        doc.ez_save(buffer)
+    else:
+        doc.save(buffer)
+    doc.close()
+    buffer.seek(0)
+    return buffer.read()
 
 
 def safe_log_step(project_id, role, step_type, content, success=True):
@@ -365,16 +379,19 @@ def main():
                     memory_manager.store_project(idea, st.session_state.get("plan", {}), st.session_state["answers"], final_doc)
                 except Exception as e:
                     st.warning(f"Could not save project: {e}")
-            st.subheader("📖 Integrated R&D Proposal")
-            st.markdown(final_doc)
-            if st.button("📄 Download Final Report as PDF"):
-                pdf_bytes = generate_pdf(final_doc)
-                st.download_button(
-                    label="Download PDF",
-                    data=pdf_bytes,
-                    file_name="R&D_Report.pdf",
-                    mime="application/pdf",
-                )
+            st.session_state["final_doc"] = final_doc
+
+    if "final_doc" in st.session_state:
+        st.subheader("📖 Integrated R&D Proposal")
+        st.markdown(st.session_state["final_doc"])
+        pdf_bytes = generate_pdf(st.session_state["final_doc"])
+        if hasattr(st, "download_button"):
+            st.download_button(
+                label="📄 Download Final Report as PDF",
+                data=pdf_bytes,
+                file_name="R&D_Report.pdf",
+                mime="application/pdf",
+            )
 
     # Sidebar Audit Trail viewer
     if "project_id" in st.session_state:
