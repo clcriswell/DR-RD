@@ -2,13 +2,23 @@
 
 AGENT_MODEL_MAP = {
     "Planner": "gpt-4o",
-    "CTO": "gpt-4o",
-    "Research Scientist": "gpt-4o",
-    "Engineer": "gpt-4o",
-    "QA Specialist": "gpt-4o-mini",
-    "Regulatory Specialist": "gpt-4o-mini",
-    "Patent Specialist": "gpt-4o-mini",
-    "Documentation Specialist": "gpt-4o-mini",
-    "Sustainability Specialist": "gpt-4o-mini",  # Optional: can upgrade later if needed
-    "Synthesizer": "gpt-4o"  # Used only in synthesizer.py
+    "Mechanical Systems Lead": "gpt-4o",
+    "Materials & Process Engineer": "gpt-4o",
+    "Chemical & Surface Science Specialist": "gpt-4o",
+    "Quantum Optics Physicist": "gpt-4o",
+    "Nonlinear Optics / Crystal Engineer": "gpt-4o",
+    "Optical Systems Engineer": "gpt-4o",
+    "Mechanical & Precision-Motion Engineer": "gpt-4o",
+    "Photonics Electronics Engineer": "gpt-4o",
+    "Electronics & Embedded Controls Engineer": "gpt-4o",
+    "Software / Image-Processing Specialist": "gpt-4o",
+    "Fluorescence / Biological Sample Expert": "gpt-4o",
+    "Systems Integration & Validation Engineer": "gpt-4o",
+    "Data Scientist / Analytics Engineer": "gpt-4o",
+    "Regulatory & Compliance Lead": "gpt-4o-mini",
+    "Prototyping & Test Lab Manager": "gpt-4o-mini",
+    "Project Manager / Principal Investigator": "gpt-4o-mini",
+    "Product Manager / Translational Lead": "gpt-4o-mini",
+    "AI R&D Coordinator": "gpt-4o-mini",
+    "Synthesizer": "gpt-4o"
 }

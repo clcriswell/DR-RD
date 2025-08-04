@@ -91,16 +91,16 @@ def test_generate_plan_updates_state(monkeypatch):
     )
     patches = {
         "agents.planner_agent.PlannerAgent.run": (
-            lambda self, idea, task: {"CTO": "foo", "X": "Y"}
+            lambda self, idea, task: {"Mechanical Systems Lead": "foo", "X": "Y"}
         )
     }
     reload_app(monkeypatch, st, patches)
-    assert st.session_state["plan"] == {"CTO": "foo"}
+    assert st.session_state["plan"] == {"Mechanical Systems Lead": "foo"}
     st.warning.assert_called_with("Dropped unrecognized roles: X")
 
 
 def test_run_domain_experts(monkeypatch):
-    state = {"plan": {"CTO": "task", "Engineer": "task"}}
+    state = {"plan": {"Mechanical Systems Lead": "task", "Materials & Process Engineer": "task"}}
     st = make_streamlit(
         "idea",
         {"2⃣ Run All Domain Experts": True},
@@ -113,11 +113,14 @@ def test_run_domain_experts(monkeypatch):
         "openai.chat.completions.create": lambda *a, **k: type('R', (), {'choices': [type('C', (), {'message': type('M', (), {'content': 'out'})()})()]})()
     }
     reload_app(monkeypatch, st, patches)
-    assert st.session_state["answers"] == {"CTO": "out", "Engineer": "out"}
+    assert st.session_state["answers"] == {
+        "Mechanical Systems Lead": "out",
+        "Materials & Process Engineer": "out",
+    }
 
 
 def test_compile_final_proposal(monkeypatch):
-    state = {"answers": {"CTO": "out"}, "plan": {}}
+    state = {"answers": {"Mechanical Systems Lead": "out"}, "plan": {}}
     st = make_streamlit(
         "idea",
         {"3⃣ Compile Final Proposal": True},
