@@ -2,11 +2,11 @@ class SimulationManager:
     """Manages different types of simulations (structural, thermal, electronics, chemical)."""
     def __init__(self):
         # Register simulation handler stubs for each simulation type
-        self.simulators = {
+        self.sim_functions = {
             "structural": self._simulate_structural,
-            "thermal": self._simulate_thermal,
             "electronics": self._simulate_electronics,
-            "chemical": self._simulate_chemical
+            "chemical": self._simulate_chemical,
+            "thermal": self._simulate_thermal,
         }
 
     def simulate(self, sim_type: str, design_spec: str) -> dict:
@@ -15,8 +15,8 @@ class SimulationManager:
         Returns a dictionary of performance metrics, including a boolean pass/fail and list of failed criteria.
         """
         sim_type = sim_type.lower()
-        if sim_type in self.simulators:
-            metrics = self.simulators[sim_type](design_spec)
+        if sim_type in self.sim_functions:
+            metrics = self.sim_functions[sim_type](design_spec)
         else:
             raise ValueError(f"Simulation type '{sim_type}' is not supported.")
 
@@ -76,8 +76,8 @@ class SimulationManager:
         return {"Max Load": "1.5 tons", "Safety Factor": 3.2}
 
     def _simulate_thermal(self, design_spec: str) -> dict:
-        # Stub: simulate thermal performance (e.g., temperature, heat dissipation)
-        return {"Max Temperature": "85°C", "Heat Dissipation": "120 W"}
+        # Placeholder thermal simulation (e.g., max temperature and cooling margin)
+        return {"Max Temperature": "85°C", "Cooling Margin": "−5°C", "Pass": False}
 
     def _simulate_electronics(self, design_spec: str) -> dict:
         # Stub: simulate electronics performance (e.g., power usage, speed)
