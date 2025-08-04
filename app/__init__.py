@@ -11,6 +11,14 @@ from collaboration import agent_chat
 from utils.refinement import refine_agent_output
 from agents.simulation_agent import SimulationAgent
 import uuid
+import io
+from markdown_pdf import MarkdownPdf, Section
+
+
+def generate_pdf(markdown_text):
+    pdf = MarkdownPdf(toc_level=2)
+    pdf.add_section(Section(markdown_text))
+    return pdf.export()
 
 
 def safe_log_step(project_id, role, step_type, content, success=True):
@@ -36,6 +44,34 @@ def main():
 
     st.set_page_config(page_title="DR-RD Phase 6: Simulated Multi-Agent R&D", layout="wide")
     st.title("DR-RD AI R&D Engine — Phase 6")
+
+    sidebar = getattr(st, "sidebar", st)
+    if hasattr(sidebar, "title"):
+        sidebar.title("Configuration")
+    else:
+        st.markdown("## Configuration")
+    simulate_enabled = (
+        sidebar.checkbox("Enable Simulations", value=True)
+        if hasattr(sidebar, "checkbox")
+        else st.checkbox("Enable Simulations", value=True)
+    )
+    design_depth = (
+        sidebar.selectbox(
+            "Design Depth",
+            options=["Low", "Medium", "High"],
+            index=0,
+            help="Controls how detailed the agent outputs will be.",
+        )
+        if hasattr(sidebar, "selectbox")
+        else st.selectbox(
+            "Design Depth",
+            options=["Low", "Medium", "High"],
+            index=0,
+            help="Controls how detailed the agent outputs will be.",
+        )
+    )
+    st.session_state["simulate_enabled"] = simulate_enabled
+    st.session_state["design_depth"] = design_depth
 
     # 1. Get the user’s idea
     idea = st.text_input("🧠 Enter your project idea:")
@@ -88,14 +124,18 @@ def main():
 
         # 3. Execute each specialist agent (with optional refinement rounds, simulations, and design depth)
         refinement_rounds = st.slider("🔁 Refinement Rounds", 1, 3, value=1)
-        design_depth_choice = st.selectbox("🎛️ Design Depth", ["Low", "Medium", "High"], index=1)
-        simulate_enabled = st.checkbox("Enable Simulations", value=False)
-        re_run_simulations = st.checkbox("Re-run simulations after each refinement round", value=False) if simulate_enabled else False
+        simulate_enabled = st.session_state.get("simulate_enabled", True)
+        design_depth = st.session_state.get("design_depth", "Low")
+        re_run_simulations = (
+            st.checkbox("Re-run simulations after each refinement round", value=False)
+            if simulate_enabled
+            else False
+        )
 
         if st.button("2⃣ Run All Domain Experts"):
             logging.info(
                 f"Running domain experts with refinement_rounds={refinement_rounds}, "
-                f"design_depth={design_depth_choice}, simulate_enabled={simulate_enabled}"
+                f"design_depth={design_depth}, simulate_enabled={simulate_enabled}"
             )
             answers = {}
             simulation_agent = SimulationAgent() if simulate_enabled else None
@@ -114,7 +154,7 @@ def main():
                             context = memory_manager.get_project_summaries(similar_ideas)
                             prompt_base = agent.user_prompt_template.format(idea=idea, task=task)
                             # Append design depth instructions to the prompt base
-                            depth = design_depth_choice.capitalize()
+                            depth = design_depth.capitalize()
                             if depth == "High":
                                 prompt_base += (
                                     "\n\n**Design Depth: High** – Include all relevant component-level details, diagrams, and trade-off analysis."
@@ -139,7 +179,7 @@ def main():
                             result = response.choices[0].message.content.strip()
                         else:
                             # Use BaseAgent.run with design_depth parameter
-                            result = agent.run(idea, task, design_depth=design_depth_choice)
+                            result = agent.run(idea, task, design_depth=design_depth)
                     except Exception as e:
                         result = f"❌ {role} failed: {e}"
                 # If simulations are enabled, run simulation and potentially refine output
@@ -232,8 +272,9 @@ def main():
 
                 # Display initial outputs immediately if no refinement rounds selected
                 if refinement_rounds == 1:
-                    st.markdown(f"---\n### {role} Output")
-                    st.markdown(result)
+                    st.markdown("---")
+                    st.markdown(f"### {role}")
+                    st.markdown(result, unsafe_allow_html=True)
             # Save initial answers
             st.session_state["answers"] = answers
 
@@ -249,20 +290,22 @@ def main():
                         answers["Research Scientist"] = updated_rs
                         # Display revised outputs if no further refinement rounds
                         if refinement_rounds == 1:
-                            st.markdown(f"---\n### CTO Output (Revised after collaboration)")
+                            st.markdown("---")
+                            st.markdown("### CTO (Revised after collaboration)")
                             if simulate_enabled:
                                 sim_cto = simulation_agent.run_simulation("CTO", updated_cto)
                                 if sim_cto:
                                     updated_cto = f"{updated_cto}\n\n{sim_cto}"
                                     answers["CTO"] = updated_cto
-                            st.markdown(updated_cto)
-                            st.markdown(f"---\n### Research Scientist Output (Revised after collaboration)")
+                            st.markdown(updated_cto, unsafe_allow_html=True)
+                            st.markdown("---")
+                            st.markdown("### Research Scientist (Revised after collaboration)")
                             if simulate_enabled:
                                 sim_rs = simulation_agent.run_simulation("Research Scientist", updated_rs)
                                 if sim_rs:
                                     updated_rs = f"{updated_rs}\n\n{sim_rs}"
                                     answers["Research Scientist"] = updated_rs
-                            st.markdown(updated_rs)
+                            st.markdown(updated_rs, unsafe_allow_html=True)
                     except Exception as e:
                         st.warning(f"Agent collaboration failed: {e}")
                 # Update session state with collaborated outputs
@@ -295,8 +338,9 @@ def main():
                 # Display final expert outputs after refinements
                 st.subheader("Final Expert Outputs after Refinement")
                 for role, output in answers.items():
-                    st.markdown(f"---\n### {role} Output (Refined)")
-                    st.markdown(output)
+                    st.markdown("---")
+                    st.markdown(f"### {role} (Refined)")
+                    st.markdown(output, unsafe_allow_html=True)
                 st.session_state["answers"] = answers
 
     # 4. Synthesize final proposal
@@ -305,7 +349,11 @@ def main():
             logging.info("User compiled final proposal")
             with st.spinner("🚀 Synthesizing final R&D proposal..."):
                 try:
-                    final_doc = compose_final_proposal(idea, st.session_state["answers"], include_simulations=simulate_enabled)
+                    final_doc = compose_final_proposal(
+                        idea,
+                        st.session_state["answers"],
+                        include_simulations=st.session_state.get("simulate_enabled", True),
+                    )
                 except Exception as e:
                     st.error(f"Synthesizer failed: {e}")
                     st.stop()
@@ -315,6 +363,14 @@ def main():
                     st.warning(f"Could not save project: {e}")
             st.subheader("📖 Integrated R&D Proposal")
             st.markdown(final_doc)
+            if st.button("📄 Download Final Report as PDF"):
+                pdf_bytes = generate_pdf(final_doc)
+                st.download_button(
+                    label="Download PDF",
+                    data=pdf_bytes,
+                    file_name="R&D_Report.pdf",
+                    mime="application/pdf",
+                )
 
     # Sidebar Audit Trail viewer
     if "project_id" in st.session_state:
