@@ -58,8 +58,8 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
     # Begin prompt with project idea and context
     prompt = (
         f"We have an R&D project idea: {idea}\n\n"
-        "Below are contributions from various team members (Planner, CTO, Research Scientist, Engineer, QA, Regulatory, Patent, Documentation), each addressing different aspects of the project.\n"
-        "Please synthesize these contributions into one cohesive proposal. The proposal should start with a **Summary** section (covering the main points of the idea), followed by a **Table of Contents**, and then a detailed section for each aspect contributed by the team. Ensure the final document is well-structured and written in a single voice.\n\n"
+        "Below are contributions from our multi-disciplinary team of experts (including mechanical, materials, optics, electronics, software, biology, compliance, etc.), each focusing on their domain.\n"
+        "Please synthesize these contributions into one cohesive proposal. The proposal should start with a **Summary** of the idea, then a **Table of Contents**, and then have a detailed section for each domain contribution. Ensure the final document is well-structured and written in a single voice.\n\n"
         "Contributions:\n"
     )
     # Append each role's contribution (which may include simulation results if present)
@@ -85,3 +85,14 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
     )
     final_document = response.choices[0].message.content
     return final_document
+
+
+class SynthesizerAgent:
+    """Lightweight agent wrapper for composing final proposals."""
+
+    def __init__(self, model: str):
+        self.model = model
+
+    def run(self, idea: str, answers: Dict[str, str], include_simulations: bool = False) -> str:
+        """Delegate to compose_final_proposal using the configured model."""
+        return compose_final_proposal(idea, answers, include_simulations=include_simulations)
