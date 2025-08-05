@@ -15,6 +15,14 @@ import io
 import fitz
 from markdown_pdf import MarkdownPdf, Section
 
+WRAP_CSS = """
+pre, code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+"""
+
 
 cache_resource = getattr(st, "cache_resource", lambda func: func)
 
@@ -40,7 +48,7 @@ def get_memory_manager():
 
 def generate_pdf(markdown_text):
     pdf = MarkdownPdf(toc_level=2)
-    pdf.add_section(Section(markdown_text))
+    pdf.add_section(Section(markdown_text), user_css=WRAP_CSS)
     pdf.writer.close()
     pdf.out_file.seek(0)
     try:
