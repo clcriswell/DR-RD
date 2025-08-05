@@ -16,6 +16,28 @@ import fitz
 from markdown_pdf import MarkdownPdf, Section
 
 
+cache_resource = getattr(st, "cache_resource", lambda func: func)
+
+
+@cache_resource
+def setup_logging():
+    """Initialize Google Cloud logging once per session."""
+    init_gcp_logging()
+    return True
+
+
+@cache_resource
+def get_agents():
+    """Create and return the initialized agents."""
+    return initialize_agents()
+
+
+@cache_resource
+def get_memory_manager():
+    """Return a cached instance of the memory manager."""
+    return MemoryManager()
+
+
 def generate_pdf(markdown_text):
     pdf = MarkdownPdf(toc_level=2)
     pdf.add_section(Section(markdown_text))
@@ -50,13 +72,13 @@ def safe_log_step(project_id, role, step_type, content, success=True):
 
 
 def main():
-    init_gcp_logging()
+    setup_logging()
 
     # --- Instantiate Agents ---
-    agents = initialize_agents()
+    agents = get_agents()
 
     # Initialize persistent memory manager
-    memory_manager = MemoryManager()
+    memory_manager = get_memory_manager()
     # Set or generate a project_id for logging
     if "project_id" not in st.session_state:
         st.session_state["project_id"] = str(uuid.uuid4())
