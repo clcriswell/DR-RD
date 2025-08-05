@@ -21,7 +21,12 @@ def generate_pdf(markdown_text):
     pdf.add_section(Section(markdown_text))
     pdf.writer.close()
     pdf.out_file.seek(0)
-    doc = fitz.Story.add_pdf_links(pdf.out_file, pdf.hrefs)
+    try:
+        doc = fitz.Story.add_pdf_links(pdf.out_file, pdf.hrefs)
+    except Exception as e:
+        logging.warning(f"Failed to add PDF links: {e}")
+        pdf.out_file.seek(0)
+        doc = fitz.open(stream=pdf.out_file, filetype="pdf")
     doc.set_metadata(pdf.meta)
     if pdf.toc_level > 0:
         doc.set_toc(pdf.toc)
