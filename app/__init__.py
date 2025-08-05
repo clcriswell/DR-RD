@@ -49,8 +49,31 @@ def safe_log_step(project_id, role, step_type, content, success=True):
 
 
 
+def maybe_init_gcp_logging() -> bool:
+    """Initialise GCP logging once if credentials are available.
+
+    Returns ``True`` if logging was initialised, otherwise ``False``. The
+    result is cached in ``st.session_state`` to avoid repeated attempts on
+    Streamlit reruns.
+    """
+
+    # If we've already attempted initialisation, return the cached result
+    if "gcp_logging_initialized" in st.session_state:
+        return st.session_state["gcp_logging_initialized"]
+
+    # Check that required secrets are present before calling init_gcp_logging
+    creds = st.secrets.get("gcp_service_account", {})
+    if creds.get("private_key"):
+        st.session_state["gcp_logging_initialized"] = init_gcp_logging()
+    else:
+        logging.info("GCP logging disabled: missing gcp_service_account credentials")
+        st.session_state["gcp_logging_initialized"] = False
+
+    return st.session_state["gcp_logging_initialized"]
+
+
 def main():
-    init_gcp_logging()
+    maybe_init_gcp_logging()
 
     # --- Instantiate Agents ---
     agents = initialize_agents()
