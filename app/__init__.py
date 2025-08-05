@@ -91,28 +91,28 @@ def main():
         sidebar.title("Configuration")
     else:
         st.markdown("## Configuration")
-    simulate_enabled = (
-        sidebar.checkbox("Enable Simulations", value=True)
-        if hasattr(sidebar, "checkbox")
-        else st.checkbox("Enable Simulations", value=True)
-    )
-    design_depth = (
-        sidebar.selectbox(
+
+    if "simulate_enabled" not in st.session_state:
+        st.session_state["simulate_enabled"] = True
+    if "design_depth" not in st.session_state:
+        st.session_state["design_depth"] = "Low"
+
+    form_container = sidebar if hasattr(sidebar, "form") else st
+    with form_container.form("config_form"):
+        simulate_enabled = st.checkbox(
+            "Enable Simulations", value=st.session_state["simulate_enabled"]
+        )
+        design_depth = st.selectbox(
             "Design Depth",
             options=["Low", "Medium", "High"],
-            index=0,
+            index=["Low", "Medium", "High"].index(st.session_state["design_depth"]),
             help="Controls how detailed the agent outputs will be.",
         )
-        if hasattr(sidebar, "selectbox")
-        else st.selectbox(
-            "Design Depth",
-            options=["Low", "Medium", "High"],
-            index=0,
-            help="Controls how detailed the agent outputs will be.",
-        )
-    )
-    st.session_state["simulate_enabled"] = simulate_enabled
-    st.session_state["design_depth"] = design_depth
+        submitted = st.form_submit_button("Apply settings")
+
+    if submitted:
+        st.session_state["simulate_enabled"] = simulate_enabled
+        st.session_state["design_depth"] = design_depth
 
     # 1. Get the user’s idea
     idea = st.text_input("🧠 Enter your project idea:")
