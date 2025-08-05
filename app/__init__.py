@@ -453,8 +453,20 @@ def main():
                         bom.extend(extract_json_from_markdown(output))
                     if bom:
                         bom_md = "|Component|Quantity|Specs|\n|---|---|---|\n"
+                        incomplete_items = []
                         for item in bom:
-                            bom_md += f"|{item['name']}|{item['quantity']}|{item['specs']}|\n"
+                            name = item.get("name")
+                            quantity = item.get("quantity")
+                            specs = item.get("specs")
+                            if None in (name, quantity, specs):
+                                logging.warning(f"Skipping incomplete BOM entry: {item}")
+                                incomplete_items.append(item)
+                                continue
+                            bom_md += f"|{name}|{quantity}|{specs}|\n"
+                        if incomplete_items:
+                            st.warning(
+                                f"Skipped incomplete BOM entries: {incomplete_items}"
+                            )
                         final_doc = final_doc.replace(
                             "## Bill of Materials\n",
                             f"## Bill of Materials\n\n{bom_md}\n",
