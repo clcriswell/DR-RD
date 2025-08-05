@@ -16,11 +16,14 @@ class ElectronicsEmbeddedControlsEngineerAgent(BaseAgent):
                 "You ensure reliable hardware-software integration and real-time responsiveness."
             ),
             user_prompt_template=(
-                "Project Idea: {idea}\n"
-                "As the Electronics/Embedded Controls Engineer, your task is {task}. "
+                "Project Idea: {idea}\nAs the Electronics/Embedded Controls Engineer, your task is {task}. "
                 "Provide a detailed embedded system design in Markdown, including the architecture of microcontrollers or FPGAs, sensor interfaces, and control algorithms. "
                 "Outline the firmware or software logic (you can use pseudocode or flow descriptions) needed to manage hardware components and any on-device data processing (e.g., TinyML models for control optimization). "
                 "Include reasoning behind design decisions (why choose a certain microcontroller or protocol). "
-                "Conclude with a JSON list of key embedded system components (hardware modules and firmware features)."
+                "Conclude with a JSON list of key embedded system components (hardware modules and firmware features).\n\n"
+                "As the Electronics & Embedded Controls Engineer, provide detailed wiring and integration steps in Markdown with justifications. \n"
+                "Number each step and include a diagram placeholder (e.g., \"![Figure 2: Wiring Diagram](images/wiring_diagram.png)\").\n"
+                "Finally, output a JSON-formatted components list:\n"
+                "```json\n[{{\"name\":\"Component\",\"quantity\":1,\"specs\":\"...\"}}, ...]\n```"
             ),
         )

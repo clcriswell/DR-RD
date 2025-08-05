@@ -10,6 +10,7 @@ from memory import audit_logger  # import the audit logger
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
 from agents.simulation_agent import SimulationAgent
+import re
 import uuid
 import io
 import fitz
@@ -76,6 +77,22 @@ def safe_log_step(project_id, role, step_type, content, success=True):
         audit_logger.log_step(project_id, role, step_type, content, success=success)
     except Exception as e:
         logging.warning(f"Audit logging failed: {e}")
+
+
+def extract_json_from_markdown(md: str):
+    """Extract JSON array from a markdown code block."""
+    match = re.search(r"```json\s*(\[.*?\])\s*```", md, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except json.JSONDecodeError:
+            return []
+    return []
+
+
+def strip_json_block(md: str) -> str:
+    """Remove JSON code block from markdown output."""
+    return re.sub(r"```json\s*.*?\s*```", "", md, flags=re.DOTALL).strip()
 
 
 def maybe_init_gcp_logging() -> bool:
@@ -209,6 +226,7 @@ def main():
                 f"design_depth={design_depth}, simulate_enabled={simulate_enabled}"
             )
             answers = {}
+            prev_outputs = []
             simulation_agent = SimulationAgent() if simulate_enabled else None
 
             # Initial execution by all expert agents
@@ -220,37 +238,38 @@ def main():
                 logging.info(f"Executing agent {role} with task: {task}")
                 with st.spinner(f"🤖 {role} working..."):
                     try:
-                        # Include memory context if similar projects found
-                        if similar_ideas:
-                            context = memory_manager.get_project_summaries(similar_ideas)
-                            prompt_base = agent.user_prompt_template.format(idea=idea, task=task)
-                            # Append design depth instructions to the prompt base
-                            depth = design_depth.capitalize()
-                            if depth == "High":
-                                prompt_base += (
-                                    "\n\n**Design Depth: High** – Include all relevant component-level details, diagrams, and trade-off analysis."
-                                )
-                            elif depth == "Low":
-                                prompt_base += (
-                                    "\n\n**Design Depth: Low** – Provide only a high-level summary with minimal detail."
-                                )
-                            else:  # Medium
-                                prompt_base += (
-                                    "\n\n**Design Depth: Medium** – Provide a moderate level of detail with key diagrams and justifications."
-                                )
-                            prompt_with_memory = f"{context}\n\n{prompt_base}" if context else prompt_base
-                            import openai
-                            response = openai.chat.completions.create(
-                                model=agent.model,
-                                messages=[
-                                    {"role": "system", "content": agent.system_message},
-                                    {"role": "user", "content": prompt_with_memory},
-                                ]
+                        memory_context = (
+                            memory_manager.get_project_summaries(similar_ideas)
+                            if similar_ideas
+                            else ""
+                        )
+                        prompt_base = agent.user_prompt_template.format(idea=idea, task=task)
+                        depth = design_depth.capitalize()
+                        if depth == "High":
+                            prompt_base += (
+                                "\n\n**Design Depth: High** – Include all relevant component-level details, diagrams, and trade-off analysis."
                             )
-                            result = response.choices[0].message.content.strip()
+                        elif depth == "Low":
+                            prompt_base += (
+                                "\n\n**Design Depth: Low** – Provide only a high-level summary with minimal detail."
+                            )
                         else:
-                            # Use BaseAgent.run with design_depth parameter
-                            result = agent.run(idea, task, design_depth=design_depth)
+                            prompt_base += (
+                                "\n\n**Design Depth: Medium** – Provide a moderate level of detail with key diagrams and justifications."
+                            )
+                        previous = "\n\n".join(prev_outputs)
+                        prompt_parts = [memory_context, previous, prompt_base]
+                        prompt_with_context = "\n\n".join(
+                            [p for p in prompt_parts if p]
+                        )
+                        response = openai.chat.completions.create(
+                            model=agent.model,
+                            messages=[
+                                {"role": "system", "content": agent.system_message},
+                                {"role": "user", "content": prompt_with_context},
+                            ],
+                        )
+                        result = response.choices[0].message.content.strip()
                     except Exception as e:
                         result = f"❌ {role} failed: {e}"
                 # If simulations are enabled, run simulation and potentially refine output
@@ -286,7 +305,6 @@ def main():
                                 feedback = f"The simulation indicates failure in: {', '.join(failed_list)}. Please address these issues in the design."
                             # Construct messages to re-run agent with feedback
                             try:
-                                import openai
                                 revised_response = openai.chat.completions.create(
                                     model=agent.model,
                                     messages=[
@@ -344,6 +362,7 @@ def main():
                         safe_log_step(st.session_state["project_id"], role, "Output", "Failed to generate", success=False)
 
                 answers[role] = result
+                prev_outputs.append(strip_json_block(result))
 
                 # Display initial outputs immediately if no refinement rounds selected
                 if refinement_rounds == 1:
@@ -429,6 +448,17 @@ def main():
                         st.session_state["answers"],
                         include_simulations=st.session_state.get("simulate_enabled", True),
                     )
+                    bom = []
+                    for output in st.session_state["answers"].values():
+                        bom.extend(extract_json_from_markdown(output))
+                    if bom:
+                        bom_md = "|Component|Quantity|Specs|\n|---|---|---|\n"
+                        for item in bom:
+                            bom_md += f"|{item['name']}|{item['quantity']}|{item['specs']}|\n"
+                        final_doc = final_doc.replace(
+                            "## Bill of Materials\n",
+                            f"## Bill of Materials\n\n{bom_md}\n",
+                        )
                 except Exception as e:
                     st.error(f"Synthesizer failed: {e}")
                     st.stop()
