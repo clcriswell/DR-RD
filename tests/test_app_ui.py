@@ -27,6 +27,12 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
                     return False
             return DummyExpander()
 
+    class DummyForm:
+        def __enter__(self):
+            return None
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
     # Added selectbox to dummy streamlit with default "Medium"
     st = SimpleNamespace(
         session_state=state,
@@ -45,6 +51,8 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
         slider=MagicMock(return_value=1),
         checkbox=MagicMock(return_value=False),
         selectbox=MagicMock(return_value="Medium"),  # Design Depth default
+        form=lambda key: DummyForm(),
+        form_submit_button=MagicMock(return_value=True),
         write=MagicMock(),
         sidebar=DummySidebar(),
     )
