@@ -1,8 +1,11 @@
-import numpy as np
+import base64
 import trimesh
 import streamlit as st
-import base64
-from skimage import measure
+
+# Load the model-viewer script once
+MODEL_VIEWER_SCRIPT = '''
+<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+'''
 
 def generate_mesh(spec: dict) -> bytes:
     """
@@ -32,15 +35,21 @@ def generate_mesh(spec: dict) -> bytes:
     return stl_bytes
 
 def show_geometry(spec: dict):
-    """Renders the STL in Streamlit via model-viewer."""
-    st.write("Spec:", spec)
-    with st.spinner("Building 3D model…"):
-        stl = generate_mesh(spec)
-    b64 = base64.b64encode(stl).decode()
-    html = f'''
-    <model-viewer src="data:model/stl;base64,{b64}"
-      alt="3D model" auto-rotate camera-controls
-      style="width:100%;height:400px"></model-viewer>
+    """Render the STL in Streamlit via model-viewer."""
+    # Generate the mesh bytes
+    mesh = generate_mesh(spec)
+    b64 = base64.b64encode(mesh).decode()
+
+    # Build HTML with the script and the model-viewer tag
+    html = MODEL_VIEWER_SCRIPT + f'''
+    <model-viewer
+      src="data:model/stl;base64,{b64}"
+      alt="3D model preview"
+      auto-rotate
+      camera-controls
+      style="width:100%; height:400px;">
+    </model-viewer>
     '''
+
     st.components.v1.html(html, height=420)
   
