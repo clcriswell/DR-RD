@@ -1,7 +1,11 @@
 """Firestore-backed result cache for DR-RD."""
 from __future__ import annotations
+
 from typing import Optional
+
+import streamlit as st
 from google.cloud import firestore
+from google.oauth2 import service_account
 
 _client: Optional[firestore.Client] = None
 
@@ -13,9 +17,14 @@ def _get_client() -> Optional[firestore.Client]:
     global _client
     if _client is None:
         try:
-            _client = firestore.Client()
+            info = st.secrets["gcp_service_account"]
+            credentials = service_account.Credentials.from_service_account_info(info)
+            _client = firestore.Client(credentials=credentials)
         except Exception:
-            _client = None
+            try:
+                _client = firestore.Client()
+            except Exception:
+                _client = None
     return _client
 
 
