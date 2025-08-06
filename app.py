@@ -3,31 +3,18 @@
 This file exists so that ``streamlit run app.py`` finds the application
 module. The bulk of the app lives in the ``app`` package; this script
 provides a small router that can either launch the main application or
-invoke additional tools such as the geometry previewer.
+invoke additional tools.
 """
 
 from app import main
-from agents.geometry_tool import show_geometry
 import streamlit as st
 
 
 def tool_router():
     """Route to the main app or a registered tool."""
-    tool = st.sidebar.selectbox("Action", ["app", "geometry", "HRM R&D"], index=0)
+    tool = st.sidebar.selectbox("Action", ["app", "HRM R&D"], index=0)
 
-    if tool == "geometry":
-        with st.form("geometry_form"):
-            width = st.number_input("Width", value=1.0)
-            height = st.number_input("Height", value=2.0)
-            depth = st.number_input("Depth", value=3.0)
-            submitted = st.form_submit_button("Preview")
-        if submitted:
-            spec = {
-                "type": "cube",
-                "params": {"width": width, "height": height, "depth": depth},
-            }
-            show_geometry(spec)
-    elif tool == "HRM R&D":
+    if tool == "HRM R&D":
         st.title("🧠 Hierarchical R&D Runner")
         project_id = st.text_input("Project ID", value="demo-project")
         if st.button("Run HRM Loop"):
