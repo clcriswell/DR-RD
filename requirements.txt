@@ -6,3 +6,4 @@ google-cloud-firestore
 markdown-pdf
 trimesh
 scikit-image
+beautifulsoup4>=4.12.2
