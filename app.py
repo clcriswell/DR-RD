@@ -13,7 +13,7 @@ import streamlit as st
 
 def tool_router():
     """Route to the main app or a registered tool."""
-    tool = st.sidebar.selectbox("Action", ["app", "geometry"], index=0)
+    tool = st.sidebar.selectbox("Action", ["app", "geometry", "HRM R&D"], index=0)
 
     if tool == "geometry":
         with st.form("geometry_form"):
@@ -27,6 +27,14 @@ def tool_router():
                 "params": {"width": width, "height": height, "depth": depth},
             }
             show_geometry(spec)
+    elif tool == "HRM R&D":
+        st.title("🧠 Hierarchical R&D Runner")
+        project_id = st.text_input("Project ID", value="demo-project")
+        if st.button("Run HRM Loop"):
+            from dr_rd.hrm_engine import HRMLoop
+            with st.spinner("Running planner executor loop..."):
+                HRMLoop(project_id).run()
+            st.success("HRM loop finished. Check Firestore history for details.")
     else:
         main()
 
