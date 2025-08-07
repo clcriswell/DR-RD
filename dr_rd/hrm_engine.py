@@ -1,7 +1,13 @@
 """HRM engine using FirestoreWorkspace and specialized agents."""
 from __future__ import annotations
 
-from typing import Tuple, Callable, Optional, Dict, Any
+from typing import Tuple, Callable, Optional, Dict, Any, List
+
+import time
+
+from config import MAX_CONCURRENCY
+from config.feature_flags import PARALLEL_EXEC_ENABLED
+from dr_rd.engine.executor import run_tasks
 
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from agents import initialize_agents
@@ -65,7 +71,15 @@ class HRMLoop:
         if not self.ws.read()["tasks"]:
             seed = self.plan.run(self.idea, "Develop a plan")
             first = [
-                {"id": WS.new_id(role), "role": role, "task": t, "status": "todo"}
+                {
+                    "id": WS.new_id(role),
+                    "role": role,
+                    "task": t,
+                    "status": "todo",
+                    "priority": 0,
+                    "created_at": time.time(),
+                    "depends_on": [],
+                }
                 for role, t in seed.items()
             ]
             self.ws.enqueue(first)
@@ -73,18 +87,41 @@ class HRMLoop:
 
         for cycle in range(max_cycles):
             self.ws.patch({"cycle": cycle})
-            while True:
-                t = self.ws.pop()
-                if not t:
-                    break
-                _log(f"▶️ {t['role']} – {t['task'][:60]}…")
-                res, sc = self._execute(t)
-                self.ws.save_result(t["id"], res, sc)
+            if PARALLEL_EXEC_ENABLED:
+                batch: List[dict] = []
+                while True:
+                    t = self.ws.pop()
+                    if not t:
+                        break
+                    batch.append(t)
+                executed, pending = run_tasks(batch, MAX_CONCURRENCY, self, _log)
+                if pending:
+                    self.ws.enqueue(pending)
+            else:
+                pending_seq: List[dict] = []
+                while True:
+                    t = self.ws.pop()
+                    if not t:
+                        break
+                    if any(
+                        dep not in self.ws.read().get("results", {})
+                        for dep in t.get("depends_on", [])
+                    ):
+                        pending_seq.append(t)
+                        continue
+                    _log(f"▶️ {t['role']} – {t['task'][:60]}…")
+                    res, sc = self._execute(t)
+                    self.ws.save_result(t["id"], res, sc)
+                if pending_seq:
+                    self.ws.enqueue(pending_seq)
 
             state = self.ws.read()
             new = self.plan.revise_plan(state)
             for x in new:
                 x["id"] = WS.new_id(x["role"])
+                x.setdefault("priority", 0)
+                x.setdefault("created_at", time.time())
+                x.setdefault("depends_on", [])
             if not new:
                 break
             self.ws.enqueue(new)
