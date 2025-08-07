@@ -117,6 +117,13 @@ def maybe_init_gcp_logging() -> bool:
 
     return st.session_state["gcp_logging_initialized"]
 
+
+def get_project_id() -> str:
+    """Return a project id from session state, creating one if needed."""
+    if "project_id" not in st.session_state:
+        st.session_state["project_id"] = str(uuid.uuid4())
+    return st.session_state["project_id"]
+
 def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_rounds, simulate_enabled, design_depth, re_run_simulations):
     logging.info(
         f"Running domain experts with refinement_rounds={refinement_rounds}, "
@@ -193,7 +200,7 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                 # Log initial output failure
                 failed_list = sim_metrics.get("failed", [])
                 fail_desc = ", ".join(failed_list) if failed_list else "criteria"
-                safe_log_step(st.session_state["project_id"], role, "Output", f"Failed {fail_desc}", success=False)
+                safe_log_step(get_project_id(), role, "Output", f"Failed {fail_desc}", success=False)
                 # Attempt up to 2 refinements based on failed criteria
                 for attempt in range(1, 3):  # attempt = 1 for first retry, 2 for second retry
                     # Prepare feedback context with failed criteria
@@ -220,7 +227,7 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                         # Success on retry
                         result = new_result
                         # Log successful retry attempt
-                        safe_log_step(st.session_state["project_id"], role, f"Retry {attempt}", "Passed Simulation", success=True)
+                        safe_log_step(get_project_id(), role, f"Retry {attempt}", "Passed Simulation", success=True)
                         # Format simulation results for output if showing immediately
                         if refinement_rounds == 1:
                             sim_text = simulation_agent.run_simulation(role, result)
@@ -233,16 +240,16 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                         fail_desc = ", ".join(failed_list) if failed_list else "criteria"
                         result = new_result  # update result to the latest attempt for potential display
                         # Log the failed retry attempt
-                        safe_log_step(st.session_state["project_id"], role, f"Retry {attempt}", f"Failed {fail_desc}", success=False)
+                        safe_log_step(get_project_id(), role, f"Retry {attempt}", f"Failed {fail_desc}", success=False)
                         if attempt == 2:
                             # After 2 retries (total 3 attempts including initial) still failing
                             st.error(f"{role} could not meet simulation constraints after 2 attempts. Halting execution.")
                             # Log halting scenario
-                            safe_log_step(st.session_state["project_id"], role, "Abort", "Simulation constraints unmet after 2 retries", success=False)
+                            safe_log_step(get_project_id(), role, "Abort", "Simulation constraints unmet after 2 retries", success=False)
                             st.stop()
             else:
                 # Simulation passed on first try
-                safe_log_step(st.session_state["project_id"], role, "Output", "Passed Simulation", success=True)
+                safe_log_step(get_project_id(), role, "Output", "Passed Simulation", success=True)
                 # Append simulation metrics to the output if no further refinement rounds
                 if refinement_rounds == 1:
                     sim_text = simulation_agent.run_simulation(role, result)
@@ -252,9 +259,9 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
             # Simulations not enabled or result is an error
             # Log the output as completed (success=True by default if no simulation)
             if not result.startswith("❌"):
-                safe_log_step(st.session_state["project_id"], role, "Output", "Completed", success=True)
+                safe_log_step(get_project_id(), role, "Output", "Completed", success=True)
             else:
-                safe_log_step(st.session_state["project_id"], role, "Output", "Failed to generate", success=False)
+                safe_log_step(get_project_id(), role, "Output", "Failed to generate", success=False)
 
         answers[role] = result
         prev_outputs.append(strip_json_block(result))
@@ -348,8 +355,7 @@ def main():
     except Exception as e:  # pragma: no cover - optional dependency
         logging.info(f"Firestore not enabled, using local storage: {e}")
 
-    if "project_id" not in st.session_state:
-        st.session_state["project_id"] = str(uuid.uuid4())
+    get_project_id()
 
     st.set_page_config(page_title="Dr. R&D", layout="wide")
     st.title("Dr. R&D")
@@ -468,7 +474,7 @@ def main():
                     st.warning(f"Dropped unrecognized roles: {', '.join(dropped)}")
             st.session_state["plan"] = plan
             safe_log_step(
-                st.session_state["project_id"],
+                get_project_id(),
                 "Planner",
                 "Output",
                 "Plan generated",
@@ -511,7 +517,7 @@ def main():
             )
 
         if st.button("2⃣ Run All Domain Experts"):
-            project_id = st.session_state["project_id"]
+            project_id = get_project_id()
             if st.session_state.get("auto_mode", False):
                 from dr_rd.hrm_engine import HRMLoop
 
