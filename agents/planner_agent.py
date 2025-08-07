@@ -87,11 +87,13 @@ class PlannerAgent(BaseAgent):
             "Respond with JSON: { \"updated_tasks\": [ { \"role\": \"...\", \"task\": \"...\" } , ... ] }"
         )
         user = json.dumps(workspace_state, indent=2)[:8000]
-        resp = openai.ChatCompletion.create(
+        resp = openai.chat.completions.create(
             model="gpt-4o-mini",
             temperature=0.2,
-            messages=[{"role":"system","content":sys},
-                      {"role":"user","content":user}]
+            messages=[
+                {"role": "system", "content": sys},
+                {"role": "user", "content": user},
+            ],
         )
         try:
             data = resp.choices[0].message.content
