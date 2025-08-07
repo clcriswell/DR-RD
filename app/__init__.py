@@ -124,7 +124,17 @@ def get_project_id() -> str:
         st.session_state["project_id"] = str(uuid.uuid4())
     return st.session_state["project_id"]
 
-def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_rounds, simulate_enabled, design_depth, re_run_simulations):
+
+def run_manual_pipeline(
+    agents,
+    memory_manager,
+    similar_ideas,
+    idea,
+    refinement_rounds,
+    simulate_enabled,
+    design_depth,
+    re_run_simulations,
+):
     logging.info(
         f"Running domain experts with refinement_rounds={refinement_rounds}, "
         f"design_depth={design_depth}, simulate_enabled={simulate_enabled}"
@@ -150,22 +160,14 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                 prompt_base = agent.user_prompt_template.format(idea=idea, task=task)
                 depth = design_depth.capitalize()
                 if depth == "High":
-                    prompt_base += (
-                        "\n\n**Design Depth: High** – Include all relevant component-level details, diagrams, and trade-off analysis."
-                    )
+                    prompt_base += "\n\n**Design Depth: High** – Include all relevant component-level details, diagrams, and trade-off analysis."
                 elif depth == "Low":
-                    prompt_base += (
-                        "\n\n**Design Depth: Low** – Provide only a high-level summary with minimal detail."
-                    )
+                    prompt_base += "\n\n**Design Depth: Low** – Provide only a high-level summary with minimal detail."
                 else:
-                    prompt_base += (
-                        "\n\n**Design Depth: Medium** – Provide a moderate level of detail with key diagrams and justifications."
-                    )
+                    prompt_base += "\n\n**Design Depth: Medium** – Provide a moderate level of detail with key diagrams and justifications."
                 previous = "\n\n".join(prev_outputs)
                 prompt_parts = [memory_context, previous, prompt_base]
-                prompt_with_context = "\n\n".join(
-                    [p for p in prompt_parts if p]
-                )
+                prompt_with_context = "\n\n".join([p for p in prompt_parts if p])
                 response = openai.chat.completions.create(
                     model=agent.model,
                     messages=[
@@ -185,7 +187,18 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                 sim_type = "electronics"
             elif "research scientist" in role.lower():
                 sim_type = (
-                    "chemical" if any(term in result.lower() for term in ["chemical", "chemistry", "compound", "reaction", "material"]) else "thermal"
+                    "chemical"
+                    if any(
+                        term in result.lower()
+                        for term in [
+                            "chemical",
+                            "chemistry",
+                            "compound",
+                            "reaction",
+                            "material",
+                        ]
+                    )
+                    else "thermal"
                 )
             else:
                 sim_type = ""
@@ -200,9 +213,17 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                 # Log initial output failure
                 failed_list = sim_metrics.get("failed", [])
                 fail_desc = ", ".join(failed_list) if failed_list else "criteria"
-                safe_log_step(get_project_id(), role, "Output", f"Failed {fail_desc}", success=False)
+                safe_log_step(
+                    get_project_id(),
+                    role,
+                    "Output",
+                    f"Failed {fail_desc}",
+                    success=False,
+                )
                 # Attempt up to 2 refinements based on failed criteria
-                for attempt in range(1, 3):  # attempt = 1 for first retry, 2 for second retry
+                for attempt in range(
+                    1, 3
+                ):  # attempt = 1 for first retry, 2 for second retry
                     # Prepare feedback context with failed criteria
                     feedback = ""
                     if failed_list:
@@ -213,21 +234,41 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                             model=agent.model,
                             messages=[
                                 {"role": "system", "content": agent.system_message},
-                                {"role": "user", "content": agent.user_prompt_template.format(idea=idea, task=task)},
+                                {
+                                    "role": "user",
+                                    "content": agent.user_prompt_template.format(
+                                        idea=idea, task=task
+                                    ),
+                                },
                                 {"role": "assistant", "content": result},
-                                {"role": "user", "content": feedback if feedback else "The design did not meet some requirements; please refine the proposal."}
-                            ]
+                                {
+                                    "role": "user",
+                                    "content": (
+                                        feedback
+                                        if feedback
+                                        else "The design did not meet some requirements; please refine the proposal."
+                                    ),
+                                },
+                            ],
                         )
                         new_result = revised_response.choices[0].message.content.strip()
                     except Exception as e:
                         new_result = result  # if the re-run fails, keep the last result
                     # Run simulation again on the revised output
-                    new_metrics = simulation_agent.sim_manager.simulate(sim_type, new_result)
+                    new_metrics = simulation_agent.sim_manager.simulate(
+                        sim_type, new_result
+                    )
                     if new_metrics.get("pass", True):
                         # Success on retry
                         result = new_result
                         # Log successful retry attempt
-                        safe_log_step(get_project_id(), role, f"Retry {attempt}", "Passed Simulation", success=True)
+                        safe_log_step(
+                            get_project_id(),
+                            role,
+                            f"Retry {attempt}",
+                            "Passed Simulation",
+                            success=True,
+                        )
                         # Format simulation results for output if showing immediately
                         if refinement_rounds == 1:
                             sim_text = simulation_agent.run_simulation(role, result)
@@ -237,19 +278,37 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                     else:
                         # Still failing after this attempt
                         failed_list = new_metrics.get("failed", [])
-                        fail_desc = ", ".join(failed_list) if failed_list else "criteria"
+                        fail_desc = (
+                            ", ".join(failed_list) if failed_list else "criteria"
+                        )
                         result = new_result  # update result to the latest attempt for potential display
                         # Log the failed retry attempt
-                        safe_log_step(get_project_id(), role, f"Retry {attempt}", f"Failed {fail_desc}", success=False)
+                        safe_log_step(
+                            get_project_id(),
+                            role,
+                            f"Retry {attempt}",
+                            f"Failed {fail_desc}",
+                            success=False,
+                        )
                         if attempt == 2:
                             # After 2 retries (total 3 attempts including initial) still failing
-                            st.error(f"{role} could not meet simulation constraints after 2 attempts. Halting execution.")
+                            st.error(
+                                f"{role} could not meet simulation constraints after 2 attempts. Halting execution."
+                            )
                             # Log halting scenario
-                            safe_log_step(get_project_id(), role, "Abort", "Simulation constraints unmet after 2 retries", success=False)
+                            safe_log_step(
+                                get_project_id(),
+                                role,
+                                "Abort",
+                                "Simulation constraints unmet after 2 retries",
+                                success=False,
+                            )
                             st.stop()
             else:
                 # Simulation passed on first try
-                safe_log_step(get_project_id(), role, "Output", "Passed Simulation", success=True)
+                safe_log_step(
+                    get_project_id(), role, "Output", "Passed Simulation", success=True
+                )
                 # Append simulation metrics to the output if no further refinement rounds
                 if refinement_rounds == 1:
                     sim_text = simulation_agent.run_simulation(role, result)
@@ -259,9 +318,17 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
             # Simulations not enabled or result is an error
             # Log the output as completed (success=True by default if no simulation)
             if not result.startswith("❌"):
-                safe_log_step(get_project_id(), role, "Output", "Completed", success=True)
+                safe_log_step(
+                    get_project_id(), role, "Output", "Completed", success=True
+                )
             else:
-                safe_log_step(get_project_id(), role, "Output", "Failed to generate", success=False)
+                safe_log_step(
+                    get_project_id(),
+                    role,
+                    "Output",
+                    "Failed to generate",
+                    success=False,
+                )
 
         answers[role] = result
         prev_outputs.append(strip_json_block(result))
@@ -279,8 +346,11 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
         with st.spinner("🔄 CTO and Research Scientist collaborating..."):
             try:
                 updated_cto, updated_rs = agent_chat(
-                    agents["CTO"], agents["Research Scientist"],
-                    idea, answers["CTO"], answers["Research Scientist"]
+                    agents["CTO"],
+                    agents["Research Scientist"],
+                    idea,
+                    answers["CTO"],
+                    answers["Research Scientist"],
                 )
                 answers["CTO"] = updated_cto
                 answers["Research Scientist"] = updated_rs
@@ -297,7 +367,9 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                     st.markdown("---")
                     st.markdown("### Research Scientist (Revised after collaboration)")
                     if simulate_enabled:
-                        sim_rs = simulation_agent.run_simulation("Research Scientist", updated_rs)
+                        sim_rs = simulation_agent.run_simulation(
+                            "Research Scientist", updated_rs
+                        )
                         if sim_rs:
                             updated_rs = f"{updated_rs}\n\n{sim_rs}"
                             answers["Research Scientist"] = updated_rs
@@ -318,8 +390,14 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
                     continue
                 with st.spinner(f"🤖 Refining {role}'s output..."):
                     try:
-                        other_outputs = {other_role: ans for other_role, ans in answers.items() if other_role != role}
-                        refined_output = refine_agent_output(agent, idea, task, answers.get(role, ""), other_outputs)
+                        other_outputs = {
+                            other_role: ans
+                            for other_role, ans in answers.items()
+                            if other_role != role
+                        }
+                        refined_output = refine_agent_output(
+                            agent, idea, task, answers.get(role, ""), other_outputs
+                        )
                     except Exception as e:
                         refined_output = f"❌ {role} refinement failed: {e}"
                 new_answers[role] = refined_output
@@ -327,7 +405,11 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
         # After all refinement rounds, append simulation results if enabled (re-run simulations for final outputs)
         if simulate_enabled:
             for role, output in answers.items():
-                sim_text = SimulationAgent().run_simulation(role, output) if re_run_simulations or True else ""
+                sim_text = (
+                    SimulationAgent().run_simulation(role, output)
+                    if re_run_simulations or True
+                    else ""
+                )
                 # Note: We always run final simulation if enabled to display up-to-date metrics
                 if sim_text:
                     answers[role] = f"{output}\n\n{sim_text}"
@@ -367,14 +449,25 @@ def main():
         st.markdown("## Configuration")
 
     project_names = []
+    project_doc_ids = {}
     if use_firestore:
         try:
             docs = db.collection("projects").stream()
-            project_names = [doc.id for doc in docs]
+            for doc in docs:
+                data = doc.to_dict() or {}
+                name = data.get("name") or doc.id
+                project_doc_ids[name] = doc.id
+            project_names = list(project_doc_ids.keys())
         except Exception as e:  # pragma: no cover - external service
             logging.error(f"Could not fetch projects from Firestore: {e}")
     if not use_firestore:
-        project_names = [entry.get("name", "(unnamed)") for entry in memory_manager.data]
+        project_names = [
+            entry.get("name", "(unnamed)") for entry in memory_manager.data
+        ]
+
+    current_project = st.session_state.get("project_name")
+    if current_project and current_project not in project_names:
+        project_names.append(current_project)
 
     selected_index = 0
     if (
@@ -393,14 +486,20 @@ def main():
     if selected_project != last_selected:
         if selected_project != "(New Project)":
             if use_firestore:
-                doc = db.collection("projects").document(selected_project).get()
-                if doc.exists:
-                    data = doc.to_dict()
-                    st.session_state["idea"] = data.get("idea", "")
-                    st.session_state["plan"] = data.get("plan", {})
-                    st.session_state["answers"] = data.get("outputs", {})
-                    st.session_state["final_doc"] = data.get("proposal", "")
-                    st.session_state["project_name"] = data.get("name", selected_project)
+                try:
+                    doc_id = project_doc_ids.get(selected_project, selected_project)
+                    doc = db.collection("projects").document(doc_id).get()
+                    if doc.exists:
+                        data = doc.to_dict() or {}
+                        st.session_state["idea"] = data.get("idea", "")
+                        st.session_state["plan"] = data.get("plan", {})
+                        st.session_state["answers"] = data.get("outputs", {})
+                        st.session_state["final_doc"] = data.get("proposal", "")
+                        st.session_state["project_name"] = data.get(
+                            "name", selected_project
+                        )
+                except Exception as e:  # pragma: no cover - external service
+                    logging.error(f"Could not load project from Firestore: {e}")
             else:
                 for entry in memory_manager.data:
                     if entry.get("name") == selected_project:
@@ -408,7 +507,9 @@ def main():
                         st.session_state["plan"] = entry.get("plan", {})
                         st.session_state["answers"] = entry.get("outputs", {})
                         st.session_state["final_doc"] = entry.get("proposal", "")
-                        st.session_state["project_name"] = entry.get("name", selected_project)
+                        st.session_state["project_name"] = entry.get(
+                            "name", selected_project
+                        )
                         break
         else:
             for key in [
@@ -583,7 +684,10 @@ def main():
                         planner_resp = openai.chat.completions.create(
                             model=planner_agent.model,
                             messages=[
-                                {"role": "system", "content": planner_agent.system_message},
+                                {
+                                    "role": "system",
+                                    "content": planner_agent.system_message,
+                                },
                                 {"role": "user", "content": planner_query},
                             ],
                         )
@@ -609,7 +713,10 @@ def main():
                         revised_resp = openai.chat.completions.create(
                             model=domain_agent.model,
                             messages=[
-                                {"role": "system", "content": domain_agent.system_message},
+                                {
+                                    "role": "system",
+                                    "content": domain_agent.system_message,
+                                },
                                 {
                                     "role": "user",
                                     "content": domain_agent.user_prompt_template.format(
@@ -699,9 +806,7 @@ def main():
                     )
                 except Exception as e:  # pylint: disable=broad-except
                     st.error(f"Final proposal synthesis failed: {e}")
-                    logging.exception(
-                        "Error during final proposal synthesis: %s", e
-                    )
+                    logging.exception("Error during final proposal synthesis: %s", e)
                     st.stop()
             st.session_state["final_doc"] = final_doc
 
@@ -716,5 +821,3 @@ def main():
                 file_name="R&D_Report.pdf",
                 mime="application/pdf",
             )
-
-
