@@ -7,15 +7,11 @@ invoke additional tools.
 """
 
 from app import main
-import streamlit as st
 
 
 def tool_router():
-    """Route to the main app."""
-    tool = st.sidebar.selectbox("Action", ["app"], index=0)
-
-    if tool == "app":
-        main()
+    """Route directly to the main app."""
+    main()
 
 
 if __name__ == "__main__":
