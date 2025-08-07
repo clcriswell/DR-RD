@@ -35,7 +35,7 @@ class MemoryManager:
 
             db = firestore.Client()
             doc_id = name or str(uuid.uuid4())
-            db.collection("projects").document(doc_id).set(entry)
+            db.collection("dr_rd_projects").document(doc_id).set(entry)
         except Exception as e:  # pylint: disable=broad-except
             logging.info(f"Firestore save skipped/failed: {e}")
 
