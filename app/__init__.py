@@ -452,7 +452,7 @@ def main():
     project_doc_ids = {}
     if use_firestore:
         try:
-            docs = db.collection("projects").stream()
+            docs = db.collection("dr_rd_projects").stream()
             for doc in docs:
                 data = doc.to_dict() or {}
                 name = data.get("name") or doc.id
@@ -484,11 +484,13 @@ def main():
 
     last_selected = st.session_state.get("last_selected_project")
     if selected_project != last_selected:
+        st.session_state.pop("hrm_report", None)
+        st.session_state.pop("hrm_state", None)
         if selected_project != "(New Project)":
             if use_firestore:
                 try:
                     doc_id = project_doc_ids.get(selected_project, selected_project)
-                    doc = db.collection("projects").document(doc_id).get()
+                    doc = db.collection("dr_rd_projects").document(doc_id).get()
                     if doc.exists:
                         data = doc.to_dict() or {}
                         st.session_state["idea"] = data.get("idea", "")
@@ -519,6 +521,8 @@ def main():
                 "final_doc",
                 "project_name",
                 "project_id",
+                "hrm_report",
+                "hrm_state",
             ]:
                 st.session_state.pop(key, None)
         st.session_state["last_selected_project"] = selected_project
@@ -637,21 +641,26 @@ def main():
 
                 with st.spinner("🤖 Running hierarchical plan → execute → revise…"):
                     state, report = HRMLoop(project_id, idea).run()
+                st.session_state["hrm_state"] = state
+                st.session_state["hrm_report"] = report
                 st.success("✅ HRM Automatic R&D complete!")
-                if report:
-                    st.subheader("Final Report")
-                    st.markdown(report)
-                    pdf = generate_pdf(report)
-                    st.download_button(
-                        "📄 Download Report",
-                        data=pdf,
-                        file_name="R&D_Report.pdf",
-                        mime="application/pdf",
-                    )
-                st.subheader("Results")
-                st.json(state.get("results", {}))
             else:
+                st.session_state.pop("hrm_report", None)
+                st.session_state.pop("hrm_state", None)
                 run_pipeline(project_id, idea)
+
+    if st.session_state.get("hrm_report"):
+        st.subheader("Final Report")
+        st.markdown(st.session_state["hrm_report"])
+        pdf = generate_pdf(st.session_state["hrm_report"])
+        st.download_button(
+            "📄 Download Report",
+            data=pdf,
+            file_name="R&D_Report.pdf",
+            mime="application/pdf",
+        )
+        st.subheader("Results")
+        st.json(st.session_state.get("hrm_state", {}).get("results", {}))
 
     if "answers" in st.session_state:
         st.subheader("Domain Expert Outputs")
