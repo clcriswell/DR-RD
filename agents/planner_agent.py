@@ -1,5 +1,6 @@
 from agents.base_agent import BaseAgent
 import logging
+import openai
 
 """Planner Agent for developing project plans."""
 class PlannerAgent(BaseAgent):
@@ -42,7 +43,7 @@ class PlannerAgent(BaseAgent):
 
     def run(self, idea: str, task: str) -> dict:
         """Return the planner's JSON summary as a Python dict."""
-        import openai, json
+        import json
 
         prompt = self.user_prompt_template.format(idea=idea, task=task)
 
@@ -68,3 +69,38 @@ class PlannerAgent(BaseAgent):
             return json.loads(raw_text)
         except json.JSONDecodeError as e:
             raise ValueError(f"Planner returned invalid JSON: {raw_text}") from e
+
+    def revise_plan(self, workspace_state: dict) -> list[dict]:
+        """
+        Given the full workspace state (tasks, results, scores),
+        produce an updated list of tasks (may add, remove, reorder).
+        Returns a list of dicts: [{ "role": str, "task": str, "id": str }, ...].
+        """
+        import json, hashlib, time
+        # Build prompt
+        sys = (
+            "You are the R&D meta‐planner. "
+            "Given the workspace state below, revise the list of tasks: "
+            "- Add missing high‐level tasks, "
+            "- Drop completed or irrelevant tasks, "
+            "- Reorder for priority.\n"
+            "Respond with JSON: { \"updated_tasks\": [ { \"role\": \"...\", \"task\": \"...\" } , ... ] }"
+        )
+        user = json.dumps(workspace_state, indent=2)[:8000]
+        resp = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            temperature=0.2,
+            messages=[{"role":"system","content":sys},
+                      {"role":"user","content":user}]
+        )
+        try:
+            data = resp.choices[0].message.content
+            parsed = json.loads(data)
+            out = []
+            for t in parsed.get("updated_tasks", []):
+                tid = hashlib.sha1((t["role"]+t["task"]+str(time.time())).encode()).hexdigest()[:10]
+                out.append({"role": t["role"], "task": t["task"], "id": tid})
+            return out
+        except Exception:
+            # fallback: return existing queue unchanged
+            return workspace_state.get("tasks", [])
