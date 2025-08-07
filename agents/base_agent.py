@@ -1,11 +1,57 @@
+from __future__ import annotations
+
+from typing import Optional, List, Tuple
+
+from config.feature_flags import RAG_ENABLED, RAG_TOPK
+
+try:  # avoid import errors when knowledge package is absent
+    from dr_rd.knowledge.retriever import Retriever
+    from dr_rd.knowledge.faiss_store import build_default_retriever
+except Exception:  # pragma: no cover - fallback when module missing
+    Retriever = None  # type: ignore
+    build_default_retriever = lambda: None  # type: ignore
+
+
 class BaseAgent:
     """Base class for role-specific agents."""
 
-    def __init__(self, name: str, model: str, system_message: str, user_prompt_template: str):
+    def __init__(
+        self,
+        name: str,
+        model: str,
+        system_message: str,
+        user_prompt_template: str,
+        retriever: Optional[Retriever] = None,
+    ):
         self.name = name
         self.model = model
         self.system_message = system_message
         self.user_prompt_template = user_prompt_template
+        if RAG_ENABLED and retriever is None:
+            try:
+                self.retriever: Optional[Retriever] = build_default_retriever()
+            except Exception:  # pragma: no cover - best effort
+                self.retriever = None
+        else:
+            self.retriever = retriever
+
+    def _augment_prompt(self, prompt: str, context: str) -> str:
+        """Attach retrieved snippets to the prompt when RAG is enabled."""
+        if not (RAG_ENABLED and self.retriever):
+            return prompt
+        try:
+            hits: List[Tuple[str, str]] = self.retriever.query(context, RAG_TOPK)
+        except Exception:
+            return prompt
+        if not hits:
+            return prompt
+        bundle_lines = []
+        for i, (text, src) in enumerate(hits, 1):
+            snippet = text.replace("\n", " ")[:500]
+            bundle_lines.append(f"[{i}] {snippet} ({src})")
+        bundle = "\n".join(bundle_lines)
+        print(f"[RAG] {self.name} retrieved {len(hits)} snippet(s)")
+        return prompt + "\n\nResearch Bundle:\n" + bundle
 
     def run(self, idea: str, task: str, design_depth: str = "Medium") -> str:
         """Construct the prompt and call the OpenAI API. Returns assistant text."""
@@ -13,6 +59,8 @@ class BaseAgent:
 
         # Base prompt from template
         prompt = self.user_prompt_template.format(idea=idea, task=task)
+
+        prompt = self._augment_prompt(prompt, f"{idea}\n{task}")
 
         # Adjust prompt detail based on design_depth
         design_depth = design_depth.capitalize()  # normalize casing (Low/Medium/High)

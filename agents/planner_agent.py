@@ -1,12 +1,18 @@
 from agents.base_agent import BaseAgent
 import logging
 import openai
+from typing import Optional
+
+try:
+    from dr_rd.knowledge.retriever import Retriever
+except Exception:  # pragma: no cover
+    Retriever = None  # type: ignore
 
 """Planner Agent for developing project plans."""
 class PlannerAgent(BaseAgent):
     """Agent that creates a detailed project plan for the given idea."""
 
-    def __init__(self, model):
+    def __init__(self, model, retriever: Optional[Retriever] = None):
         super().__init__(
             name="Planner",
             model=model,
@@ -39,6 +45,7 @@ class PlannerAgent(BaseAgent):
                 "Only include roles that are relevant, and do not include any roles outside this list. "
                 "Use each role name exactly as given above as JSON keys, and provide a brief task description for each selected role."
             ),
+            retriever=retriever,
         )
 
     def run(self, idea: str, task: str) -> dict:
@@ -46,6 +53,7 @@ class PlannerAgent(BaseAgent):
         import json
 
         prompt = self.user_prompt_template.format(idea=idea, task=task)
+        prompt = self._augment_prompt(prompt, f"{idea}\n{task}")
 
         kwargs = {
             "model": self.model,
