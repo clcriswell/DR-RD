@@ -20,9 +20,22 @@ def tool_router():
         pid = st.text_input("Project ID", value="demo-project")
         if st.button("Run HRM Loop"):
             from dr_rd.hrm_engine import HRMLoop
+            log_box = st.empty()
+            logs = []
+
+            def cb(msg: str) -> None:
+                logs.append(msg)
+                log_box.write("\n".join(logs))
+
             with st.spinner("Working…"):
-                HRMLoop(pid, idea).run()
-            st.success("Done! view history in Firestore 📑")
+                state, report = HRMLoop(pid, idea).run(log_callback=cb)
+
+            st.success("Done! See results below and history in Firestore 📑")
+            if report:
+                st.subheader("Final Report")
+                st.markdown(report)
+            st.subheader("Results")
+            st.json(state.get("results", {}))
     else:
         main()
 

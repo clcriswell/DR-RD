@@ -441,9 +441,22 @@ def main():
             project_id = st.session_state["project_id"]
             if auto_mode:
                 from dr_rd.hrm_engine import HRMLoop
+                log_box = st.empty()
+                logs: list[str] = []
+
+                def cb(msg: str) -> None:
+                    logs.append(msg)
+                    log_box.write("\n".join(logs))
+
                 with st.spinner("🤖 Running hierarchical plan → execute → revise…"):
-                    HRMLoop(project_id, idea).run()
-                st.success("✅ HRM automatic R&D complete! See Firestore for details.")
+                    state, report = HRMLoop(project_id, idea).run(log_callback=cb)
+
+                st.success("✅ HRM automatic R&D complete.")
+                if report:
+                    st.subheader("Final Report")
+                    st.markdown(report)
+                st.subheader("Results")
+                st.json(state.get("results", {}))
             else:
                 run_manual_pipeline(
                     agents,
