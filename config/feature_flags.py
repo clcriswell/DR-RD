@@ -19,3 +19,7 @@ RAG_ENABLED = _flag("RAG_ENABLED")
 TOT_K: int = int(os.getenv("TOT_K", "3"))
 TOT_BEAM: int = int(os.getenv("TOT_BEAM", "2"))
 TOT_MAX_DEPTH: int = int(os.getenv("TOT_MAX_DEPTH", "2"))
+
+# Reflection parameters
+REFLECTION_PATIENCE: int = int(os.getenv("REFLECTION_PATIENCE", "2"))
+REFLECTION_MAX_ATTEMPTS: int = int(os.getenv("REFLECTION_MAX_ATTEMPTS", "1"))
