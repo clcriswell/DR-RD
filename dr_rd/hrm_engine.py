@@ -6,7 +6,7 @@ from typing import Tuple, Callable, Optional, Dict, Any, List
 import time
 
 from config import MAX_CONCURRENCY
-from config.feature_flags import PARALLEL_EXEC_ENABLED
+from config.feature_flags import PARALLEL_EXEC_ENABLED, TOT_PLANNING_ENABLED
 from dr_rd.engine.executor import run_tasks
 
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
@@ -26,6 +26,14 @@ class HRMLoop:
         self.agents = initialize_agents()
         self.plan = self.agents["Planner"]
         self.synth = self.agents["Synthesizer"]
+        self.plan_strategy = None
+        if TOT_PLANNING_ENABLED:
+            # Import lazily so default runs stay fast
+            from dr_rd.planning.strategies import tot  # noqa: F401
+
+            cls = PlannerStrategyRegistry.get("tot")
+            if cls:
+                self.plan_strategy = cls()
         # store idea once
         if not self.ws.read().get("idea"):
             self.ws.patch({"idea": idea})
@@ -69,21 +77,38 @@ class HRMLoop:
 
         # Seed initial tasks
         if not self.ws.read()["tasks"]:
-            seed = self.plan.run(self.idea, "Develop a plan")
-            first = [
-                {
-                    "id": WS.new_id(role),
-                    "role": role,
-                    "task": t,
-                    "status": "todo",
-                    "priority": 0,
-                    "created_at": time.time(),
-                    "depends_on": [],
-                }
-                for role, t in seed.items()
-            ]
-            self.ws.enqueue(first)
-            _log(f"🌱 seeded {len(first)} tasks from PlannerAgent")
+            if self.plan_strategy:
+                seed_tasks = self.plan_strategy.plan(self.ws.read())
+                first = [
+                    {
+                        "id": WS.new_id(t["role"]),
+                        "role": t["role"],
+                        "task": t["task"],
+                        "status": "todo",
+                        "priority": 0,
+                        "created_at": time.time(),
+                        "depends_on": [],
+                    }
+                    for t in seed_tasks
+                ]
+                self.ws.enqueue(first)
+                _log(f"🌱 seeded {len(first)} tasks from ToTPlannerStrategy")
+            else:
+                seed = self.plan.run(self.idea, "Develop a plan")
+                first = [
+                    {
+                        "id": WS.new_id(role),
+                        "role": role,
+                        "task": t,
+                        "status": "todo",
+                        "priority": 0,
+                        "created_at": time.time(),
+                        "depends_on": [],
+                    }
+                    for role, t in seed.items()
+                ]
+                self.ws.enqueue(first)
+                _log(f"🌱 seeded {len(first)} tasks from PlannerAgent")
 
         for cycle in range(max_cycles):
             self.ws.patch({"cycle": cycle})
@@ -116,7 +141,10 @@ class HRMLoop:
                     self.ws.enqueue(pending_seq)
 
             state = self.ws.read()
-            new = self.plan.revise_plan(state)
+            if self.plan_strategy:
+                new = self.plan_strategy.plan(state)
+            else:
+                new = self.plan.revise_plan(state)
             for x in new:
                 x["id"] = WS.new_id(x["role"])
                 x.setdefault("priority", 0)
