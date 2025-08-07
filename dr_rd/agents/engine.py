@@ -4,6 +4,12 @@ from dr_rd.utils.firestore_workspace import FirestoreWorkspace
 from dr_rd.agents.planner_agent import PlannerAgent
 from dr_rd.agents.simulation_agent import SimulationAgent
 from dr_rd.agents.synthesizer_agent import SynthesizerAgent
+from dr_rd.extensions.registry import (
+    EvaluatorRegistry,
+    PlannerStrategyRegistry,
+    SimulatorRegistry,
+    MetaAgentRegistry,
+)
 
 # HRM‐loop parameters
 MAX_CYCLES = 5

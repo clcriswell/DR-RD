@@ -5,6 +5,12 @@ from typing import Tuple, Callable, Optional, Dict, Any
 
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from agents import initialize_agents
+from dr_rd.extensions.registry import (
+    EvaluatorRegistry,
+    PlannerStrategyRegistry,
+    SimulatorRegistry,
+    MetaAgentRegistry,
+)
 
 
 class HRMLoop:
