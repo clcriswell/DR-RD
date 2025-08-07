@@ -377,37 +377,50 @@ def main():
         project_names = [entry.get("name", "(unnamed)") for entry in memory_manager.data]
 
     selected_index = 0
-    if "project_name" in st.session_state and st.session_state["project_name"] in project_names:
+    if (
+        "project_name" in st.session_state
+        and st.session_state["project_name"] in project_names
+    ):
         selected_index = project_names.index(st.session_state["project_name"]) + 1
     selectbox_container = sidebar if hasattr(sidebar, "selectbox") else st
     selected_project = selectbox_container.selectbox(
-        "🔄 Load Saved Project", ["(New Project)"] + project_names, index=selected_index
+        "🔄 Load Saved Project",
+        ["(New Project)"] + project_names,
+        index=selected_index,
     )
-    if selected_project != "(New Project)":
-        if use_firestore:
-            doc = db.collection("projects").document(selected_project).get()
-            if doc.exists:
-                data = doc.to_dict()
-                st.session_state["idea"] = data.get("idea", "")
-                st.session_state["plan"] = data.get("plan", {})
-                st.session_state["answers"] = data.get("outputs", {})
-                st.session_state["final_doc"] = data.get("proposal", "")
-                st.session_state["project_name"] = data.get("name", selected_project)
+
+    last_selected = st.session_state.get("last_selected_project")
+    if selected_project != last_selected:
+        if selected_project != "(New Project)":
+            if use_firestore:
+                doc = db.collection("projects").document(selected_project).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    st.session_state["idea"] = data.get("idea", "")
+                    st.session_state["plan"] = data.get("plan", {})
+                    st.session_state["answers"] = data.get("outputs", {})
+                    st.session_state["final_doc"] = data.get("proposal", "")
+                    st.session_state["project_name"] = data.get("name", selected_project)
+            else:
+                for entry in memory_manager.data:
+                    if entry.get("name") == selected_project:
+                        st.session_state["idea"] = entry.get("idea", "")
+                        st.session_state["plan"] = entry.get("plan", {})
+                        st.session_state["answers"] = entry.get("outputs", {})
+                        st.session_state["final_doc"] = entry.get("proposal", "")
+                        st.session_state["project_name"] = entry.get("name", selected_project)
+                        break
         else:
-            for entry in memory_manager.data:
-                if entry.get("name") == selected_project:
-                    st.session_state["idea"] = entry.get("idea", "")
-                    st.session_state["plan"] = entry.get("plan", {})
-                    st.session_state["answers"] = entry.get("outputs", {})
-                    st.session_state["final_doc"] = entry.get("proposal", "")
-                    st.session_state["project_name"] = entry.get("name", selected_project)
-                    break
-        if hasattr(st, "experimental_rerun"):
-            st.experimental_rerun()
-    elif selected_project == "(New Project)":
-        for key in ["idea", "plan", "answers", "final_doc", "project_name", "project_id"]:
-            if key in st.session_state:
-                del st.session_state[key]
+            for key in [
+                "idea",
+                "plan",
+                "answers",
+                "final_doc",
+                "project_name",
+                "project_id",
+            ]:
+                st.session_state.pop(key, None)
+        st.session_state["last_selected_project"] = selected_project
         if hasattr(st, "experimental_rerun"):
             st.experimental_rerun()
 
