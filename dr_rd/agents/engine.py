@@ -10,7 +10,12 @@ from dr_rd.extensions.registry import (
     SimulatorRegistry,
     MetaAgentRegistry,
 )
-from config.feature_flags import TOT_PLANNING_ENABLED
+from config.feature_flags import (
+    TOT_PLANNING_ENABLED,
+    REFLECTION_ENABLED,
+    REFLECTION_PATIENCE,
+    REFLECTION_MAX_ATTEMPTS,
+)
 
 # HRM‐loop parameters
 MAX_CYCLES = 5
@@ -24,14 +29,22 @@ def run_pipeline(self, project_id: str, idea: str):
     simulator = SimulationAgent()
     synthesizer = SynthesizerAgent()
     plan_strategy = None
+    reflection = None
     if TOT_PLANNING_ENABLED:
         from dr_rd.planning.strategies import tot  # noqa: F401
         cls = PlannerStrategyRegistry.get("tot")
         if cls:
             plan_strategy = cls()
 
+    if REFLECTION_ENABLED:
+        refl_cls = MetaAgentRegistry.get("reflector")
+        if refl_cls:
+            reflection = refl_cls()
+
     best_score = 0.0
     no_improve = 0
+    history = []
+    reflection_attempts = 0
 
     # Seed initial tasks if first run
     if not ws.read()["tasks"]:
@@ -66,6 +79,7 @@ def run_pipeline(self, project_id: str, idea: str):
 
         # 1) Execute all tasks in current queue
         task_scores = []
+        sim_failures = 0
         while True:
             t = ws.pop()
             if not t:
@@ -76,10 +90,14 @@ def run_pipeline(self, project_id: str, idea: str):
             ws.log(f"✔️ {t['role']} score={score:.2f}")
             # optional simulation refinement
             if self.simulation_enabled:
-                result2, score2 = simulator.refine_design(result)
-                ws.save_result(t["id"], result2, score2)
-                ws.log(f"🔄 Refined score={score2:.2f}")
-                score = max(score, score2)
+                try:
+                    result2, score2 = simulator.refine_design(result)
+                    ws.save_result(t["id"], result2, score2)
+                    ws.log(f"🔄 Refined score={score2:.2f}")
+                    score = max(score, score2)
+                except Exception:
+                    sim_failures += 1
+                    ws.log("⚠️ Simulation failed")
             task_scores.append(score)
 
         # 2) Assess improvement
@@ -91,11 +109,43 @@ def run_pipeline(self, project_id: str, idea: str):
             best_score = cycle_best
             no_improve = 0
         ws.log(f"📈 Best score={best_score:.2f}, no_improve={no_improve}")
+        history.append({"cycle": cycle, "score": cycle_best, "sim_failures": sim_failures})
 
-        # 3) Check halting
+        # 3) Check halting / reflection
         if no_improve > NO_PROGRESS_PATIENCE:
-            ws.log("💀 Halting early due to stagnation")
-            break
+            if (
+                REFLECTION_ENABLED
+                and reflection
+                and reflection_attempts < REFLECTION_MAX_ATTEMPTS
+                and no_improve >= REFLECTION_PATIENCE
+            ):
+                ws.log("🪞 Reflecting due to stagnation")
+                adjustments = reflection.reflect(history)
+                reason = adjustments.get("reason", "no reason provided")
+                ws.log(f"🔧 Reflection suggested: {reason}")
+                if adjustments.get("switch_to_tot"):
+                    from dr_rd.planning.strategies import tot  # noqa: F401
+                    cls = PlannerStrategyRegistry.get("tot")
+                    if cls:
+                        plan_strategy = cls()
+                        ws.log("🔀 Planner strategy switched to ToT")
+                if adjustments.get("new_tasks"):
+                    new_tasks = [
+                        {
+                            "role": t["role"],
+                            "task": t["task"],
+                            "id": hashlib.sha1((t["role"] + t["task"]).encode()).hexdigest()[:10],
+                            "status": "todo",
+                        }
+                        for t in adjustments["new_tasks"]
+                    ]
+                    ws.enqueue(new_tasks)
+                    ws.log(f"📝 Reflection added {len(new_tasks)} task(s)")
+                reflection_attempts += 1
+                no_improve = 0
+            else:
+                ws.log("💀 Halting early due to stagnation")
+                break
 
         # 4) Revise plan
         state = ws.read()
