@@ -6,7 +6,7 @@ provides a small router that can either launch the main application or
 invoke additional tools.
 """
 
-from app import main
+from app import main, generate_pdf
 import streamlit as st
 
 
@@ -34,6 +34,13 @@ def tool_router():
             if report:
                 st.subheader("Final Report")
                 st.markdown(report)
+                pdf_bytes = generate_pdf(report)
+                st.download_button(
+                    label="📄 Download Final Report as PDF",
+                    data=pdf_bytes,
+                    file_name="R&D_Report.pdf",
+                    mime="application/pdf",
+                )
             st.subheader("Results")
             st.json(state.get("results", {}))
     else:
