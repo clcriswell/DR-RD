@@ -10,6 +10,7 @@ AGENT_MODEL_MAP = {
     "Optical Systems Engineer": "gpt-4o",
     "Mechanical & Precision-Motion Engineer": "gpt-4o",
     "Photonics Electronics Engineer": "gpt-4o",
+    "Photonic Electronics Engineer": "gpt-4o",
     "Electronics & Embedded Controls Engineer": "gpt-4o",
     "Software / Image-Processing Specialist": "gpt-4o",
     "Fluorescence / Biological Sample Expert": "gpt-4o",
