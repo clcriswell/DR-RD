@@ -1,59 +1,36 @@
 """HRM engine using FirestoreWorkspace and specialized agents."""
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
-
-# FirestoreWorkspace implementation moved to dr_rd.utils.firestore_workspace
+from typing import Tuple
 
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
-from dr_rd.agents.planner_agent import PlannerAgent
-from dr_rd.agents.simulation_agent import SimulationAgent
-from dr_rd.agents.synthesizer_agent import SynthesizerAgent
-
-# role-specific agents
-from dr_rd.agents.engineer_agent import EngineerAgent
-from dr_rd.agents.cto_agent import CTOAgent
-from dr_rd.agents.research_scientist_agent import ResearchScientistAgent
-
-# add others as needed…
-ROLE_DISPATCH = {
-    "Engineer": EngineerAgent,
-    "CTO": CTOAgent,
-    "Scientist": ResearchScientistAgent,
-}
+from agents import initialize_agents
 
 
 class HRMLoop:
     def __init__(self, project_id: str, idea: str):
         self.ws = WS(project_id)
         self.idea = idea
-        self.plan = PlannerAgent()
-        self.sim = SimulationAgent()
-        self.synth = SynthesizerAgent()
+        self.agents = initialize_agents()
+        self.plan = self.agents["Planner"]
+        self.synth = self.agents["Synthesizer"]
         # store idea once
         if not self.ws.read().get("idea"):
             self.ws.patch({"idea": idea})
 
     # ---------- execution helpers ----------
     def _execute(self, task: dict) -> Tuple[dict, float]:
-        role_cls = ROLE_DISPATCH.get(task["role"])
-        if not role_cls:
+        agent = self.agents.get(task["role"])
+        if not agent:
             raise ValueError(f"No agent for role {task['role']}")
-        agent = role_cls()
-        result, score = agent.run(task["task"])
-        # --- simulation & refinement ---
-        for _ in range(2):
-            sim_pass, sim_metrics = self.sim.validate(result)
-            if sim_pass:
-                break
-            result, score = agent.refine(task["task"], sim_metrics)
-        return result, score
+        result = agent.run(self.idea, task["task"])
+        return result, 1.0
 
     # ---------- main loop ----------
     def run(self, max_cycles: int = 5) -> None:
         # Seed initial tasks
         if not self.ws.read()["tasks"]:
-            seed = self.plan.generate_plan(self.idea)
+            seed = self.plan.run(self.idea, "Develop a plan")
             first = [
                 {"id": WS.new_id(role), "role": role, "task": t, "status": "todo"}
                 for role, t in seed.items()
