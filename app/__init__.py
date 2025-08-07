@@ -437,37 +437,39 @@ def main():
             else False
         )
 
+        def run_pipeline(project_id: str, idea: str) -> None:
+            run_manual_pipeline(
+                agents,
+                memory_manager,
+                similar_ideas,
+                idea,
+                refinement_rounds,
+                simulate_enabled,
+                design_depth,
+                re_run_simulations,
+            )
+
         if st.button("2⃣ Run All Domain Experts"):
             project_id = st.session_state["project_id"]
             if auto_mode:
                 from dr_rd.hrm_engine import HRMLoop
-                log_box = st.empty()
-                logs: list[str] = []
-
-                def cb(msg: str) -> None:
-                    logs.append(msg)
-                    log_box.write("\n".join(logs))
-
                 with st.spinner("🤖 Running hierarchical plan → execute → revise…"):
-                    state, report = HRMLoop(project_id, idea).run(log_callback=cb)
-
-                st.success("✅ HRM automatic R&D complete.")
+                    state, report = HRMLoop(project_id, idea).run()
+                st.success("✅ HRM Automatic R&D complete!")
                 if report:
                     st.subheader("Final Report")
                     st.markdown(report)
+                    pdf = generate_pdf(report)
+                    st.download_button(
+                        "📄 Download Report",
+                        data=pdf,
+                        file_name="R&D_Report.pdf",
+                        mime="application/pdf",
+                    )
                 st.subheader("Results")
                 st.json(state.get("results", {}))
             else:
-                run_manual_pipeline(
-                    agents,
-                    memory_manager,
-                    similar_ideas,
-                    idea,
-                    refinement_rounds,
-                    simulate_enabled,
-                    design_depth,
-                    re_run_simulations,
-                )
+                run_pipeline(project_id, idea)
 
     # 4. Synthesize final proposal
     if "answers" in st.session_state:
