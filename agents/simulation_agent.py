@@ -1,5 +1,13 @@
-from typing import Dict
+from typing import Dict, Callable, Optional, Any
 from simulation.simulation_manager import SimulationManager
+
+from config.feature_flags import (
+    SIM_OPTIMIZER_ENABLED,
+    SIM_OPTIMIZER_STRATEGY,
+    SIM_OPTIMIZER_MAX_EVALS,
+)
+from dr_rd.simulation.design_space import DesignSpace
+from dr_rd.simulation.optimizer import optimize
 
 
 def determine_sim_type(role: str, design_spec: str) -> str:
@@ -41,13 +49,44 @@ class SimulationAgent:
             updated[role] = f"{spec}\n\n" + "\n".join(lines)
         return updated
 
-    def run_simulation(self, role: str, design_spec: str) -> str:
-        """Run a simulation for a single role's design specification."""
+    def run_simulation(
+        self,
+        role: str,
+        design_spec: str,
+        design_space: Optional[DesignSpace] = None,
+        objective_fn: Optional[Callable[[Dict[str, Any], Dict[str, Any]], float]] = None,
+    ) -> str:
+        """Run a simulation for a single role's design specification.
+
+        When a ``design_space`` and ``objective_fn`` are provided and the
+        optimizer feature flag is enabled, parameter search is performed and
+        the best design is reported.
+        """
+
         sim_type = determine_sim_type(role, design_spec)
         if not sim_type:
             return ""  # No simulation needed for this role
-        metrics = self.sim_manager.simulate(sim_type, design_spec)
+
+        best_design = None
+        if SIM_OPTIMIZER_ENABLED and design_space and objective_fn:
+            def simulator(d: Dict[str, Any]) -> Dict[str, Any]:
+                formatted = design_spec.format(**d)
+                return self.sim_manager.simulate(sim_type, formatted)
+
+            best_design, metrics = optimize(
+                {},
+                design_space,
+                objective_fn,
+                simulator,
+                strategy=SIM_OPTIMIZER_STRATEGY,
+                max_evals=SIM_OPTIMIZER_MAX_EVALS,
+            )
+        else:
+            metrics = self.sim_manager.simulate(sim_type, design_spec)
+
         lines = [f"**Simulation ({sim_type.capitalize()}) Results:**"]
+        if best_design is not None:
+            lines.append(f"- **Design**: {best_design}")
         for metric, value in metrics.items():
             if metric in ["pass", "failed"]:
                 continue  # skip internal status keys in output
