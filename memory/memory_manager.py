@@ -1,5 +1,7 @@
 import json
+import logging
 import os
+import uuid
 from difflib import SequenceMatcher
 
 class MemoryManager:
@@ -18,16 +20,27 @@ class MemoryManager:
         if not isinstance(self.data, list):
             self.data = []
 
-    def store_project(self, idea, plan, outputs, proposal):
-        """Save a completed project (idea, plan, outputs, proposal) to memory."""
+    def store_project(self, name, idea, plan, outputs, proposal):
+        """Save a completed project (name, idea, plan, outputs, proposal) to memory (and Firestore if available)."""
         entry = {
+            "name": name,
             "idea": idea,
             "plan": plan,
             "outputs": outputs,
-            "proposal": proposal
+            "proposal": proposal,
         }
+
+        try:  # pragma: no cover - depends on external Firestore service
+            from google.cloud import firestore
+
+            db = firestore.Client()
+            doc_id = name or str(uuid.uuid4())
+            db.collection("projects").document(doc_id).set(entry)
+        except Exception as e:  # pylint: disable=broad-except
+            logging.info(f"Firestore save skipped/failed: {e}")
+
         self.data.append(entry)
-        with open(self.file_path, 'w') as f:
+        with open(self.file_path, "w") as f:
             json.dump(self.data, f, indent=2)
 
     def find_similar_ideas(self, idea, top_n=3):

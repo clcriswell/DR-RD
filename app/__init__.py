@@ -336,17 +336,23 @@ def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_
 def main():
     maybe_init_gcp_logging()
 
-    # --- Instantiate Agents ---
     agents = get_agents()
-
-    # Initialize persistent memory manager
     memory_manager = get_memory_manager()
-    # Set or generate a project_id for logging
+
+    use_firestore = False
+    try:
+        from google.cloud import firestore
+
+        db = firestore.Client()
+        use_firestore = True
+    except Exception as e:  # pragma: no cover - optional dependency
+        logging.info(f"Firestore not enabled, using local storage: {e}")
+
     if "project_id" not in st.session_state:
         st.session_state["project_id"] = str(uuid.uuid4())
 
-    st.set_page_config(page_title="DR-RD Phase 6: Simulated Multi-Agent R&D", layout="wide")
-    st.title("DR-RD AI R&D Engine — Phase 6")
+    st.set_page_config(page_title="Dr. R&D", layout="wide")
+    st.title("Dr. R&D")
 
     sidebar = getattr(st, "sidebar", st)
     if hasattr(sidebar, "title"):
@@ -354,10 +360,57 @@ def main():
     else:
         st.markdown("## Configuration")
 
+    project_names = []
+    if use_firestore:
+        try:
+            docs = db.collection("projects").stream()
+            project_names = [doc.id for doc in docs]
+        except Exception as e:  # pragma: no cover - external service
+            logging.error(f"Could not fetch projects from Firestore: {e}")
+    if not use_firestore:
+        project_names = [entry.get("name", "(unnamed)") for entry in memory_manager.data]
+
+    selected_index = 0
+    if "project_name" in st.session_state and st.session_state["project_name"] in project_names:
+        selected_index = project_names.index(st.session_state["project_name"]) + 1
+    selectbox_container = sidebar if hasattr(sidebar, "selectbox") else st
+    selected_project = selectbox_container.selectbox(
+        "🔄 Load Saved Project", ["(New Project)"] + project_names, index=selected_index
+    )
+    if selected_project != "(New Project)":
+        if use_firestore:
+            doc = db.collection("projects").document(selected_project).get()
+            if doc.exists:
+                data = doc.to_dict()
+                st.session_state["idea"] = data.get("idea", "")
+                st.session_state["plan"] = data.get("plan", {})
+                st.session_state["answers"] = data.get("outputs", {})
+                st.session_state["final_doc"] = data.get("proposal", "")
+                st.session_state["project_name"] = data.get("name", selected_project)
+        else:
+            for entry in memory_manager.data:
+                if entry.get("name") == selected_project:
+                    st.session_state["idea"] = entry.get("idea", "")
+                    st.session_state["plan"] = entry.get("plan", {})
+                    st.session_state["answers"] = entry.get("outputs", {})
+                    st.session_state["final_doc"] = entry.get("proposal", "")
+                    st.session_state["project_name"] = entry.get("name", selected_project)
+                    break
+        if hasattr(st, "experimental_rerun"):
+            st.experimental_rerun()
+    elif selected_project == "(New Project)":
+        for key in ["idea", "plan", "answers", "final_doc", "project_name", "project_id"]:
+            if key in st.session_state:
+                del st.session_state[key]
+        if hasattr(st, "experimental_rerun"):
+            st.experimental_rerun()
+
     if "simulate_enabled" not in st.session_state:
         st.session_state["simulate_enabled"] = True
     if "design_depth" not in st.session_state:
         st.session_state["design_depth"] = "Low"
+    if "auto_mode" not in st.session_state:
+        st.session_state["auto_mode"] = False
 
     form_container = sidebar if hasattr(sidebar, "form") else st
     with form_container.form("config_form"):
@@ -370,64 +423,72 @@ def main():
             index=["Low", "Medium", "High"].index(st.session_state["design_depth"]),
             help="Controls how detailed the agent outputs will be.",
         )
+        auto_mode = st.checkbox(
+            "Enable Automatic AI R&D (HRM)", value=st.session_state["auto_mode"]
+        )
         submitted = st.form_submit_button("Apply settings")
-
     if submitted:
         st.session_state["simulate_enabled"] = simulate_enabled
         st.session_state["design_depth"] = design_depth
+        st.session_state["auto_mode"] = auto_mode
 
-    # 1. Get the user’s idea
-    idea = st.text_input("🧠 Enter your project idea:")
+    project_name = st.text_input(
+        "🏷️ Project Name:", value=st.session_state.get("project_name", "")
+    )
+    idea = st.text_input(
+        "🧠 Enter your project idea:", value=st.session_state.get("idea", "")
+    )
     if not idea:
         st.info("Please describe an idea to get started.")
         st.stop()
-    # Check for similar past projects in memory
+    if not project_name:
+        st.info("Please provide a project name to get started.")
+        st.stop()
+    st.session_state["project_name"] = project_name
+
     similar_ideas = memory_manager.find_similar_ideas(idea)
     if similar_ideas:
         st.info("Found similar past projects: " + ", ".join(similar_ideas))
 
-    auto_mode = st.sidebar.checkbox("Enable Automatic AI R&D (HRM)", value=False)
-
-    # 2. Generate the role→task plan
     if st.button("1⃣ Generate Research Plan"):
         logging.info(f"User generated plan for idea: {idea}")
         try:
             with st.spinner("📝 Planning..."):
-                logging.debug("Planner start")
-                raw_plan = agents["Planner"].run(idea, "Break down the project into role-specific tasks")
-                logging.debug(f"Raw plan: {raw_plan}")
+                raw_plan = agents["Planner"].run(
+                    idea, "Break down the project into role-specific tasks"
+                )
                 if not isinstance(raw_plan, dict):
-                    logging.error(f"Planner returned unexpected format: {raw_plan}")
-                    st.error("Plan generation failed – received an unexpected response format.")
+                    st.error(
+                        "Plan generation failed – received an unexpected response format."
+                    )
                     st.stop()
-                # keep only keys that have a matching agent
                 plan = {role: task for role, task in raw_plan.items() if role in agents}
                 dropped = [r for r in raw_plan if r not in agents]
-                logging.debug(f"Filtered plan: {plan}, dropped roles: {dropped}")
                 if dropped:
                     st.warning(f"Dropped unrecognized roles: {', '.join(dropped)}")
             st.session_state["plan"] = plan
-            # Log the plan generation step
-            safe_log_step(st.session_state["project_id"], "Planner", "Output", "Plan generated", success=True)
+            safe_log_step(
+                st.session_state["project_id"],
+                "Planner",
+                "Output",
+                "Plan generated",
+                success=True,
+            )
         except openai.OpenAIError as e:
             logging.exception("OpenAI error during plan generation: %s", e)
-            st.error("Planning failed: Unable to generate plan. Please check your API key or try again later.")
+            st.error(
+                "Planning failed: Unable to generate plan. Please check your API key or try again later."
+            )
             st.write("Plan generation failed:", e)
-        except json.JSONDecodeError as e:
-            logging.exception("JSON decode error during plan generation: %s", e)
-            st.error("Planning failed: Plan generation output was not understood – the AI did not return a proper plan.")
-            st.write("Plan generation failed:", e)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             logging.exception("Unexpected error during plan generation: %s", e)
             st.error("Planning failed: An unexpected error occurred.")
             st.write("Plan generation failed:", e)
 
-    # Display the plan if it exists in session state
     if "plan" in st.session_state:
         st.subheader("Project Plan (Role → Task)")
         st.json(st.session_state["plan"])
 
-        # 3. Execute each specialist agent (with optional refinement rounds, simulations, and design depth)
         refinement_rounds = st.slider("🔁 Refinement Rounds", 1, 3, value=1)
         simulate_enabled = st.session_state.get("simulate_enabled", True)
         design_depth = st.session_state.get("design_depth", "Low")
@@ -451,8 +512,9 @@ def main():
 
         if st.button("2⃣ Run All Domain Experts"):
             project_id = st.session_state["project_id"]
-            if auto_mode:
+            if st.session_state.get("auto_mode", False):
                 from dr_rd.hrm_engine import HRMLoop
+
                 with st.spinner("🤖 Running hierarchical plan → execute → revise…"):
                     state, report = HRMLoop(project_id, idea).run()
                 st.success("✅ HRM Automatic R&D complete!")
@@ -471,8 +533,108 @@ def main():
             else:
                 run_pipeline(project_id, idea)
 
-    # 4. Synthesize final proposal
     if "answers" in st.session_state:
+        st.subheader("Domain Expert Outputs")
+        expander_container = st if hasattr(st, "expander") else sidebar
+        for role, output in st.session_state["answers"].items():
+            with expander_container.expander(role, expanded=False):
+                st.markdown(output, unsafe_allow_html=True)
+                suggestion = st.text_input(
+                    f"💡 Suggest an edit for {role}:",
+                    key=f"suggestion_{role.replace(' ', '_')}",
+                )
+                try:
+                    submit_clicked = st.button(
+                        "Submit Suggestion", key=f"submit_{role.replace(' ', '_')}"
+                    )
+                except TypeError:  # pragma: no cover - for simple stubs in tests
+                    submit_clicked = st.button("Submit Suggestion")
+
+                if submit_clicked:
+                    try:
+                        planner_agent = agents.get("Planner")
+                        domain_agent = agents.get(role)
+                        orig_output = output
+                        role_task = st.session_state["plan"].get(role, "")
+                        planner_query = (
+                            f"For the project idea '{idea}', the user suggests: '{suggestion}' for the {role}'s output. "
+                            f"Given the {role}'s task '{role_task}', should this suggestion be incorporated to improve the overall plan? "
+                            "Respond with Yes or No and a brief reason."
+                        )
+                        planner_resp = openai.chat.completions.create(
+                            model=planner_agent.model,
+                            messages=[
+                                {"role": "system", "content": planner_agent.system_message},
+                                {"role": "user", "content": planner_query},
+                            ],
+                        )
+                        planner_text = planner_resp.choices[0].message.content.strip()
+                        integrate = planner_text.lower().startswith("yes")
+                        planner_reason = (
+                            planner_text[3:].strip(" .:-")
+                            if integrate
+                            else planner_text[2:].strip(" .:-")
+                        )
+
+                        if integrate:
+                            suggestion_prompt = (
+                                f"The Planner approved this suggestion: {planner_reason}. "
+                                "Please update your output accordingly. First, provide the revised output in detail, "
+                                "then explain briefly how this change improves the design."
+                            )
+                        else:
+                            suggestion_prompt = (
+                                f"The Planner advises against this suggestion: {planner_reason}. "
+                                "Explain to the user why this suggestion won't be adopted."
+                            )
+                        revised_resp = openai.chat.completions.create(
+                            model=domain_agent.model,
+                            messages=[
+                                {"role": "system", "content": domain_agent.system_message},
+                                {
+                                    "role": "user",
+                                    "content": domain_agent.user_prompt_template.format(
+                                        idea=idea, task=role_task
+                                    ),
+                                },
+                                {"role": "assistant", "content": orig_output},
+                                {"role": "user", "content": suggestion_prompt},
+                            ],
+                        )
+                        revised_output = revised_resp.choices[0].message.content.strip()
+                        st.markdown(
+                            f"**{role} response:**\n\n{revised_output}",
+                            unsafe_allow_html=True,
+                        )
+                        if integrate:
+                            try:
+                                accept = st.button(
+                                    "✅ Accept Revision",
+                                    key=f"accept_{role.replace(' ', '_')}",
+                                )
+                                continue_discussion = st.button(
+                                    "🗨️ Continue Discussion",
+                                    key=f"continue_{role.replace(' ', '_')}",
+                                )
+                            except TypeError:  # pragma: no cover - test stubs
+                                accept = st.button("✅ Accept Revision")
+                                continue_discussion = st.button("🗨️ Continue Discussion")
+                            if accept:
+                                parts = revised_output.strip().rsplit("\n\n", 1)
+                                updated_output_text = (
+                                    parts[0] if len(parts) >= 1 else revised_output
+                                )
+                                st.session_state["answers"][role] = updated_output_text
+                                st.success(
+                                    f"Accepted revision for {role}. The output has been updated."
+                                )
+                            if continue_discussion:
+                                st.info(
+                                    f"You can refine your suggestion for {role} and submit again."
+                                )
+                    except Exception as e:  # pylint: disable=broad-except
+                        st.error(f"Failed to process suggestion for {role}: {e}")
+
         if st.button("3⃣ Compile Final Proposal"):
             logging.info("User compiled final proposal")
             with st.spinner("🚀 Synthesizing final R&D proposal..."):
@@ -480,7 +642,9 @@ def main():
                     final_doc = compose_final_proposal(
                         idea,
                         st.session_state["answers"],
-                        include_simulations=st.session_state.get("simulate_enabled", True),
+                        include_simulations=st.session_state.get(
+                            "simulate_enabled", True
+                        ),
                     )
                     bom = []
                     for output in st.session_state["answers"].values():
@@ -493,7 +657,9 @@ def main():
                             quantity = item.get("quantity")
                             specs = item.get("specs")
                             if None in (name, quantity, specs):
-                                logging.warning(f"Skipping incomplete BOM entry: {item}")
+                                logging.warning(
+                                    f"Skipping incomplete BOM entry: {item}"
+                                )
                                 incomplete_items.append(item)
                                 continue
                             bom_md += f"|{name}|{quantity}|{specs}|\n"
@@ -505,13 +671,19 @@ def main():
                             "## Bill of Materials\n",
                             f"## Bill of Materials\n\n{bom_md}\n",
                         )
-                except Exception as e:
-                    st.error(f"Synthesizer failed: {e}")
+                    memory_manager.store_project(
+                        st.session_state.get("project_name", ""),
+                        idea,
+                        st.session_state.get("plan", {}),
+                        st.session_state["answers"],
+                        final_doc,
+                    )
+                except Exception as e:  # pylint: disable=broad-except
+                    st.error(f"Final proposal synthesis failed: {e}")
+                    logging.exception(
+                        "Error during final proposal synthesis: %s", e
+                    )
                     st.stop()
-                try:
-                    memory_manager.store_project(idea, st.session_state.get("plan", {}), st.session_state["answers"], final_doc)
-                except Exception as e:
-                    st.warning(f"Could not save project: {e}")
             st.session_state["final_doc"] = final_doc
 
     if "final_doc" in st.session_state:
@@ -525,14 +697,5 @@ def main():
                 file_name="R&D_Report.pdf",
                 mime="application/pdf",
             )
-
-    # Sidebar Audit Trail viewer
-    if "project_id" in st.session_state:
-        logs = audit_logger.get_logs(st.session_state["project_id"])
-        if logs:
-            with st.sidebar.expander("Audit Trail", expanded=False):
-                for entry in logs:
-                    symbol = "✓" if entry.get("success", True) else "✗"
-                    st.write(f"[{symbol}] {entry['role']} {entry['step_type']} – {entry['content']}")
 
 
