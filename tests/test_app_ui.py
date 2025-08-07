@@ -19,6 +19,8 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
             return False
 
     class DummySidebar:
+        def checkbox(self, *args, **kwargs):
+            return False
         def expander(self, *args, **kwargs):
             class DummyExpander:
                 def __enter__(self_inner):
