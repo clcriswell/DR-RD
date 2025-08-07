@@ -13,3 +13,9 @@ TOT_PLANNING_ENABLED = _flag("TOT_PLANNING_ENABLED")
 REFLECTION_ENABLED = _flag("REFLECTION_ENABLED")
 SIM_OPTIMIZER_ENABLED = _flag("SIM_OPTIMIZER_ENABLED")
 RAG_ENABLED = _flag("RAG_ENABLED")
+
+# Parameters for Tree-of-Thoughts planning. These remain inexpensive to
+# access even when the feature flag is disabled.
+TOT_K: int = int(os.getenv("TOT_K", "3"))
+TOT_BEAM: int = int(os.getenv("TOT_BEAM", "2"))
+TOT_MAX_DEPTH: int = int(os.getenv("TOT_MAX_DEPTH", "2"))

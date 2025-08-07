@@ -10,6 +10,7 @@ from dr_rd.extensions.registry import (
     SimulatorRegistry,
     MetaAgentRegistry,
 )
+from config.feature_flags import TOT_PLANNING_ENABLED
 
 # HRM‐loop parameters
 MAX_CYCLES = 5
@@ -22,16 +23,39 @@ def run_pipeline(self, project_id: str, idea: str):
     planner = PlannerAgent()
     simulator = SimulationAgent()
     synthesizer = SynthesizerAgent()
+    plan_strategy = None
+    if TOT_PLANNING_ENABLED:
+        from dr_rd.planning.strategies import tot  # noqa: F401
+        cls = PlannerStrategyRegistry.get("tot")
+        if cls:
+            plan_strategy = cls()
 
     best_score = 0.0
     no_improve = 0
 
     # Seed initial tasks if first run
     if not ws.read()["tasks"]:
-        init_tasks = [
-            {"role": role, "task": task, "id": hashlib.sha1((role+task).encode()).hexdigest()[:10], "status": "todo"}
-            for role, task in planner.generate_plan(idea).items()
-        ]
+        if plan_strategy:
+            init_tasks = [
+                {
+                    "role": t["role"],
+                    "task": t["task"],
+                    "id": hashlib.sha1((t["role"] + t["task"]).encode()).hexdigest()[:10],
+                    "status": "todo",
+                }
+                for t in plan_strategy.plan({"idea": idea})
+            ]
+        else:
+            seed = planner.run(idea, "Develop a plan")
+            init_tasks = [
+                {
+                    "role": role,
+                    "task": task,
+                    "id": hashlib.sha1((role + task).encode()).hexdigest()[:10],
+                    "status": "todo",
+                }
+                for role, task in seed.items()
+            ]
         ws.enqueue(init_tasks)
         ws.log("📝 Initial planning done")
 
@@ -75,7 +99,10 @@ def run_pipeline(self, project_id: str, idea: str):
 
         # 4) Revise plan
         state = ws.read()
-        new_tasks = planner.revise_plan(state)
+        if plan_strategy:
+            new_tasks = plan_strategy.plan(state)
+        else:
+            new_tasks = planner.revise_plan(state)
         ws.enqueue(new_tasks)
         ws.log(f"📝 Planner added {len(new_tasks)} tasks")
 
