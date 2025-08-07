@@ -16,12 +16,13 @@ def tool_router():
 
     if tool == "HRM R&D":
         st.title("🧠 Hierarchical R&D Runner")
-        project_id = st.text_input("Project ID", value="demo-project")
+        idea = st.text_area("Project idea")
+        pid = st.text_input("Project ID", value="demo-project")
         if st.button("Run HRM Loop"):
             from dr_rd.hrm_engine import HRMLoop
-            with st.spinner("Running planner executor loop..."):
-                HRMLoop(project_id).run()
-            st.success("HRM loop finished. Check Firestore history for details.")
+            with st.spinner("Working…"):
+                HRMLoop(pid, idea).run()
+            st.success("Done! view history in Firestore 📑")
     else:
         main()
 

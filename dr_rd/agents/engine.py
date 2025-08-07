@@ -1,6 +1,6 @@
 import hashlib
 
-from dr_rd.cache import FirestoreWorkspace
+from dr_rd.utils.firestore_workspace import FirestoreWorkspace
 from dr_rd.agents.planner_agent import PlannerAgent
 from dr_rd.agents.simulation_agent import SimulationAgent
 from dr_rd.agents.synthesizer_agent import SynthesizerAgent
@@ -23,21 +23,21 @@ def run_pipeline(self, project_id: str, idea: str):
     # Seed initial tasks if first run
     if not ws.read()["tasks"]:
         init_tasks = [
-            {"role": role, "task": task, "id": hashlib.sha1((role+task).encode()).hexdigest()[:10]}
+            {"role": role, "task": task, "id": hashlib.sha1((role+task).encode()).hexdigest()[:10], "status": "todo"}
             for role, task in planner.generate_plan(idea).items()
         ]
-        ws.enqueue_tasks(init_tasks)
+        ws.enqueue(init_tasks)
         ws.log("📝 Initial planning done")
 
     # HRM‐style plan → execute → revise loop
     for cycle in range(MAX_CYCLES):
-        ws.bump_cycle(cycle)
+        ws.patch({"cycle": cycle})
         ws.log(f"🔄 Cycle {cycle+1} start")
 
         # 1) Execute all tasks in current queue
         task_scores = []
         while True:
-            t = ws.get_next_task()
+            t = ws.pop()
             if not t:
                 break
             ws.log(f"▶️ Executing {t['role']}: {t['task']}")
@@ -70,9 +70,9 @@ def run_pipeline(self, project_id: str, idea: str):
         # 4) Revise plan
         state = ws.read()
         new_tasks = planner.revise_plan(state)
-        ws.enqueue_tasks(new_tasks)
+        ws.enqueue(new_tasks)
         ws.log(f"📝 Planner added {len(new_tasks)} tasks")
 
     # 5) Synthesize final proposal from workspace results
     final_results = ws.read()["results"]
-    synthesizer.combine_results(final_results)
+    synthesizer.run(idea, final_results)
