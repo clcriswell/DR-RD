@@ -117,6 +117,221 @@ def maybe_init_gcp_logging() -> bool:
 
     return st.session_state["gcp_logging_initialized"]
 
+def run_manual_pipeline(agents, memory_manager, similar_ideas, idea, refinement_rounds, simulate_enabled, design_depth, re_run_simulations):
+    logging.info(
+        f"Running domain experts with refinement_rounds={refinement_rounds}, "
+        f"design_depth={design_depth}, simulate_enabled={simulate_enabled}"
+    )
+    answers = {}
+    prev_outputs = []
+    simulation_agent = SimulationAgent() if simulate_enabled else None
+
+    # Initial execution by all expert agents
+    for role, task in st.session_state["plan"].items():
+        agent = agents.get(role)
+        if not agent:
+            st.warning(f"No agent registered for role: {role}")
+            continue
+        logging.info(f"Executing agent {role} with task: {task}")
+        with st.spinner(f"🤖 {role} working..."):
+            try:
+                memory_context = (
+                    memory_manager.get_project_summaries(similar_ideas)
+                    if similar_ideas
+                    else ""
+                )
+                prompt_base = agent.user_prompt_template.format(idea=idea, task=task)
+                depth = design_depth.capitalize()
+                if depth == "High":
+                    prompt_base += (
+                        "\n\n**Design Depth: High** – Include all relevant component-level details, diagrams, and trade-off analysis."
+                    )
+                elif depth == "Low":
+                    prompt_base += (
+                        "\n\n**Design Depth: Low** – Provide only a high-level summary with minimal detail."
+                    )
+                else:
+                    prompt_base += (
+                        "\n\n**Design Depth: Medium** – Provide a moderate level of detail with key diagrams and justifications."
+                    )
+                previous = "\n\n".join(prev_outputs)
+                prompt_parts = [memory_context, previous, prompt_base]
+                prompt_with_context = "\n\n".join(
+                    [p for p in prompt_parts if p]
+                )
+                response = openai.chat.completions.create(
+                    model=agent.model,
+                    messages=[
+                        {"role": "system", "content": agent.system_message},
+                        {"role": "user", "content": prompt_with_context},
+                    ],
+                )
+                result = response.choices[0].message.content.strip()
+            except Exception as e:
+                result = f"❌ {role} failed: {e}"
+        # If simulations are enabled, run simulation and potentially refine output
+        if simulate_enabled and result and not result.startswith("❌"):
+            # Determine simulation type via SimulationAgent logic and run simulation
+            if "engineer" in role.lower():
+                sim_type = "structural"
+            elif "cto" in role.lower():
+                sim_type = "electronics"
+            elif "research scientist" in role.lower():
+                sim_type = (
+                    "chemical" if any(term in result.lower() for term in ["chemical", "chemistry", "compound", "reaction", "material"]) else "thermal"
+                )
+            else:
+                sim_type = ""
+            if sim_type:
+                logging.info(f"Running {sim_type} simulation for role {role}")
+                sim_metrics = simulation_agent.sim_manager.simulate(sim_type, result)
+            else:
+                logging.info(f"No simulation available for role {role}; skipping.")
+                sim_metrics = {"pass": True, "failed": []}
+            # Check simulation results
+            if not sim_metrics.get("pass", True):
+                # Log initial output failure
+                failed_list = sim_metrics.get("failed", [])
+                fail_desc = ", ".join(failed_list) if failed_list else "criteria"
+                safe_log_step(st.session_state["project_id"], role, "Output", f"Failed {fail_desc}", success=False)
+                # Attempt up to 2 refinements based on failed criteria
+                for attempt in range(1, 3):  # attempt = 1 for first retry, 2 for second retry
+                    # Prepare feedback context with failed criteria
+                    feedback = ""
+                    if failed_list:
+                        feedback = f"The simulation indicates failure in: {', '.join(failed_list)}. Please address these issues in the design."
+                    # Construct messages to re-run agent with feedback
+                    try:
+                        revised_response = openai.chat.completions.create(
+                            model=agent.model,
+                            messages=[
+                                {"role": "system", "content": agent.system_message},
+                                {"role": "user", "content": agent.user_prompt_template.format(idea=idea, task=task)},
+                                {"role": "assistant", "content": result},
+                                {"role": "user", "content": feedback if feedback else "The design did not meet some requirements; please refine the proposal."}
+                            ]
+                        )
+                        new_result = revised_response.choices[0].message.content.strip()
+                    except Exception as e:
+                        new_result = result  # if the re-run fails, keep the last result
+                    # Run simulation again on the revised output
+                    new_metrics = simulation_agent.sim_manager.simulate(sim_type, new_result)
+                    if new_metrics.get("pass", True):
+                        # Success on retry
+                        result = new_result
+                        # Log successful retry attempt
+                        safe_log_step(st.session_state["project_id"], role, f"Retry {attempt}", "Passed Simulation", success=True)
+                        # Format simulation results for output if showing immediately
+                        if refinement_rounds == 1:
+                            sim_text = simulation_agent.run_simulation(role, result)
+                            if sim_text:
+                                result = f"{new_result}\n\n{sim_text}"
+                        break
+                    else:
+                        # Still failing after this attempt
+                        failed_list = new_metrics.get("failed", [])
+                        fail_desc = ", ".join(failed_list) if failed_list else "criteria"
+                        result = new_result  # update result to the latest attempt for potential display
+                        # Log the failed retry attempt
+                        safe_log_step(st.session_state["project_id"], role, f"Retry {attempt}", f"Failed {fail_desc}", success=False)
+                        if attempt == 2:
+                            # After 2 retries (total 3 attempts including initial) still failing
+                            st.error(f"{role} could not meet simulation constraints after 2 attempts. Halting execution.")
+                            # Log halting scenario
+                            safe_log_step(st.session_state["project_id"], role, "Abort", "Simulation constraints unmet after 2 retries", success=False)
+                            st.stop()
+            else:
+                # Simulation passed on first try
+                safe_log_step(st.session_state["project_id"], role, "Output", "Passed Simulation", success=True)
+                # Append simulation metrics to the output if no further refinement rounds
+                if refinement_rounds == 1:
+                    sim_text = simulation_agent.run_simulation(role, result)
+                    if sim_text:
+                        result = f"{result}\n\n{sim_text}"
+        else:
+            # Simulations not enabled or result is an error
+            # Log the output as completed (success=True by default if no simulation)
+            if not result.startswith("❌"):
+                safe_log_step(st.session_state["project_id"], role, "Output", "Completed", success=True)
+            else:
+                safe_log_step(st.session_state["project_id"], role, "Output", "Failed to generate", success=False)
+
+        answers[role] = result
+        prev_outputs.append(strip_json_block(result))
+
+        # Display initial outputs immediately if no refinement rounds selected
+        if refinement_rounds == 1:
+            st.markdown("---")
+            st.markdown(f"### {role}")
+            st.markdown(result, unsafe_allow_html=True)
+    # Save initial answers
+    st.session_state["answers"] = answers
+
+    # Agent-to-Agent collaboration after initial outputs (CTO ↔ Research Scientist)
+    if "CTO" in answers and "Research Scientist" in answers:
+        with st.spinner("🔄 CTO and Research Scientist collaborating..."):
+            try:
+                updated_cto, updated_rs = agent_chat(
+                    agents["CTO"], agents["Research Scientist"],
+                    idea, answers["CTO"], answers["Research Scientist"]
+                )
+                answers["CTO"] = updated_cto
+                answers["Research Scientist"] = updated_rs
+                # Display revised outputs if no further refinement rounds
+                if refinement_rounds == 1:
+                    st.markdown("---")
+                    st.markdown("### CTO (Revised after collaboration)")
+                    if simulate_enabled:
+                        sim_cto = simulation_agent.run_simulation("CTO", updated_cto)
+                        if sim_cto:
+                            updated_cto = f"{updated_cto}\n\n{sim_cto}"
+                            answers["CTO"] = updated_cto
+                    st.markdown(updated_cto, unsafe_allow_html=True)
+                    st.markdown("---")
+                    st.markdown("### Research Scientist (Revised after collaboration)")
+                    if simulate_enabled:
+                        sim_rs = simulation_agent.run_simulation("Research Scientist", updated_rs)
+                        if sim_rs:
+                            updated_rs = f"{updated_rs}\n\n{sim_rs}"
+                            answers["Research Scientist"] = updated_rs
+                    st.markdown(updated_rs, unsafe_allow_html=True)
+            except Exception as e:
+                st.warning(f"Agent collaboration failed: {e}")
+        # Update session state with collaborated outputs
+        st.session_state["answers"] = answers
+
+    # Iterative refinement rounds if selected
+    if refinement_rounds > 1:
+        for r in range(2, refinement_rounds + 1):
+            st.info(f"Refinement round {r-1} of {refinement_rounds-1}...")
+            new_answers = {}
+            for role, task in st.session_state["plan"].items():
+                agent = agents.get(role)
+                if not agent:
+                    continue
+                with st.spinner(f"🤖 Refining {role}'s output..."):
+                    try:
+                        other_outputs = {other_role: ans for other_role, ans in answers.items() if other_role != role}
+                        refined_output = refine_agent_output(agent, idea, task, answers.get(role, ""), other_outputs)
+                    except Exception as e:
+                        refined_output = f"❌ {role} refinement failed: {e}"
+                new_answers[role] = refined_output
+            answers = new_answers
+        # After all refinement rounds, append simulation results if enabled (re-run simulations for final outputs)
+        if simulate_enabled:
+            for role, output in answers.items():
+                sim_text = SimulationAgent().run_simulation(role, output) if re_run_simulations or True else ""
+                # Note: We always run final simulation if enabled to display up-to-date metrics
+                if sim_text:
+                    answers[role] = f"{output}\n\n{sim_text}"
+        # Display final expert outputs after refinements
+        st.subheader("Final Expert Outputs after Refinement")
+        for role, output in answers.items():
+            st.markdown("---")
+            st.markdown(f"### {role} (Refined)")
+            st.markdown(output, unsafe_allow_html=True)
+        st.session_state["answers"] = answers
+
 
 def main():
     maybe_init_gcp_logging()
@@ -171,6 +386,8 @@ def main():
     if similar_ideas:
         st.info("Found similar past projects: " + ", ".join(similar_ideas))
 
+    auto_mode = st.sidebar.checkbox("Enable Automatic AI R&D (HRM)", value=False)
+
     # 2. Generate the role→task plan
     if st.button("1⃣ Generate Research Plan"):
         logging.info(f"User generated plan for idea: {idea}")
@@ -221,221 +438,23 @@ def main():
         )
 
         if st.button("2⃣ Run All Domain Experts"):
-            logging.info(
-                f"Running domain experts with refinement_rounds={refinement_rounds}, "
-                f"design_depth={design_depth}, simulate_enabled={simulate_enabled}"
-            )
-            answers = {}
-            prev_outputs = []
-            simulation_agent = SimulationAgent() if simulate_enabled else None
-
-            # Initial execution by all expert agents
-            for role, task in st.session_state["plan"].items():
-                agent = agents.get(role)
-                if not agent:
-                    st.warning(f"No agent registered for role: {role}")
-                    continue
-                logging.info(f"Executing agent {role} with task: {task}")
-                with st.spinner(f"🤖 {role} working..."):
-                    try:
-                        memory_context = (
-                            memory_manager.get_project_summaries(similar_ideas)
-                            if similar_ideas
-                            else ""
-                        )
-                        prompt_base = agent.user_prompt_template.format(idea=idea, task=task)
-                        depth = design_depth.capitalize()
-                        if depth == "High":
-                            prompt_base += (
-                                "\n\n**Design Depth: High** – Include all relevant component-level details, diagrams, and trade-off analysis."
-                            )
-                        elif depth == "Low":
-                            prompt_base += (
-                                "\n\n**Design Depth: Low** – Provide only a high-level summary with minimal detail."
-                            )
-                        else:
-                            prompt_base += (
-                                "\n\n**Design Depth: Medium** – Provide a moderate level of detail with key diagrams and justifications."
-                            )
-                        previous = "\n\n".join(prev_outputs)
-                        prompt_parts = [memory_context, previous, prompt_base]
-                        prompt_with_context = "\n\n".join(
-                            [p for p in prompt_parts if p]
-                        )
-                        response = openai.chat.completions.create(
-                            model=agent.model,
-                            messages=[
-                                {"role": "system", "content": agent.system_message},
-                                {"role": "user", "content": prompt_with_context},
-                            ],
-                        )
-                        result = response.choices[0].message.content.strip()
-                    except Exception as e:
-                        result = f"❌ {role} failed: {e}"
-                # If simulations are enabled, run simulation and potentially refine output
-                if simulate_enabled and result and not result.startswith("❌"):
-                    # Determine simulation type via SimulationAgent logic and run simulation
-                    if "engineer" in role.lower():
-                        sim_type = "structural"
-                    elif "cto" in role.lower():
-                        sim_type = "electronics"
-                    elif "research scientist" in role.lower():
-                        sim_type = (
-                            "chemical" if any(term in result.lower() for term in ["chemical", "chemistry", "compound", "reaction", "material"]) else "thermal"
-                        )
-                    else:
-                        sim_type = ""
-                    if sim_type:
-                        logging.info(f"Running {sim_type} simulation for role {role}")
-                        sim_metrics = simulation_agent.sim_manager.simulate(sim_type, result)
-                    else:
-                        logging.info(f"No simulation available for role {role}; skipping.")
-                        sim_metrics = {"pass": True, "failed": []}
-                    # Check simulation results
-                    if not sim_metrics.get("pass", True):
-                        # Log initial output failure
-                        failed_list = sim_metrics.get("failed", [])
-                        fail_desc = ", ".join(failed_list) if failed_list else "criteria"
-                        safe_log_step(st.session_state["project_id"], role, "Output", f"Failed {fail_desc}", success=False)
-                        # Attempt up to 2 refinements based on failed criteria
-                        for attempt in range(1, 3):  # attempt = 1 for first retry, 2 for second retry
-                            # Prepare feedback context with failed criteria
-                            feedback = ""
-                            if failed_list:
-                                feedback = f"The simulation indicates failure in: {', '.join(failed_list)}. Please address these issues in the design."
-                            # Construct messages to re-run agent with feedback
-                            try:
-                                revised_response = openai.chat.completions.create(
-                                    model=agent.model,
-                                    messages=[
-                                        {"role": "system", "content": agent.system_message},
-                                        {"role": "user", "content": agent.user_prompt_template.format(idea=idea, task=task)},
-                                        {"role": "assistant", "content": result},
-                                        {"role": "user", "content": feedback if feedback else "The design did not meet some requirements; please refine the proposal."}
-                                    ]
-                                )
-                                new_result = revised_response.choices[0].message.content.strip()
-                            except Exception as e:
-                                new_result = result  # if the re-run fails, keep the last result
-                            # Run simulation again on the revised output
-                            new_metrics = simulation_agent.sim_manager.simulate(sim_type, new_result)
-                            if new_metrics.get("pass", True):
-                                # Success on retry
-                                result = new_result
-                                # Log successful retry attempt
-                                safe_log_step(st.session_state["project_id"], role, f"Retry {attempt}", "Passed Simulation", success=True)
-                                # Format simulation results for output if showing immediately
-                                if refinement_rounds == 1:
-                                    sim_text = simulation_agent.run_simulation(role, result)
-                                    if sim_text:
-                                        result = f"{new_result}\n\n{sim_text}"
-                                break
-                            else:
-                                # Still failing after this attempt
-                                failed_list = new_metrics.get("failed", [])
-                                fail_desc = ", ".join(failed_list) if failed_list else "criteria"
-                                result = new_result  # update result to the latest attempt for potential display
-                                # Log the failed retry attempt
-                                safe_log_step(st.session_state["project_id"], role, f"Retry {attempt}", f"Failed {fail_desc}", success=False)
-                                if attempt == 2:
-                                    # After 2 retries (total 3 attempts including initial) still failing
-                                    st.error(f"{role} could not meet simulation constraints after 2 attempts. Halting execution.")
-                                    # Log halting scenario
-                                    safe_log_step(st.session_state["project_id"], role, "Abort", "Simulation constraints unmet after 2 retries", success=False)
-                                    st.stop()
-                        # If loop exited without break, it means we exhausted retries and handled stop.
-                        # If broke out (success), 'result' is updated and logged.
-                    else:
-                        # Simulation passed on first try
-                        safe_log_step(st.session_state["project_id"], role, "Output", "Passed Simulation", success=True)
-                        # Append simulation metrics to the output if no further refinement rounds
-                        if refinement_rounds == 1:
-                            sim_text = simulation_agent.run_simulation(role, result)
-                            if sim_text:
-                                result = f"{result}\n\n{sim_text}"
-                else:
-                    # Simulations not enabled or result is an error
-                    # Log the output as completed (success=True by default if no simulation)
-                    if not result.startswith("❌"):
-                        safe_log_step(st.session_state["project_id"], role, "Output", "Completed", success=True)
-                    else:
-                        safe_log_step(st.session_state["project_id"], role, "Output", "Failed to generate", success=False)
-
-                answers[role] = result
-                prev_outputs.append(strip_json_block(result))
-
-                # Display initial outputs immediately if no refinement rounds selected
-                if refinement_rounds == 1:
-                    st.markdown("---")
-                    st.markdown(f"### {role}")
-                    st.markdown(result, unsafe_allow_html=True)
-            # Save initial answers
-            st.session_state["answers"] = answers
-
-            # Agent-to-Agent collaboration after initial outputs (CTO ↔ Research Scientist)
-            if "CTO" in answers and "Research Scientist" in answers:
-                with st.spinner("🔄 CTO and Research Scientist collaborating..."):
-                    try:
-                        updated_cto, updated_rs = agent_chat(
-                            agents["CTO"], agents["Research Scientist"],
-                            idea, answers["CTO"], answers["Research Scientist"]
-                        )
-                        answers["CTO"] = updated_cto
-                        answers["Research Scientist"] = updated_rs
-                        # Display revised outputs if no further refinement rounds
-                        if refinement_rounds == 1:
-                            st.markdown("---")
-                            st.markdown("### CTO (Revised after collaboration)")
-                            if simulate_enabled:
-                                sim_cto = simulation_agent.run_simulation("CTO", updated_cto)
-                                if sim_cto:
-                                    updated_cto = f"{updated_cto}\n\n{sim_cto}"
-                                    answers["CTO"] = updated_cto
-                            st.markdown(updated_cto, unsafe_allow_html=True)
-                            st.markdown("---")
-                            st.markdown("### Research Scientist (Revised after collaboration)")
-                            if simulate_enabled:
-                                sim_rs = simulation_agent.run_simulation("Research Scientist", updated_rs)
-                                if sim_rs:
-                                    updated_rs = f"{updated_rs}\n\n{sim_rs}"
-                                    answers["Research Scientist"] = updated_rs
-                            st.markdown(updated_rs, unsafe_allow_html=True)
-                    except Exception as e:
-                        st.warning(f"Agent collaboration failed: {e}")
-                # Update session state with collaborated outputs
-                st.session_state["answers"] = answers
-
-            # Iterative refinement rounds if selected
-            if refinement_rounds > 1:
-                for r in range(2, refinement_rounds + 1):
-                    st.info(f"Refinement round {r-1} of {refinement_rounds-1}...")
-                    new_answers = {}
-                    for role, task in st.session_state["plan"].items():
-                        agent = agents.get(role)
-                        if not agent:
-                            continue
-                        with st.spinner(f"🤖 Refining {role}'s output..."):
-                            try:
-                                other_outputs = {other_role: ans for other_role, ans in answers.items() if other_role != role}
-                                refined_output = refine_agent_output(agent, idea, task, answers.get(role, ""), other_outputs)
-                            except Exception as e:
-                                refined_output = f"❌ {role} refinement failed: {e}"
-                        new_answers[role] = refined_output
-                    answers = new_answers
-                # After all refinement rounds, append simulation results if enabled (re-run simulations for final outputs)
-                if simulate_enabled:
-                    for role, output in answers.items():
-                        sim_text = SimulationAgent().run_simulation(role, output) if re_run_simulations or True else ""
-                        # Note: We always run final simulation if enabled to display up-to-date metrics
-                        if sim_text:
-                            answers[role] = f"{output}\n\n{sim_text}"
-                # Display final expert outputs after refinements
-                st.subheader("Final Expert Outputs after Refinement")
-                for role, output in answers.items():
-                    st.markdown("---")
-                    st.markdown(f"### {role} (Refined)")
-                    st.markdown(output, unsafe_allow_html=True)
-                st.session_state["answers"] = answers
+            project_id = st.session_state["project_id"]
+            if auto_mode:
+                from dr_rd.hrm_engine import HRMLoop
+                with st.spinner("🤖 Running hierarchical plan → execute → revise…"):
+                    HRMLoop(project_id, idea).run()
+                st.success("✅ HRM automatic R&D complete! See Firestore for details.")
+            else:
+                run_manual_pipeline(
+                    agents,
+                    memory_manager,
+                    similar_ideas,
+                    idea,
+                    refinement_rounds,
+                    simulate_enabled,
+                    design_depth,
+                    re_run_simulations,
+                )
 
     # 4. Synthesize final proposal
     if "answers" in st.session_state:
