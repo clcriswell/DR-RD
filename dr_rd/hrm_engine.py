@@ -197,3 +197,110 @@ class HRMLoop:
             pass
 
         return self.ws.read(), final_report
+
+
+def run(idea: str) -> Dict[str, Any]:
+    """Run a minimal one-cycle HRM loop with all features disabled.
+
+    This convenience helper patches the workspace and agent initialization with
+    lightweight in-memory implementations so the loop can execute without
+    external services. All feature flags are forced to ``False`` to ensure a
+    fast smoke-test style run. The dictionary of results produced by the
+    cycle is returned.
+    """
+
+    import hashlib
+    import importlib
+    import os
+    from typing import Any, Dict
+
+    # Ensure feature flags are disabled regardless of environment variables
+    global EVALUATORS_ENABLED, PARALLEL_EXEC_ENABLED, TOT_PLANNING_ENABLED
+    global REFLECTION_ENABLED, SIM_OPTIMIZER_ENABLED, RAG_ENABLED
+    EVALUATORS_ENABLED = False
+    PARALLEL_EXEC_ENABLED = False
+    TOT_PLANNING_ENABLED = False
+    REFLECTION_ENABLED = False
+    SIM_OPTIMIZER_ENABLED = False
+    RAG_ENABLED = False
+    for name in [
+        "EVALUATORS_ENABLED",
+        "PARALLEL_EXEC_ENABLED",
+        "TOT_PLANNING_ENABLED",
+        "REFLECTION_ENABLED",
+        "SIM_OPTIMIZER_ENABLED",
+        "RAG_ENABLED",
+    ]:
+        os.environ.pop(name, None)
+    import config.feature_flags as ff
+    importlib.reload(ff)
+
+    # In-memory workspace avoiding Firestore
+    class _WS:
+        def __init__(self, project_id: str):  # pragma: no cover - simple storage
+            self.data = {
+                "idea": "",
+                "tasks": [],
+                "results": {},
+                "scores": {},
+                "history": [],
+                "cycle": 0,
+            }
+
+        def read(self) -> Dict[str, Any]:
+            return {
+                k: (v.copy() if isinstance(v, (dict, list)) else v)
+                for k, v in self.data.items()
+            }
+
+        def patch(self, d: Dict[str, Any]) -> None:
+            self.data.update(d)
+
+        def enqueue(self, tasks: List[Dict[str, Any]]) -> None:
+            self.data["tasks"].extend(tasks)
+
+        def pop(self) -> Optional[Dict[str, Any]]:
+            return self.data["tasks"].pop(0) if self.data["tasks"] else None
+
+        def save_result(self, tid: str, result: Any, score: float) -> None:
+            self.data["results"][tid] = result
+            self.data["scores"][tid] = score
+
+        def log(self, msg: str) -> None:
+            pass
+
+        @staticmethod
+        def new_id(role: str) -> str:
+            return hashlib.sha1(f"{role}{time.time()}".encode()).hexdigest()[:10]
+
+    # Minimal agent implementations
+    class _Planner:
+        def run(self, idea: str, prompt: str) -> Dict[str, str]:
+            return {"Worker": "do work"}
+
+        def revise_plan(self, state: Dict[str, Any]) -> List[Dict[str, str]]:
+            return []
+
+    class _Worker:
+        def run(self, idea: str, task: str) -> Dict[str, Any]:
+            return {"output": "done"}
+
+    class _Synth:
+        def run(self, idea: str, results: Dict[str, Any]) -> str:
+            return "ok"
+
+    def _init_agents() -> Dict[str, Any]:
+        return {"Planner": _Planner(), "Worker": _Worker(), "Synthesizer": _Synth()}
+
+    # Patch globals so HRMLoop uses the lightweight components
+    original_ws, original_init = WS, initialize_agents
+    globals()["WS"] = _WS
+    globals()["initialize_agents"] = _init_agents
+    try:
+        loop = HRMLoop("smoke", idea)
+        state, _ = loop.run(max_cycles=1)
+    finally:
+        globals()["WS"] = original_ws
+        globals()["initialize_agents"] = original_init
+
+    return state.get("results", {})
