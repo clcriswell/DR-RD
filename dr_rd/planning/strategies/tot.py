@@ -25,6 +25,9 @@ from config.feature_flags import (
 from dr_rd.extensions.abcs import BasePlannerStrategy
 from dr_rd.extensions.registry import EvaluatorRegistry, PlannerStrategyRegistry
 
+if EVALUATORS_ENABLED:
+    from dr_rd import evaluators  # noqa: F401
+
 
 logger = logging.getLogger(__name__)
 

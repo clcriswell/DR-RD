@@ -10,7 +10,10 @@ from dr_rd.extensions.registry import (
     SimulatorRegistry,
     MetaAgentRegistry,
 )
+from dr_rd.evaluation import Scorecard
 from config.feature_flags import (
+    EVALUATORS_ENABLED,
+    EVALUATOR_WEIGHTS,
     TOT_PLANNING_ENABLED,
     REFLECTION_ENABLED,
     REFLECTION_PATIENCE,
@@ -100,6 +103,31 @@ def run_pipeline(self, project_id: str, idea: str):
                     ws.log("⚠️ Simulation failed")
             task_scores.append(score)
 
+        # Optional evaluator scorecard
+        state = ws.read()
+        if EVALUATORS_ENABLED:
+            from dr_rd import evaluators  # noqa: F401
+
+            names = EvaluatorRegistry.list()
+            if names:
+                results = {}
+                for name in names:
+                    cls = EvaluatorRegistry.get(name)
+                    try:
+                        evaluator = cls()
+                        data = evaluator.evaluate(state)
+                        results[name] = {
+                            "score": float(data.get("score", 0.0)),
+                            "notes": data.get("notes", []),
+                        }
+                    except Exception:  # pragma: no cover - defensive
+                        continue
+                scorecard = Scorecard(EVALUATOR_WEIGHTS).aggregate(results)
+                ws.patch({"scorecard": scorecard})
+                state["scorecard"] = scorecard
+                ws.log(f"📊 Scorecard overall={scorecard['overall']:.2f}")
+            else:
+                ws.log("⚠️ EVALUATORS_ENABLED but no evaluators registered")
         # 2) Assess improvement
         cycle_best = max(task_scores or [0.0])
         improvement = cycle_best - best_score
