@@ -115,17 +115,24 @@ class ToTPlannerStrategy(BasePlannerStrategy):
     def _score(self, tasks: List[Dict[str, Any]], state: Dict[str, Any]) -> float:
         """Score a candidate plan."""
 
-        if EVALUATORS_ENABLED and EvaluatorRegistry.list():
-            score = 0.0
-            for name in EvaluatorRegistry.list():
-                eval_cls = EvaluatorRegistry.get(name)
-                try:
-                    evaluator = eval_cls()
-                    data = evaluator.evaluate({"tasks": tasks, **state})
-                    score += float(data.get("score", 0.0)) * evaluator.weight()
-                except Exception:  # pragma: no cover - defensive
-                    continue
-            return score
+        if EVALUATORS_ENABLED:
+            names = EvaluatorRegistry.list()
+            if names:
+                score = 0.0
+                metrics_found = False
+                for name in names:
+                    eval_cls = EvaluatorRegistry.get(name)
+                    try:
+                        evaluator = eval_cls()
+                        data = evaluator.evaluate({"tasks": tasks, **state})
+                        if data and data.get("score") is not None:
+                            score += float(data.get("score", 0.0)) * evaluator.weight()
+                            metrics_found = True
+                    except Exception:  # pragma: no cover - defensive
+                        continue
+                if metrics_found:
+                    return score
+            logger.info("ToT: no evaluators registered; using heuristic scoring")
 
         # Lightweight heuristic: favour plans that clarify requirements when
         # none are provided, mention feasibility, or explore novelty.
