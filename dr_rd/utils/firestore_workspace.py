@@ -37,6 +37,12 @@ class FirestoreWorkspace:
     def patch(self, d: Dict[str, Any]):              # generic update
         self.doc.update(d)
 
+    def append(self, key: str, items: list):
+        doc = self.read()
+        arr = list(doc.get(key, []))
+        arr.extend(items or [])
+        self.patch({key: arr})
+
     # ---------- task queue ----------
     def enqueue(self, tasks: List[Dict[str, str]]):
         self.doc.update({"tasks": firestore.ArrayUnion(tasks)})
