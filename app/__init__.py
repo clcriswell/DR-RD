@@ -14,9 +14,25 @@ import re
 import uuid
 import io
 import fitz
+import time
 from markdown_pdf import MarkdownPdf, Section
-from dr_rd.config.feature_flags import get_env_defaults
+from dr_rd.config.feature_flags import (
+    get_env_defaults,
+    EVAL_THRESHOLD,
+    COVERAGE_THRESHOLD,
+    MAX_LAPS,
+    RUN_SOFT_TIME_LIMIT_SEC,
+    AGENT_HRM_ENABLED,
+    AGENT_TOPK,
+    AGENT_MAX_RETRIES,
+    AGENT_THRESHOLD,
+)
 from dr_rd.config.mode_profiles import apply_profile
+from dr_rd.hrm_engine import HRMLoop
+from dr_rd.hrm_bridge import HRMBridge
+from dr_rd.agents.hrm_agent import HRMAgent
+from dr_rd.evaluators import feasibility_ev, clarity_ev, coherence_ev, goal_fit_ev
+from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 
 WRAP_CSS = """
 pre, code {
@@ -79,6 +95,15 @@ def safe_log_step(project_id, role, step_type, content, success=True):
         audit_logger.log_step(project_id, role, step_type, content, success=success)
     except Exception as e:
         logging.warning(f"Audit logging failed: {e}")
+
+
+def merge_brief(brief, advice_list):
+    brief = dict(brief or {})
+    existing = list(brief.get("help_notes") or [])
+    if advice_list:
+        existing.extend(advice_list if isinstance(advice_list, list) else [advice_list])
+    brief["help_notes"] = existing
+    return brief
 
 
 def extract_json_from_markdown(md: str):
@@ -426,8 +451,33 @@ def run_manual_pipeline(
 
 def main():
     maybe_init_gcp_logging()
+    project_id = get_project_id()
+    ws = WS(project_id)
 
-    agents = get_agents()
+    base_agents = get_agents()
+    agents = dict(base_agents)
+    if AGENT_HRM_ENABLED:
+        planner = agents.get("Planner")
+        synth = agents.get("Synthesizer")
+        agents["Planner"] = HRMAgent(
+            planner,
+            [feasibility_ev, clarity_ev],
+            ws,
+            "Planner",
+            top_k=AGENT_TOPK,
+            max_retries=AGENT_MAX_RETRIES,
+            threshold=AGENT_THRESHOLD,
+        )
+        agents["Synthesizer"] = HRMAgent(
+            synth,
+            [coherence_ev, goal_fit_ev],
+            ws,
+            "Synthesizer",
+            top_k=AGENT_TOPK,
+            max_retries=AGENT_MAX_RETRIES,
+            threshold=AGENT_THRESHOLD,
+        )
+
     memory_manager = get_memory_manager()
 
     use_firestore = False
@@ -438,8 +488,6 @@ def main():
         use_firestore = True
     except Exception as e:  # pragma: no cover - optional dependency
         logging.info(f"Firestore not enabled, using local storage: {e}")
-
-    get_project_id()
 
     st.set_page_config(page_title="Dr. R&D", layout="wide")
     st.title("Dr. R&D")
@@ -543,9 +591,6 @@ def main():
         st.session_state["simulate_enabled"] = True
     if "design_depth" not in st.session_state:
         st.session_state["design_depth"] = "Low"
-    if "auto_mode" not in st.session_state:
-        st.session_state["auto_mode"] = False
-
     env_defaults = get_env_defaults()
     current_flags = st.session_state.get("final_flags", env_defaults)
 
@@ -559,9 +604,6 @@ def main():
             options=["Low", "Medium", "High"],
             index=["Low", "Medium", "High"].index(st.session_state["design_depth"]),
             help="Controls how detailed the agent outputs will be.",
-        )
-        auto_mode = st.checkbox(
-            "Enable Automatic AI R&D (HRM)", value=st.session_state["auto_mode"]
         )
         expander_container = sidebar if hasattr(sidebar, "expander") else st
         with expander_container.expander("Advanced overrides"):
@@ -605,7 +647,6 @@ def main():
     if submitted:
         st.session_state["simulate_enabled"] = simulate_enabled
         st.session_state["design_depth"] = design_depth
-        st.session_state["auto_mode"] = auto_mode
         overrides = {
             "PARALLEL_EXEC_ENABLED": parallel_exec,
             "TOT_PLANNING_ENABLED": tot_planning,
@@ -697,34 +738,39 @@ def main():
             else False
         )
 
-        def run_pipeline(project_id: str, idea: str) -> None:
-            run_manual_pipeline(
-                agents,
-                memory_manager,
-                similar_ideas,
-                idea,
-                refinement_rounds,
-                simulate_enabled,
-                design_depth,
-                re_run_simulations,
-            )
+        def classic_execute(tasks):
+            outputs = {}
+            for t in tasks:
+                agent = agents.get(t.get("role"))
+                if not agent:
+                    continue
+                outputs[t["role"]] = agent.run(idea, t.get("task", ""))
+            return outputs
 
         if st.button("2⃣ Run All Domain Experts"):
-            project_id = get_project_id()
-            if st.session_state.get("auto_mode", False):
-                from dr_rd.hrm_engine import HRMLoop
-
-                with st.spinner("🤖 Running hierarchical plan → execute → revise…"):
-                    state, report = HRMLoop(
-                        project_id, idea, st.session_state.get("final_flags")
-                    ).run()
-                st.session_state["hrm_state"] = state
-                st.session_state["hrm_report"] = report
-                st.success("✅ HRM Automatic R&D complete!")
-            else:
-                st.session_state.pop("hrm_report", None)
-                st.session_state.pop("hrm_state", None)
-                run_pipeline(project_id, idea)
+            brief = {"idea": idea}
+            hrm = HRMBridge(HRMLoop, ws)
+            with st.spinner("🤖 Running plan → execute → evaluate…"):
+                t0 = time.time()
+                tasks = hrm.plan_only(brief)
+                results = classic_execute(tasks)
+                score, notes, cov = hrm.evaluate_only(results)
+                laps = 0
+                while (score < EVAL_THRESHOLD or cov < COVERAGE_THRESHOLD) and laps < MAX_LAPS:
+                    if time.time() - t0 > RUN_SOFT_TIME_LIMIT_SEC:
+                        ws.log("⏱ Soft time limit reached; skipping extra lap")
+                        break
+                    advice = hrm.seek_help_only(brief, results)
+                    brief = merge_brief(brief, advice)
+                    tasks = hrm.plan_only(brief, replan=True)
+                    results = classic_execute(tasks)
+                    score, notes, cov = hrm.evaluate_only(results)
+                    laps += 1
+                final_report = agents["Synthesizer"].run(idea, results)
+                ws.log(f"✅ Final score={score:.2f}")
+            st.session_state["hrm_report"] = final_report
+            st.session_state["hrm_state"] = {"results": results}
+            st.success("✅ HRM R&D complete!")
 
     if st.session_state.get("hrm_report"):
         st.subheader("Final Report")
