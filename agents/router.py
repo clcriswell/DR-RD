@@ -15,6 +15,9 @@ PROXY_POOL        comma-separated list of http[s]://user:pass@ip:port – option
 """
 import os, random, requests, openai
 from typing import Dict, Any
+import logging
+from dr_rd.utils.model_router import pick_model, CallHints
+from dr_rd.utils.llm_client import llm_call
 
 # ---------- helpers ----------
 _HEADERS = [
@@ -58,14 +61,18 @@ def route(domain: str, prompt: str) -> str:
 # ---------- back-ends ----------
 def _openai_chat(prompt: str, domain: str) -> str:
     openai.api_key = _pick(_OAI_KEYS)
-    resp = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
+    sel = pick_model(CallHints(stage="exec"))
+    logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+    resp = llm_call(
+        openai,
+        sel["model"],
+        stage="exec",
         temperature=0.4,
         messages=[
             {"role": "system", "content": f"You are an expert in {domain}."},
             {"role": "user", "content": prompt},
         ],
-        # header randomisation handled by OpenAI internally; not customisable
+        **sel["params"],
     )
     return resp.choices[0].message.content.strip()
 

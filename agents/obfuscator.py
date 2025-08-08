@@ -11,6 +11,9 @@ Usage:
 
 from typing import Dict
 import openai
+import logging
+from dr_rd.utils.model_router import pick_model, CallHints
+from dr_rd.utils.llm_client import llm_call
 
 SYSTEM_PROMPT = (
     "You are an R&D anonymizer. Given a research TASK and its DOMAIN, "
@@ -19,17 +22,20 @@ SYSTEM_PROMPT = (
     "strip proper nouns / final application hints, and limit to ≤2 sentences."
 )
 
+
 def obfuscate_task(domain: str, task: str) -> str:
     """Return an obfuscated version of a single domain task."""
-    resp = openai.chat.completions.create(
-        model="gpt-4o-mini",   # or gpt-4o
+    sel = pick_model(CallHints(stage="exec"))
+    logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+    resp = llm_call(
+        openai,
+        sel["model"],
+        stage="exec",
         temperature=0.5,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"DOMAIN: {domain}\nTASK: {task}\n\nObfuscated:"
-            },
+            {"role": "user", "content": f"DOMAIN: {domain}\nTASK: {task}\n\nObfuscated:"},
         ],
+        **sel["params"],
     )
     return resp.choices[0].message.content.strip()
