@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, List, Tuple
 
-from config.feature_flags import RAG_ENABLED, RAG_TOPK
+from config.feature_flags import RAG_ENABLED, RAG_TOPK, RAG_SNIPPET_TOKENS
 
 try:  # avoid import errors when knowledge package is absent
     from dr_rd.knowledge.retriever import Retriever
@@ -35,6 +35,13 @@ class BaseAgent:
         else:
             self.retriever = retriever
 
+    @staticmethod
+    def _truncate_tokens(text: str, max_tokens: int) -> str:
+        tokens = text.split()
+        if len(tokens) <= max_tokens:
+            return text
+        return " ".join(tokens[:max_tokens])
+
     def _augment_prompt(self, prompt: str, context: str) -> str:
         """Attach retrieved snippets to the prompt when RAG is enabled."""
         if not (RAG_ENABLED and self.retriever):
@@ -47,7 +54,8 @@ class BaseAgent:
             return prompt
         bundle_lines = []
         for i, (text, src) in enumerate(hits, 1):
-            snippet = text.replace("\n", " ")[:500]
+            raw = text.replace("\n", " ")
+            snippet = self._truncate_tokens(raw, RAG_SNIPPET_TOKENS)
             bundle_lines.append(f"[{i}] {snippet} ({src})")
         bundle = "\n".join(bundle_lines)
         print(f"[RAG] {self.name} retrieved {len(hits)} snippet(s)")

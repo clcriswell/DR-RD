@@ -16,6 +16,7 @@ SIM_OPTIMIZER_STRATEGY: str = os.getenv("SIM_OPTIMIZER_STRATEGY", "random")
 SIM_OPTIMIZER_MAX_EVALS: int = int(os.getenv("SIM_OPTIMIZER_MAX_EVALS", "50"))
 RAG_ENABLED = _flag("RAG_ENABLED")
 RAG_TOPK: int = int(os.getenv("RAG_TOPK", "5"))
+RAG_SNIPPET_TOKENS: int = int(os.getenv("RAG_SNIPPET_TOKENS", "200"))
 
 # Parameters for Tree-of-Thoughts planning. These remain inexpensive to
 # access even when the feature flag is disabled.
