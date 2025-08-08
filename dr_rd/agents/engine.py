@@ -1,4 +1,5 @@
 import hashlib
+from typing import Dict
 
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace
 from dr_rd.agents.planner_agent import PlannerAgent
@@ -33,6 +34,9 @@ def run_pipeline(self, project_id: str, idea: str):
     synthesizer = SynthesizerAgent()
     plan_strategy = None
     reflection = None
+    role_overrides: Dict[str, Dict[str, str]] = {}
+    # expose to helper methods if they access via self
+    setattr(self, "role_overrides", role_overrides)
     if TOT_PLANNING_ENABLED:
         from dr_rd.planning.strategies import tot  # noqa: F401
         cls = PlannerStrategyRegistry.get("tot")
@@ -88,7 +92,19 @@ def run_pipeline(self, project_id: str, idea: str):
             if not t:
                 break
             ws.log(f"▶️ Executing {t['role']}: {t['task']}")
-            result, score = self.run_domain_expert(t["role"], t["task"])
+            override = role_overrides.get(t["role"])
+            try:
+                result, score = self.run_domain_expert(t["role"], t["task"], override)
+            except TypeError:
+                # Backwards compatibility for implementations without override param
+                if override:
+                    agent = getattr(self, "agents", {}).get(t["role"])
+                    if agent:
+                        if override.get("system"):
+                            agent.system_message += "\n" + override["system"]
+                        if override.get("instructions"):
+                            agent.user_prompt_template += "\n" + override["instructions"]
+                result, score = self.run_domain_expert(t["role"], t["task"])
             ws.save_result(t["id"], result, score)
             ws.log(f"✔️ {t['role']} score={score:.2f}")
             # optional simulation refinement
@@ -169,6 +185,29 @@ def run_pipeline(self, project_id: str, idea: str):
                     ]
                     ws.enqueue(new_tasks)
                     ws.log(f"📝 Reflection added {len(new_tasks)} task(s)")
+                if adjustments.get("role_tweak"):
+                    applied = []
+                    tweaks = adjustments["role_tweak"]
+                    for name, tweak in tweaks.items():
+                        entry = role_overrides.setdefault(name, {})
+                        if isinstance(tweak, dict):
+                            if "system" in tweak:
+                                entry["system"] = (
+                                    (entry.get("system", "") + "\n" + tweak["system"]).strip()
+                                )
+                            if "instructions" in tweak:
+                                entry["instructions"] = (
+                                    (entry.get("instructions", "") + "\n" + tweak["instructions"]).strip()
+                                )
+                        else:
+                            entry["instructions"] = (
+                                (entry.get("instructions", "") + "\n" + str(tweak)).strip()
+                            )
+                        applied.append(name)
+                    if applied:
+                        ws.log(
+                            f"Reflection: applied role_tweak to {len(applied)} roles: {', '.join(applied)}"
+                        )
                 reflection_attempts += 1
                 no_improve = 0
             else:

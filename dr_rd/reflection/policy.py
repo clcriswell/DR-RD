@@ -8,8 +8,8 @@ def analyze_history(history: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     The policy inspects the last few cycles for common failure modes such as
     stagnant scores or repeated simulation failures and returns recommended
-    adjustments.  Returned keys are interpreted by the orchestrator and may
-    include ``switch_to_tot`` or ``new_tasks``.
+    adjustments. Returned keys are interpreted by the orchestrator and may
+    include ``switch_to_tot``, ``new_tasks``, ``role_tweak`` or ``reason``.
     """
 
     if len(history) < 2:
