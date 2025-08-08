@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 
 
 def _flag(name: str) -> bool:
@@ -17,6 +18,16 @@ SIM_OPTIMIZER_MAX_EVALS: int = int(os.getenv("SIM_OPTIMIZER_MAX_EVALS", "50"))
 RAG_ENABLED = _flag("RAG_ENABLED")
 RAG_TOPK: int = int(os.getenv("RAG_TOPK", "5"))
 RAG_SNIPPET_TOKENS: int = int(os.getenv("RAG_SNIPPET_TOKENS", "200"))
+
+# Default evaluator weights and threshold. ``EVALUATOR_WEIGHTS`` can be
+# overridden via an environment variable containing a JSON object.
+EVALUATOR_WEIGHTS = json.loads(
+    os.getenv(
+        "EVALUATOR_WEIGHTS",
+        '{"cost": 0.25, "feasibility": 0.35, "novelty": 0.25, "compliance": 0.15}',
+    )
+)
+EVALUATOR_MIN_OVERALL: float = float(os.getenv("EVALUATOR_MIN_OVERALL", "0.6"))
 
 # Parameters for Tree-of-Thoughts planning. These remain inexpensive to
 # access even when the feature flag is disabled.

@@ -6,11 +6,17 @@ from typing import Tuple, Callable, Optional, Dict, Any, List
 import time
 
 from config import MAX_CONCURRENCY
-from config.feature_flags import PARALLEL_EXEC_ENABLED, TOT_PLANNING_ENABLED
+from config.feature_flags import (
+    EVALUATORS_ENABLED,
+    EVALUATOR_WEIGHTS,
+    PARALLEL_EXEC_ENABLED,
+    TOT_PLANNING_ENABLED,
+)
 from dr_rd.engine.executor import run_tasks
 
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from agents import initialize_agents
+from dr_rd.evaluation import Scorecard
 from dr_rd.extensions.registry import (
     EvaluatorRegistry,
     PlannerStrategyRegistry,
@@ -141,6 +147,31 @@ class HRMLoop:
                     self.ws.enqueue(pending_seq)
 
             state = self.ws.read()
+            scorecard = None
+            if EVALUATORS_ENABLED:
+                from dr_rd import evaluators  # noqa: F401
+
+                names = EvaluatorRegistry.list()
+                if names:
+                    results = {}
+                    for name in names:
+                        cls = EvaluatorRegistry.get(name)
+                        try:
+                            evaluator = cls()
+                            data = evaluator.evaluate(state)
+                            results[name] = {
+                                "score": float(data.get("score", 0.0)),
+                                "notes": data.get("notes", []),
+                            }
+                        except Exception:  # pragma: no cover - defensive
+                            continue
+                    scorecard = Scorecard(EVALUATOR_WEIGHTS).aggregate(results)
+                    self.ws.patch({"scorecard": scorecard})
+                    state["scorecard"] = scorecard
+                    _log(f"📊 scorecard overall={scorecard['overall']:.2f}")
+                else:
+                    _log("⚠️ EVALUATORS_ENABLED but no evaluators registered")
+
             if self.plan_strategy:
                 new = self.plan_strategy.plan(state)
             else:

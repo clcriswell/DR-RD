@@ -3,6 +3,8 @@ import logging
 import openai
 from typing import Optional
 
+from config.feature_flags import EVALUATOR_MIN_OVERALL
+
 try:
     from dr_rd.knowledge.retriever import Retriever
 except Exception:  # pragma: no cover
@@ -108,9 +110,21 @@ class PlannerAgent(BaseAgent):
             parsed = json.loads(data)
             out = []
             for t in parsed.get("updated_tasks", []):
-                tid = hashlib.sha1((t["role"]+t["task"]+str(time.time())).encode()).hexdigest()[:10]
+                tid = hashlib.sha1((t["role"] + t["task"] + str(time.time())).encode()).hexdigest()[:10]
                 out.append({"role": t["role"], "task": t["task"], "id": tid})
-            return out
         except Exception:
             # fallback: return existing queue unchanged
-            return workspace_state.get("tasks", [])
+            out = workspace_state.get("tasks", [])
+
+        # Append remediation tasks if evaluation score below threshold
+        scorecard = workspace_state.get("scorecard")
+        remediation = []
+        if scorecard and scorecard.get("overall", 1.0) < EVALUATOR_MIN_OVERALL:
+            metrics = scorecard.get("metrics", {})
+            for name, m in metrics.items():
+                if m.get("score", 1.0) < EVALUATOR_MIN_OVERALL:
+                    remediation.append({"role": "AI R&D Coordinator", "task": f"Improve {name}"})
+            if not remediation:
+                remediation.append({"role": "AI R&D Coordinator", "task": "Address evaluation weaknesses"})
+        out.extend(remediation)
+        return out
