@@ -43,3 +43,8 @@ class HRMAgent:
             except Exception:
                 vals.append(0.0)
         return sum(vals) / len(vals) if vals else 0.0
+
+    def revise_plan(self, *args, **kwargs):
+        if hasattr(self.agent, "revise_plan"):
+            return self.agent.revise_plan(*args, **kwargs)
+        raise AttributeError("Underlying agent lacks revise_plan")
