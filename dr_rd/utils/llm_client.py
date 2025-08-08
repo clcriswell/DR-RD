@@ -4,8 +4,6 @@ METER = TokenMeter()
 
 
 ALLOWED_PARAMS = {
-    "reasoning_effort",
-    "verbosity",
     "temperature",
     "response_format",
     "max_tokens",
