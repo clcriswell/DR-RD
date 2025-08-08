@@ -5,7 +5,7 @@ def pick_model(h: CallHints) -> dict:
     # plan
     if h.stage == "plan":
         model = DEFAULTS["PLANNER"]
-        params = {"reasoning_effort": "minimal", "verbosity": "low"}
+        params = {"reasoning_effort": "minimal", "verbosity": "medium"}
         if h.difficulty == "hard":
             model = "o4-mini"
             params["reasoning_effort"] = "medium"
@@ -14,7 +14,7 @@ def pick_model(h: CallHints) -> dict:
     # exec (researchers/retrievers/agents)
     if h.stage == "exec":
         model = DEFAULTS["RESEARCHER"]
-        params = {"reasoning_effort": "minimal", "verbosity": "low"}
+        params = {"reasoning_effort": "minimal", "verbosity": "medium"}
         if h.difficulty == "hard":
             model = "gpt-5-mini"
         return {"model": model, "params": params}
@@ -23,13 +23,13 @@ def pick_model(h: CallHints) -> dict:
     if h.stage == "eval":
         return {
             "model": DEFAULTS["EVALUATOR"],
-            "params": {"reasoning_effort": "minimal", "verbosity": "low"},
+            "params": {"reasoning_effort": "minimal", "verbosity": "medium"},
         }
 
     # brain loop
     if h.stage == "brain":
         model = DEFAULTS["BRAIN_MODE_LOOP"]
-        params = {"reasoning_effort": "medium", "verbosity": "low"}
+        params = {"reasoning_effort": "medium", "verbosity": "medium"}
         if h.deep_reasoning:
             model = "o3"
             params["reasoning_effort"] = "high"
@@ -47,7 +47,7 @@ def pick_model(h: CallHints) -> dict:
 
     return {
         "model": DEFAULTS["RESEARCHER"],
-        "params": {"reasoning_effort": "minimal", "verbosity": "low"},
+        "params": {"reasoning_effort": "minimal", "verbosity": "medium"},
     }
 
 
