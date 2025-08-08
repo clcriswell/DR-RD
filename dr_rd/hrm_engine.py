@@ -39,6 +39,43 @@ class HRMLoop:
         self.agents = initialize_agents()
         self.plan = self.agents["Planner"]
         self.synth = self.agents["Synthesizer"]
+        try:
+            from dr_rd.agents.hrm_agent import HRMAgent
+            from dr_rd.evaluators import (
+                feasibility_ev,
+                clarity_ev,
+                coherence_ev,
+                goal_fit_ev,
+            )
+            from dr_rd.config.feature_flags import (
+                AGENT_HRM_ENABLED,
+                AGENT_TOPK,
+                AGENT_MAX_RETRIES,
+                AGENT_THRESHOLD,
+            )
+            if AGENT_HRM_ENABLED:
+                self.plan = HRMAgent(
+                    self.plan,
+                    [feasibility_ev, clarity_ev],
+                    self.ws,
+                    "Planner",
+                    top_k=AGENT_TOPK,
+                    max_retries=AGENT_MAX_RETRIES,
+                    threshold=AGENT_THRESHOLD,
+                )
+                self.synth = HRMAgent(
+                    self.synth,
+                    [coherence_ev, goal_fit_ev],
+                    self.ws,
+                    "Synthesizer",
+                    top_k=AGENT_TOPK,
+                    max_retries=AGENT_MAX_RETRIES,
+                    threshold=AGENT_THRESHOLD,
+                )
+                self.agents["Planner"] = self.plan
+                self.agents["Synthesizer"] = self.synth
+        except Exception:
+            pass
         self.plan_strategy = None
         if TOT_PLANNING_ENABLED:
             # Import lazily so default runs stay fast
@@ -204,6 +241,44 @@ class HRMLoop:
             pass
 
         return self.ws.read(), final_report
+
+    @staticmethod
+    def plan_from_brief(brief: dict):
+        """Return a list of tasks extracted from a brief."""
+        try:
+            from agents.planner_agent import PlannerAgent
+            from config.agent_models import AGENT_MODEL_MAP
+            idea = brief.get("idea", "")
+            planner = PlannerAgent(AGENT_MODEL_MAP.get("Planner", ""))
+            plan = planner.run(idea, "Break down the project into role-specific tasks")
+            return [{"role": r, "task": t} for r, t in plan.items()]
+        except Exception:
+            return []
+
+    @staticmethod
+    def evaluate_results(results):
+        """Aggregate evaluator scores into a simple average."""
+        from dr_rd.evaluators import feasibility_ev, clarity_ev, coherence_ev
+
+        notes, scores = [], []
+        coverage_confidence = float(results.get("coverage_confidence", 0.0)) if isinstance(results, dict) else 0.0
+        for ev in (feasibility_ev, clarity_ev, coherence_ev):
+            try:
+                s = float(ev(results, {}))
+            except Exception:
+                s = 0.0
+            scores.append(s)
+            notes.append(f"{ev.__name__}: {s:.2f}")
+        avg = sum(scores) / len(scores) if scores else 0.0
+        return {"score": avg, "notes": notes, "coverage_confidence": coverage_confidence}
+
+    @staticmethod
+    def get_help(brief, context=None):
+        """Return a list of advice strings."""
+        return [
+            {"note": "Consult patent X re: method Y"},
+            {"note": "See arXiv:ZZZ for baseline metrics"},
+        ]
 
 
 def run(idea: str) -> Dict[str, Any]:
