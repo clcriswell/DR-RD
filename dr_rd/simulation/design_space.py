@@ -42,3 +42,16 @@ class DesignSpace:
             else:
                 design[key] = random.choice(list(opts))
         return design
+
+    def summarize(self, design: Dict[str, Any], limit: int = 3) -> str:
+        """Return a concise string summary of ``design`` parameters.
+
+        Only the first ``limit`` parameters are included to keep logs brief.
+        """
+        parts: List[str] = []
+        for key in self.space.keys():
+            if key in design:
+                parts.append(f"{key}={design[key]}")
+                if len(parts) >= limit:
+                    break
+        return ", ".join(parts)
