@@ -6,12 +6,7 @@ from typing import Tuple, Callable, Optional, Dict, Any, List
 import time
 
 from config import MAX_CONCURRENCY
-from config.feature_flags import (
-    EVALUATORS_ENABLED,
-    EVALUATOR_WEIGHTS,
-    PARALLEL_EXEC_ENABLED,
-    TOT_PLANNING_ENABLED,
-)
+import config.feature_flags as ff
 from dr_rd.engine.executor import run_tasks
 
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
@@ -24,9 +19,21 @@ from dr_rd.extensions.registry import (
     MetaAgentRegistry,
 )
 
+EVALUATORS_ENABLED = ff.EVALUATORS_ENABLED
+EVALUATOR_WEIGHTS = ff.EVALUATOR_WEIGHTS
+PARALLEL_EXEC_ENABLED = ff.PARALLEL_EXEC_ENABLED
+TOT_PLANNING_ENABLED = ff.TOT_PLANNING_ENABLED
+
 
 class HRMLoop:
-    def __init__(self, project_id: str, idea: str):
+    def __init__(self, project_id: str, idea: str, flags: Optional[Dict[str, Any]] = None):
+        global EVALUATORS_ENABLED, PARALLEL_EXEC_ENABLED, TOT_PLANNING_ENABLED
+        if flags:
+            for k, v in flags.items():
+                setattr(ff, k, v)
+            EVALUATORS_ENABLED = ff.EVALUATORS_ENABLED
+            PARALLEL_EXEC_ENABLED = ff.PARALLEL_EXEC_ENABLED
+            TOT_PLANNING_ENABLED = ff.TOT_PLANNING_ENABLED
         self.ws = WS(project_id)
         self.idea = idea
         self.agents = initialize_agents()

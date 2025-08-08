@@ -15,6 +15,8 @@ import uuid
 import io
 import fitz
 from markdown_pdf import MarkdownPdf, Section
+from dr_rd.config.feature_flags import get_env_defaults
+from dr_rd.config.mode_profiles import apply_profile
 
 WRAP_CSS = """
 pre, code {
@@ -448,6 +450,14 @@ def main():
     else:
         st.markdown("## Configuration")
 
+    mode_label_to_key = {"Balanced": "balanced", "Fast": "fast", "Explore": "explore"}
+    mode_container = sidebar if hasattr(sidebar, "radio") else st
+    if hasattr(mode_container, "radio"):
+        selected_label = mode_container.radio("Run Mode", ["Balanced", "Fast", "Explore"], index=0)
+    else:  # fallback for test stubs
+        selected_label = "Balanced"
+    selected_mode = mode_label_to_key[selected_label]
+
     project_names = []
     project_doc_ids = {}
     if use_firestore:
@@ -536,6 +546,9 @@ def main():
     if "auto_mode" not in st.session_state:
         st.session_state["auto_mode"] = False
 
+    env_defaults = get_env_defaults()
+    current_flags = st.session_state.get("final_flags", env_defaults)
+
     form_container = sidebar if hasattr(sidebar, "form") else st
     with form_container.form("config_form"):
         simulate_enabled = st.checkbox(
@@ -550,11 +563,73 @@ def main():
         auto_mode = st.checkbox(
             "Enable Automatic AI R&D (HRM)", value=st.session_state["auto_mode"]
         )
+        expander_container = sidebar if hasattr(sidebar, "expander") else st
+        with expander_container.expander("Advanced overrides"):
+            parallel_exec = st.checkbox(
+                "PARALLEL_EXEC_ENABLED", value=current_flags.get("PARALLEL_EXEC_ENABLED", True)
+            )
+            tot_planning = st.checkbox(
+                "TOT_PLANNING_ENABLED", value=current_flags.get("TOT_PLANNING_ENABLED", False)
+            )
+            evaluators = st.checkbox(
+                "EVALUATORS_ENABLED", value=current_flags.get("EVALUATORS_ENABLED", False)
+            )
+            reflection = st.checkbox(
+                "REFLECTION_ENABLED", value=current_flags.get("REFLECTION_ENABLED", False)
+            )
+            rag = st.checkbox(
+                "RAG_ENABLED", value=current_flags.get("RAG_ENABLED", False)
+            )
+            sim_opt = st.checkbox(
+                "SIM_OPTIMIZER_ENABLED", value=current_flags.get("SIM_OPTIMIZER_ENABLED", False)
+            )
+            tot_k = st.slider(
+                "TOT_K", 1, 10, value=current_flags.get("TOT_K", 3)
+            )
+            tot_beam = st.slider(
+                "TOT_BEAM", 1, 5, value=current_flags.get("TOT_BEAM", 2)
+            )
+            tot_max_depth = st.slider(
+                "TOT_MAX_DEPTH", 1, 5, value=current_flags.get("TOT_MAX_DEPTH", 2)
+            )
+            rag_topk = st.slider(
+                "RAG_TOPK", 1, 20, value=current_flags.get("RAG_TOPK", 4)
+            )
+            rag_snippet_tokens = st.slider(
+                "RAG_SNIPPET_TOKENS", 50, 400, value=current_flags.get("RAG_SNIPPET_TOKENS", 200)
+            )
+            sim_opt_max_evals = st.slider(
+                "SIM_OPTIMIZER_MAX_EVALS", 1, 100, value=current_flags.get("SIM_OPTIMIZER_MAX_EVALS", 50)
+            )
         submitted = st.form_submit_button("Apply settings")
     if submitted:
         st.session_state["simulate_enabled"] = simulate_enabled
         st.session_state["design_depth"] = design_depth
         st.session_state["auto_mode"] = auto_mode
+        overrides = {
+            "PARALLEL_EXEC_ENABLED": parallel_exec,
+            "TOT_PLANNING_ENABLED": tot_planning,
+            "TOT_K": tot_k,
+            "TOT_BEAM": tot_beam,
+            "TOT_MAX_DEPTH": tot_max_depth,
+            "EVALUATORS_ENABLED": evaluators,
+            "REFLECTION_ENABLED": reflection,
+            "RAG_ENABLED": rag,
+            "RAG_TOPK": rag_topk,
+            "RAG_SNIPPET_TOKENS": rag_snippet_tokens,
+            "SIM_OPTIMIZER_ENABLED": sim_opt,
+            "SIM_OPTIMIZER_MAX_EVALS": sim_opt_max_evals,
+        }
+        final_flags = apply_profile(env_defaults, selected_mode, overrides)
+        st.session_state["final_flags"] = final_flags
+        import config.feature_flags as ff
+        for k, v in final_flags.items():
+            setattr(ff, k, v)
+    final_flags = st.session_state.get("final_flags", env_defaults)
+    if hasattr(st, "caption"):
+        st.caption(
+            f"Mode: {selected_label} • ToT={final_flags.get('TOT_PLANNING_ENABLED')} • RAG_TOPK={final_flags.get('RAG_TOPK')}"
+        )
 
     project_name = st.text_input(
         "🏷️ Project Name:", value=st.session_state.get("project_name", "")
@@ -640,7 +715,9 @@ def main():
                 from dr_rd.hrm_engine import HRMLoop
 
                 with st.spinner("🤖 Running hierarchical plan → execute → revise…"):
-                    state, report = HRMLoop(project_id, idea).run()
+                    state, report = HRMLoop(
+                        project_id, idea, st.session_state.get("final_flags")
+                    ).run()
                 st.session_state["hrm_state"] = state
                 st.session_state["hrm_report"] = report
                 st.success("✅ HRM Automatic R&D complete!")
