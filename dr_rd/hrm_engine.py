@@ -8,6 +8,7 @@ import time
 from config import MAX_CONCURRENCY
 import config.feature_flags as ff
 from dr_rd.engine.executor import run_tasks
+from dr_rd.engine.cognitive_orchestrator import CognitiveOrchestrator, CogConfig
 
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from agents import initialize_agents
@@ -23,6 +24,17 @@ EVALUATORS_ENABLED = ff.EVALUATORS_ENABLED
 EVALUATOR_WEIGHTS = ff.EVALUATOR_WEIGHTS
 PARALLEL_EXEC_ENABLED = ff.PARALLEL_EXEC_ENABLED
 TOT_PLANNING_ENABLED = ff.TOT_PLANNING_ENABLED
+
+
+def _eval_fns():
+    # Use your existing evaluator registry/classes; each returns {"score","notes"}
+    from dr_rd.extensions.registry import EvaluatorRegistry
+
+    fns = []
+    for name in EvaluatorRegistry.list():
+        cls = EvaluatorRegistry.get(name)
+        fns.append(lambda state, cls=cls: cls().evaluate(state))
+    return fns
 
 
 class HRMLoop:
@@ -101,6 +113,7 @@ class HRMLoop:
         self,
         max_cycles: int = 5,
         log_callback: Optional[Callable[[str], None]] = None,
+        brain_mode: bool = False,
     ) -> Tuple[Dict[str, Any], str]:
         """Run the hierarchical R&D loop.
 
@@ -111,6 +124,9 @@ class HRMLoop:
         log_callback:
             Optional function invoked with each log message. This allows
             callers (e.g., Streamlit apps) to display progress in real time.
+        brain_mode:
+            When ``True``, run the cognitive orchestrator instead of the
+            standard HRM loop.
 
         Returns
         -------
@@ -118,6 +134,32 @@ class HRMLoop:
             Final Firestore workspace state and the synthesized report
             produced by the ``Synthesizer`` agent.
         """
+
+        if brain_mode:
+            cfg = CogConfig(
+                use_help_path=True,
+                incubation_threads=2,
+                max_iterations=3,
+                success_threshold=0.75,
+            )
+            evals = _eval_fns()
+            brain = CognitiveOrchestrator(self.ws, self.agents, evals, cfg)
+            score = 0.0
+            for i in range(cfg.max_iterations):
+                self.ws.log(f"🧠 Brain iteration {i + 1}/{cfg.max_iterations}")
+                score = brain.run()
+                if score >= cfg.success_threshold:
+                    self.ws.log("✅ threshold met — finalizing")
+                    break
+                self.ws.log("🔁 below threshold — iterating")
+            report = self.agents["Synthesizer"].run(
+                {
+                    "task": "Compose final proposal from chosen design, evaluations, and logs.",
+                    "depth": "High",
+                }
+            )
+            self.ws.patch({"final_report": report})
+            return self.ws.read(), report
 
         def _log(msg: str) -> None:
             """Log to Firestore and the optional callback."""
