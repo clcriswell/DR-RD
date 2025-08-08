@@ -55,12 +55,15 @@ class SimulationAgent:
         design_spec: str,
         design_space: Optional[DesignSpace] = None,
         objective_fn: Optional[Callable[[Dict[str, Any], Dict[str, Any]], float]] = None,
+        scorecard: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Run a simulation for a single role's design specification.
 
         When a ``design_space`` and ``objective_fn`` are provided and the
         optimizer feature flag is enabled, parameter search is performed and
-        the best design is reported.
+        the best design is reported. When a ``scorecard`` is supplied and
+        evaluator support is enabled, the optimizer will blend the simulation
+        score with ``scorecard['overall']``.
         """
 
         sim_type = determine_sim_type(role, design_spec)
@@ -80,6 +83,7 @@ class SimulationAgent:
                 simulator,
                 strategy=SIM_OPTIMIZER_STRATEGY,
                 max_evals=SIM_OPTIMIZER_MAX_EVALS,
+                scorecard=scorecard,
             )
         else:
             metrics = self.sim_manager.simulate(sim_type, design_spec)
