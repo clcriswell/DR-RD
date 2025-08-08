@@ -12,6 +12,10 @@ try:
 except Exception:  # pragma: no cover - openai optional in tests
     openai = None
 
+from dr_rd.utils.model_router import pick_model, CallHints
+from dr_rd.utils.llm_client import llm_call
+import logging
+
 _DEF_PROMPTS = {
     "Low": "Provide a brief high-level summary.",
     "Medium": "Provide a balanced level of technical detail.",
@@ -37,12 +41,17 @@ def run_agent(role: str, prompt: str, depth: str = "Low") -> str:
     depth_suffix = _DEF_PROMPTS.get(depth_norm, _DEF_PROMPTS["Low"])
     message = f"{prompt}\n\n{depth_suffix}"
 
-    response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
+    sel = pick_model(CallHints(stage="exec"))
+    logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+    response = llm_call(
+        openai,
+        sel["model"],
+        stage="exec",
         messages=[
             {"role": "system", "content": f"You are acting as {role}."},
             {"role": "user", "content": message},
         ],
+        **sel["params"],
     )
     result = response.choices[0].message.content.strip()
     cache.save_result(task_hash, result)

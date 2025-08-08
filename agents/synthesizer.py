@@ -12,6 +12,9 @@ Call:
 from typing import Dict
 import openai
 from config.agent_models import AGENT_MODEL_MAP
+from dr_rd.utils.model_router import pick_model, CallHints
+from dr_rd.utils.llm_client import llm_call
+import logging
 
 _TEMPLATE = """\
 You are a multi-disciplinary R&D lead.
@@ -41,20 +44,26 @@ def synthesize(idea: str, answers: Dict[str, str]) -> str:
     )
     prompt = _TEMPLATE.format(idea=idea, findings_md=findings_md)
 
-    resp = openai.chat.completions.create(
-        model=AGENT_MODEL_MAP["Synthesizer"],
-        temperature=0.3,
+    sel = pick_model(CallHints(stage="synth"))
+    logging.info(f"Model[synth]={sel['model']} params={sel['params']}")
+    resp = llm_call(
+        openai,
+        sel["model"],
+        stage="synth",
         messages=[
             {"role": "system", "content": "You are an expert R&D writer."},
             {"role": "user", "content": prompt},
         ],
+        temperature=0.3,
+        **sel["params"],
     )
     return resp.choices[0].message.content.strip()
 
 
 def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulations: bool = False) -> str:
     """Compose a Prototype Build Guide integrating agent contributions."""
-    model = AGENT_MODEL_MAP["Synthesizer"]
+    sel = pick_model(CallHints(stage="synth", final_pass=True))
+    logging.info(f"Model[synth]={sel['model']} params={sel['params']}")
     contributions = "\n".join(f"### {role}\n{content}" for role, content in answers.items())
     sections = [
         "1. Executive Summary",
@@ -70,9 +79,12 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
         + f"Project Idea: {idea}\n\n"
         + f"Agent Contributions:\n{contributions}"
     )
-    response = openai.chat.completions.create(
-        model=model,
+    response = llm_call(
+        openai,
+        sel["model"],
+        stage="synth",
         messages=[{"role": "user", "content": prompt}],
+        **sel["params"],
     )
     final_document = response.choices[0].message.content
     return final_document

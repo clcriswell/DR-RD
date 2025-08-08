@@ -1,4 +1,7 @@
 import openai
+import logging
+from dr_rd.utils.model_router import pick_model, CallHints
+from dr_rd.utils.llm_client import llm_call
 
 
 def refine_agent_output(agent, idea, task, prev_output, other_outputs):
@@ -18,11 +21,16 @@ def refine_agent_output(agent, idea, task, prev_output, other_outputs):
         f"Other team members' outputs:{others_context}\n"
         "Please refine and improve your output given the above information, addressing any gaps or integrating relevant insights from the others."
     )
-    response = openai.chat.completions.create(
-        model=agent.model,
+    sel = pick_model(CallHints(stage="exec"))
+    logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+    response = llm_call(
+        openai,
+        sel["model"],
+        stage="exec",
         messages=[
             {"role": "system", "content": agent.system_message},
             {"role": "user", "content": user_prompt}
-        ]
+        ],
+        **sel["params"],
     )
     return response.choices[0].message.content.strip()

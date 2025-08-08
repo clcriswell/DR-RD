@@ -1,6 +1,8 @@
 from agents.base_agent import BaseAgent
 import logging
 import openai
+from dr_rd.utils.model_router import pick_model, CallHints
+from dr_rd.utils.llm_client import llm_call
 from typing import Optional
 
 from config.feature_flags import EVALUATOR_MIN_OVERALL
@@ -50,7 +52,7 @@ class PlannerAgent(BaseAgent):
             retriever=retriever,
         )
 
-    def run(self, idea: str, task: str) -> dict:
+    def run(self, idea: str, task: str, difficulty: str = "normal") -> dict:
         """Return the planner's JSON summary as a Python dict."""
         import json
 
@@ -58,21 +60,19 @@ class PlannerAgent(BaseAgent):
         prompt = self._augment_prompt(prompt, f"{idea}\n{task}")
 
         kwargs = {
-            "model": self.model,
             "messages": [
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
-            ],
+            ]
         }
 
-        # Only newer models (e.g. gpt-4o, gpt-4.1) support the
-        # `response_format` parameter for structured JSON output. Older
-        # completion models will raise a 400 error if it is supplied. To keep
-        # compatibility with both we add the parameter conditionally.
-        if self.model.startswith(("gpt-4o", "gpt-4.1")):
+        sel = pick_model(CallHints(stage="plan", difficulty=difficulty))
+        model_id = self.model if difficulty == "normal" else sel["model"]
+        logging.info(f"Model[plan]={model_id} params={sel['params']}")
+        if model_id.startswith(("gpt-4o", "gpt-4.1")):
             kwargs["response_format"] = {"type": "json_object"}
-
-        response = openai.chat.completions.create(**kwargs)
+        kwargs.update(sel["params"])
+        response = llm_call(openai, model_id, stage="plan", **kwargs)
         raw_text = response.choices[0].message.content
         logging.debug("Planner raw response: %s", raw_text)
         try:
@@ -97,13 +97,18 @@ class PlannerAgent(BaseAgent):
             "Respond with JSON: { \"updated_tasks\": [ { \"role\": \"...\", \"task\": \"...\" } , ... ] }"
         )
         user = json.dumps(workspace_state, indent=2)[:8000]
-        resp = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            temperature=0.2,
+        sel = pick_model(CallHints(stage="plan", difficulty="hard"))
+        logging.info(f"Model[plan]={sel['model']} params={sel['params']}")
+        resp = llm_call(
+            openai,
+            sel["model"],
+            stage="plan",
             messages=[
                 {"role": "system", "content": sys},
                 {"role": "user", "content": user},
             ],
+            temperature=0.2,
+            **sel["params"],
         )
         try:
             data = resp.choices[0].message.content

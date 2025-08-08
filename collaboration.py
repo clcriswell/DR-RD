@@ -1,4 +1,7 @@
 import openai
+import logging
+from dr_rd.utils.model_router import pick_model, CallHints
+from dr_rd.utils.llm_client import llm_call
 
 def agent_chat(agentA, agentB, idea, outputA, outputB):
     """
@@ -14,9 +17,14 @@ def agent_chat(agentA, agentB, idea, outputA, outputB):
         "After this exchange, update both the CTO's and the Research Scientist's outputs with any new insights. "
         "Provide only the final revised outputs, labeled as 'CTO Updated Output:' and 'Research Scientist Updated Output:'."
     )
-    response = openai.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}]
+    sel = pick_model(CallHints(stage="exec"))
+    logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+    response = llm_call(
+        openai,
+        sel["model"],
+        stage="exec",
+        messages=[{"role": "user", "content": prompt}],
+        **sel["params"],
     )
     content = response.choices[0].message.content.strip()
     # Extract updated outputs from the response content

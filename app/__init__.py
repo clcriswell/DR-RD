@@ -33,6 +33,22 @@ from dr_rd.hrm_bridge import HRMBridge
 from dr_rd.agents.hrm_agent import HRMAgent
 from dr_rd.evaluators import feasibility_ev, clarity_ev, coherence_ev, goal_fit_ev
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
+from dr_rd.utils.model_router import pick_model, difficulty_from_signals, CallHints
+from dr_rd.utils.llm_client import llm_call, METER
+from app.ui_cost_meter import render_estimator
+
+
+live_tokens = None
+live_cost = None
+
+
+def update_cost(price_per_1k: float = 0.005):
+    global live_tokens, live_cost
+    if live_tokens is None or live_cost is None:
+        return
+    t = METER.total()
+    live_tokens.metric("Tokens used", f"{t:,}")
+    live_cost.metric("Cost so far", f"${t/1000*price_per_1k:,.4f}")
 
 WRAP_CSS = """
 pre, code {
@@ -195,14 +211,21 @@ def run_manual_pipeline(
                 previous = "\n\n".join(prev_outputs)
                 prompt_parts = [memory_context, previous, prompt_base]
                 prompt_with_context = "\n\n".join([p for p in prompt_parts if p])
-                response = openai.chat.completions.create(
-                    model=agent.model,
+                diff = st.session_state.get("difficulty", "normal")
+                sel = pick_model(CallHints(stage="exec", difficulty=diff))
+                logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+                response = llm_call(
+                    openai,
+                    sel["model"],
+                    stage="exec",
                     messages=[
                         {"role": "system", "content": agent.system_message},
                         {"role": "user", "content": prompt_with_context},
                     ],
+                    **sel["params"],
                 )
                 result = response.choices[0].message.content.strip()
+                update_cost()
             except Exception as e:
                 result = f"❌ {role} failed: {e}"
         # If simulations are enabled, run simulation and potentially refine output
@@ -235,6 +258,9 @@ def run_manual_pipeline(
             else:
                 logging.info(f"No simulation available for role {role}; skipping.")
                 sim_metrics = {"pass": True, "failed": []}
+            score = 1.0 if sim_metrics.get("pass", True) else 0.0
+            coverage = 1.0
+            st.session_state["difficulty"] = difficulty_from_signals(score, coverage)
             # Check simulation results
             if not sim_metrics.get("pass", True):
                 # Log initial output failure
@@ -257,8 +283,14 @@ def run_manual_pipeline(
                         feedback = f"The simulation indicates failure in: {', '.join(failed_list)}. Please address these issues in the design."
                     # Construct messages to re-run agent with feedback
                     try:
-                        revised_response = openai.chat.completions.create(
-                            model=agent.model,
+                        sel = pick_model(CallHints(stage="exec", difficulty="hard"))
+                        logging.info(
+                            f"Model[exec]={sel['model']} params={sel['params']}"
+                        )
+                        revised_response = llm_call(
+                            openai,
+                            sel["model"],
+                            stage="exec",
                             messages=[
                                 {"role": "system", "content": agent.system_message},
                                 {
@@ -277,7 +309,9 @@ def run_manual_pipeline(
                                     ),
                                 },
                             ],
+                            **sel["params"],
                         )
+                        update_cost()
                         new_result = revised_response.choices[0].message.content.strip()
                     except Exception as e:
                         new_result = result  # if the re-run fails, keep the last result
@@ -425,6 +459,7 @@ def run_manual_pipeline(
                         refined_output = refine_agent_output(
                             agent, idea, task, answers.get(role, ""), other_outputs
                         )
+                        update_cost()
                     except Exception as e:
                         refined_output = f"❌ {role} refinement failed: {e}"
                 new_answers[role] = refined_output
@@ -491,6 +526,12 @@ def main():
 
     st.set_page_config(page_title="Dr. R&D", layout="wide")
     st.title("Dr. R&D")
+
+    global live_tokens, live_cost
+    with st.sidebar:
+        render_estimator(price_per_1k=0.005)
+    live_tokens = st.sidebar.empty()
+    live_cost = st.sidebar.empty()
 
     sidebar = getattr(st, "sidebar", st)
     if hasattr(sidebar, "title"):
@@ -695,8 +736,11 @@ def main():
         try:
             with st.spinner("📝 Planning..."):
                 raw_plan = agents["Planner"].run(
-                    idea, "Break down the project into role-specific tasks"
+                    idea,
+                    "Break down the project into role-specific tasks",
+                    difficulty=st.session_state.get("difficulty", "normal"),
                 )
+                update_cost()
                 if not isinstance(raw_plan, dict):
                     st.error(
                         "Plan generation failed – received an unexpected response format."
@@ -813,8 +857,14 @@ def main():
                             f"Given the {role}'s task '{role_task}', should this suggestion be incorporated to improve the overall plan? "
                             "Respond with Yes or No and a brief reason."
                         )
-                        planner_resp = openai.chat.completions.create(
-                            model=planner_agent.model,
+                        sel = pick_model(CallHints(stage="plan"))
+                        logging.info(
+                            f"Model[plan]={sel['model']} params={sel['params']}"
+                        )
+                        planner_resp = llm_call(
+                            openai,
+                            sel["model"],
+                            stage="plan",
                             messages=[
                                 {
                                     "role": "system",
@@ -822,7 +872,9 @@ def main():
                                 },
                                 {"role": "user", "content": planner_query},
                             ],
+                            **sel["params"],
                         )
+                        update_cost()
                         planner_text = planner_resp.choices[0].message.content.strip()
                         integrate = planner_text.lower().startswith("yes")
                         planner_reason = (
@@ -842,8 +894,14 @@ def main():
                                 f"The Planner advises against this suggestion: {planner_reason}. "
                                 "Explain to the user why this suggestion won't be adopted."
                             )
-                        revised_resp = openai.chat.completions.create(
-                            model=domain_agent.model,
+                        sel = pick_model(CallHints(stage="exec"))
+                        logging.info(
+                            f"Model[exec]={sel['model']} params={sel['params']}"
+                        )
+                        revised_resp = llm_call(
+                            openai,
+                            sel["model"],
+                            stage="exec",
                             messages=[
                                 {
                                     "role": "system",
@@ -858,7 +916,9 @@ def main():
                                 {"role": "assistant", "content": orig_output},
                                 {"role": "user", "content": suggestion_prompt},
                             ],
+                            **sel["params"],
                         )
+                        update_cost()
                         revised_output = revised_resp.choices[0].message.content.strip()
                         st.markdown(
                             f"**{role} response:**\n\n{revised_output}",
@@ -904,6 +964,7 @@ def main():
                             "simulate_enabled", True
                         ),
                     )
+                    update_cost()
                     bom = []
                     for output in st.session_state["answers"].values():
                         bom.extend(extract_json_from_markdown(output))
@@ -953,3 +1014,15 @@ def main():
                 file_name="R&D_Report.pdf",
                 mime="application/pdf",
             )
+
+        import pandas as pd
+
+        by_stage = METER.by_stage()
+        df = pd.DataFrame(
+            [
+                {"stage": k, "tokens": v, "dollars_est": v / 1000 * 0.005}
+                for k, v in by_stage.items()
+            ]
+        ).sort_values("tokens", ascending=False)
+        st.caption("Token breakdown by stage")
+        st.dataframe(df, use_container_width=True)

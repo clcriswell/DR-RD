@@ -3,6 +3,10 @@ from __future__ import annotations
 from typing import Optional, List, Tuple
 
 from config.feature_flags import RAG_ENABLED, RAG_TOPK, RAG_SNIPPET_TOKENS
+import logging
+
+from dr_rd.utils.model_router import pick_model, CallHints
+from dr_rd.utils.llm_client import llm_call
 
 try:  # avoid import errors when knowledge package is absent
     from dr_rd.knowledge.retriever import Retriever
@@ -88,12 +92,18 @@ class BaseAgent:
                 "Include key diagrams or specifications and reasoning for major decisions without delving into excessive minutiae."
             )
 
-        # Call OpenAI ChatCompletion with system and user messages
-        response = openai.chat.completions.create(
-            model=self.model,
+        # Call model router and OpenAI via llm_client
+        hints = CallHints(stage="exec")
+        sel = pick_model(hints)
+        logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+        response = llm_call(
+            openai,
+            sel["model"],
+            stage="exec",
             messages=[
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
             ],
+            **sel["params"],
         )
         return response.choices[0].message.content.strip()
