@@ -15,6 +15,7 @@ from config.agent_models import AGENT_MODEL_MAP
 from dr_rd.utils.model_router import pick_model, CallHints
 from dr_rd.utils.llm_client import llm_call
 import logging
+import base64
 
 _TEMPLATE = """\
 You are a multi-disciplinary R&D lead.
@@ -87,6 +88,29 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
         **sel["params"],
     )
     final_document = response.choices[0].message.content
+
+    # Optional: generate 1-2 schematic images
+    try:
+        import openai as _openai
+        prompts = [
+            f"Schematic diagram of the proposed prototype based on: {idea}",
+            "Render a realistic concept image of the prototype's exterior appearance."
+        ]
+        image_urls = []
+        for p in prompts:
+            try:
+                img_resp = _openai.images.generate(model="gpt-image-1", prompt=p, size="1024x1024")
+                url = img_resp.data[0].url
+                image_urls.append(url)
+            except Exception:
+                pass
+        if image_urls:
+            final_document += "\n\n## 4. Schematics & Visuals\n"
+            for i, url in enumerate(image_urls, 1):
+                final_document += f"\n**Figure {i}.**\n\n![]({url})\n"
+    except Exception:
+        pass
+
     return final_document
 
 
