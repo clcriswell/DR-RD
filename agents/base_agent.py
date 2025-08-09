@@ -4,6 +4,7 @@ from typing import Optional, List, Tuple
 
 from config.feature_flags import RAG_ENABLED, RAG_TOPK, RAG_SNIPPET_TOKENS
 import logging
+import streamlit as st
 
 from dr_rd.utils.model_router import pick_model, CallHints
 from dr_rd.utils.llm_client import llm_call, log_usage
@@ -114,4 +115,10 @@ class BaseAgent:
                 pt=getattr(usage, "prompt_tokens", 0),
                 ct=getattr(usage, "completion_tokens", 0),
             )
-        return response.choices[0].message.content.strip()
+        answer = response.choices[0].message.content.strip()
+        flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
+        if flags.get("TEST_MODE"):
+            max_chars = int(flags.get("MAX_OUTPUT_CHARS", 900))
+            if isinstance(answer, str) and len(answer) > max_chars:
+                answer = answer[:max_chars] + " …[truncated test]"
+        return answer

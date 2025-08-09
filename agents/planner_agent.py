@@ -4,6 +4,7 @@ import openai
 from dr_rd.utils.model_router import pick_model, CallHints
 from dr_rd.utils.llm_client import llm_call, log_usage
 from typing import Optional
+import streamlit as st
 
 from config.feature_flags import EVALUATOR_MIN_OVERALL
 
@@ -84,7 +85,12 @@ class PlannerAgent(BaseAgent):
         raw_text = response.choices[0].message.content
         logging.debug("Planner raw response: %s", raw_text)
         try:
-            return json.loads(raw_text)
+            plan = json.loads(raw_text)
+            flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
+            if flags.get("TEST_MODE"):
+                max_domains = int(flags.get("MAX_DOMAINS", 2))
+                plan = dict(sorted(plan.items(), key=lambda x: x[0])[:max_domains])
+            return plan
         except json.JSONDecodeError as e:
             raise ValueError(f"Planner returned invalid JSON: {raw_text}") from e
 

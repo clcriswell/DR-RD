@@ -35,7 +35,7 @@ from dr_rd.evaluators import feasibility_ev, clarity_ev, coherence_ev, goal_fit_
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from dr_rd.utils.model_router import pick_model, difficulty_from_signals, CallHints
 from dr_rd.utils.llm_client import llm_call, METER
-from app.ui_cost_meter import render_cost_summary
+from app.ui_cost_meter import render_cost_summary, render_estimator
 
 
 live_tokens = None
@@ -459,7 +459,7 @@ def run_manual_pipeline(
             try:
                 doc_id = get_project_id()
                 db.collection("dr_rd_projects").document(doc_id).set(
-                    {"outputs": st.session_state["answers"]},
+                    {"outputs": st.session_state["answers"], **st.session_state.get("test_marker", {})},
                     merge=True,
                 )
             except Exception as e:
@@ -511,7 +511,7 @@ def run_manual_pipeline(
             try:
                 doc_id = get_project_id()
                 db.collection("dr_rd_projects").document(doc_id).set(
-                    {"outputs": st.session_state["answers"]},
+                    {"outputs": st.session_state["answers"], **st.session_state.get("test_marker", {})},
                     merge=True,
                 )
             except Exception as e:
@@ -539,7 +539,10 @@ def main():
                     try:
                         old_doc = db.collection("dr_rd_projects").document(old_id).get()
                         if old_doc.exists:
-                            db.collection("dr_rd_projects").document(slug_id).set(old_doc.to_dict(), merge=True)
+                            db.collection("dr_rd_projects").document(slug_id).set(
+                                {**old_doc.to_dict(), **st.session_state.get("test_marker", {})},
+                                merge=True,
+                            )
                     except Exception:
                         pass
                 st.session_state["project_id"] = slug_id
@@ -604,10 +607,15 @@ def main():
     else:
         st.markdown("## Configuration")
 
+    import os
     mode_label_to_key = {"Fast": "fast", "Balanced": "balanced", "Deep": "deep"}
+    if os.environ.get("DEV_TEST_MODE") == "1":
+        mode_label_to_key["Test (dev)"] = "test"
     mode_container = sidebar if hasattr(sidebar, "radio") else st
+    labels = list(mode_label_to_key.keys())
     if hasattr(mode_container, "radio"):
-        selected_label = mode_container.radio("Run Mode", ["Fast", "Balanced", "Deep"], index=1)
+        default_index = labels.index("Balanced") if "Balanced" in labels else 0
+        selected_label = mode_container.radio("Run Mode", labels, index=default_index)
     else:  # fallback for test stubs
         selected_label = "Balanced"
     selected_mode = mode_label_to_key[selected_label]
@@ -620,11 +628,13 @@ def main():
     ui_preset = UI_PRESETS[selected_mode]
     st.session_state["simulate_enabled"] = ui_preset["simulate_enabled"]
     st.session_state["design_depth"] = ui_preset["design_depth"]
+    st.session_state["test_marker"] = {"test": True} if final_flags.get("TEST_MODE") else {}
     if hasattr(st, "caption"):
         st.caption(
-            f"Mode: {selected_label} • Depth={ui_preset['design_depth']} • "
-            f"Refinement rounds={ui_preset['refinement_rounds']} • "
-            f"Simulations={'on' if ui_preset['simulate_enabled'] else 'off'}"
+            ("**DEV** • " if selected_mode == "test" else "")
+            + f"Mode: {selected_label} • Depth={ui_preset['design_depth']} • "
+            + f"Refinement rounds={ui_preset['refinement_rounds']} • "
+            + f"Simulations={'on' if ui_preset['simulate_enabled'] else 'off'}"
         )
     project_names = []
     project_doc_ids = {}
@@ -728,6 +738,8 @@ def main():
     if similar_ideas:
         st.info("Found similar past projects: " + ", ".join(similar_ideas))
 
+    render_estimator(selected_mode, idea)
+
     if st.button("1⃣ Generate Research Plan"):
         logging.info(f"User generated plan for idea: {idea}")
         try:
@@ -771,6 +783,7 @@ def main():
                             "name": st.session_state.get("project_name", ""),
                             "idea": idea,
                             "plan": st.session_state["plan"],
+                            **st.session_state.get("test_marker", {}),
                         },
                         merge=True,
                     )
@@ -848,7 +861,7 @@ def main():
                 try:
                     doc_id = get_project_id()
                     db.collection("dr_rd_projects").document(doc_id).set(
-                        {"outputs": st.session_state["answers"]},
+                        {"outputs": st.session_state["answers"], **st.session_state.get("test_marker", {})},
                         merge=True,
                     )
                 except Exception as e:
@@ -1063,7 +1076,7 @@ def main():
                 try:
                     doc_id = get_project_id()
                     db.collection("dr_rd_projects").document(doc_id).set(
-                        {"proposal": st.session_state["final_doc"]},
+                        {"proposal": st.session_state["final_doc"], **st.session_state.get("test_marker", {})},
                         merge=True,
                     )
                 except Exception as e:
@@ -1072,7 +1085,7 @@ def main():
                 try:
                     doc_id = get_project_id()
                     db.collection("dr_rd_projects").document(doc_id).set(
-                        {"images": st.session_state.get("images", [])},
+                        {"images": st.session_state.get("images", []), **st.session_state.get("test_marker", {})},
                         merge=True,
                     )
                 except Exception as e:
@@ -1184,7 +1197,7 @@ def main():
         if use_firestore:
             try:
                 db.collection("dr_rd_projects").document(doc_id).set(
-                    {"chat": new_chat},
+                    {"chat": new_chat, **st.session_state.get("test_marker", {})},
                     merge=True,
                 )
             except Exception as e:

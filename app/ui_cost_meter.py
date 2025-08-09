@@ -8,6 +8,22 @@ PRIORS = {
     "synth": {"gpt-5": 4000},
 }
 
+
+def render_estimator(mode: str, idea_text: str, price_per_1k: float = 0.005):
+    st.subheader("Run Cost Estimate")
+    if mode == "test":
+        st.info("**Test mode:** minimal-cost dry run to exercise all features.")
+    preset = UI_PRESETS.get(mode, UI_PRESETS["balanced"]).get("estimator", {})
+    tokens = preset.get("exec_tokens", 0)
+    est_cost = tokens / 1000 * price_per_1k
+    metric = getattr(st, "metric", None)
+    if callable(metric):
+        label = "Estimated Cost"
+        if mode == "test":
+            metric(label, f"${est_cost:.4f}", help="dev-only")
+        else:
+            metric(label, f"${est_cost:.2f}")
+
 def render_cost_summary(mode: str, plan: dict | None):
     log = st.session_state.get("usage_log", [])
     actual = 0.0

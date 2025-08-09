@@ -30,3 +30,4 @@ def test_compose_final_proposal(mock_create, _mock_vis):
     assert "## Executive Summary" in result["document"]
     assert "## Step-by-Step Instructions" in result["document"]
     assert result["images"][0]["url"] == "u"
+    assert result["test"] is False
