@@ -28,14 +28,15 @@ class MemoryManager:
         if not isinstance(self.data, list):
             self.data = []
 
-    def store_project(self, name, idea, plan, outputs, proposal):
-        """Save a completed project (name, idea, plan, outputs, proposal) to memory (and Firestore if available)."""
+    def store_project(self, name, idea, plan, outputs, proposal, images=None):
+        """Save a completed project to memory (and Firestore if available)."""
         entry = {
             "name": name,
             "idea": idea,
             "plan": plan,
             "outputs": outputs,
             "proposal": proposal,
+            "images": images or [],
         }
 
         try:  # pragma: no cover - depends on external Firestore service

@@ -57,6 +57,8 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
         form_submit_button=MagicMock(return_value=True),
         write=MagicMock(),
         sidebar=DummySidebar(),
+        image=MagicMock(),
+        caption=MagicMock(),
     )
     return st
 
@@ -138,7 +140,7 @@ def test_compile_final_proposal(monkeypatch):
     )
     patches = {
         "agents.synthesizer.compose_final_proposal": (
-            lambda idea, answers, include_simulations=False: "final"
+            lambda idea, answers, include_simulations=False: {"document": "final", "images": []}
         )
     }
     reload_app(monkeypatch, st, patches)
