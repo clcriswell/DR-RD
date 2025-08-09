@@ -13,7 +13,7 @@ from typing import Dict
 import openai
 from config.agent_models import AGENT_MODEL_MAP
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.utils.llm_client import llm_call, log_usage
 import logging
 import base64
 
@@ -58,6 +58,14 @@ def synthesize(idea: str, answers: Dict[str, str]) -> str:
         temperature=0.3,
         **sel["params"],
     )
+    usage = resp.choices[0].usage if hasattr(resp.choices[0], "usage") else getattr(resp, "usage", None)
+    if usage:
+        log_usage(
+            stage="synth",
+            model=sel["model"],
+            pt=getattr(usage, "prompt_tokens", 0),
+            ct=getattr(usage, "completion_tokens", 0),
+        )
     return resp.choices[0].message.content.strip()
 
 
@@ -87,6 +95,14 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
         messages=[{"role": "user", "content": prompt}],
         **sel["params"],
     )
+    usage = response.choices[0].usage if hasattr(response.choices[0], "usage") else getattr(response, "usage", None)
+    if usage:
+        log_usage(
+            stage="synth",
+            model=sel["model"],
+            pt=getattr(usage, "prompt_tokens", 0),
+            ct=getattr(usage, "completion_tokens", 0),
+        )
     final_document = response.choices[0].message.content
 
     # Optional: generate 1-2 schematic images

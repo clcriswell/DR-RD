@@ -2,7 +2,7 @@ from agents.base_agent import BaseAgent
 import logging
 import openai
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.utils.llm_client import llm_call, log_usage
 from typing import Optional
 
 from config.feature_flags import EVALUATOR_MIN_OVERALL
@@ -73,6 +73,14 @@ class PlannerAgent(BaseAgent):
             kwargs["response_format"] = {"type": "json_object"}
         kwargs.update(sel["params"])
         response = llm_call(openai, model_id, stage="plan", **kwargs)
+        usage = response.choices[0].usage if hasattr(response.choices[0], "usage") else getattr(response, "usage", None)
+        if usage:
+            log_usage(
+                stage="plan",
+                model=model_id,
+                pt=getattr(usage, "prompt_tokens", 0),
+                ct=getattr(usage, "completion_tokens", 0),
+            )
         raw_text = response.choices[0].message.content
         logging.debug("Planner raw response: %s", raw_text)
         try:
@@ -110,6 +118,14 @@ class PlannerAgent(BaseAgent):
             temperature=0.2,
             **sel["params"],
         )
+        usage = resp.choices[0].usage if hasattr(resp.choices[0], "usage") else getattr(resp, "usage", None)
+        if usage:
+            log_usage(
+                stage="plan",
+                model=sel["model"],
+                pt=getattr(usage, "prompt_tokens", 0),
+                ct=getattr(usage, "completion_tokens", 0),
+            )
         try:
             data = resp.choices[0].message.content
             parsed = json.loads(data)
