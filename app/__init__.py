@@ -1,4 +1,5 @@
 from app.logging_setup import init_gcp_logging
+import os, re
 import json
 import logging
 import streamlit as st
@@ -10,7 +11,6 @@ from memory import audit_logger  # import the audit logger
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
 from agents.simulation_agent import SimulationAgent
-import re
 import uuid
 import io
 import fitz
@@ -138,6 +138,31 @@ def extract_json_from_markdown(md: str):
 def strip_json_block(md: str) -> str:
     """Remove JSON code block from markdown output."""
     return re.sub(r"```json\s*.*?\s*```", "", md, flags=re.DOTALL).strip()
+
+
+def _get_qs_flag(name: str) -> bool:
+    try:
+        qs = st.query_params if hasattr(st, "query_params") else st.experimental_get_query_params()
+        v = qs.get(name, ["0"])
+        return (v if isinstance(v, list) else [v])[0] in ("1", "true", "True")
+    except Exception:
+        return False
+
+
+def _set_qs_flag(name: str, on: bool):
+    try:
+        # Streamlit new API:
+        if hasattr(st, "query_params"):
+            qp = dict(st.query_params)
+            qp[name] = "1" if on else "0"
+            st.query_params.clear()
+            st.query_params.update(qp)
+        else:
+            st.experimental_set_query_params(
+                **{**st.experimental_get_query_params(), name: "1" if on else "0"}
+            )
+    except Exception:
+        pass
 
 
 def maybe_init_gcp_logging() -> bool:
@@ -607,9 +632,25 @@ def main():
     else:
         st.markdown("## Configuration")
 
-    import os
+    developer_expander = getattr(sidebar, "expander", None)
+    if callable(developer_expander):
+        with developer_expander("Developer", expanded=False):
+            if "dev_mode" not in st.session_state:
+                st.session_state["dev_mode"] = _get_qs_flag("dev")
+            toggle_fn = getattr(st, "toggle", getattr(st, "checkbox", lambda *a, **k: False))
+            dev_on = toggle_fn(
+                "Enable Test (dev) mode",
+                value=bool(st.session_state.get("dev_mode")),
+                help="Adds a low-cost end-to-end test mode.",
+            )
+            st.session_state["dev_mode"] = dev_on
+            _set_qs_flag("dev", dev_on)
+    else:
+        if "dev_mode" not in st.session_state:
+            st.session_state["dev_mode"] = _get_qs_flag("dev")
+
     mode_label_to_key = {"Fast": "fast", "Balanced": "balanced", "Deep": "deep"}
-    if os.environ.get("DEV_TEST_MODE") == "1":
+    if st.session_state.get("dev_mode"):
         mode_label_to_key["Test (dev)"] = "test"
     mode_container = sidebar if hasattr(sidebar, "radio") else st
     labels = list(mode_label_to_key.keys())
@@ -619,6 +660,10 @@ def main():
     else:  # fallback for test stubs
         selected_label = "Balanced"
     selected_mode = mode_label_to_key[selected_label]
+    if selected_mode == "test":
+        st.info(
+            "**Test (dev)** is ON: minimal tokens, capped domains, tiny image, truncated outputs."
+        )
     env_defaults = get_env_defaults()
     final_flags = apply_profile(env_defaults, selected_mode, overrides=None)
     st.session_state["final_flags"] = final_flags
@@ -738,7 +783,9 @@ def main():
     if similar_ideas:
         st.info("Found similar past projects: " + ", ".join(similar_ideas))
 
-    render_estimator(selected_mode, idea)
+    render_estimator(
+        selected_mode, st.session_state.get("idea", ""), price_per_1k=0.005
+    )
 
     if st.button("1⃣ Generate Research Plan"):
         logging.info(f"User generated plan for idea: {idea}")
