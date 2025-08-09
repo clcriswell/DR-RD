@@ -6,7 +6,7 @@ from config.feature_flags import RAG_ENABLED, RAG_TOPK, RAG_SNIPPET_TOKENS
 import logging
 
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.utils.llm_client import llm_call, log_usage
 
 try:  # avoid import errors when knowledge package is absent
     from dr_rd.knowledge.retriever import Retriever
@@ -106,4 +106,12 @@ class BaseAgent:
             ],
             **sel["params"],
         )
+        usage = response.choices[0].usage if hasattr(response.choices[0], "usage") else getattr(response, "usage", None)
+        if usage:
+            log_usage(
+                stage="exec",
+                model=sel["model"],
+                pt=getattr(usage, "prompt_tokens", 0),
+                ct=getattr(usage, "completion_tokens", 0),
+            )
         return response.choices[0].message.content.strip()

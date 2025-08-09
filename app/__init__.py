@@ -35,7 +35,7 @@ from dr_rd.evaluators import feasibility_ev, clarity_ev, coherence_ev, goal_fit_
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from dr_rd.utils.model_router import pick_model, difficulty_from_signals, CallHints
 from dr_rd.utils.llm_client import llm_call, METER
-from app.ui_cost_meter import render_estimator
+from app.ui_cost_meter import render_cost_summary
 
 
 live_tokens = None
@@ -624,16 +624,6 @@ def main():
             f"Refinement rounds={ui_preset['refinement_rounds']} • "
             f"Simulations={'on' if ui_preset['simulate_enabled'] else 'off'}"
         )
-    if hasattr(st, "metric"):
-        if hasattr(sidebar_root, "__enter__"):
-            try:
-                with sidebar_root:
-                    render_estimator(selected_mode, st.session_state.get("idea", ""), price_per_1k=0.005)
-            except Exception:  # pragma: no cover - defensive
-                render_estimator(selected_mode, st.session_state.get("idea", ""), price_per_1k=0.005)
-        else:
-            render_estimator(selected_mode, st.session_state.get("idea", ""), price_per_1k=0.005)
-
     project_names = []
     project_doc_ids = {}
     if use_firestore:
@@ -781,6 +771,7 @@ def main():
                     )
                 except Exception as e:
                     logging.error(f"Save plan failed: {e}")
+            render_cost_summary(selected_mode, st.session_state.get("plan"))
         except openai.OpenAIError as e:
             logging.exception("OpenAI error during plan generation: %s", e)
             getattr(
@@ -814,6 +805,7 @@ def main():
                 if not agent:
                     continue
                 outputs[t["role"]] = agent.run(idea, t.get("task", ""))
+            render_cost_summary(selected_mode, st.session_state.get("plan"))
             return outputs
 
         if st.button("2⃣ Run All Domain Experts"):
@@ -856,6 +848,7 @@ def main():
                     )
                 except Exception as e:
                     logging.error(f"Save outputs failed: {e}")
+            render_cost_summary(selected_mode, st.session_state.get("plan"))
             getattr(
                 st, "success", lambda *a, **k: None
             )("✅ HRM R&D complete!")
