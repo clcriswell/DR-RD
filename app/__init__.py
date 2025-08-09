@@ -27,7 +27,7 @@ from dr_rd.config.feature_flags import (
     AGENT_MAX_RETRIES,
     AGENT_THRESHOLD,
 )
-from dr_rd.config.mode_profiles import apply_profile
+from dr_rd.config.mode_profiles import apply_profile, UI_PRESETS
 from dr_rd.hrm_engine import HRMLoop
 from dr_rd.hrm_bridge import HRMBridge
 from dr_rd.agents.hrm_agent import HRMAgent
@@ -161,8 +161,18 @@ def maybe_init_gcp_logging() -> bool:
     return st.session_state["gcp_logging_initialized"]
 
 
+def _slugify(name: str) -> str:
+    s = name.strip().lower()
+    s = re.sub(r"[^a-z0-9\s-]", "", s)
+    s = re.sub(r"\s+", "-", s)
+    return s[:64] or "project"
+
+
 def get_project_id() -> str:
-    """Return a project id from session state, creating one if needed."""
+    """Prefer a slug of the Project Name; fallback to UUID on first run."""
+    pname = st.session_state.get("project_name")
+    if pname:
+        return _slugify(pname)
     if "project_id" not in st.session_state:
         st.session_state["project_id"] = str(uuid.uuid4())
     return st.session_state["project_id"]
@@ -443,6 +453,15 @@ def run_manual_pipeline(
                 st.warning(f"Agent collaboration failed: {e}")
         # Update session state with collaborated outputs
         st.session_state["answers"] = answers
+        if use_firestore:
+            try:
+                doc_id = get_project_id()
+                db.collection("dr_rd_projects").document(doc_id).set(
+                    {"outputs": st.session_state["answers"]},
+                    merge=True,
+                )
+            except Exception as e:
+                logging.error(f"Save outputs failed: {e}")
 
     # Iterative refinement rounds if selected
     if refinement_rounds > 1:
@@ -486,6 +505,15 @@ def run_manual_pipeline(
             st.markdown(f"### {role} (Refined)")
             st.markdown(output, unsafe_allow_html=True)
         st.session_state["answers"] = answers
+        if use_firestore:
+            try:
+                doc_id = get_project_id()
+                db.collection("dr_rd_projects").document(doc_id).set(
+                    {"outputs": st.session_state["answers"]},
+                    merge=True,
+                )
+            except Exception as e:
+                logging.error(f"Save outputs failed: {e}")
 
 
 def main():
@@ -501,6 +529,21 @@ def main():
         gcp_project = sa_info.get("project_id")
         db = firestore.Client(credentials=credentials, project=gcp_project)
         ws = WS(project_id)
+        try:
+            slug_id = _slugify(st.session_state.get("project_name", ""))
+            if slug_id:
+                old_id = project_id
+                if old_id != slug_id:
+                    try:
+                        old_doc = db.collection("dr_rd_projects").document(old_id).get()
+                        if old_doc.exists:
+                            db.collection("dr_rd_projects").document(slug_id).set(old_doc.to_dict(), merge=True)
+                    except Exception:
+                        pass
+                st.session_state["project_id"] = slug_id
+                ws = WS(slug_id)
+        except Exception as _e:
+            pass
         use_firestore = True
     except Exception as e:  # pragma: no cover - optional dependency
         logging.info(f"Firestore disabled: {e}")
@@ -541,15 +584,6 @@ def main():
 
     global live_tokens, live_cost
     sidebar_root = getattr(st, "sidebar", st)
-    if hasattr(st, "number_input"):
-        if hasattr(sidebar_root, "__enter__"):
-            try:
-                with sidebar_root:
-                    render_estimator(price_per_1k=0.005)
-            except Exception:  # pragma: no cover - defensive
-                render_estimator(price_per_1k=0.005)
-        else:
-            render_estimator(price_per_1k=0.005)
 
     def _placeholder():  # pragma: no cover - simple sidebar stub
         class _P:
@@ -568,13 +602,37 @@ def main():
     else:
         st.markdown("## Configuration")
 
-    mode_label_to_key = {"Balanced": "balanced", "Fast": "fast", "Explore": "explore"}
+    mode_label_to_key = {"Fast": "fast", "Balanced": "balanced", "Deep": "deep"}
     mode_container = sidebar if hasattr(sidebar, "radio") else st
     if hasattr(mode_container, "radio"):
-        selected_label = mode_container.radio("Run Mode", ["Balanced", "Fast", "Explore"], index=0)
+        selected_label = mode_container.radio("Run Mode", ["Fast", "Balanced", "Deep"], index=1)
     else:  # fallback for test stubs
         selected_label = "Balanced"
     selected_mode = mode_label_to_key[selected_label]
+    env_defaults = get_env_defaults()
+    final_flags = apply_profile(env_defaults, selected_mode, overrides=None)
+    st.session_state["final_flags"] = final_flags
+    import config.feature_flags as ff
+    for k, v in final_flags.items():
+        setattr(ff, k, v)
+    ui_preset = UI_PRESETS[selected_mode]
+    st.session_state["simulate_enabled"] = ui_preset["simulate_enabled"]
+    st.session_state["design_depth"] = ui_preset["design_depth"]
+    if hasattr(st, "caption"):
+        st.caption(
+            f"Mode: {selected_label} • Depth={ui_preset['design_depth']} • "
+            f"Refinement rounds={ui_preset['refinement_rounds']} • "
+            f"Simulations={'on' if ui_preset['simulate_enabled'] else 'off'}"
+        )
+    if hasattr(st, "metric"):
+        if hasattr(sidebar_root, "__enter__"):
+            try:
+                with sidebar_root:
+                    render_estimator(selected_mode, st.session_state.get("idea", ""), price_per_1k=0.005)
+            except Exception:  # pragma: no cover - defensive
+                render_estimator(selected_mode, st.session_state.get("idea", ""), price_per_1k=0.005)
+        else:
+            render_estimator(selected_mode, st.session_state.get("idea", ""), price_per_1k=0.005)
 
     project_names = []
     project_doc_ids = {}
@@ -657,91 +715,6 @@ def main():
         if hasattr(st, "experimental_rerun"):
             st.experimental_rerun()
 
-    if "simulate_enabled" not in st.session_state:
-        st.session_state["simulate_enabled"] = True
-    if "design_depth" not in st.session_state:
-        st.session_state["design_depth"] = "Low"
-    env_defaults = get_env_defaults()
-    current_flags = st.session_state.get("final_flags", env_defaults)
-
-    form_container = sidebar if hasattr(sidebar, "form") else st
-    with form_container.form("config_form"):
-        simulate_enabled = st.checkbox(
-            "Enable Simulations", value=st.session_state["simulate_enabled"]
-        )
-        design_depth = st.selectbox(
-            "Design Depth",
-            options=["Low", "Medium", "High"],
-            index=["Low", "Medium", "High"].index(st.session_state["design_depth"]),
-            help="Controls how detailed the agent outputs will be.",
-        )
-        expander_container = sidebar if hasattr(sidebar, "expander") else st
-        with expander_container.expander("Advanced overrides"):
-            parallel_exec = st.checkbox(
-                "PARALLEL_EXEC_ENABLED", value=current_flags.get("PARALLEL_EXEC_ENABLED", True)
-            )
-            tot_planning = st.checkbox(
-                "TOT_PLANNING_ENABLED", value=current_flags.get("TOT_PLANNING_ENABLED", False)
-            )
-            evaluators = st.checkbox(
-                "EVALUATORS_ENABLED", value=current_flags.get("EVALUATORS_ENABLED", False)
-            )
-            reflection = st.checkbox(
-                "REFLECTION_ENABLED", value=current_flags.get("REFLECTION_ENABLED", False)
-            )
-            rag = st.checkbox(
-                "RAG_ENABLED", value=current_flags.get("RAG_ENABLED", False)
-            )
-            sim_opt = st.checkbox(
-                "SIM_OPTIMIZER_ENABLED", value=current_flags.get("SIM_OPTIMIZER_ENABLED", False)
-            )
-            tot_k = st.slider(
-                "TOT_K", 1, 10, value=current_flags.get("TOT_K", 3)
-            )
-            tot_beam = st.slider(
-                "TOT_BEAM", 1, 5, value=current_flags.get("TOT_BEAM", 2)
-            )
-            tot_max_depth = st.slider(
-                "TOT_MAX_DEPTH", 1, 5, value=current_flags.get("TOT_MAX_DEPTH", 2)
-            )
-            rag_topk = st.slider(
-                "RAG_TOPK", 1, 20, value=current_flags.get("RAG_TOPK", 4)
-            )
-            rag_snippet_tokens = st.slider(
-                "RAG_SNIPPET_TOKENS", 50, 400, value=current_flags.get("RAG_SNIPPET_TOKENS", 200)
-            )
-            sim_opt_max_evals = st.slider(
-                "SIM_OPTIMIZER_MAX_EVALS", 1, 100, value=current_flags.get("SIM_OPTIMIZER_MAX_EVALS", 50)
-            )
-        submitted = st.form_submit_button("Apply settings")
-    if submitted:
-        st.session_state["simulate_enabled"] = simulate_enabled
-        st.session_state["design_depth"] = design_depth
-        overrides = {
-            "PARALLEL_EXEC_ENABLED": parallel_exec,
-            "TOT_PLANNING_ENABLED": tot_planning,
-            "TOT_K": tot_k,
-            "TOT_BEAM": tot_beam,
-            "TOT_MAX_DEPTH": tot_max_depth,
-            "EVALUATORS_ENABLED": evaluators,
-            "REFLECTION_ENABLED": reflection,
-            "RAG_ENABLED": rag,
-            "RAG_TOPK": rag_topk,
-            "RAG_SNIPPET_TOKENS": rag_snippet_tokens,
-            "SIM_OPTIMIZER_ENABLED": sim_opt,
-            "SIM_OPTIMIZER_MAX_EVALS": sim_opt_max_evals,
-        }
-        final_flags = apply_profile(env_defaults, selected_mode, overrides)
-        st.session_state["final_flags"] = final_flags
-        import config.feature_flags as ff
-        for k, v in final_flags.items():
-            setattr(ff, k, v)
-    final_flags = st.session_state.get("final_flags", env_defaults)
-    if hasattr(st, "caption"):
-        st.caption(
-            f"Mode: {selected_label} • ToT={final_flags.get('TOT_PLANNING_ENABLED')} • RAG_TOPK={final_flags.get('RAG_TOPK')}"
-        )
-
     project_name = st.text_input(
         "🏷️ Project Name:", value=st.session_state.get("project_name", "")
     )
@@ -795,6 +768,19 @@ def main():
                 "Plan generated",
                 success=True,
             )
+            if use_firestore:
+                try:
+                    doc_id = get_project_id()
+                    db.collection("dr_rd_projects").document(doc_id).set(
+                        {
+                            "name": st.session_state.get("project_name", ""),
+                            "idea": idea,
+                            "plan": st.session_state["plan"],
+                        },
+                        merge=True,
+                    )
+                except Exception as e:
+                    logging.error(f"Save plan failed: {e}")
         except openai.OpenAIError as e:
             logging.exception("OpenAI error during plan generation: %s", e)
             getattr(
@@ -816,14 +802,10 @@ def main():
         st.subheader("Project Plan (Role → Task)")
         st.json(st.session_state["plan"])
 
-        refinement_rounds = st.slider("🔁 Refinement Rounds", 1, 3, value=1)
+        refinement_rounds = ui_preset["refinement_rounds"]
         simulate_enabled = st.session_state.get("simulate_enabled", True)
         design_depth = st.session_state.get("design_depth", "Low")
-        re_run_simulations = (
-            st.checkbox("Re-run simulations after each refinement round", value=False)
-            if simulate_enabled
-            else False
-        )
+        re_run_simulations = ui_preset["rerun_sims_each_round"]
 
         def classic_execute(tasks):
             outputs = {}
@@ -865,6 +847,15 @@ def main():
             st.session_state["answers"] = {
                 r: "out" for r in st.session_state.get("plan", {})
             }
+            if use_firestore:
+                try:
+                    doc_id = get_project_id()
+                    db.collection("dr_rd_projects").document(doc_id).set(
+                        {"outputs": st.session_state["answers"]},
+                        merge=True,
+                    )
+                except Exception as e:
+                    logging.error(f"Save outputs failed: {e}")
             getattr(
                 st, "success", lambda *a, **k: None
             )("✅ HRM R&D complete!")
@@ -1063,6 +1054,15 @@ def main():
                     logging.exception("Error during final proposal synthesis: %s", e)
                     st.stop()
             st.session_state["final_doc"] = final_doc
+            if use_firestore:
+                try:
+                    doc_id = get_project_id()
+                    db.collection("dr_rd_projects").document(doc_id).set(
+                        {"proposal": st.session_state["final_doc"]},
+                        merge=True,
+                    )
+                except Exception as e:
+                    logging.error(f"Save proposal failed: {e}")
 
     if "final_doc" in st.session_state:
         st.subheader("📖 Integrated R&D Proposal")
@@ -1093,3 +1093,73 @@ def main():
             getattr(st, "dataframe", lambda *a, **k: None)(
                 df, use_container_width=True
             )
+
+    st.subheader("💬 Project Chat")
+    doc_id = get_project_id()
+    prior_chat = []
+    if use_firestore:
+        try:
+            snap = db.collection("dr_rd_projects").document(doc_id).get()
+            if snap.exists:
+                prior_chat = snap.to_dict().get("chat", []) or []
+        except Exception as e:
+            logging.error(f"Load chat failed: {e}")
+    for m in prior_chat[-30:]:
+        role = m.get("role", "assistant")
+        content = m.get("content", "")
+        getattr(st, "markdown", print)(f"**{role.capitalize()}:** {content}")
+
+    user_msg = getattr(st, "chat_input", lambda *a, **k: None)(
+        "Ask a question or propose a refinement…"
+    )
+    if user_msg:
+        context_bits = []
+        if st.session_state.get("idea"):
+            context_bits.append(f"IDEA: {st.session_state['idea']}")
+        if st.session_state.get("plan"):
+            context_bits.append(
+                f"PLAN ROLES: {', '.join(st.session_state['plan'].keys())}"
+            )
+        if st.session_state.get("answers"):
+            sums = [
+                f"{r}: {len((st.session_state['answers'].get(r) or ''))} chars"
+                for r in st.session_state["answers"].keys()
+            ]
+            context_bits.append("OUTPUTS: " + "; ".join(sums))
+        if st.session_state.get("final_doc"):
+            context_bits.append("PROPOSAL: present")
+
+        from dr_rd.utils.model_router import pick_model, CallHints
+        from dr_rd.utils.llm_client import llm_call
+
+        sel = pick_model(CallHints(stage="exec", deep_reasoning=(selected_mode == "deep")))
+        msg = "\n\n".join(context_bits) + f"\n\nUser: {user_msg}"
+        try:
+            reply = llm_call(
+                openai,
+                sel["model"],
+                stage="exec",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are the project's on-call R&D assistant.",
+                    },
+                    {"role": "user", "content": msg},
+                ],
+                **sel["params"],
+            ).choices[0].message.content.strip()
+        except Exception as e:
+            reply = f"(assistant error: {e})"
+        new_chat = prior_chat + [
+            {"role": "user", "content": user_msg},
+            {"role": "assistant", "content": reply},
+        ]
+        if use_firestore:
+            try:
+                db.collection("dr_rd_projects").document(doc_id).set(
+                    {"chat": new_chat},
+                    merge=True,
+                )
+            except Exception as e:
+                logging.error(f"Save chat failed: {e}")
+        getattr(st, "markdown", print)(f"**Assistant:** {reply}")

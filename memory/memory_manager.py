@@ -2,7 +2,15 @@ import json
 import logging
 import os
 import uuid
+import re
 from difflib import SequenceMatcher
+
+
+def _slugify(name: str) -> str:
+    s = name.strip().lower()
+    s = re.sub(r"[^a-z0-9\s-]", "", s)
+    s = re.sub(r"\s+", "-", s)
+    return s[:64] or "project"
 
 class MemoryManager:
     def __init__(self, file_path="memory/project_memory.json"):
@@ -40,7 +48,7 @@ class MemoryManager:
                     st.secrets["gcp_service_account"]
                 )
                 db = firestore.Client(credentials=creds, project=creds.project_id)
-                doc_id = name or str(uuid.uuid4())
+                doc_id = _slugify(name or "project")
                 db.collection("dr_rd_projects").document(doc_id).set(entry)
             else:
                 logging.info(
