@@ -1,40 +1,47 @@
 from dr_rd.config.model_routing import DEFAULTS, CallHints
+import streamlit as st
 
 
 def pick_model(h: CallHints) -> dict:
-    # plan
     if h.stage == "plan":
-        model = DEFAULTS["PLANNER"]
+        sel = {"model": DEFAULTS["PLANNER"], "params": {}}
         if h.difficulty == "hard":
-            model = "o4-mini"
-        return {"model": model, "params": {}}
-
-    # exec (researchers/retrievers/agents)
-    if h.stage == "exec":
-        model = DEFAULTS["RESEARCHER"]
+            sel["model"] = "o4-mini"
+    elif h.stage == "exec":
+        sel = {"model": DEFAULTS["RESEARCHER"], "params": {}}
         if h.difficulty == "hard":
-            model = "gpt-5-mini"
-        return {"model": model, "params": {}}
-
-    # eval
-    if h.stage == "eval":
-        return {"model": DEFAULTS["EVALUATOR"], "params": {}}
-
-    # brain loop
-    if h.stage == "brain":
+            sel["model"] = "gpt-5-mini"
+    elif h.stage == "eval":
+        sel = {"model": DEFAULTS["EVALUATOR"], "params": {}}
+    elif h.stage == "brain":
         model = DEFAULTS["BRAIN_MODE_LOOP"]
         if h.deep_reasoning:
             model = "o3"
-        return {"model": model, "params": {}}
-
-    # synth
-    if h.stage == "synth":
+        sel = {"model": model, "params": {}}
+    elif h.stage == "synth":
         model = DEFAULTS["SYNTHESIZER"]
         if h.final_pass:
             model = DEFAULTS["FINAL_SYNTH"]
-        return {"model": model, "params": {}}
+        sel = {"model": model, "params": {}}
+    else:
+        sel = {"model": DEFAULTS["RESEARCHER"], "params": {}}
 
-    return {"model": DEFAULTS["RESEARCHER"], "params": {}}
+    flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
+    if flags.get("TEST_MODE"):
+        override = {
+            "plan": flags.get("MODEL_PLANNER"),
+            "exec": flags.get("MODEL_EXEC"),
+            "synth": flags.get("MODEL_SYNTH"),
+        }.get(h.stage)
+        if override:
+            sel["model"] = override
+        else:
+            sel["model"] = flags.get("MODEL_EXEC", "gpt-4o-mini")
+        params = sel.get("params", {})
+        params["max_tokens"] = min(800, params.get("max_tokens", 800))
+        params["temperature"] = min(0.3, params.get("temperature", 0.3))
+        sel["params"] = params
+    return sel
 
 
 def difficulty_from_signals(score: float, coverage: float) -> str:

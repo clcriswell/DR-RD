@@ -27,6 +27,24 @@ PROFILES = {
     },
 }
 
+PROFILES["test"] = {
+    "PARALLEL_EXEC_ENABLED": True,
+    "TOT_PLANNING_ENABLED": True, "TOT_K": 1, "TOT_BEAM": 1, "TOT_MAX_DEPTH": 1,
+    "EVALUATORS_ENABLED": False,
+    "REFLECTION_ENABLED": False,
+    "RAG_ENABLED": False,
+    "SIM_OPTIMIZER_ENABLED": False,
+    # Optional hints used by downstream code:
+    "TEST_MODE": True,
+    "MODEL_PLANNER": "gpt-4o-mini",
+    "MODEL_EXEC": "gpt-4o-mini",
+    "MODEL_SYNTH": "gpt-4o-mini",
+    "IMAGES_SIZE": "256x256",
+    "IMAGES_QUALITY": "low",
+    "MAX_DOMAINS": 2,
+    "MAX_OUTPUT_CHARS": 900
+}
+
 # Backward compatibility: treat "explore" as "deep"
 PROFILES["explore"] = PROFILES["deep"]
 
@@ -35,6 +53,13 @@ UI_PRESETS = {
     "fast":     {"simulate_enabled": False, "design_depth": "Low",    "refinement_rounds": 1, "rerun_sims_each_round": False, "estimator": {"exec_tokens": 20000, "help_prob": 0.15}},
     "balanced": {"simulate_enabled": True,  "design_depth": "Medium", "refinement_rounds": 1, "rerun_sims_each_round": False, "estimator": {"exec_tokens": 45000, "help_prob": 0.30}},
     "deep":     {"simulate_enabled": True,  "design_depth": "High",   "refinement_rounds": 3, "rerun_sims_each_round": True,  "estimator": {"exec_tokens": 90000, "help_prob": 0.50}},
+    "test": {
+        "simulate_enabled": True,  # exercise the switch
+        "design_depth": "DevCheck",
+        "refinement_rounds": 1,
+        "rerun_sims_each_round": False,
+        "estimator": {"exec_tokens": 6000, "help_prob": 0.05},
+    },
 }
 
 

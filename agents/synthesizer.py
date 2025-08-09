@@ -16,6 +16,7 @@ from dr_rd.utils.model_router import pick_model, CallHints
 from dr_rd.utils.llm_client import llm_call, log_usage
 import logging
 import os
+import streamlit as st
 from dr_rd.utils.image_visuals import make_visuals_for_project
 
 _TEMPLATE = """\
@@ -106,19 +107,54 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
         )
     final_document = response.choices[0].message.content
 
+    flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
     try:
         plan_roles = list(answers.keys()) if isinstance(answers, dict) else None
     except Exception:
         plan_roles = None
     bucket = os.environ.get("GCS_BUCKET") or os.environ.get("GCS_IMAGES_BUCKET")
-    images = make_visuals_for_project(idea, plan_roles, bucket)
+    images = []
+    if flags.get("TEST_MODE"):
+        img_size = flags.get("IMAGES_SIZE", "1024x1024")
+        img_quality = flags.get("IMAGES_QUALITY", "high")
+        try:
+            from dr_rd.utils.image_visuals import _openai as _img_openai, _decode_to_bytes, upload_bytes_to_gcs
+            client = _img_openai()
+            prompt = f"Schematic/appearance concept for dev test: {idea[:160]}"
+            res = client.images.generate(
+                model="gpt-image-1",
+                prompt=prompt,
+                size=img_size,
+                quality=img_quality,
+                n=1,
+            )
+            b64 = res.data[0].b64_json
+            data = _decode_to_bytes(b64)
+            from io import BytesIO
+            bio = BytesIO(data)
+            fmt = "png"
+            content_type = "image/png"
+            if bucket:
+                filename = f"{int(__import__('time').time())}-test.{fmt}"
+                try:
+                    url = upload_bytes_to_gcs(bio.getvalue(), filename, content_type, bucket)
+                except Exception:
+                    url = f"data:{content_type};base64,{b64}"
+            else:
+                url = f"data:{content_type};base64,{b64}"
+            images.append({"kind": "test", "url": url, "caption": "Test Visual"})
+        except Exception:
+            pass
+    else:
+        images = make_visuals_for_project(idea, plan_roles, bucket)
 
     if images:
         final_document += "\n\n## 4. Schematics & Visuals\n"
         for i, img in enumerate(images, 1):
             final_document += f"\n**Figure {i}. {img['caption']}**\n\n![]({img['url']})\n"
 
-    return {"document": final_document, "images": images}
+    result_payload = {"document": final_document, "images": images, "test": bool(flags.get("TEST_MODE"))}
+    return result_payload
 
 
 class SynthesizerAgent:
