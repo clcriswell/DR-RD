@@ -3,6 +3,8 @@ openai>=1.25.0
 requests>=2.32.3
 google-cloud-logging
 google-cloud-firestore
+google-cloud-storage
+Pillow
 markdown-pdf
 trimesh
 scikit-image

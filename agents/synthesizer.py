@@ -15,7 +15,8 @@ from config.agent_models import AGENT_MODEL_MAP
 from dr_rd.utils.model_router import pick_model, CallHints
 from dr_rd.utils.llm_client import llm_call, log_usage
 import logging
-import base64
+import os
+from dr_rd.utils.image_visuals import make_visuals_for_project
 
 _TEMPLATE = """\
 You are a multi-disciplinary R&D lead.
@@ -69,7 +70,7 @@ def synthesize(idea: str, answers: Dict[str, str]) -> str:
     return resp.choices[0].message.content.strip()
 
 
-def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulations: bool = False) -> str:
+def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulations: bool = False):
     """Compose a Prototype Build Guide integrating agent contributions."""
     sel = pick_model(CallHints(stage="synth", final_pass=True))
     logging.info(f"Model[synth]={sel['model']} params={sel['params']}")
@@ -105,29 +106,19 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
         )
     final_document = response.choices[0].message.content
 
-    # Optional: generate 1-2 schematic images
     try:
-        import openai as _openai
-        prompts = [
-            f"Schematic diagram of the proposed prototype based on: {idea}",
-            "Render a realistic concept image of the prototype's exterior appearance."
-        ]
-        image_urls = []
-        for p in prompts:
-            try:
-                img_resp = _openai.images.generate(model="gpt-image-1", prompt=p, size="1024x1024")
-                url = img_resp.data[0].url
-                image_urls.append(url)
-            except Exception:
-                pass
-        if image_urls:
-            final_document += "\n\n## 4. Schematics & Visuals\n"
-            for i, url in enumerate(image_urls, 1):
-                final_document += f"\n**Figure {i}.**\n\n![]({url})\n"
+        plan_roles = list(answers.keys()) if isinstance(answers, dict) else None
     except Exception:
-        pass
+        plan_roles = None
+    bucket = os.environ.get("GCS_BUCKET") or os.environ.get("GCS_IMAGES_BUCKET")
+    images = make_visuals_for_project(idea, plan_roles, bucket)
 
-    return final_document
+    if images:
+        final_document += "\n\n## 4. Schematics & Visuals\n"
+        for i, img in enumerate(images, 1):
+            final_document += f"\n**Figure {i}. {img['caption']}**\n\n![]({img['url']})\n"
+
+    return {"document": final_document, "images": images}
 
 
 class SynthesizerAgent:
@@ -136,6 +127,6 @@ class SynthesizerAgent:
     def __init__(self, model: str):
         self.model = model
 
-    def run(self, idea: str, answers: Dict[str, str], include_simulations: bool = False) -> str:
+    def run(self, idea: str, answers: Dict[str, str], include_simulations: bool = False):
         """Delegate to compose_final_proposal using the configured model."""
         return compose_final_proposal(idea, answers, include_simulations=include_simulations)

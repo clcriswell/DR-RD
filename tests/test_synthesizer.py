@@ -11,8 +11,9 @@ def make_openai_response(text: str):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
+@patch("agents.synthesizer.make_visuals_for_project", return_value=[{"kind": "schematic", "url": "u", "caption": "S"}])
 @patch('openai.chat.completions.create')
-def test_compose_final_proposal(mock_create):
+def test_compose_final_proposal(mock_create, _mock_vis):
     fake_response = (
         "## Executive Summary\nOverview\n\n"
         "## Bill of Materials\n|Component|Quantity|Specs|\n|---|---|---|\n|Part|1|Spec|\n\n"
@@ -26,5 +27,6 @@ def test_compose_final_proposal(mock_create):
         "AI R&D Coordinator": "ai tasks",
     }
     result = compose_final_proposal("idea", answers, include_simulations=True)
-    assert "## Executive Summary" in result
-    assert "## Step-by-Step Instructions" in result
+    assert "## Executive Summary" in result["document"]
+    assert "## Step-by-Step Instructions" in result["document"]
+    assert result["images"][0]["url"] == "u"

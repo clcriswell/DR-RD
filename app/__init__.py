@@ -82,6 +82,8 @@ def get_memory_manager():
 
 
 def generate_pdf(markdown_text):
+    if isinstance(markdown_text, dict):
+        markdown_text = markdown_text.get("document", "")
     pdf = MarkdownPdf(toc_level=2)
     pdf.add_section(Section(markdown_text), user_css=WRAP_CSS)
     pdf.writer.close()
@@ -673,6 +675,7 @@ def main():
                         st.session_state["plan"] = data.get("plan", {})
                         st.session_state["answers"] = data.get("outputs", {})
                         st.session_state["final_doc"] = data.get("proposal", "")
+                        st.session_state["images"] = data.get("images", [])
                         st.session_state["project_name"] = data.get(
                             "name", selected_project
                         )
@@ -685,6 +688,7 @@ def main():
                         st.session_state["plan"] = entry.get("plan", {})
                         st.session_state["answers"] = entry.get("outputs", {})
                         st.session_state["final_doc"] = entry.get("proposal", "")
+                        st.session_state["images"] = entry.get("images", [])
                         st.session_state["project_name"] = entry.get(
                             "name", selected_project
                         )
@@ -695,6 +699,7 @@ def main():
                 "plan",
                 "answers",
                 "final_doc",
+                "images",
                 "project_name",
                 "project_id",
                 "hrm_report",
@@ -1000,13 +1005,19 @@ def main():
             logging.info("User compiled final proposal")
             with st.spinner("🚀 Synthesizing final R&D proposal..."):
                 try:
-                    final_doc = compose_final_proposal(
+                    result = compose_final_proposal(
                         idea,
                         st.session_state["answers"],
                         include_simulations=st.session_state.get(
                             "simulate_enabled", True
                         ),
                     )
+                    if isinstance(result, dict) and "document" in result:
+                        final_doc = result["document"]
+                        st.session_state["images"] = result.get("images", [])
+                    else:
+                        final_doc = result
+                        st.session_state["images"] = []
                     update_cost()
                     bom = []
                     for output in st.session_state["answers"].values():
@@ -1039,6 +1050,7 @@ def main():
                         st.session_state.get("plan", {}),
                         st.session_state["answers"],
                         final_doc,
+                        st.session_state.get("images", []),
                     )
                 except Exception as e:  # pylint: disable=broad-except
                     getattr(
@@ -1056,11 +1068,33 @@ def main():
                     )
                 except Exception as e:
                     logging.error(f"Save proposal failed: {e}")
+            if use_firestore:
+                try:
+                    doc_id = get_project_id()
+                    db.collection("dr_rd_projects").document(doc_id).set(
+                        {"images": st.session_state.get("images", [])},
+                        merge=True,
+                    )
+                except Exception as e:
+                    logging.error(f"Save images failed: {e}")
 
     if "final_doc" in st.session_state:
         st.subheader("📖 Integrated R&D Proposal")
-        st.markdown(st.session_state["final_doc"])
-        pdf_bytes = generate_pdf(st.session_state["final_doc"])
+        st.caption(
+            "Visuals are auto-generated for Balanced/Deep modes. They’ll also be saved with your project."
+        )
+        doc_text = st.session_state["final_doc"]
+        if isinstance(doc_text, dict):
+            imgs = doc_text.get("images")
+            doc_text = doc_text.get("document", "")
+        else:
+            imgs = st.session_state.get("images")
+        st.markdown(doc_text)
+        if imgs:
+            st.subheader("Schematics & Visuals")
+            for im in imgs:
+                st.image(im["url"], caption=im.get("caption", ""))
+        pdf_bytes = generate_pdf(doc_text)
         if hasattr(st, "download_button"):
             st.download_button(
                 label="📄 Download Final Report as PDF",
