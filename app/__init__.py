@@ -1183,7 +1183,7 @@ def main():
             except TypeError:  # fallback for older Streamlit versions
                 gen = st.button("Generate Streamlit app")
             if gen:
-                import io, zipfile
+                import io, zipfile, os
                 with st.spinner("Planning and generating app files..."):
                     spec, files = build_app_from_idea(idea)
                 st.success(f"App scaffold created → generated_apps/{spec.slug}")
@@ -1201,6 +1201,33 @@ def main():
                         z.writestr(path, content)
                 buf.seek(0)
                 st.download_button("Download app as ZIP", data=buf.read(), file_name=f"{spec.slug}.zip")
+
+                try:
+                    publish = st.button("Publish to new repo", type="secondary")
+                except TypeError:
+                    publish = st.button("Publish to new repo")
+                if publish:
+                    repo_buf = io.BytesIO()
+                    base_dir = f"generated_apps/{spec.slug}"
+                    guide = (
+                        "# Publishing\n\n"
+                        "1. Create a new GitHub repository.\n"
+                        "2. Push the generated app files.\n"
+                        "3. Enable Streamlit Cloud for the repo.\n"
+                    )
+                    with zipfile.ZipFile(repo_buf, "w", compression=zipfile.ZIP_DEFLATED) as z:
+                        for root, _, fs in os.walk(base_dir):
+                            for fname in fs:
+                                full = os.path.join(root, fname)
+                                arc = os.path.relpath(full, base_dir)
+                                z.write(full, arc)
+                        z.writestr("PUBLISHING.md", guide)
+                    repo_buf.seek(0)
+                    st.download_button(
+                        "Download repo ZIP",
+                        data=repo_buf.read(),
+                        file_name=f"{spec.slug}_repo.zip",
+                    )
         # --- end App Builder ---
 
         import pandas as pd
