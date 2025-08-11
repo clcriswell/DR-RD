@@ -1,0 +1,12 @@
+{
+  "test": {"Planner": "gpt-3.5-turbo", "default": "gpt-3.5-turbo"},
+  "balanced": {"Planner": "gpt-4o-mini", "default": "gpt-4o-mini"},
+  "deep": {
+    "Planner": "gpt-4o",
+    "CTO": "gpt-4o",
+    "Research": "gpt-4o-mini",
+    "Regulatory": "gpt-4o-mini",
+    "Finance": "gpt-3.5-turbo",
+    "default": "gpt-4o-mini"
+  }
+}

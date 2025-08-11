@@ -1,19 +1,22 @@
-"""Simple Streamlit interface for running DR-RD agents."""
+"""Simple Streamlit interface for running DR-RD multi-agent pipeline."""
 import streamlit as st
-from app.agent_runner import run_agent
+from core.orchestrator import run_pipeline
 
 
 def main():
-    st.title("DR-RD Agent Runner")
-    role = st.text_input("Role")
-    prompt = st.text_area("Prompt")
-    depth = st.selectbox("Design Depth", ["Low", "Medium", "High"], index=0)
-    if st.button("Run"):
-        if not role or not prompt:
-            st.warning("Please provide role and prompt")
+    st.title("DR-RD Multi-Agent Runner")
+    idea = st.text_area("Project Idea")
+    mode = st.selectbox("Mode", ["test", "balanced", "deep"], index=0)
+    if st.button("Run" ):
+        if not idea:
+            st.warning("Please provide an idea")
         else:
-            result = run_agent(role, prompt, depth)
-            st.write(result)
+            final, _, trace = run_pipeline(idea, mode=mode)
+            st.subheader("Synthesis")
+            st.write(final)
+            with st.expander("Agent Trace"):
+                for item in trace:
+                    st.write(f"{item['agent']} ({item['tokens']} tokens): {item['finding']}")
 
 
 if __name__ == "__main__":  # pragma: no cover
