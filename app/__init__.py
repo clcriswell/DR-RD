@@ -37,6 +37,11 @@ from dr_rd.utils.model_router import pick_model, difficulty_from_signals, CallHi
 from dr_rd.utils.llm_client import llm_call, METER
 from app.ui_cost_meter import render_cost_summary, render_estimator
 
+try:
+    from orchestrators.app_builder import build_app_from_idea
+except Exception:
+    build_app_from_idea = None  # optional feature
+
 
 live_tokens = None
 live_cost = None
@@ -1168,6 +1173,35 @@ def main():
                 file_name="R&D_Report.pdf",
                 mime="application/pdf",
             )
+
+        # --- App Builder (inline) ---
+        if build_app_from_idea:
+            st.subheader("🔧 Generate a Streamlit App from this idea")
+            st.caption("This will plan a small Streamlit project and write files under `generated_apps/<slug>/`.")
+            try:
+                gen = st.button("Generate Streamlit app", type="primary")
+            except TypeError:  # fallback for older Streamlit versions
+                gen = st.button("Generate Streamlit app")
+            if gen:
+                import io, zipfile
+                with st.spinner("Planning and generating app files..."):
+                    spec, files = build_app_from_idea(idea)
+                st.success(f"App scaffold created → generated_apps/{spec.slug}")
+                with st.expander("Preview generated files", expanded=False):
+                    for p in sorted(files):
+                        st.write(f"**{p}**")
+                        if p.endswith(".py") or p.endswith(".md") or p.endswith(".txt"):
+                            st.code(files[p][:1000], language="python" if p.endswith(".py") else None)
+                        else:
+                            st.text(f"(binary or long content; {len(files[p])} bytes)")
+
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as z:
+                    for path, content in files.items():
+                        z.writestr(path, content)
+                buf.seek(0)
+                st.download_button("Download app as ZIP", data=buf.read(), file_name=f"{spec.slug}.zip")
+        # --- end App Builder ---
 
         import pandas as pd
 
