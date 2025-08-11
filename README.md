@@ -19,3 +19,24 @@ pip install -r requirements.txt
 export OPENAI_API_KEY="sk-..."
 streamlit run app.py
 ```
+
+## Multi-agent execution
+
+DR-RD now performs a three stage pipeline:
+
+1. **Planner** decomposes your idea into specialist tasks.
+2. Each task is routed to a matching agent (CTO, Research, Regulatory or Finance) which replies using a JSON contract:
+
+```json
+{"role": "...", "task": "...", "findings": [], "risks": [], "next_steps": []}
+```
+
+3. A synthesizer combines the findings into a unified plan.
+
+Model selections for different modes live in `config/modes.yaml`:
+
+- `test` – all agents use `gpt-3.5-turbo`.
+- `balanced` – uses `gpt-4o-mini`.
+- `deep` – higher quality with per-agent overrides.
+
+Set the mode via `DRRD_MODE` or the Streamlit dropdown. The Streamlit interface now includes an **Agent Trace** expander showing which agent handled each task, token counts and a brief finding.

@@ -1061,6 +1061,12 @@ def main():
                             st, "error", lambda *a, **k: None
                         )(f"Failed to process suggestion for {role}: {e}")
 
+        if st.session_state.get("agent_trace"):
+            expander = getattr(st, "expander", None)
+            if expander:
+                with expander("Agent Trace"):
+                    for item in st.session_state["agent_trace"]:
+                        st.write(f"{item['agent']} ({item.get('tokens',0)} tokens): {item['finding']}")
         if st.button("3⃣ Compile Final Proposal"):
             logging.info("User compiled final proposal")
             with st.spinner("🚀 Synthesizing final R&D proposal..."):
