@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import Dict
 from dataclasses import asdict
+from concurrent.futures import ThreadPoolExecutor
+import os
 from jinja2 import Template
 from .spec import AppSpec, PageSpec
 
@@ -47,9 +49,15 @@ def render_streamlit_app(spec: AppSpec) -> Dict[str, str]:
     files[f"{base}/app.py"] = APP_TEMPLATE.render(**asdict(spec))
     files[f"{base}/README.md"] = README_TEMPLATE.render(**asdict(spec))
     files[f"{base}/requirements.txt"] = REQS_TEMPLATE.render(python_packages=spec.python_packages)
-    for p in spec.pages:
+    os.makedirs(f"{base}/pages", exist_ok=True)
+
+    def render_page(p: PageSpec):
         fname = p.name.replace(' ', '_')
-        files[f"{base}/pages/{fname}.py"] = PAGE_TEMPLATE.render(page=asdict(p))
+        return f"{base}/pages/{fname}.py", PAGE_TEMPLATE.render(page=asdict(p))
+
+    with ThreadPoolExecutor() as ex:
+        for path, content in ex.map(render_page, spec.pages):
+            files[path] = content
     for path, content in (spec.extra_files or {}).items():
         files[f"{base}/{path}"] = content
     return files
