@@ -33,10 +33,10 @@ DR-RD now performs a three stage pipeline:
 
 3. A synthesizer combines the findings into a unified plan.
 
-Model selections for different modes live in `config/modes.yaml`:
+Model selections and **budget caps** for different modes live in `config/modes.yaml`.
+Each mode specifies a `target_cost_usd`, default models for the planning/execution/synthesis stages,
+and limits such as `k_search` and `max_loops`.
 
-- `test` – all agents use `gpt-3.5-turbo`.
-- `balanced` – uses `gpt-4o-mini`.
-- `deep` – higher quality with per-agent overrides.
+Token pricing lives in `config/prices.yaml` (override via `PRICES_PATH`).
 
 Set the mode via `DRRD_MODE` or the Streamlit dropdown. The Streamlit interface now includes an **Agent Trace** expander showing which agent handled each task, token counts and a brief finding.

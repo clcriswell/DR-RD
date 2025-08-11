@@ -1,0 +1,5 @@
+models:
+  gpt-3.5-turbo: { in_per_1k: 0.0005, out_per_1k: 0.0015 }
+  gpt-4o-mini:   { in_per_1k: 0.003,  out_per_1k: 0.006 }
+  gpt-4o:        { in_per_1k: 0.005,  out_per_1k: 0.015 }
+  gpt-5:         { in_per_1k: 0.01,   out_per_1k: 0.03 }

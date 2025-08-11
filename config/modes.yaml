@@ -1,12 +1,24 @@
-{
-  "test": {"Planner": "gpt-3.5-turbo", "default": "gpt-3.5-turbo"},
-  "balanced": {"Planner": "gpt-4o-mini", "default": "gpt-4o-mini"},
-  "deep": {
-    "Planner": "gpt-4o",
-    "CTO": "gpt-4o",
-    "Research": "gpt-4o-mini",
-    "Regulatory": "gpt-4o-mini",
-    "Finance": "gpt-3.5-turbo",
-    "default": "gpt-4o-mini"
-  }
-}
+test:
+  target_cost_usd: 0.50
+  models: { plan: gpt-3.5-turbo, exec: gpt-3.5-turbo, synth: gpt-3.5-turbo }
+  k_search: 2
+  max_loops: 1
+  stage_weights: { plan: 0.25, exec: 0.45, synth: 0.30 }
+fast:
+  target_cost_usd: 0.75
+  models: { plan: gpt-4o-mini, exec: gpt-4o-mini, synth: gpt-4o-mini }
+  k_search: 3
+  max_loops: 1
+  stage_weights: { plan: 0.25, exec: 0.45, synth: 0.30 }
+balanced:
+  target_cost_usd: 1.00
+  models: { plan: gpt-4o, exec: gpt-4o-mini, synth: gpt-4o }
+  k_search: 4
+  max_loops: 2
+  stage_weights: { plan: 0.25, exec: 0.45, synth: 0.30 }
+deep:
+  target_cost_usd: 2.50
+  models: { plan: gpt-4o, exec: gpt-4o, synth: gpt-5 }
+  k_search: 6
+  max_loops: 3
+  stage_weights: { plan: 0.20, exec: 0.50, synth: 0.30 }

@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-import os
-from pathlib import Path
 from typing import Dict
 from .base_agent import Agent
 
@@ -10,25 +7,28 @@ from .cto_agent import CTOAgent
 from .scientist_agent import ResearchScientistAgent
 from .regulatory_agent import RegulatoryAgent
 from .finance_agent import FinanceAgent
-
-CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "modes.yaml"
-
-
-def load_mode_models(mode: str | None = None) -> Dict[str, str]:
-    mode = (mode or os.getenv("DRRD_MODE", "test")).lower()
-    with open(CONFIG_PATH) as fh:
-        data = json.load(fh)
-    return data.get(mode, data.get("test", {}))
+from config.agent_models import AGENT_MODEL_MAP
 
 
 def build_agents(mode: str | None = None) -> Dict[str, Agent]:
-    models = load_mode_models(mode)
-    default = models.get("default", "gpt-3.5-turbo")
+    """Build the core advisory agents.
+
+    The previous implementation loaded per-mode model assignments from
+    ``config/modes.yaml``. With the introduction of budget-aware modes, that
+    file now tracks cost caps rather than agent models. To keep tests stable
+    and avoid coupling agent selection to budget configuration, this registry
+    now relies on the static mapping defined in ``config/agent_models.py``.
+
+    The ``mode`` argument is preserved for backward compatibility but is
+    currently ignored.
+    """
+
+    default = AGENT_MODEL_MAP.get("Research", "gpt-3.5-turbo")
     return {
-        "CTO": CTOAgent(model_id=models.get("CTO", default)),
-        "Research": ResearchScientistAgent(model_id=models.get("Research", default)),
-        "Regulatory": RegulatoryAgent(model_id=models.get("Regulatory", default)),
-        "Finance": FinanceAgent(model_id=models.get("Finance", default)),
+        "CTO": CTOAgent(model_id=AGENT_MODEL_MAP.get("CTO", default)),
+        "Research": ResearchScientistAgent(model_id=AGENT_MODEL_MAP.get("Research", default)),
+        "Regulatory": RegulatoryAgent(model_id=AGENT_MODEL_MAP.get("Regulatory", default)),
+        "Finance": FinanceAgent(model_id=AGENT_MODEL_MAP.get("Finance", default)),
     }
 
 
