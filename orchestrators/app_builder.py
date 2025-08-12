@@ -1,6 +1,9 @@
 from __future__ import annotations
 import json, os, re
 from typing import Dict, Tuple, List
+
+import openai
+
 from dr_rd.utils.model_router import pick_model, CallHints
 from dr_rd.utils.llm_client import llm_call
 from app_builder.spec import AppSpec, PageSpec
@@ -34,8 +37,9 @@ def plan_app_spec(idea: str, packages_extra: List[str] | None = None) -> AppSpec
         {"role": "user", "content": PROMPT.format(idea=idea)},
     ]
     response = llm_call(
+        openai,
+        sel["model"],
         stage="plan",
-        model=sel["model"],
         messages=messages,
         **sel.get("params", {})
     )
@@ -50,8 +54,9 @@ def plan_app_spec(idea: str, packages_extra: List[str] | None = None) -> AppSpec
             messages[1],
         ]
         response = llm_call(
+            openai,
+            sel["model"],
             stage="plan",
-            model=sel["model"],
             messages=retry_messages,
             **sel.get("params", {})
         )
