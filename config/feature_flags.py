@@ -18,6 +18,7 @@ SIM_OPTIMIZER_MAX_EVALS: int = int(os.getenv("SIM_OPTIMIZER_MAX_EVALS", "50"))
 RAG_ENABLED = _flag("RAG_ENABLED")
 RAG_TOPK: int = int(os.getenv("RAG_TOPK", "5"))
 RAG_SNIPPET_TOKENS: int = int(os.getenv("RAG_SNIPPET_TOKENS", "200"))
+DISABLE_IMAGES_BY_DEFAULT = {"test": True, "balanced": True, "deep": False}
 
 # Default evaluator weights and threshold. ``EVALUATOR_WEIGHTS`` can be
 # overridden via an environment variable containing a JSON object.
@@ -48,9 +49,9 @@ def get_env_defaults() -> dict:
         "TOT_BEAM": TOT_BEAM,
         "TOT_MAX_DEPTH": TOT_MAX_DEPTH,
         "EVALUATORS_ENABLED": EVALUATORS_ENABLED,
-        "EVALUATOR_MIN_OVERALL": EVALUATOR_MIN_OVERALL
-        if "EVALUATOR_MIN_OVERALL" in globals()
-        else 0.0,
+        "EVALUATOR_MIN_OVERALL": (
+            EVALUATOR_MIN_OVERALL if "EVALUATOR_MIN_OVERALL" in globals() else 0.0
+        ),
         "REFLECTION_ENABLED": REFLECTION_ENABLED,
         "REFLECTION_PATIENCE": REFLECTION_PATIENCE,
         "RAG_ENABLED": RAG_ENABLED,

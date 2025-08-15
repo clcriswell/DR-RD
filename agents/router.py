@@ -13,6 +13,7 @@ OPENAI_API_KEYS   comma-separated list (or OPENAI_API_KEY)
 SERPAPI_KEYS      comma-separated list (or SERPAPI_KEY)  – optional
 PROXY_POOL        comma-separated list of http[s]://user:pass@ip:port – optional
 """
+
 import os, random, requests, openai
 from typing import Dict, Any
 import logging
@@ -28,8 +29,11 @@ _HEADERS = [
     "(KHTML, like Gecko) Version/17.0 Safari/605.1.15",
     "Mozilla/5.0 (X11; Linux x86_64) Gecko/20100101 Firefox/118.0",
 ]
+
+
 def rand_header() -> Dict[str, str]:
     return {"User-Agent": random.choice(_HEADERS)}
+
 
 def rand_proxy() -> Dict[str, str]:
     pool = [p.strip() for p in os.getenv("PROXY_POOL", "").split(",") if p.strip()]
@@ -38,43 +42,58 @@ def rand_proxy() -> Dict[str, str]:
     proxy = random.choice(pool)
     return {"http": proxy, "https": proxy}
 
-# ---------- key rotation ----------
-_OAI_KEYS = [k.strip() for k in (
-    os.getenv("OPENAI_API_KEYS") or os.getenv("OPENAI_API_KEY", "")
-).split(",") if k.strip()]
-_SERP_KEYS = [k.strip() for k in (
-    os.getenv("SERPAPI_KEYS") or os.getenv("SERPAPI_KEY", "")
-).split(",") if k.strip()]
 
-def _pick(lst):        # random key helper
+# ---------- key rotation ----------
+_OAI_KEYS = [
+    k.strip()
+    for k in (os.getenv("OPENAI_API_KEYS") or os.getenv("OPENAI_API_KEY", "")).split(
+        ","
+    )
+    if k.strip()
+]
+_SERP_KEYS = [
+    k.strip()
+    for k in (os.getenv("SERPAPI_KEYS") or os.getenv("SERPAPI_KEY", "")).split(",")
+    if k.strip()
+]
+
+
+def _pick(lst):  # random key helper
     if not lst:
         raise RuntimeError("Required API key missing.")
     return random.choice(lst)
 
+
 # ---------- router ----------
-def route(domain: str, prompt: str) -> str:
+def route(prompt: str, domain: str | None = None) -> str:
     """Return answer text for a single obfuscated prompt."""
-    if domain.lower() == "websearch":
+    if domain and domain.lower() == "websearch":
         return _serp_search(prompt)
     return _openai_chat(prompt, domain)
 
+
 # ---------- back-ends ----------
-def _openai_chat(prompt: str, domain: str) -> str:
+def _openai_chat(prompt: str, domain: str | None = None) -> str:
     openai.api_key = _pick(_OAI_KEYS)
     sel = pick_model(CallHints(stage="exec"))
     logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+    messages = [
+        {"role": "user", "content": prompt},
+    ]
+    if domain:
+        messages.insert(
+            0, {"role": "system", "content": f"You are an expert in {domain}."}
+        )
     resp = llm_call(
         openai,
         sel["model"],
         stage="exec",
         temperature=0.4,
-        messages=[
-            {"role": "system", "content": f"You are an expert in {domain}."},
-            {"role": "user", "content": prompt},
-        ],
+        messages=messages,
         **sel["params"],
     )
     return resp.choices[0].message.content.strip()
+
 
 def _serp_search(query: str) -> str:
     params = {"q": query, "api_key": _pick(_SERP_KEYS), "num": 5}
