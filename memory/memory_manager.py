@@ -40,21 +40,24 @@ class MemoryManager:
         }
 
         try:  # pragma: no cover - depends on external Firestore service
-            import streamlit as st
-            from google.cloud import firestore
-            from google.oauth2 import service_account
+            if name:
+                import streamlit as st
+                from google.cloud import firestore
+                from google.oauth2 import service_account
 
-            if "gcp_service_account" in st.secrets:
-                creds = service_account.Credentials.from_service_account_info(
-                    st.secrets["gcp_service_account"]
-                )
-                db = firestore.Client(credentials=creds, project=creds.project_id)
-                doc_id = _slugify(name or "project")
-                db.collection("dr_rd_projects").document(doc_id).set(entry)
+                if "gcp_service_account" in st.secrets:
+                    creds = service_account.Credentials.from_service_account_info(
+                        st.secrets["gcp_service_account"]
+                    )
+                    db = firestore.Client(credentials=creds, project=creds.project_id)
+                    doc_id = _slugify(name)
+                    db.collection("dr_rd_projects").document(doc_id).set(entry)
+                else:
+                    logging.info(
+                        "Firestore save skipped: missing gcp_service_account secret"
+                    )
             else:
-                logging.info(
-                    "Firestore save skipped: missing gcp_service_account secret"
-                )
+                logging.info("Firestore save skipped: project name is required")
         except Exception as e:  # pylint: disable=broad-except
             logging.info(
                 f"Firestore save skipped: invalid gcp_service_account secret ({e})"

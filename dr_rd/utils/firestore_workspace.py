@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, time
+import hashlib, time, re
 from typing import Any, Dict, List, Optional
 
 from google.cloud import firestore
@@ -7,6 +7,7 @@ from google.oauth2 import service_account
 import streamlit as st
 
 _COLLECTION = "dr_rd_projects"          # single namespace!
+
 
 def _client() -> firestore.Client:
     try:
@@ -16,19 +17,38 @@ def _client() -> firestore.Client:
     except Exception:
         return firestore.Client()            # fallback to ADC
 
+
+def _slugify(name: str) -> str:
+    s = name.strip().lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    return re.sub(r"(^-|-$)", "", s)
+
+
 class FirestoreWorkspace:
     """Symbolic shared memory for one project."""
-    def __init__(self, project_id: str):
+
+    def __init__(self, project_id: str, name: Optional[str] = None):
         self.doc = _client().collection(_COLLECTION).document(project_id)
         if not self.doc.get().exists:
-            self.doc.set({
-                "idea": "",
-                "tasks": [],          # [{id, role, task, status}]
-                "results": {},        # id -> result blob
-                "scores": {},         # id -> float
-                "history": [],
-                "cycle": 0,
-            })
+            if not name:
+                raise ValueError("Project name is required.")
+            slug = _slugify(name)
+            if slug != project_id:
+                raise ValueError("Project ID must match slug of name.")
+            self.doc.set(
+                {
+                    "name": name,
+                    "slug": slug,
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                    "createdAt": firestore.SERVER_TIMESTAMP,
+                    "idea": "",
+                    "tasks": [],  # [{id, role, task, status}]
+                    "results": {},  # id -> result blob
+                    "scores": {},  # id -> float
+                    "history": [],
+                    "cycle": 0,
+                }
+            )
 
     # ---------- helpers ----------
     def read(self) -> Dict[str, Any]:
