@@ -11,3 +11,6 @@ scikit-image
 beautifulsoup4>=4.12.2
 Jinja2>=3.1.0
 pytest-timeout>=2.3.1
+pymupdf>=1.24.0
+numpy>=1.26
+faiss-cpu>=1.7.4; platform_system != "Windows"
