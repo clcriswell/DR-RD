@@ -50,3 +50,10 @@ Set the mode via `DRRD_MODE` or the Streamlit dropdown. The Streamlit interface 
 | Deep     | 4o         | 4o-mini     | gpt-5       | 1         | images enabled |
 
 Images are disabled by default for the Test and Balanced modes.
+
+## Quick Start
+1) `pip install -r requirements.txt`
+2) Copy `.env.example` to `.env` and set `OPENAI_API_KEY`.
+3) `streamlit run app.py`
+4) (Optional) Build a RAG index: `python scripts/build_faiss_index.py`
+   Then enable `RAG_ENABLED=true` in your environment.

@@ -50,3 +50,33 @@ def get_agent_for_task(task: str, agents: Dict[str, Agent] | None = None) -> Age
             if w in text:
                 return agents[name]
     return agents["Research"]
+
+# --- Added: mode-aware model loader that also installs the BudgetManager ---
+def load_mode_models(mode: str | None = None) -> dict:
+    """
+    Load per-mode model assignments from config/modes.yaml, install the BudgetManager
+    so dr_rd.utils.llm_client enforces caps, and expose a simple mapping used by
+    core.orchestrator.
+    """
+    import streamlit as st
+    from app.config_loader import load_mode
+    from dr_rd.utils.llm_client import set_budget_manager
+
+    mode = mode or "test"
+    mode_cfg, budget = load_mode(mode)
+
+    # Share mode config with callers that read st.session_state
+    try:
+        st.session_state["MODE_CFG"] = mode_cfg
+    except Exception:
+        pass
+
+    set_budget_manager(budget)
+    m = (mode_cfg or {}).get("models", {}) or {}
+    # Map planner/synth plus sensible defaults for exec/default
+    return {
+        "Planner": m.get("plan", "gpt-3.5-turbo"),
+        "exec": m.get("exec", m.get("plan", "gpt-3.5-turbo")),
+        "synth": m.get("synth", m.get("exec", "gpt-3.5-turbo")),
+        "default": m.get("exec", m.get("plan", "gpt-3.5-turbo")),
+    }
