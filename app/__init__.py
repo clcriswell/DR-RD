@@ -734,6 +734,8 @@ def main():
                         st.session_state["project_name"] = data.get(
                             "name", selected_project
                         )
+                        st.session_state["project_saved"] = True
+                        st.session_state["project_id"] = doc_id
                 except Exception as e:  # pragma: no cover - external service
                     logging.error(f"Could not load project from Firestore: {e}")
             else:
@@ -747,6 +749,7 @@ def main():
                         st.session_state["project_name"] = entry.get(
                             "name", selected_project
                         )
+                        st.session_state["project_saved"] = True
                         break
         else:
             for key in [
@@ -759,6 +762,7 @@ def main():
                 "project_id",
                 "hrm_report",
                 "hrm_state",
+                "project_saved",
             ]:
                 st.session_state.pop(key, None)
         st.session_state["last_selected_project"] = selected_project
@@ -775,7 +779,12 @@ def main():
         st.info("Please describe an idea to get started.")
         st.stop()
     slug_candidate = _slugify(project_name)
-    duplicate = bool(project_name and db and slug_candidate in project_doc_ids.values())
+    duplicate = bool(
+        project_name
+        and db
+        and slug_candidate in project_doc_ids.values()
+        and not st.session_state.get("project_saved")
+    )
     st.session_state["project_name"] = project_name
 
     similar_ideas = memory_manager.find_similar_ideas(idea)
