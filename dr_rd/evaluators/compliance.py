@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from typing import Any, Dict
-
+import dr_rd.evaluation.llm_rubric as lr
 from dr_rd.extensions.abcs import BaseEvaluator
 
 
-class ComplianceEvaluator(BaseEvaluator):
-    """Simple compliance evaluator."""
+COMPLIANCE_RUBRIC = (
+    "Assess privacy posture, adherence to platform Terms of Service, and regulatory fit "
+    "(e.g., GDPR/CCPA/COPPA as relevant). Return 0–1 where 0 = non‑compliant, 1 = strongly compliant."
+)
 
-    def evaluate(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        text = " ".join(str(state.get(k, "")) for k in ["results", "tasks"])
-        if "compliance" in text.lower() or "regulation" in text.lower():
-            return {"score": 0.8, "notes": ["compliance considered"]}
-        return {"score": 0.5, "notes": ["compliance not addressed"]}
+
+class ComplianceEvaluator(BaseEvaluator):
+    """Compliance evaluator backed by an LLM rubric."""
+
+    def evaluate(self, workspace) -> float:  # type: ignore[override]
+        text = lr.workspace_to_text(workspace)
+        return lr.score_with_rubric(text, COMPLIANCE_RUBRIC)
