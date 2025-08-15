@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from typing import Any, Dict
-
+import dr_rd.evaluation.llm_rubric as lr
 from dr_rd.extensions.abcs import BaseEvaluator
 
 
-class FeasibilityEvaluator(BaseEvaluator):
-    """Crude feasibility evaluator."""
+FEASIBILITY_RUBRIC = (
+    "Assess realism of resources, time, dependencies, and risk mitigations. "
+    "Return a single 0–1 score where 0 = not feasible, 1 = highly feasible."
+)
 
-    def evaluate(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        text = " ".join(str(state.get(k, "")) for k in ["results", "tasks"])
-        if "feasible" in text.lower():
-            return {"score": 0.8, "notes": ["feasibility addressed"]}
-        return {"score": 0.5, "notes": ["feasibility unclear"]}
+
+class FeasibilityEvaluator(BaseEvaluator):
+    """Feasibility evaluator backed by an LLM rubric."""
+
+    def evaluate(self, workspace) -> float:  # type: ignore[override]
+        text = lr.workspace_to_text(workspace)
+        return lr.score_with_rubric(text, FEASIBILITY_RUBRIC)

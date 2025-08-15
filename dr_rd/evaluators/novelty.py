@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from typing import Any, Dict
-
+import dr_rd.evaluation.llm_rubric as lr
 from dr_rd.extensions.abcs import BaseEvaluator
 
 
-class NoveltyEvaluator(BaseEvaluator):
-    """Basic novelty evaluator."""
+NOVELTY_RUBRIC = (
+    "Assess originality vs. standard solutions for this domain. "
+    "Return a single 0–1 score where 0 = derivative/common, 1 = highly novel."
+)
 
-    def evaluate(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        text = " ".join(str(state.get(k, "")) for k in ["results", "tasks"])
-        if any(w in text.lower() for w in ["novel", "innovative", "new"]):
-            return {"score": 0.8, "notes": ["novelty mentioned"]}
-        return {"score": 0.5, "notes": ["novelty not demonstrated"]}
+
+class NoveltyEvaluator(BaseEvaluator):
+    """Novelty evaluator backed by an LLM rubric."""
+
+    def evaluate(self, workspace) -> float:  # type: ignore[override]
+        text = lr.workspace_to_text(workspace)
+        return lr.score_with_rubric(text, NOVELTY_RUBRIC)
