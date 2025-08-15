@@ -1,5 +1,6 @@
 from app.logging_setup import init_gcp_logging
 import os, re
+from typing import Optional
 import json
 import logging
 import streamlit as st
@@ -11,7 +12,6 @@ from memory import audit_logger  # import the audit logger
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
 from agents.simulation_agent import SimulationAgent
-import uuid
 import io
 import fitz
 import time
@@ -121,6 +121,8 @@ def generate_pdf(markdown_text):
 
 def safe_log_step(project_id, role, step_type, content, success=True):
     """Safely log audit steps without crashing the app."""
+    if not project_id:
+        return
     try:
         audit_logger.log_step(project_id, role, step_type, content, success=success)
     except Exception as e:
@@ -207,14 +209,12 @@ def _slugify(name: str) -> str:
     return s[:64] or "project"
 
 
-def get_project_id() -> str:
-    """Prefer a slug of the Project Name; fallback to UUID on first run."""
-    pname = st.session_state.get("project_name")
-    if pname:
-        return _slugify(pname)
-    if "project_id" not in st.session_state:
-        st.session_state["project_id"] = str(uuid.uuid4())
-    return st.session_state["project_id"]
+def get_project_id() -> Optional[str]:
+    """Return a slug of the Project Name if available."""
+    pname = st.session_state.get("project_name", "")
+    if not pname:
+        return None
+    return _slugify(pname)
 
 
 def run_manual_pipeline(
@@ -558,7 +558,7 @@ def run_manual_pipeline(
 def main():
     maybe_init_gcp_logging()
     project_id = get_project_id()
-    use_firestore = False
+    db = None
     try:
         from google.cloud import firestore
         from google.oauth2 import service_account
@@ -567,33 +567,21 @@ def main():
         credentials = service_account.Credentials.from_service_account_info(sa_info)
         gcp_project = sa_info.get("project_id")
         db = firestore.Client(credentials=credentials, project=gcp_project)
-        ws = WS(project_id)
-        try:
-            slug_id = _slugify(st.session_state.get("project_name", ""))
-            if slug_id:
-                old_id = project_id
-                if old_id != slug_id:
-                    try:
-                        old_doc = db.collection("dr_rd_projects").document(old_id).get()
-                        if old_doc.exists:
-                            db.collection("dr_rd_projects").document(slug_id).set(
-                                {**old_doc.to_dict(), **st.session_state.get("test_marker", {})},
-                                merge=True,
-                            )
-                    except Exception:
-                        pass
-                st.session_state["project_id"] = slug_id
-                ws = WS(slug_id)
-        except Exception as _e:
-            pass
-        use_firestore = True
     except Exception as e:  # pragma: no cover - optional dependency
         logging.info(f"Firestore disabled: {e}")
-        class _DummyWS:
-            def log(self, msg: str) -> None:  # pragma: no cover - simple stub
-                logging.debug(msg)
 
-        ws = _DummyWS()
+    class _DummyWS:
+        def log(self, msg: str) -> None:  # pragma: no cover - simple stub
+            logging.debug(msg)
+
+    ws = _DummyWS()
+    use_firestore = False
+    if db and project_id and st.session_state.get("project_saved"):
+        try:
+            ws = WS(project_id, st.session_state.get("project_name", ""))
+            use_firestore = True
+        except Exception:
+            pass
 
     base_agents = get_agents()
     agents = dict(base_agents)
@@ -695,7 +683,7 @@ def main():
         )
     project_names = []
     project_doc_ids = {}
-    if use_firestore:
+    if db:
         try:
             docs = db.collection("dr_rd_projects").stream()
             for doc in docs:
@@ -705,7 +693,7 @@ def main():
             project_names = list(project_doc_ids.keys())
         except Exception as e:  # pragma: no cover - external service
             logging.error(f"Could not fetch projects from Firestore: {e}")
-    if not use_firestore:
+    else:
         project_names = [
             entry.get("name", "(unnamed)") for entry in memory_manager.data
         ]
@@ -786,9 +774,8 @@ def main():
     if not idea:
         st.info("Please describe an idea to get started.")
         st.stop()
-    if not project_name:
-        st.info("Please provide a project name to get started.")
-        st.stop()
+    slug_candidate = _slugify(project_name)
+    duplicate = bool(project_name and db and slug_candidate in project_doc_ids.values())
     st.session_state["project_name"] = project_name
 
     similar_ideas = memory_manager.find_similar_ideas(idea)
@@ -799,8 +786,32 @@ def main():
         selected_mode, st.session_state.get("idea", ""), price_per_1k=0.005
     )
 
-    if st.button("1⃣ Generate Research Plan"):
+    disable_btn = not project_name or duplicate
+    try:
+        clicked = st.button("1⃣ Generate Research Plan", disabled=disable_btn)
+    except TypeError:  # older streamlit versions
+        clicked = st.button("1⃣ Generate Research Plan")
+        if disable_btn:
+            if not project_name:
+                st.info("Please provide a project name to get started.")
+            elif duplicate:
+                st.warning("Project name already exists. Please choose a unique name.")
+            st.stop()
+    if disable_btn and not clicked:
+        if not project_name:
+            st.info("Please provide a project name to get started.")
+        elif duplicate:
+            st.warning("Project name already exists. Please choose a unique name.")
+        st.stop()
+
+    if clicked:
         logging.info(f"User generated plan for idea: {idea}")
+        if db and not st.session_state.get("project_saved"):
+            try:
+                WS(slug_candidate, project_name)
+                st.session_state["project_saved"] = True
+            except Exception as e:
+                logging.error(f"Init project failed: {e}")
         try:
             with st.spinner("📝 Planning..."):
                 try:
