@@ -41,6 +41,15 @@ def pick_model(h: CallHints) -> dict:
         params["max_tokens"] = min(800, params.get("max_tokens", 800))
         params["temperature"] = min(0.3, params.get("temperature", 0.3))
         sel["params"] = params
+
+    if "MODE_CFG" in st.session_state and "models" in st.session_state["MODE_CFG"]:
+        stage_map = st.session_state["MODE_CFG"].get("models", {})
+        if h.stage == "plan":
+            sel["model"] = stage_map.get("plan", sel["model"])
+        elif h.stage == "exec":
+            sel["model"] = stage_map.get("exec", sel["model"])
+        elif h.stage == "synth":
+            sel["model"] = stage_map.get("synth", sel["model"])
     return sel
 
 

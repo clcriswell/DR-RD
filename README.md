@@ -40,3 +40,13 @@ and limits such as `k_search` and `max_loops`.
 Token pricing lives in `config/prices.yaml` (override via `PRICES_PATH`).
 
 Set the mode via `DRRD_MODE` or the Streamlit dropdown. The Streamlit interface now includes an **Agent Trace** expander showing which agent handled each task, token counts and a brief finding.
+
+### Modes & Cost
+
+| Mode     | Plan model | Exec model  | Synth model | max_loops | Notes |
+|----------|------------|-------------|-------------|-----------|-------|
+| Test     | 4o         | 4o-mini     | 4o          | 1         | images disabled |
+| Balanced | 4o         | 4o-mini     | 4o          | 2         | images disabled |
+| Deep     | 4o         | 4o-mini     | gpt-5       | 1         | images enabled |
+
+Images are disabled by default for the Test and Balanced modes.

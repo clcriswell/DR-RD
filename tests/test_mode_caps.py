@@ -10,25 +10,30 @@ class DummyClient:
             def create(self, model, messages, **params):
                 prompt = sum(len(m.get("content", "").split()) for m in messages)
                 completion = params.get("max_tokens", 0)
+
                 class Choice:
                     usage = {
                         "prompt_tokens": prompt,
                         "completion_tokens": completion,
                     }
                     message = type("msg", (), {"content": "ok"})()
+
                 class Resp:
                     choices = [Choice()]
+
                 return Resp()
+
         completions = _Completions()
+
     chat = _Chat()
 
 
 PRICE_TABLE = {
     "models": {
         "gpt-3.5-turbo": {"in_per_1k": 0.0005, "out_per_1k": 0.0015},
-        "gpt-4o-mini": {"in_per_1k": 0.003, "out_per_1k": 0.006},
-        "gpt-4o": {"in_per_1k": 0.005, "out_per_1k": 0.015},
-        "gpt-5": {"in_per_1k": 0.01, "out_per_1k": 0.03},
+        "gpt-4o-mini": {"in_per_1k": 0.00060, "out_per_1k": 0.00240},
+        "gpt-4o": {"in_per_1k": 0.00500, "out_per_1k": 0.02000},
+        "gpt-5": {"in_per_1k": 0.00125, "out_per_1k": 0.01000},
     }
 }
 MODE_CFG = {
@@ -42,7 +47,9 @@ def test_fallback_and_summarize():
     budget = BudgetManager(MODE_CFG, PRICE_TABLE)
     set_budget_manager(budget)
     messages = [{"role": "user", "content": "word " * 10000}]
-    llm_call(DummyClient(), "gpt-5", stage="synth", messages=messages, max_tokens_hint=10000)
+    llm_call(
+        DummyClient(), "gpt-5", stage="synth", messages=messages, max_tokens_hint=10000
+    )
     log = st.session_state["usage_log"][-1]
     # Final model should be the cheapest one
     assert log["model"] == "gpt-3.5-turbo"

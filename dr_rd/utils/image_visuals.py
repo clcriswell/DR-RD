@@ -5,9 +5,11 @@ import os
 import time
 from io import BytesIO
 
+import streamlit as st
 from openai import OpenAI
 from PIL import Image
 
+from config.feature_flags import DISABLE_IMAGES_BY_DEFAULT
 from .storage_gcs import upload_bytes_to_gcs
 
 
@@ -31,7 +33,9 @@ def _decode_to_bytes(b64: str) -> bytes:
     return base64.b64decode(b64)
 
 
-def _gen_image(prompt: str, fmt: str = "png", size: str = "1024x1024", quality: str = "high"):
+def _gen_image(
+    prompt: str, fmt: str = "png", size: str = "1024x1024", quality: str = "high"
+):
     client = _openai()
     res = client.images.generate(
         model="gpt-image-1",
@@ -43,8 +47,14 @@ def _gen_image(prompt: str, fmt: str = "png", size: str = "1024x1024", quality: 
     return res.data[0].b64_json
 
 
-def make_visuals_for_project(idea: str, plan_roles: list[str] | None, bucket: str | None) -> list[dict]:
+def make_visuals_for_project(
+    idea: str, plan_roles: list[str] | None, bucket: str | None
+) -> list[dict]:
     """Generate schematic and render images for a project."""
+
+    mode = st.session_state.get("MODE", "balanced")
+    if DISABLE_IMAGES_BY_DEFAULT.get(mode, True):
+        return []
 
     brief = idea or ""
     if plan_roles:
@@ -77,7 +87,9 @@ def make_visuals_for_project(idea: str, plan_roles: list[str] | None, bucket: st
                 try:
                     url = upload_bytes_to_gcs(data, filename, content_type, bucket)
                 except Exception:
-                    url = f"data:{content_type};base64,{base64.b64encode(data).decode()}"
+                    url = (
+                        f"data:{content_type};base64,{base64.b64encode(data).decode()}"
+                    )
             else:
                 url = f"data:{content_type};base64,{base64.b64encode(data).decode()}"
 
@@ -86,4 +98,3 @@ def make_visuals_for_project(idea: str, plan_roles: list[str] | None, bucket: st
             continue
 
     return out
-
