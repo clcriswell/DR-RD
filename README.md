@@ -57,3 +57,14 @@ Images are disabled by default for the Test and Balanced modes.
 3) `streamlit run app.py`
 4) (Optional) Build a RAG index: `python scripts/build_faiss_index.py`
    Then enable `RAG_ENABLED=true` in your environment.
+
+### Run profiles
+
+- **Lite**: deterministic single-pass pipeline with a hard budget cap. Good for demos and CI smoke tests.
+- **Pro**: full HRM engine with planning, evaluators, optional RAG, simulations, and persistence.
+
+Select the profile in the sidebar. To default to Lite when launching programmatically:
+
+```bash
+DRRD_DEFAULT_PROFILE=Lite streamlit run app.py
+```
