@@ -34,8 +34,10 @@ from dr_rd.agents.hrm_agent import HRMAgent
 from dr_rd.evaluators import feasibility_ev, clarity_ev, coherence_ev, goal_fit_ev
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from dr_rd.utils.model_router import pick_model, difficulty_from_signals, CallHints
-from dr_rd.utils.llm_client import llm_call, METER
+from dr_rd.utils.llm_client import llm_call, METER, set_budget_manager
 from app.ui_cost_meter import render_cost_summary, render_estimator
+from app.lite_runner import render_lite
+from app.config_loader import load_mode
 
 try:
     from orchestrators.app_builder import build_app_from_idea
@@ -632,6 +634,19 @@ def main():
     else:
         st.markdown("## Configuration")
 
+    # Profile toggle: Lite (deterministic single-pass) vs Pro (HRM full app)
+    import os as _os
+    default_prof = (_os.getenv("DRRD_DEFAULT_PROFILE", "Pro") or "Pro").lower()
+    prof_index = 0 if default_prof == "lite" else 1
+    if hasattr(sidebar, "radio"):
+        profile = sidebar.radio("Profile", ["Lite", "Pro"], index=prof_index, key="profile_choice")
+    else:  # fallback for test stubs without radio
+        profile = "Lite" if prof_index == 0 else "Pro"
+    if profile == "Lite":
+        # Render the minimal, budget-capped pipeline and exit early
+        render_lite()
+        return
+
     developer_expander = getattr(sidebar, "expander", None)
     if callable(developer_expander):
         with developer_expander("Developer", expanded=False):
@@ -660,6 +675,13 @@ def main():
     else:  # fallback for test stubs
         selected_label = "Balanced"
     selected_mode = mode_label_to_key[selected_label]
+    # Install a BudgetManager so Pro mode also enforces a hard spend cap
+    try:
+        _mode_cfg, _budget = load_mode(selected_mode)
+        set_budget_manager(_budget)
+    except Exception as _e:
+        # Keep running without a budget if config is missing; log only
+        logging.info(f"Budget manager not installed: {str(_e)}")
     if selected_mode == "test":
         st.info(
             "**Test (dev)** is ON: minimal tokens, capped domains, tiny image, truncated outputs."
