@@ -37,13 +37,13 @@ from dr_rd.utils.llm_client import llm_call, METER, set_budget_manager
 from app.ui_cost_meter import render_cost_summary, render_estimator
 from app.lite_runner import render_lite
 from app.config_loader import load_mode
-from core.agents.registry import build_agents
+from core.agents.unified_registry import build_agents_unified
+from config.agent_models import AGENT_MODEL_MAP
 from orchestrators.plan_utils import normalize_plan_to_tasks
 from orchestrators.router import choose_agent_for_task
 from core.plan_utils import normalize_tasks
 from agents.planner_agent import PlannerAgent
 from agents.synthesizer import SynthesizerAgent
-from config.agent_models import AGENT_MODEL_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -94,12 +94,13 @@ def setup_logging():
 @cache_resource
 def get_agents():
     """Create and return the initialized agents using the core registry."""
-    agents = build_agents()
+    default_model = AGENT_MODEL_MAP.get("DEFAULT") if isinstance(AGENT_MODEL_MAP, dict) else None
+    agents = build_agents_unified(AGENT_MODEL_MAP if isinstance(AGENT_MODEL_MAP, dict) else {}, default_model)
     agents["Planner"] = PlannerAgent(AGENT_MODEL_MAP.get("Planner", "gpt-4o"))
     agents["Synthesizer"] = SynthesizerAgent(
         AGENT_MODEL_MAP.get("Synthesizer", "gpt-4o")
     )
-    logger.info("Registered agents: %s", sorted(agents.keys()))
+    logger.info("Registered agents (unified): %s", sorted(agents.keys()))
     return agents
 
 
