@@ -10,8 +10,6 @@ from config.feature_flags import (
 )
 import logging
 import streamlit as st
-
-from core.agents.unified_registry import resolve_model
 from dr_rd.utils.llm_client import llm_call, log_usage
 
 logger = logging.getLogger(__name__)
@@ -146,6 +144,7 @@ class BaseAgent:
             )
 
         # Call OpenAI via llm_client
+        from core.agents.unified_registry import resolve_model  # local import to avoid circular
         model_id = self.model or resolve_model(self.name)
         logger.info(f"Model[exec]={model_id} params={{}}")
         response = llm_call(
