@@ -88,13 +88,29 @@ class PlannerAgent(BaseAgent):
         logging.debug("Planner raw response: %s", raw_text)
         try:
             plan = json.loads(raw_text)
-            flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
-            if flags.get("TEST_MODE"):
-                max_domains = int(flags.get("MAX_DOMAINS", 2))
-                plan = dict(sorted(plan.items(), key=lambda x: x[0])[:max_domains])
-            return plan
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Planner returned invalid JSON: {raw_text}") from e
+        except json.JSONDecodeError:
+            import re
+            logging.warning("Planner returned invalid JSON. Attempting recovery.")
+            match = re.search(r"\{.*", raw_text, re.DOTALL)
+            if not match:
+                raise ValueError(f"Planner returned invalid JSON: {raw_text}")
+            candidate = match.group(0)
+            while candidate.count("{") > candidate.count("}"):
+                candidate += "}"
+            try:
+                plan = json.loads(candidate)
+            except json.JSONDecodeError:
+                last_comma = candidate.rfind(",")
+                if last_comma == -1:
+                    raise ValueError(f"Planner returned invalid JSON: {raw_text}")
+                candidate = candidate[:last_comma] + "}"
+                plan = json.loads(candidate)
+
+        flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
+        if flags.get("TEST_MODE"):
+            max_domains = int(flags.get("MAX_DOMAINS", 2))
+            plan = dict(sorted(plan.items(), key=lambda x: x[0])[:max_domains])
+        return plan
 
     def revise_plan(self, workspace_state: dict) -> list[dict]:
         """

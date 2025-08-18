@@ -32,3 +32,14 @@ def test_planner_agent_uses_response_format_for_new_models(mock_create):
 
     _, kwargs = mock_create.call_args
     assert kwargs.get("response_format") == {"type": "json_object"}
+
+
+@patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
+@patch('openai.chat.completions.create')
+def test_planner_agent_handles_truncated_json(mock_create):
+    text = '{ "A": "B", "C": "D", "E": "F'
+    mock_create.return_value = make_openai_response(text)
+    agent = PlannerAgent("gpt-4o")
+    result = agent.run('idea', 'task')
+
+    assert result == {"A": "B", "C": "D"}
