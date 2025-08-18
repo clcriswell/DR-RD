@@ -46,7 +46,9 @@ class PlannerAgent(BaseAgent):
                 "  - Prototyping & Test Lab Manager\n"
                 "  - Project Manager / Principal Investigator\n"
                 "  - Product Manager / Translational Lead\n"
-                "  - AI R&D Coordinator\n\n"
+                "  - AI R&D Coordinator\n"
+                "  - Marketing Analyst\n"
+                "  - IP Analyst\n\n"
                 "Only include roles that are relevant, and do not include any roles outside this list. "
                 "Use each role name exactly as given above as JSON keys, and provide a brief task description for each selected role."
             ),

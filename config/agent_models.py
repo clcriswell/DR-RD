@@ -21,5 +21,7 @@ AGENT_MODEL_MAP = {
     "Project Manager / Principal Investigator": "gpt-4o-mini",
     "Product Manager / Translational Lead": "gpt-4o-mini",
     "AI R&D Coordinator": "gpt-4o-mini",
-    "Synthesizer": "gpt-4o"
+    "Synthesizer": "gpt-4o",
+    "Marketing": "gpt-4o-mini",
+    "IP": "gpt-4o-mini",
 }
