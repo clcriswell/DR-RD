@@ -919,12 +919,12 @@ def main():
                         "Break down the project into role-specific tasks",
                     )
                 update_cost()
-                model_output_text = getattr(agents["Planner"], "last_raw", "") or model_output
+                raw_output = getattr(agents["Planner"], "last_raw", "") or model_output
                 logger.info(
                     "Planner raw (first 400 chars): %s",
-                    str(model_output_text)[:400],
+                    str(raw_output)[:400],
                 )
-                tasks = normalize_plan_to_tasks(model_output_text)
+                tasks = normalize_plan_to_tasks(model_output)
                 logger.info("Tasks after normalization: %d", len(tasks))
 
             REQUIRED_ROLES = {
