@@ -2,7 +2,7 @@ from agents.base_agent import BaseAgent
 import logging, os
 import openai
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import log_usage
+from dr_rd.utils.llm_client import log_usage, llm_call
 from typing import Optional
 import streamlit as st
 
@@ -17,14 +17,9 @@ except Exception:  # pragma: no cover
 log = logging.getLogger(__name__)
 
 PLAN_INSTRUCTIONS = """
-You are the Creation Planner. Output ONLY valid JSON. No prose, no backticks.
-Acceptable formats (emit exactly ONE of these):
-A) {"CTO":[{"title":"...","description":"..."}, ...], "Research Scientist":[...], ...}
-B) [{"role":"CTO","title":"...","description":"..."}, ...]
-Rules:
-- Use only roles that exist in this system (e.g., CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst, etc.).
-- Titles must be short imperatives; descriptions concise and specific.
-- Do not include commentary, markdown, or code fences. JSON only.
+You are the Creation Planner. Output ONLY valid JSON as a single array:
+[{"role":"<one of: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst>","title":"...","description":"..."}]
+Rules: roles MUST be exactly one of those six; titles are short imperatives; descriptions are concise and specific. No prose. No backticks.
 """
 
 

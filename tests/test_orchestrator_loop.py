@@ -9,12 +9,12 @@ def test_orchestrator_iterative_loop_executes_all_roles():
             self.called = False
 
         def run(self, idea, prompt):
-            return {
-                "Marketing Analyst": "analyze market",
-                "IP Analyst": "search patents",
-                "Finance": "calc budget",
-                "Research": "general research",
-            }
+            return [
+                {"role": "Marketing Analyst", "title": "analyze market", "description": "analyze market"},
+                {"role": "IP Analyst", "title": "search patents", "description": "search patents"},
+                {"role": "Finance", "title": "calc budget", "description": "calc budget"},
+                {"role": "Research", "title": "general research", "description": "general research"},
+            ]
 
         def revise_plan(self, state):
             if not self.called:

@@ -10,7 +10,7 @@ def make_openai_response(text: str):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('openai.chat.completions.create')
+@patch('agents.planner_agent.openai.chat.completions.create')
 def test_planner_agent_returns_dict_without_response_format(mock_create):
     """Legacy models should not receive the response_format parameter."""
     mock_create.return_value = make_openai_response('{"X": "Y"}')
@@ -24,7 +24,7 @@ def test_planner_agent_returns_dict_without_response_format(mock_create):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('openai.chat.completions.create')
+@patch('agents.planner_agent.openai.chat.completions.create')
 def test_planner_agent_uses_response_format_for_new_models(mock_create):
     mock_create.return_value = make_openai_response('{"X": "Y"}')
     agent = PlannerAgent("gpt-4o-mini")
@@ -35,7 +35,7 @@ def test_planner_agent_uses_response_format_for_new_models(mock_create):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('openai.chat.completions.create')
+@patch('agents.planner_agent.openai.chat.completions.create')
 def test_planner_agent_handles_truncated_json(mock_create):
     text = '{ "A": "B", "C": "D", "E": "F'
     mock_create.return_value = make_openai_response(text)

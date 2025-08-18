@@ -5,7 +5,6 @@ import json
 import logging
 import streamlit as st
 import openai
-from agents import initialize_agents
 from agents.synthesizer import compose_final_proposal
 from memory.memory_manager import MemoryManager
 from memory import audit_logger  # import the audit logger
@@ -38,6 +37,17 @@ from dr_rd.utils.llm_client import llm_call, METER, set_budget_manager
 from app.ui_cost_meter import render_cost_summary, render_estimator
 from app.lite_runner import render_lite
 from app.config_loader import load_mode
+from core.agents.registry import build_agents
+try:
+    from core.agents.registry import choose_agent_for_task
+except Exception:  # pragma: no cover - optional dependency
+    choose_agent_for_task = None  # type: ignore
+from agents.planner_agent import PlannerAgent
+from agents.synthesizer import SynthesizerAgent
+from config.agent_models import AGENT_MODEL_MAP
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from orchestrators.app_builder import build_app_from_idea
@@ -85,8 +95,13 @@ def setup_logging():
 
 @cache_resource
 def get_agents():
-    """Create and return the initialized agents."""
-    return initialize_agents()
+    """Create and return the initialized agents using the core registry."""
+    agents = build_agents()
+    agents["Planner"] = PlannerAgent(AGENT_MODEL_MAP.get("Planner", "gpt-4o"))
+    agents["Synthesizer"] = SynthesizerAgent(
+        AGENT_MODEL_MAP.get("Synthesizer", "gpt-4o")
+    )
+    return agents
 
 
 @cache_resource
@@ -154,6 +169,89 @@ def extract_json_from_markdown(md: str):
 def strip_json_block(md: str) -> str:
     """Remove JSON code block from markdown output."""
     return re.sub(r"```json\s*.*?\s*```", "", md, flags=re.DOTALL).strip()
+
+
+try:  # Plan normalization
+    from core.orchestrator import _normalize_plan_to_tasks as normalize_plan_to_tasks
+except Exception:  # pragma: no cover - fallback for tests
+    from typing import Any, Dict, List
+
+    def normalize_plan_to_tasks(raw: Any) -> List[Dict[str, str]]:
+        out: List[Dict[str, str]] = []
+        if isinstance(raw, dict):  # Format A
+            for role_key, items in (raw or {}).items():
+                for it in items or []:
+                    t = (it.get("title") or "").strip()
+                    d = (it.get("description") or "").strip()
+                    if t and d:
+                        out.append({"role": role_key, "title": t, "description": d})
+        elif isinstance(raw, list):  # Format B
+            for it in raw or []:
+                role = (it or {}).get("role", "")
+                t = (it or {}).get("title", "").strip()
+                d = (it or {}).get("description", "").strip()
+                if role and t and d:
+                    out.append({"role": role, "title": t, "description": d})
+        return out
+
+
+ROLE_MAP = {
+    "cto": "CTO",
+    "chief technology officer": "CTO",
+    "research": "Research Scientist",
+    "research scientist": "Research Scientist",
+    "regulatory": "Regulatory",
+    "regulatory & compliance lead": "Regulatory",
+    "compliance": "Regulatory",
+    "legal": "Regulatory",
+    "finance": "Finance",
+    "marketing": "Marketing Analyst",
+    "marketing analyst": "Marketing Analyst",
+    "ip": "IP Analyst",
+    "ip analyst": "IP Analyst",
+    "intellectual property": "IP Analyst",
+}
+
+
+def normalize_role(name: str) -> str:
+    return ROLE_MAP.get((name or "").strip().lower(), name)
+
+
+def route_tasks(tasks, agents):
+    routed = []
+    dropped = []
+    for t in tasks:
+        original_role = t["role"]
+        canonical_role = normalize_role(original_role)
+        routed_role = canonical_role
+        agent = None
+        if choose_agent_for_task:
+            agent, routed_role = choose_agent_for_task(
+                canonical_role, t["title"], agents
+            )
+        else:
+            agent = agents.get(canonical_role) or (
+                agents.get("Marketing Analyst")
+                if "market"
+                in (t["title"].lower() + t["description"].lower())
+                else None
+            ) or (
+                agents.get("Finance")
+                if any(
+                    k
+                    in (t["title"] + t["description"]).lower()
+                    for k in ["budget", "cost", "price"]
+                )
+                else None
+            ) or agents.get("Research Scientist") or agents.get("Research")
+            routed_role = next(
+                (k for k, v in agents.items() if v is agent), canonical_role
+            )
+        if agent:
+            routed.append((routed_role, agent, t))
+        else:
+            dropped.append(original_role)
+    return routed, dropped
 
 
 def _get_qs_flag(name: str) -> bool:
@@ -238,11 +336,9 @@ def run_manual_pipeline(
     simulation_agent = SimulationAgent() if simulate_enabled else None
 
     # Initial execution by all expert agents
-    for role, task in st.session_state["plan"].items():
-        agent = agents.get(role)
-        if not agent:
-            st.warning(f"No agent registered for role: {role}")
-            continue
+    for rr, agent, t in route_tasks(st.session_state.get("plan", []), agents)[0]:
+        role = rr
+        task = f"{t['title']}: {t['description']}"
         logging.info(f"Executing agent {role} with task: {task}")
         with st.spinner(f"🤖 {role} working..."):
             try:
@@ -509,10 +605,9 @@ def run_manual_pipeline(
         for r in range(2, refinement_rounds + 1):
             st.info(f"Refinement round {r-1} of {refinement_rounds-1}...")
             new_answers = {}
-            for role, task in st.session_state["plan"].items():
-                agent = agents.get(role)
-                if not agent:
-                    continue
+            for rr, agent, t in route_tasks(st.session_state.get("plan", []), agents)[0]:
+                role = rr
+                task = f"{t['title']}: {t['description']}"
                 with st.spinner(f"🤖 Refining {role}'s output..."):
                     try:
                         other_outputs = {
@@ -749,7 +844,7 @@ def main():
                     if doc.exists:
                         data = doc.to_dict() or {}
                         st.session_state["idea"] = data.get("idea", "")
-                        st.session_state["plan"] = data.get("plan", {})
+                        st.session_state["plan"] = data.get("plan", [])
                         st.session_state["answers"] = data.get("outputs", {})
                         st.session_state["final_doc"] = data.get("proposal", "")
                         st.session_state["images"] = data.get("images", [])
@@ -764,7 +859,7 @@ def main():
                 for entry in memory_manager.data:
                     if entry.get("name") == selected_project:
                         st.session_state["idea"] = entry.get("idea", "")
-                        st.session_state["plan"] = entry.get("plan", {})
+                        st.session_state["plan"] = entry.get("plan", [])
                         st.session_state["answers"] = entry.get("outputs", {})
                         st.session_state["final_doc"] = entry.get("proposal", "")
                         st.session_state["images"] = entry.get("images", [])
@@ -797,6 +892,7 @@ def main():
     idea = st.text_input(
         "🧠 Enter your project idea:", value=st.session_state.get("idea", "")
     )
+    submitted_idea_text = idea
     if not idea:
         st.info("Please describe an idea to get started.")
         st.stop()
@@ -857,18 +953,8 @@ def main():
                         "Break down the project into role-specific tasks",
                     )
                 update_cost()
-                if not isinstance(raw_plan, dict):
-                    getattr(
-                        st, "error", lambda *a, **k: None
-                    )(
-                        "Plan generation failed – received an unexpected response format."
-                    )
-                    st.stop()
-                plan = {role: task for role, task in raw_plan.items() if role in agents}
-                dropped = [r for r in raw_plan if r not in agents]
-                if dropped:
-                    st.warning(f"Dropped unrecognized roles: {', '.join(dropped)}")
-            st.session_state["plan"] = plan
+                tasks = normalize_plan_to_tasks(raw_plan)
+            st.session_state["plan"] = tasks
             safe_log_step(
                 get_project_id(),
                 "Planner",
@@ -882,7 +968,7 @@ def main():
                     db.collection("dr_rd_projects").document(doc_id).set(
                         {
                             "name": st.session_state.get("project_name", ""),
-                            "idea": idea,
+                            "idea": submitted_idea_text,
                             "plan": st.session_state["plan"],
                             **st.session_state.get("test_marker", {}),
                         },
@@ -919,11 +1005,19 @@ def main():
 
         def classic_execute(tasks):
             outputs = {}
-            for t in tasks:
-                agent = agents.get(t.get("role"))
-                if not agent:
-                    continue
-                outputs[t["role"]] = agent.run(idea, t.get("task", ""))
+            routed, dropped = route_tasks(tasks, agents)
+            logger.info(
+                "Planner routing: %s",
+                [{"from": t["role"], "to": rr} for rr, _, t in routed],
+            )
+            if dropped:
+                logger.warning(
+                    "No agent found after routing for roles: %s",
+                    sorted(set(dropped)),
+                )
+            for rr, agent, t in routed:
+                task_text = f"{t['title']}: {t['description']}"
+                outputs[rr] = agent.run(idea, task_text)
             render_cost_summary(selected_mode, st.session_state.get("plan"))
             return outputs
 
@@ -932,10 +1026,7 @@ def main():
             hrm = HRMBridge(HRMLoop, ws)
             with st.spinner("🤖 Running plan → execute → evaluate…"):
                 t0 = time.time()
-                tasks = [
-                    {"role": r, "task": t}
-                    for r, t in st.session_state.get("plan", {}).items()
-                ]
+                tasks = st.session_state.get("plan", [])
                 if not tasks:
                     tasks = hrm.plan_only(brief)
                 results = {t["role"]: "out" for t in tasks}
@@ -956,7 +1047,7 @@ def main():
             st.session_state["hrm_report"] = final_report
             st.session_state["hrm_state"] = {"results": results}
             st.session_state["answers"] = {
-                r: "out" for r in st.session_state.get("plan", {})
+                t["role"]: "out" for t in st.session_state.get("plan", [])
             }
             if use_firestore:
                 try:
@@ -1009,7 +1100,14 @@ def main():
                         planner_agent = agents.get("Planner")
                         domain_agent = agents.get(role)
                         orig_output = output
-                        role_task = st.session_state["plan"].get(role, "")
+                        role_task = next(
+                            (
+                                f"{t['title']}: {t['description']}"
+                                for t in st.session_state.get("plan", [])
+                                if t.get("role") == role
+                            ),
+                            "",
+                        )
                         planner_query = (
                             f"For the project idea '{idea}', the user suggests: '{suggestion}' for the {role}'s output. "
                             f"Given the {role}'s task '{role_task}', should this suggestion be incorporated to improve the overall plan? "

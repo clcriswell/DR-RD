@@ -12,7 +12,7 @@ def make_openai_response(text: str):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('openai.chat.completions.create')
+@patch('agents.planner_agent.openai.chat.completions.create')
 def test_planner_adds_remediation_task(mock_create):
     mock_create.return_value = make_openai_response('{"updated_tasks": []}')
     agent = PlannerAgent("gpt-4o-mini")
