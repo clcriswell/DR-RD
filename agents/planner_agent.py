@@ -19,14 +19,14 @@ log = logging.getLogger(__name__)
 PLAN_INSTRUCTIONS = """
 You are the Creation Planner. Output ONLY valid JSON as a single array:
 [{"role":"<one of: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst>","title":"...","description":"..."}]
-Rules: roles MUST be exactly one of those six; titles are short imperatives; descriptions are concise and specific. No prose. No backticks.
+Rules: roles MUST be exactly one of those six; titles are short imperatives; descriptions concise and specific. No prose. No backticks.
 """
 
 
 def _call_llm_json(model_id: str, messages: list, **params) -> str:
     """Call the LLM preferring JSON-mode responses."""
     base = messages + [
-        {"role": "system", "content": "Respond with a single JSON object or array only."}
+        {"role": "system", "content": "Respond with a single JSON array only."}
     ]
     try:
         kwargs = {"model": model_id, "messages": base, "temperature": 0}
@@ -36,7 +36,7 @@ def _call_llm_json(model_id: str, messages: list, **params) -> str:
         resp = openai.chat.completions.create(**kwargs)
     except Exception:
         fallback = messages + [
-            {"role": "user", "content": "Output ONLY JSON per the rules above."}
+            {"role": "user", "content": "Output ONLY JSON array per the rules above."}
         ]
         kwargs = {"model": model_id, "messages": fallback, "temperature": 0}
         kwargs.update(params)
@@ -102,7 +102,7 @@ class PlannerAgent(BaseAgent):
             {"role": "system", "content": PLAN_INSTRUCTIONS.strip()},
             {
                 "role": "user",
-                "content": f"Project goal: {idea}\nTask: {task}\nReturn plan in JSON (A or B).",
+                "content": f"Project goal: {idea}\nTask: {task}\nReturn plan as a JSON array.",
             },
         ]
 

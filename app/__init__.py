@@ -37,15 +37,11 @@ from dr_rd.utils.llm_client import llm_call, METER, set_budget_manager
 from app.ui_cost_meter import render_cost_summary, render_estimator
 from app.lite_runner import render_lite
 from app.config_loader import load_mode
-from core.agents.registry import build_agents
-try:
-    from core.agents.registry import choose_agent_for_task
-except Exception:  # pragma: no cover - optional dependency
-    choose_agent_for_task = None  # type: ignore
+from core.agents.registry import build_agents, choose_agent_for_task
+from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from agents.planner_agent import PlannerAgent
 from agents.synthesizer import SynthesizerAgent
 from config.agent_models import AGENT_MODEL_MAP
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -171,87 +167,17 @@ def strip_json_block(md: str) -> str:
     return re.sub(r"```json\s*.*?\s*```", "", md, flags=re.DOTALL).strip()
 
 
-try:  # Plan normalization
-    from core.orchestrator import _normalize_plan_to_tasks as normalize_plan_to_tasks
-except Exception:  # pragma: no cover - fallback for tests
-    from typing import Any, Dict, List
-
-    def normalize_plan_to_tasks(raw: Any) -> List[Dict[str, str]]:
-        out: List[Dict[str, str]] = []
-        if isinstance(raw, dict):  # Format A
-            for role_key, items in (raw or {}).items():
-                for it in items or []:
-                    t = (it.get("title") or "").strip()
-                    d = (it.get("description") or "").strip()
-                    if t and d:
-                        out.append({"role": role_key, "title": t, "description": d})
-        elif isinstance(raw, list):  # Format B
-            for it in raw or []:
-                role = (it or {}).get("role", "")
-                t = (it or {}).get("title", "").strip()
-                d = (it or {}).get("description", "").strip()
-                if role and t and d:
-                    out.append({"role": role, "title": t, "description": d})
-        return out
-
-
-ROLE_MAP = {
-    "cto": "CTO",
-    "chief technology officer": "CTO",
-    "research": "Research Scientist",
-    "research scientist": "Research Scientist",
-    "regulatory": "Regulatory",
-    "regulatory & compliance lead": "Regulatory",
-    "compliance": "Regulatory",
-    "legal": "Regulatory",
-    "finance": "Finance",
-    "marketing": "Marketing Analyst",
-    "marketing analyst": "Marketing Analyst",
-    "ip": "IP Analyst",
-    "ip analyst": "IP Analyst",
-    "intellectual property": "IP Analyst",
-}
-
-
-def normalize_role(name: str) -> str:
-    return ROLE_MAP.get((name or "").strip().lower(), name)
-
-
 def route_tasks(tasks, agents):
     routed = []
-    dropped = []
     for t in tasks:
-        original_role = t["role"]
-        canonical_role = normalize_role(original_role)
-        routed_role = canonical_role
-        agent = None
-        if choose_agent_for_task:
-            agent, routed_role = choose_agent_for_task(
-                canonical_role, t["title"], agents
+        agent, routed_role = choose_agent_for_task(t["role"], t["title"], agents)
+        if agent is None:
+            agent = agents.get("Research Scientist") or agents.get("Research")
+            routed_role = (
+                "Research Scientist" if "Research Scientist" in agents else "Research"
             )
-        else:
-            agent = agents.get(canonical_role) or (
-                agents.get("Marketing Analyst")
-                if "market"
-                in (t["title"].lower() + t["description"].lower())
-                else None
-            ) or (
-                agents.get("Finance")
-                if any(
-                    k
-                    in (t["title"] + t["description"]).lower()
-                    for k in ["budget", "cost", "price"]
-                )
-                else None
-            ) or agents.get("Research Scientist") or agents.get("Research")
-            routed_role = next(
-                (k for k, v in agents.items() if v is agent), canonical_role
-            )
-        if agent:
-            routed.append((routed_role, agent, t))
-        else:
-            dropped.append(original_role)
-    return routed, dropped
+        routed.append((routed_role, agent, t))
+    return routed
 
 
 def _get_qs_flag(name: str) -> bool:
@@ -336,7 +262,7 @@ def run_manual_pipeline(
     simulation_agent = SimulationAgent() if simulate_enabled else None
 
     # Initial execution by all expert agents
-    for rr, agent, t in route_tasks(st.session_state.get("plan", []), agents)[0]:
+    for rr, agent, t in route_tasks(st.session_state.get("plan", []), agents):
         role = rr
         task = f"{t['title']}: {t['description']}"
         logging.info(f"Executing agent {role} with task: {task}")
@@ -605,7 +531,7 @@ def run_manual_pipeline(
         for r in range(2, refinement_rounds + 1):
             st.info(f"Refinement round {r-1} of {refinement_rounds-1}...")
             new_answers = {}
-            for rr, agent, t in route_tasks(st.session_state.get("plan", []), agents)[0]:
+            for rr, agent, t in route_tasks(st.session_state.get("plan", []), agents):
                 role = rr
                 task = f"{t['title']}: {t['description']}"
                 with st.spinner(f"🤖 Refining {role}'s output..."):
@@ -953,7 +879,8 @@ def main():
                         "Break down the project into role-specific tasks",
                     )
                 update_cost()
-                tasks = normalize_plan_to_tasks(raw_plan)
+                raw_tasks = normalize_plan_to_tasks(raw_plan)
+                tasks = normalize_tasks(raw_tasks)
             st.session_state["plan"] = tasks
             safe_log_step(
                 get_project_id(),
@@ -1005,16 +932,11 @@ def main():
 
         def classic_execute(tasks):
             outputs = {}
-            routed, dropped = route_tasks(tasks, agents)
+            routed = route_tasks(tasks, agents)
             logger.info(
                 "Planner routing: %s",
                 [{"from": t["role"], "to": rr} for rr, _, t in routed],
             )
-            if dropped:
-                logger.warning(
-                    "No agent found after routing for roles: %s",
-                    sorted(set(dropped)),
-                )
             for rr, agent, t in routed:
                 task_text = f"{t['title']}: {t['description']}"
                 outputs[rr] = agent.run(idea, task_text)
