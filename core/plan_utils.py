@@ -44,6 +44,7 @@ def normalize_plan_to_tasks(raw: Any) -> List[Dict[str,str]]:
                         tasks.append({"role": str(role_key), "title": title, "description": desc})
     return tasks
 
+# Simple alias map (keep as-is or extend)
 ROLE_MAP = {
     "cto":"CTO","chief technology officer":"CTO",
     "research":"Research Scientist","research scientist":"Research Scientist",
@@ -58,9 +59,9 @@ def normalize_role(name: str) -> str:
 def normalize_tasks(tasks: List[Dict[str,str]]) -> List[Dict[str,str]]:
     out=[]
     for t in tasks:
-        r = normalize_role(t["role"])
-        title = t["title"].strip()
-        desc  = t["description"].strip()
-        if r and title and desc:
-            out.append({"role": r, "title": title, "description": desc})
+        role = normalize_role(t.get("role", ""))
+        title = (t.get("title", "")).strip()
+        desc = (t.get("description", "")).strip()
+        if role and title and desc:
+            out.append({"role": role, "title": title, "description": desc})
     return out

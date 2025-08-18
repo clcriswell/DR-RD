@@ -97,22 +97,22 @@ KEYWORDS = {
 
 def choose_agent_for_task(
     planned_role: str | None, title: str, agents: Dict[str, Agent]
-) -> Tuple[Agent, str]:
+) -> Tuple[str, Agent]:
     # 1) Exact role match
     if planned_role and planned_role in agents:
-        return agents[planned_role], planned_role
+        return planned_role, agents[planned_role]
     # 2) Keyword fallback
     t = (title or "").lower()
     for role_key, words in KEYWORDS.items():
         if role_key in agents and any(w in t for w in words):
-            return agents[role_key], role_key
+            return role_key, agents[role_key]
     # 3) Safe default
     fallback = agents.get("Research") or next(iter(agents.values()))
-    return fallback, "Research"
+    return "Research", fallback
 
 
 def get_agent_for_task(task: str, agents: Dict[str, Agent] | None = None) -> Agent:
-    agent, _ = choose_agent_for_task(None, task, agents or AGENTS)
+    _, agent = choose_agent_for_task(None, task, agents or AGENTS)
     return agent
 
 # --- Added: mode-aware model loader that also installs the BudgetManager ---

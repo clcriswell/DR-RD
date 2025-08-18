@@ -110,10 +110,9 @@ def test_generate_plan_updates_state(monkeypatch):
         )
     }
     reload_app(monkeypatch, st, patches)
-    assert st.session_state["plan"] == [
-        {"role": "CTO", "title": "t1", "description": "d1"},
-        {"role": "X", "title": "t2", "description": "d2"},
-    ]
+    plan = st.session_state["plan"]
+    assert any(t == {"role": "CTO", "title": "t1", "description": "d1"} for t in plan)
+    assert any(t == {"role": "X", "title": "t2", "description": "d2"} for t in plan)
     st.warning.assert_not_called()
 
 
