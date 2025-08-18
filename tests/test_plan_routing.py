@@ -23,14 +23,16 @@ def test_normalize_plan_formats():
 
 def test_role_alias_normalization():
     app = load_app()
-    assert app.normalize_role("Regulatory & Compliance Lead") == "Regulatory"
+    tasks = app.normalize_tasks([
+        {"role": "Regulatory & Compliance Lead", "title": "t", "description": "d"}
+    ])
+    assert tasks[0]["role"] == "Regulatory"
 
 
 def test_unknown_role_routes_to_default():
     app = load_app()
     agents = app.get_agents()
     tasks = [{"role": "Wizard", "title": "Budget study", "description": "cost analysis"}]
-    routed, dropped = app.route_tasks(tasks, agents)
-    assert not dropped
+    routed = app.route_tasks(tasks, agents)
     rr, agent, _ = routed[0]
     assert rr in agents

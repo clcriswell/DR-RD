@@ -20,7 +20,7 @@ from config.feature_flags import (
     REFLECTION_PATIENCE,
     REFLECTION_MAX_ATTEMPTS,
 )
-from utils.plan_normalizer import _normalize_plan_to_tasks
+from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 
 # HRM‐loop parameters
 MAX_CYCLES = 5
@@ -75,7 +75,7 @@ def run_pipeline(self, project_id: str, idea: str):
                     "id": hashlib.sha1((t["role"] + t["title"]).encode()).hexdigest()[:10],
                     "status": "todo",
                 }
-                for t in _normalize_plan_to_tasks(seed)
+                for t in normalize_tasks(normalize_plan_to_tasks(seed))
             ]
         ws.enqueue(init_tasks)
         ws.log("📝 Initial planning done")
