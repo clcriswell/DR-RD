@@ -11,10 +11,12 @@ def _normalize_plan_to_tasks(plan) -> List[Dict[str, str]]:
     tasks: List[Dict[str, str]] = []
     if isinstance(plan, dict):
         for role, items in plan.items():
+            if not isinstance(items, list):
+                continue
             for it in items or []:
                 if isinstance(it, str):
                     tasks.append({"role": role, "title": it, "description": it})
-                else:
+                elif isinstance(it, dict):
                     tasks.append(
                         {
                             "role": role,
