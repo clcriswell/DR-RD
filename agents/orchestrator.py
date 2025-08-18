@@ -49,8 +49,13 @@ def _needs_follow_up(domain: str, task: str, answer: str) -> str | None:
 def refine_once(plan: Dict[str, str], answers: Dict[str, str]) -> Dict[str, str]:
     """Return answers, optionally enriched with one follow-up per domain."""
     updated = answers.copy()
-    for domain in plan:
-        follow_up = _needs_follow_up(domain, plan[domain], updated[domain])
+    for domain, task in plan.items():
+        current_answer = updated.get(domain)
+        if current_answer is None:
+            # Skip refinement if no answer was provided for this domain
+            continue
+
+        follow_up = _needs_follow_up(domain, task, current_answer)
         if not follow_up:
             continue
 
