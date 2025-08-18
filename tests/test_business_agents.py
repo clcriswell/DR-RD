@@ -65,7 +65,11 @@ def test_ip_agent_contract(mock_call):
 
 def test_router_dispatches_to_new_agents():
     agents = registry.build_agents("test")
-    a1 = registry.get_agent_for_task("Analyze competitor pricing and market segments", agents)
-    assert a1.name == "Marketing Analyst"
-    a2 = registry.get_agent_for_task("Review patent claims for novelty", agents)
-    assert a2.name == "IP Analyst"
+    a1, role1 = registry.choose_agent_for_task(
+        None, "Analyze competitor pricing and market segments", agents
+    )
+    assert a1.name == "Marketing Analyst" and role1 == "Marketing Analyst"
+    a2, role2 = registry.choose_agent_for_task(
+        None, "Review patent claims for novelty", agents
+    )
+    assert a2.name == "IP Analyst" and role2 == "IP Analyst"
