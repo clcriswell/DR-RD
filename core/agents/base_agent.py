@@ -18,23 +18,23 @@ class Agent(ABC):
     model_id: str
     system_prompt: str = ""
 
-    def _call_openai(self, task: str, context: str) -> str:
+    def _call_openai(self, idea: str, task: str, context: str) -> str:
         messages = [
             {"role": "system", "content": self.system_prompt or f"You are {self.role}."},
             {
                 "role": "user",
                 "content": (
-                    f"Task: {task}\nContext: {context}\n"
-                    "Respond with JSON using keys: role, task, findings, risks, next_steps."
+                    f"Project Idea: {idea}\nTask: {task}\nContext: {context}\n"
+                    "Provide your analysis in Markdown followed by a JSON block with keys: role, task, findings, risks, next_steps, sources."
                 ),
             },
         ]
         resp = llm_call(openai, self.model_id, stage="exec", messages=messages)
         return resp.choices[0].message.content
 
-    def act(self, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def act(self, idea: str, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute the agent for a given task and shared context."""
-        raw = self._call_openai(task, json.dumps(context or {}))
+        raw = self._call_openai(idea, task, json.dumps(context or {}))
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
@@ -44,6 +44,7 @@ class Agent(ABC):
                 "findings": [raw],
                 "risks": [],
                 "next_steps": [],
+                "sources": [],
             }
         # Attach usage from session log if available
         usage_log = getattr(__import__("streamlit"), "session_state", {}).get("usage_log", [])

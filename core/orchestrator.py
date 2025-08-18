@@ -26,7 +26,7 @@ def run_pipeline(
     trace: List[dict] = []
     for t in tasks:
         agent = get_agent_for_task(t.get("title", t.get("role", "")), agents)
-        result = agent.act(t.get("title", ""), context)
+        result = agent.act(idea, t.get("title", ""), context)
         results_by_role.setdefault(agent.name, []).append(result)
         summary_line = result.get("findings", [""])[0] if result.get("findings") else ""
         answers[agent.name] = summary_line

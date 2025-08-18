@@ -5,10 +5,10 @@ def test_agent_output_contract(monkeypatch):
     agent = ResearchScientistAgent(model_id="gpt-3.5-turbo")
     sample = (
         '{"role": "Research", "task": "t", '
-        '"findings": ["f"], "risks": ["r"], "next_steps": ["n"]}'
+        '"findings": ["f"], "risks": ["r"], "next_steps": ["n"], "sources": []}'
     )
-    monkeypatch.setattr(agent, "_call_openai", lambda task, context: sample)
-    result = agent.act("t")
+    monkeypatch.setattr(agent, "_call_openai", lambda idea, task, context: sample)
+    result = agent.act("idea", "t")
     assert set(result.keys()) >= {
         "role",
         "task",

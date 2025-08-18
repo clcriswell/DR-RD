@@ -25,10 +25,10 @@ streamlit run app.py
 DR-RD now performs a three stage pipeline:
 
 1. **Planner** decomposes your idea into specialist tasks.
-2. Each task is routed to a matching agent (CTO, Research, Regulatory or Finance) which replies using a JSON contract:
+2. Each task is routed to a matching agent (CTO, Research, Regulatory, Finance, Marketing Analyst or IP Analyst) which replies using a JSON contract:
 
 ```json
-{"role": "...", "task": "...", "findings": [], "risks": [], "next_steps": []}
+{"role": "...", "task": "...", "findings": [], "risks": [], "next_steps": [], "sources": []}
 ```
 
 3. A synthesizer combines the findings into a unified plan.
@@ -56,7 +56,7 @@ Images are disabled by default for the Test and Balanced modes.
 2) Copy `.env.example` to `.env` and set `OPENAI_API_KEY`.
 3) `streamlit run app.py`
 4) (Optional) Build a RAG index: `python scripts/build_faiss_index.py`
-   Then enable `RAG_ENABLED=true` in your environment.
+   Then enable `RAG_ENABLED=true` in your environment so agents like Marketing and IP can cite supporting snippets.
 
 ### Run profiles
 

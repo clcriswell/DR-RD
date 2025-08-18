@@ -7,6 +7,8 @@ from .cto_agent import CTOAgent
 from .scientist_agent import ResearchScientistAgent
 from .regulatory_agent import RegulatoryAgent
 from .finance_agent import FinanceAgent
+from agents.marketing_agent import MarketingAgent
+from agents.ip_analyst_agent import IPAnalystAgent
 from config.agent_models import AGENT_MODEL_MAP
 
 
@@ -29,6 +31,8 @@ def build_agents(mode: str | None = None) -> Dict[str, Agent]:
         "Research": ResearchScientistAgent(model_id=AGENT_MODEL_MAP.get("Research", default)),
         "Regulatory": RegulatoryAgent(model_id=AGENT_MODEL_MAP.get("Regulatory", default)),
         "Finance": FinanceAgent(model_id=AGENT_MODEL_MAP.get("Finance", default)),
+        "Marketing Analyst": MarketingAgent(model=AGENT_MODEL_MAP.get("Marketing", default)),
+        "IP Analyst": IPAnalystAgent(model=AGENT_MODEL_MAP.get("IP", default)),
     }
 
 
@@ -38,7 +42,48 @@ _KEYWORDS = {
     "CTO": ["architecture", "risk", "scalability"],
     "Research": ["materials", "physics", "prior art", "literature"],
     "Regulatory": ["compliance", "fda", "iso", "fcc"],
-    "Finance": ["cost", "bom", "budget"],
+    "Finance": [
+        "cost",
+        "bom",
+        "budget",
+        "bill of materials",
+        "unit economics",
+        "capex",
+        "opex",
+        "payback",
+        "breakeven",
+        "roi",
+    ],
+    "Marketing Analyst": [
+        "market",
+        "customer",
+        "user",
+        "segment",
+        "tam",
+        "sam",
+        "som",
+        "gtm",
+        "competition",
+        "competitor",
+        "competitive",
+        "pricing",
+        "price",
+        "revenue",
+        "sales",
+        "adoption",
+        "roi",
+    ],
+    "IP Analyst": [
+        "patent",
+        "prior art",
+        "intellectual property",
+        "claims",
+        "novelty",
+        "patentability",
+        "fto",
+        "freedom to operate",
+        "ip strategy",
+    ],
 }
 
 
