@@ -1,81 +1,93 @@
-from __future__ import annotations
-from typing import Dict, Tuple, Iterable
-import importlib, pkgutil, inspect, logging
+import logging
+import os
+from typing import Dict, Tuple, Optional
+from core.roles import canonical_roles
+from agents.base_agent import BaseAgent  # ensure single BaseAgent with .run
+# Import the canonical small set that we KNOW take (model) in ctor:
+from core.agents.cto import CTOAgent
+from core.agents.research_scientist import ResearchScientistAgent
+from core.agents.regulatory import RegulatoryAgent
+from core.agents.finance import FinanceAgent
+from core.agents.marketing import MarketingAgent
+from core.agents.ip_analyst import IPAnalystAgent
+from agents.planner_agent import PlannerAgent
+from agents.synthesizer import SynthesizerAgent
 
-log = logging.getLogger("unified_registry")
+logger = logging.getLogger("unified_registry")
 
-# Light alias map so synonyms converge
-ALIASES = {
-    "research": "Research Scientist",
-    "research scientist": "Research Scientist",
-    "regulatory & compliance lead": "Regulatory",
-    "chief technology officer": "CTO",
-    "marketing": "Marketing Analyst",
-    "ip": "IP Analyst",
-}
-
-def _canon(name: str) -> str:
-    if not name: return ""
-    key = name.strip()
-    low = key.lower()
-    return ALIASES.get(low, key)
-
-def _iter_agent_classes(pkg_mod) -> Iterable[Tuple[str, type]]:
-    """Yield (role_name, class) for classes that look like agents."""
-    base = pkg_mod.__name__
-    for _, modname, _ in pkgutil.walk_packages(pkg_mod.__path__, base + "."):
-        try:
-            m = importlib.import_module(modname)
-        except Exception:
-            continue
-        for _, obj in inspect.getmembers(m, inspect.isclass):
-            if not obj.__module__.startswith(m.__name__):
-                continue
-            # Heuristic: must have a .run(...) method
-            if not hasattr(obj, "run"):
-                continue
-            role = getattr(obj, "ROLE", None) or getattr(obj, "NAME", None) or getattr(obj, "__name__", None)
-            if isinstance(role, str) and role:
-                yield _canon(role), obj
-
-def _discover_legacy() -> Dict[str, type]:
-    found: Dict[str, type] = {}
-    for pkg_name in ("agents", "dr_rd.agents"):
-        try:
-            pkg = importlib.import_module(pkg_name)
-        except Exception:
-            continue
-        for role, cls in _iter_agent_classes(pkg):
-            # keep first occurrence; core will override later
-            found.setdefault(role, cls)
-    return found
-
-def build_agents_unified(agent_model_map: Dict[str, str], default_model: str | None = None) -> Dict[str, object]:
+# Model selection (centralized)
+def resolve_model(role: str, purpose: str = "exec") -> str:
     """
-    Prefer core agents; backfill with any legacy agents discovered in /agents and /dr_rd/agents.
-    Returns {role: agent_instance}.
+    purpose: 'exec' | 'plan' | 'synth'
+    Uses profile/env to decide model. Defaults ensure Deep/Pro use non-mini.
     """
-    # 1) Start with core registry
-    from core.agents.registry import build_agents as _build_core
-    agents = _build_core()
+    profile = os.getenv("DRRD_PROFILE", "Pro").lower()
+    # env overrides
+    if purpose == "plan":
+        return os.getenv("DRRD_MODEL_PLAN", "gpt-4o")
+    if purpose == "synth":
+        return os.getenv("DRRD_MODEL_SYNTH", "gpt-4o")
+    # exec:
+    if profile in ("pro","deep"):
+        return os.getenv("DRRD_MODEL_EXEC_PRO", "gpt-4o")
+    if profile in ("balanced",):
+        return os.getenv("DRRD_MODEL_EXEC_BALANCED", "gpt-4o-mini")
+    # efficient / default
+    return os.getenv("DRRD_MODEL_EXEC_EFFICIENT", "gpt-4o-mini")
 
-    # 2) Backfill: if canonical keys are missing but legacy classes exist, instantiate them
-    legacy = _discover_legacy()
-    for role, cls in legacy.items():
-        if role in agents:
-            continue
-        try:
-            model = agent_model_map.get(role, default_model)
-            agents[role] = cls(model) if model is not None else cls()
-        except Exception as e:
-            log.warning("Could not instantiate legacy agent %s: %s", role, e)
+def build_agents_unified() -> Dict[str, BaseAgent]:
+    agents: Dict[str, BaseAgent] = {}
+    # Core business roles
+    agents["CTO"] = CTOAgent(resolve_model("CTO"))
+    agents["Research Scientist"] = ResearchScientistAgent(resolve_model("Research Scientist"))
+    agents["Regulatory"] = RegulatoryAgent(resolve_model("Regulatory"))
+    agents["Finance"] = FinanceAgent(resolve_model("Finance"))
+    agents["Marketing Analyst"] = MarketingAgent(resolve_model("Marketing Analyst"))
+    agents["IP Analyst"] = IPAnalystAgent(resolve_model("IP Analyst"))
+    # Planner / Synthesizer
+    agents["Planner"] = PlannerAgent(resolve_model("Planner","plan"))
+    agents["Synthesizer"] = SynthesizerAgent(resolve_model("Synthesizer","synth"))
 
-    # 3) Provide common alias keys to avoid planner/registry mismatch
+    # Try to import legacy specialist agents, but don’t fail the build if their
+    # constructors differ. They remain available for fallback routing.
+    try:
+        from agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
+        agents["Mechanical Systems Lead"] = MechanicalSystemsLeadAgent(resolve_model("Mechanical Systems Lead"))
+    except Exception as e:
+        logger.warning("Could not instantiate legacy agent MechanicalSystemsLeadAgent: %s", e)
+
+    # (Repeat pattern for a handful of legacy specialists you still want.)
+    return agents
+
+def ensure_canonical_agent_keys(agents: Dict[str, BaseAgent]) -> Dict[str, BaseAgent]:
+    # Provide common shims; never fail if some are missing.
     if "Regulatory" not in agents and "Regulatory & Compliance Lead" in agents:
         agents["Regulatory"] = agents["Regulatory & Compliance Lead"]
     if "Research Scientist" not in agents and "Research" in agents:
         agents["Research Scientist"] = agents["Research"]
     if "CTO" not in agents and "AI R&D Coordinator" in agents:
         agents["CTO"] = agents["AI R&D Coordinator"]
-
+    # Business-role graceful fallbacks
+    default = agents.get("Research Scientist") or next(iter(agents.values()))
+    for k in ["Marketing Analyst","IP Analyst","Finance"]:
+        if k not in agents:
+            agents[k] = default
     return agents
+
+def choose_agent_for_task(planned_role: str, title: str, desc: Optional[str], agents: Dict[str, BaseAgent]) -> Tuple[str, BaseAgent]:
+    # Exact match first
+    agent = agents.get(planned_role)
+    if agent:
+        return planned_role, agent
+
+    low = f"{title} {desc or ''}".lower()
+    if any(k in low for k in ["market","position","segment","competitor","pricing"]):
+        a = agents.get("Marketing Analyst")
+        if a: return "Marketing Analyst", a
+    if any(k in low for k in ["budget","cost","price","roi","capex","opex"]):
+        a = agents.get("Finance")
+        if a: return "Finance", a
+
+    # Default
+    routed_role = "Research Scientist" if "Research Scientist" in agents else next(iter(agents.keys()))
+    return routed_role, agents[routed_role]

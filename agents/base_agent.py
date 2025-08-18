@@ -11,8 +11,10 @@ from config.feature_flags import (
 import logging
 import streamlit as st
 
-from dr_rd.utils.model_router import pick_model, CallHints
+from core.agents.unified_registry import resolve_model
 from dr_rd.utils.llm_client import llm_call, log_usage
+
+logger = logging.getLogger(__name__)
 
 try:  # avoid import errors when knowledge package is absent
     from dr_rd.knowledge.retriever import Retriever
@@ -114,10 +116,12 @@ class BaseAgent:
         except Exception:
             return
 
-    def run(self, idea: str, task: str, design_depth: str = "Medium") -> str:
+    def run(self, idea: str, task, design_depth: str = "Medium") -> str:
         """Construct the prompt and call the OpenAI API. Returns assistant text."""
         import openai
 
+        if isinstance(task, dict):
+            task = f"{task.get('title', '')}: {task.get('description', '')}"
         # Base prompt from template
         prompt = self.user_prompt_template.format(idea=idea, task=task)
 
@@ -141,25 +145,23 @@ class BaseAgent:
                 "Include key diagrams or specifications and reasoning for major decisions without delving into excessive minutiae."
             )
 
-        # Call model router and OpenAI via llm_client
-        hints = CallHints(stage="exec")
-        sel = pick_model(hints)
-        logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+        # Call OpenAI via llm_client
+        model_id = self.model or resolve_model(self.name)
+        logger.info(f"Model[exec]={model_id} params={{}}")
         response = llm_call(
             openai,
-            sel["model"],
+            model_id,
             stage="exec",
             messages=[
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
             ],
-            **sel["params"],
         )
         usage = response.choices[0].usage if hasattr(response.choices[0], "usage") else getattr(response, "usage", None)
         if usage:
             log_usage(
                 stage="exec",
-                model=sel["model"],
+                model=model_id,
                 pt=getattr(usage, "prompt_tokens", 0),
                 ct=getattr(usage, "completion_tokens", 0),
             )
@@ -170,3 +172,4 @@ class BaseAgent:
             if isinstance(answer, str) and len(answer) > max_chars:
                 answer = answer[:max_chars] + " …[truncated test]"
         return answer
+
