@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Optional, List, Tuple
 
-from config.feature_flags import RAG_ENABLED, RAG_TOPK, RAG_SNIPPET_TOKENS
+from config.feature_flags import (
+    RAG_ENABLED,
+    RAG_TOPK,
+    RAG_SNIPPET_TOKENS,
+    ENABLE_LIVE_SEARCH,
+)
 import logging
 import streamlit as st
 
@@ -39,6 +44,10 @@ class BaseAgent:
                 self.retriever = None
         else:
             self.retriever = retriever
+        self.retrieval_hits = 0
+        self.rag_text_len = 0
+        self._web_summary: str | None = None
+        self._web_sources: list[str] = []
 
     @staticmethod
     def _truncate_tokens(text: str, max_tokens: int) -> str:
@@ -47,24 +56,63 @@ class BaseAgent:
             return text
         return " ".join(tokens[:max_tokens])
 
-    def _augment_prompt(self, prompt: str, context: str) -> str:
-        """Attach retrieved snippets to the prompt when RAG is enabled."""
-        if not (RAG_ENABLED and self.retriever):
-            return prompt
+    def _augment_prompt(self, prompt: str, idea: str, task: str) -> str:
+        """Attach retrieved snippets and optionally web summary."""
+        context = f"{idea}\n{task}"
+        hits: List[Tuple[str, str]] = []
+        if RAG_ENABLED and self.retriever:
+            try:
+                hits = self.retriever.query(context, RAG_TOPK)
+            except Exception:
+                hits = []
+        self.retrieval_hits = len(hits)
+        self.rag_text_len = sum(len(t.split()) for t, _ in hits)
+        if hits:
+            bundle_lines = []
+            for i, (text, src) in enumerate(hits, 1):
+                raw = text.replace("\n", " ")
+                snippet = self._truncate_tokens(raw, RAG_SNIPPET_TOKENS)
+                bundle_lines.append(f"[{i}] {snippet} ({src})")
+            bundle = "\n".join(bundle_lines)
+            print(f"[RAG] {self.name} retrieved {len(hits)} snippet(s)")
+            prompt += "\n\n# RAG Knowledge\n" + bundle
+
+        self._web_summary = None
+        self._web_sources = []
+        self.maybe_live_search(idea, task)
+        if self._web_summary:
+            prompt += "\n\n# Web Search Results\n" + self._web_summary
+            prompt += (
+                "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
+            )
+        return prompt
+
+    def maybe_live_search(self, idea: str, task: str) -> None:
+        if not ENABLE_LIVE_SEARCH:
+            return
+        if not (
+            self.retrieval_hits == 0 or self.rag_text_len < 50
+        ):
+            return
         try:
-            hits: List[Tuple[str, str]] = self.retriever.query(context, RAG_TOPK)
+            from utils.search_tools import (
+                search_google,
+                summarize_search,
+                obfuscate_query,
+            )
+
+            query = obfuscate_query(self.name, idea, task)
+            results = search_google(query, k=5)
+            if not results:
+                return
+            summary = summarize_search([r.get("snippet", "") for r in results])
+            if summary:
+                self._web_summary = summary
+                self._web_sources = [
+                    r.get("title") or r.get("link") or "" for r in results
+                ][:5]
         except Exception:
-            return prompt
-        if not hits:
-            return prompt
-        bundle_lines = []
-        for i, (text, src) in enumerate(hits, 1):
-            raw = text.replace("\n", " ")
-            snippet = self._truncate_tokens(raw, RAG_SNIPPET_TOKENS)
-            bundle_lines.append(f"[{i}] {snippet} ({src})")
-        bundle = "\n".join(bundle_lines)
-        print(f"[RAG] {self.name} retrieved {len(hits)} snippet(s)")
-        return prompt + "\n\nResearch Bundle:\n" + bundle
+            return
 
     def run(self, idea: str, task: str, design_depth: str = "Medium") -> str:
         """Construct the prompt and call the OpenAI API. Returns assistant text."""
@@ -73,7 +121,7 @@ class BaseAgent:
         # Base prompt from template
         prompt = self.user_prompt_template.format(idea=idea, task=task)
 
-        prompt = self._augment_prompt(prompt, f"{idea}\n{task}")
+        prompt = self._augment_prompt(prompt, idea, task)
 
         # Adjust prompt detail based on design_depth
         design_depth = design_depth.capitalize()  # normalize casing (Low/Medium/High)

@@ -60,7 +60,7 @@ class PlannerAgent(BaseAgent):
         import json
 
         prompt = self.user_prompt_template.format(idea=idea, task=task)
-        prompt = self._augment_prompt(prompt, f"{idea}\n{task}")
+        prompt = self._augment_prompt(prompt, idea, task)
 
         kwargs = {
             "messages": [

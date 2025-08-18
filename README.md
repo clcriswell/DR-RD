@@ -58,6 +58,10 @@ Images are disabled by default for the Test and Balanced modes.
 4) (Optional) Build a RAG index: `python scripts/build_faiss_index.py`
    Then enable `RAG_ENABLED=true` in your environment so agents like Marketing and IP can cite supporting snippets.
 
+### Live Web Search (optional)
+
+Set `ENABLE_LIVE_SEARCH=true` and provide a `SERPAPI_KEY` to allow the Research Scientist, IP Analyst, and Regulatory agents to query the live web when local RAG hits are missing or too short. When web results are used, these agents add a `sources` array with short titles or URLs to their JSON output.
+
 ### Run profiles
 
 - **Lite**: deterministic single-pass pipeline with a hard budget cap. Good for demos and CI smoke tests.
