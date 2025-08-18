@@ -1,5 +1,4 @@
 from collections import defaultdict
-from dr_rd.config.model_routing import MODEL_PRICES
 
 
 class TokenMeter:
@@ -25,5 +24,6 @@ class TokenMeter:
 
 
 def dollars_from_usage(model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
-    p = MODEL_PRICES.get(model_id, {"in": 0.0, "out": 0.0})
-    return (prompt_tokens / 1000.0) * p["in"] + (completion_tokens / 1000.0) * p["out"]
+    from app.price_loader import cost_usd
+
+    return cost_usd(model_id, prompt_tokens, completion_tokens)

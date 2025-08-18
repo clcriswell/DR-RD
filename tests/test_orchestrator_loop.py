@@ -29,7 +29,7 @@ def test_orchestrator_iterative_loop_executes_all_roles():
         def act(self, idea, task, context):
             return {"findings": [f"{self.name}:{task}"], "usage": {"total_tokens": 1}}
 
-    def fake_build_agents(mode):
+    def fake_build_agents(mode, models=None):
         return {
             "Marketing Analyst": StubAgent("Marketing Analyst"),
             "IP Analyst": StubAgent("IP Analyst"),

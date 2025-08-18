@@ -20,27 +20,39 @@ AGENT_MODEL_MAP.setdefault(
 )
 
 
-def build_agents(mode: str | None = None) -> Dict[str, Agent]:
+def build_agents(mode: str | None = None, models: Dict | None = None) -> Dict[str, Agent]:
     """Build the core advisory agents.
 
-    The previous implementation loaded per-mode model assignments from
-    ``config/modes.yaml``. With the introduction of budget-aware modes, that
-    file now tracks cost caps rather than agent models. To keep tests stable
-    and avoid coupling agent selection to budget configuration, this registry
-    now relies on the static mapping defined in ``config/agent_models.py``.
-
-    The ``mode`` argument is preserved for backward compatibility but is
-    currently ignored.
+    If ``models`` is supplied (typically from ``config/modes.yaml``), its
+    ``exec`` entry is used as the default model for all execution-stage agents
+    (CTO, Research, Regulatory, Finance, Marketing Analyst, IP Analyst).  This
+    lets Lite/Pro profiles honor per-mode model assignments while still
+    falling back to ``config/agent_models.py`` when unspecified.
     """
 
-    default = AGENT_MODEL_MAP.get("Research", DEFAULT_EXEC_MODEL)
+    exec_default = (models or {}).get("exec") or AGENT_MODEL_MAP.get(
+        "Research", DEFAULT_EXEC_MODEL
+    )
+
+    def _m(role: str) -> str:
+        if models and role in {
+            "CTO",
+            "Research",
+            "Regulatory",
+            "Finance",
+            "Marketing Analyst",
+            "IP Analyst",
+        }:
+            return models.get("exec", exec_default)
+        return AGENT_MODEL_MAP.get(role, exec_default)
+
     return {
-        "CTO": CTOAgent(model_id=AGENT_MODEL_MAP.get("CTO", default)),
-        "Research": ResearchScientistAgent(model_id=AGENT_MODEL_MAP.get("Research", default)),
-        "Regulatory": RegulatoryAgent(model_id=AGENT_MODEL_MAP.get("Regulatory", default)),
-        "Finance": FinanceAgent(model_id=AGENT_MODEL_MAP.get("Finance", default)),
-        "Marketing Analyst": MarketingAgent(model=AGENT_MODEL_MAP.get("Marketing Analyst", default)),
-        "IP Analyst": IPAnalystAgent(model=AGENT_MODEL_MAP.get("IP Analyst", default)),
+        "CTO": CTOAgent(model_id=_m("CTO")),
+        "Research": ResearchScientistAgent(model_id=_m("Research")),
+        "Regulatory": RegulatoryAgent(model_id=_m("Regulatory")),
+        "Finance": FinanceAgent(model_id=_m("Finance")),
+        "Marketing Analyst": MarketingAgent(model=_m("Marketing Analyst")),
+        "IP Analyst": IPAnalystAgent(model=_m("IP Analyst")),
     }
 
 
@@ -137,6 +149,9 @@ def load_mode_models(mode: str | None = None) -> dict:
 
     set_budget_manager(budget)
     m = (mode_cfg or {}).get("models", {}) or {}
+    # Rebuild global agents using mode-specific exec model
+    global AGENTS
+    AGENTS = build_agents(mode, models=m)
     # Map planner/synth plus sensible defaults for exec/default
     return {
         "Planner": m.get("plan", "gpt-3.5-turbo"),

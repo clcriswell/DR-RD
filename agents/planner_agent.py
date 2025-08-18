@@ -2,7 +2,7 @@ from agents.base_agent import BaseAgent
 import logging
 import openai
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import log_usage, llm_call
+from dr_rd.utils.llm_client import llm_call
 from typing import Optional
 import streamlit as st
 
@@ -35,26 +35,22 @@ def _call_llm_json(model_id: str, messages: list, **params) -> str:
         {"role": "system", "content": "Respond with a single JSON array only."}
     ]
     try:
-        kwargs = {"model": model_id, "messages": base, "temperature": 0}
+        kwargs = {"temperature": 0}
         kwargs.update(params)
         if model_id.startswith(("gpt-4o", "gpt-4.1")):
             kwargs["response_format"] = {"type": "json_object"}
-        resp = openai.chat.completions.create(**kwargs)
+        resp = llm_call(openai, model_id, stage="plan", messages=base, **kwargs)
     except Exception:
         fallback = messages + [
             {"role": "user", "content": "Output ONLY JSON array per the rules above."}
         ]
-        kwargs = {"model": model_id, "messages": fallback, "temperature": 0}
-        kwargs.update(params)
-        resp = openai.chat.completions.create(**kwargs)
-
-    usage = resp.choices[0].usage if hasattr(resp.choices[0], "usage") else getattr(resp, "usage", None)
-    if usage:
-        log_usage(
+        resp = llm_call(
+            openai,
+            model_id,
             stage="plan",
-            model=model_id,
-            pt=getattr(usage, "prompt_tokens", 0),
-            ct=getattr(usage, "completion_tokens", 0),
+            messages=fallback,
+            temperature=0,
+            **params,
         )
     return resp.choices[0].message.content
 
@@ -138,14 +134,6 @@ class PlannerAgent(BaseAgent):
             temperature=0.2,
             **sel["params"],
         )
-        usage = resp.choices[0].usage if hasattr(resp.choices[0], "usage") else getattr(resp, "usage", None)
-        if usage:
-            log_usage(
-                stage="plan",
-                model=sel["model"],
-                pt=getattr(usage, "prompt_tokens", 0),
-                ct=getattr(usage, "completion_tokens", 0),
-            )
         try:
             data = resp.choices[0].message.content
             parsed = json.loads(data)

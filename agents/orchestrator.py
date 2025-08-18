@@ -15,12 +15,17 @@ from typing import Dict
 import openai
 from agents.obfuscator import obfuscate_task
 from agents.router import route
+from dr_rd.utils.model_router import pick_model, CallHints
+from dr_rd.utils.llm_client import llm_call
 
 
 def _needs_follow_up(domain: str, task: str, answer: str) -> str | None:
     """Return a follow-up question *or* None if answer is judged complete."""
-    review = openai.chat.completions.create(
-        model="gpt-3.5-turbo",
+    sel = pick_model(CallHints(stage="exec"))
+    review = llm_call(
+        openai,
+        sel["model"],
+        stage="exec",
         temperature=0,
         messages=[
             {
@@ -41,6 +46,7 @@ def _needs_follow_up(domain: str, task: str, answer: str) -> str | None:
                 ),
             },
         ],
+        **sel["params"],
     )
     proposal = review.choices[0].message.content.strip()
     return None if proposal.upper().startswith("COMPLETE") else proposal
