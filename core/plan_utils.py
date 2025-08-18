@@ -1,6 +1,6 @@
 import json
 from typing import Any, Dict, List
-from .roles import normalize_role, canonical_roles
+from .roles import normalize_role
 
 def _coerce_to_list(raw: Any) -> List[Dict[str, Any]]:
     # Accept str (JSON), dict (single task or role->list), list
@@ -27,13 +27,13 @@ def _coerce_to_list(raw: Any) -> List[Dict[str, Any]]:
         out: List[Dict[str, Any]] = []
         for role_key, items in (raw or {}).items():
             role = normalize_role(role_key)
-            if not role:
+            if not role or not isinstance(items, list):
                 continue
-            for it in items or []:
+            for it in items:
                 out.append({
                     "role": role,
-                    "title": (it or {}).get("title",""),
-                    "description": (it or {}).get("description",""),
+                    "title": (it or {}).get("title", ""),
+                    "description": (it or {}).get("description", ""),
                 })
         return out
     if isinstance(raw, list):
@@ -56,13 +56,18 @@ def normalize_plan_to_tasks(raw: Any) -> List[Dict[str, str]]:
     return out
 
 def normalize_tasks(tasks: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    # Deduplicate exact duplicates; keep order
+    """Canonicalize roles and deduplicate tasks."""
     seen = set()
-    deduped = []
+    deduped: List[Dict[str, str]] = []
     for t in tasks:
-        key = (t["role"], t["title"], t["description"])
+        role = normalize_role((t or {}).get("role"))
+        title = (t or {}).get("title", "")
+        desc = (t or {}).get("description", "")
+        if not role:
+            continue
+        key = (role, title, desc)
         if key in seen:
             continue
         seen.add(key)
-        deduped.append(t)
+        deduped.append({"role": role, "title": title, "description": desc})
     return deduped

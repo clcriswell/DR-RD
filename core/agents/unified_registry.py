@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import logging
 import os
-from typing import Dict, Tuple, Optional
-from core.roles import canonical_roles
-from agents.base_agent import BaseAgent  # ensure single BaseAgent with .run
+from typing import Dict, Tuple, Optional, TYPE_CHECKING
+
+# Import BaseAgent only for type checking to avoid circular imports.
+if TYPE_CHECKING:  # pragma: no cover - for static typing only
+    from agents.base_agent import BaseAgent
 # Import the canonical small set that we KNOW take (model) in ctor:
 from core.agents.cto import CTOAgent
 from core.agents.research_scientist import ResearchScientistAgent
@@ -35,18 +39,34 @@ def resolve_model(role: str, purpose: str = "exec") -> str:
     # efficient / default
     return os.getenv("DRRD_MODEL_EXEC_EFFICIENT", "gpt-4o-mini")
 
-def build_agents_unified() -> Dict[str, BaseAgent]:
+def build_agents_unified(
+    overrides: Dict[str, str] | None = None,
+    default_model: Optional[str] = None,
+) -> Dict[str, BaseAgent]:
+    """Instantiate the core set of agents.
+
+    Parameters
+    ----------
+    overrides: mapping of role to model id to force specific models.
+    default_model: fallback model if a role is not in overrides.
+    """
+
+    overrides = overrides or {}
+
+    def _model(role: str, purpose: str = "exec") -> str:
+        return overrides.get(role) or default_model or resolve_model(role, purpose)
+
     agents: Dict[str, BaseAgent] = {}
     # Core business roles
-    agents["CTO"] = CTOAgent(resolve_model("CTO"))
-    agents["Research Scientist"] = ResearchScientistAgent(resolve_model("Research Scientist"))
-    agents["Regulatory"] = RegulatoryAgent(resolve_model("Regulatory"))
-    agents["Finance"] = FinanceAgent(resolve_model("Finance"))
-    agents["Marketing Analyst"] = MarketingAgent(resolve_model("Marketing Analyst"))
-    agents["IP Analyst"] = IPAnalystAgent(resolve_model("IP Analyst"))
+    agents["CTO"] = CTOAgent(_model("CTO"))
+    agents["Research Scientist"] = ResearchScientistAgent(_model("Research Scientist"))
+    agents["Regulatory"] = RegulatoryAgent(_model("Regulatory"))
+    agents["Finance"] = FinanceAgent(_model("Finance"))
+    agents["Marketing Analyst"] = MarketingAgent(_model("Marketing Analyst"))
+    agents["IP Analyst"] = IPAnalystAgent(_model("IP Analyst"))
     # Planner / Synthesizer
-    agents["Planner"] = PlannerAgent(resolve_model("Planner","plan"))
-    agents["Synthesizer"] = SynthesizerAgent(resolve_model("Synthesizer","synth"))
+    agents["Planner"] = PlannerAgent(_model("Planner", "plan"))
+    agents["Synthesizer"] = SynthesizerAgent(_model("Synthesizer", "synth"))
 
     # Try to import legacy specialist agents, but don’t fail the build if their
     # constructors differ. They remain available for fallback routing.
