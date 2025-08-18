@@ -38,7 +38,9 @@ from app.ui_cost_meter import render_cost_summary, render_estimator
 from app.lite_runner import render_lite
 from app.config_loader import load_mode
 from core.agents.registry import build_agents
-from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
+from orchestrators.plan_utils import normalize_plan_to_tasks
+from orchestrators.router import choose_agent_for_task
+from core.plan_utils import normalize_tasks
 from agents.planner_agent import PlannerAgent
 from agents.synthesizer import SynthesizerAgent
 from config.agent_models import AGENT_MODEL_MAP
@@ -168,72 +170,18 @@ def strip_json_block(md: str) -> str:
 
 
 def route_tasks(tasks_any, agents):
-    # Normalize ANY planner shape to a safe list of task dicts
-    tasks = normalize_tasks(normalize_plan_to_tasks(tasks_any))
-
+    """Route all planner tasks to available agents without dropping."""
+    tasks = normalize_plan_to_tasks(tasks_any)
     routed = []
-    dropped = []
-
-    # Import chooser
-    try:
-        from core.agents.registry import choose_agent_for_task
-    except Exception:
-        choose_agent_for_task = None
-
     for t in tasks:
-        role = t.get("role", "").strip()
-        title = t.get("title", "").strip()
-        desc = t.get("description", "").strip()
-        if not role or not title or not desc:
-            dropped.append(t)
-            continue
-
-        routed_role = role
-        agent = None
-
-        if choose_agent_for_task:
-            res = choose_agent_for_task(role, title, agents)
-            # Support either return order: (routed_role, agent) or (agent, routed_role)
-            if isinstance(res, (list, tuple)) and len(res) == 2:
-                if isinstance(res[0], str):
-                    routed_role, agent = res[0], res[1]
-                else:
-                    agent, routed_role = res[0], res[1]
-
-        # Fallbacks if chooser not present or returned None
-        if agent is None:
-            agent = (
-                agents.get(role)
-                or (
-                    agents.get("Marketing Analyst")
-                    if "market" in (title + desc).lower()
-                    else None
-                )
-                or (
-                    agents.get("Finance")
-                    if any(
-                        k in (title + desc).lower()
-                        for k in ["budget", "cost", "price", "roi"]
-                    )
-                    else None
-                )
-                or agents.get("Research Scientist")
-                or agents.get("Research")
-            )
-            # update routed_role to the key of the selected agent if possible
-            if agent:
-                for k, v in agents.items():
-                    if v is agent:
-                        routed_role = k
-                        break
-
-        if agent:
-            routed.append((routed_role, agent, t))
-        else:
-            dropped.append(t)
-
-    if dropped:
-        logger.warning("Tasks dropped (missing fields or no agent): %s", len(dropped))
+        agent, routed_role = choose_agent_for_task(
+            planned_role=t.get("role"),
+            title=t.get("title"),
+            description=t.get("description"),
+            tags=t.get("tags") or [],
+            agents=agents,
+        )
+        routed.append((routed_role, agent, t))
     return routed
 
 
@@ -319,7 +267,8 @@ def run_manual_pipeline(
     simulation_agent = SimulationAgent() if simulate_enabled else None
 
     # Initial execution by all expert agents
-    for rr, agent, t in route_tasks(st.session_state.get("plan", []), agents):
+    plan_source = st.session_state.get("plan_tasks") or st.session_state.get("plan", [])
+    for rr, agent, t in route_tasks(plan_source, agents):
         role = rr
         task = f"{t['title']}: {t['description']}"
         logging.info(f"Executing agent {role} with task: {task}")
@@ -588,7 +537,8 @@ def run_manual_pipeline(
         for r in range(2, refinement_rounds + 1):
             st.info(f"Refinement round {r-1} of {refinement_rounds-1}...")
             new_answers = {}
-            for rr, agent, t in route_tasks(st.session_state.get("plan", []), agents):
+            plan_source = st.session_state.get("plan_tasks") or st.session_state.get("plan", [])
+            for rr, agent, t in route_tasks(plan_source, agents):
                 role = rr
                 task = f"{t['title']}: {t['description']}"
                 with st.spinner(f"🤖 Refining {role}'s output..."):
@@ -711,6 +661,13 @@ def main():
         sidebar.title("Configuration")
     else:
         st.markdown("## Configuration")
+
+    # Optional: display which roles can execute this run
+    exec_roles = sorted(k for k in agents.keys() if k not in ("Planner", "Synthesizer"))
+    if hasattr(sidebar, "markdown") and hasattr(sidebar, "write"):
+        sidebar.markdown("### Executable roles this run")
+        for r in exec_roles:
+            sidebar.write(f"- {r}")
 
     # Profile toggle: Lite (deterministic single-pass) vs Pro (HRM full app)
     import os as _os
@@ -942,8 +899,7 @@ def main():
                     "Planner raw (first 400 chars): %s",
                     str(model_output_text)[:400],
                 )
-                raw_tasks = normalize_plan_to_tasks(model_output_text)
-                tasks = normalize_tasks(raw_tasks)
+                tasks = normalize_plan_to_tasks(model_output_text)
                 logger.info("Tasks after normalization: %d", len(tasks))
 
             REQUIRED_ROLES = {
@@ -961,13 +917,30 @@ def main():
                         "role": missing,
                         "title": f"Define initial {missing} workplan",
                         "description": f"Draft first actionable tasks for {missing} to advance the project.",
+                        "tags": [],
                     }
                 )
 
+            # Simplified plan for display/state without tags
+            simple_tasks = [
+                {
+                    "role": t.get("role", ""),
+                    "title": t.get("title", ""),
+                    "description": t.get("description", ""),
+                }
+                for t in tasks
+            ]
+
             routed = route_tasks(tasks, agents)
 
-            st.session_state["plan"] = tasks
+            st.session_state["plan"] = simple_tasks
             st.session_state["routed"] = routed
+            # Optional UI trace for routed roles
+            st.session_state["plan_tasks"] = tasks
+            st.session_state["routed_tasks"] = [
+                {"planned_role": t["role"], "routed_role": rr, "title": t["title"]}
+                for rr, _, t in routed
+            ]
             safe_log_step(
                 get_project_id(),
                 "Planner",
