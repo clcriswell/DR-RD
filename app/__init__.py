@@ -95,15 +95,19 @@ def setup_logging():
 def get_agents():
     """Create and return the initialized agents using the core registry."""
     default_model = (
-        AGENT_MODEL_MAP.get("DEFAULT")
+        getattr(AGENT_MODEL_MAP, "get", lambda *_: None)("DEFAULT")
         or os.getenv("OPENAI_MODEL")
         or os.getenv("OPENAI_DEFAULT_MODEL")
         or "gpt-4o-mini"
     )
-    agents = build_agents_unified(AGENT_MODEL_MAP or {}, default_model)
-    agents["Planner"] = PlannerAgent(AGENT_MODEL_MAP.get("Planner", default_model))
+    agents = build_agents_unified(
+        AGENT_MODEL_MAP if isinstance(AGENT_MODEL_MAP, dict) else {}, default_model
+    )
+    agents["Planner"] = PlannerAgent(
+        getattr(AGENT_MODEL_MAP, "get", lambda *_: None)("Planner") or default_model
+    )
     agents["Synthesizer"] = SynthesizerAgent(
-        AGENT_MODEL_MAP.get("Synthesizer", default_model)
+        getattr(AGENT_MODEL_MAP, "get", lambda *_: None)("Synthesizer") or default_model
     )
     logger.info("Registered agents (unified): %s", sorted(agents.keys()))
     return agents
@@ -179,6 +183,7 @@ def strip_json_block(md: str) -> str:
 def route_tasks(tasks_any, agents):
     """Route all planner tasks to available agents without dropping."""
     tasks = normalize_plan_to_tasks(tasks_any)
+    tasks = [t for t in tasks if not (len(t.get("title", "")) == 1 and len(t.get("description", "")) == 1)]
     routed = []
     for t in tasks:
         agent, routed_role = choose_agent_for_task(
@@ -190,6 +195,33 @@ def route_tasks(tasks_any, agents):
         )
         routed.append((routed_role, agent, t))
     return routed
+
+
+def _invoke_agent(agent, idea, task_dict):
+    # Accepts {"title","description"} and builds a text form too
+    text = f"{task_dict['title']}: {task_dict['description']}"
+    # Prefer .run(idea, task_dict)
+    fn = getattr(agent, "run", None)
+    if callable(fn):
+        try:
+            return fn(idea, task_dict)
+        except TypeError:
+            try:
+                return fn(text)
+            except TypeError:
+                pass
+    # Try common alternates
+    for name in ("execute", "act", "__call__"):
+        fn = getattr(agent, name, None)
+        if callable(fn):
+            try:
+                return fn(idea, task_dict)
+            except TypeError:
+                try:
+                    return fn(text)
+                except TypeError:
+                    continue
+    raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
 
 
 def _get_qs_flag(name: str) -> bool:
@@ -932,10 +964,7 @@ def main():
                 tasks = normalize_plan_to_tasks(model_output_text, backfill=True, dedupe=True)
                 logger.info("Tasks after normalization: %d", len(tasks))
 
-            st.session_state["plan"] = [
-                {"role": t["role"], "title": t["title"], "description": t["description"]}
-                for t in tasks
-            ]
+            st.session_state["plan"] = tasks
             st.session_state["plan_tasks"] = tasks
             routed = route_tasks(tasks, agents)
             st.session_state["routed"] = routed
@@ -1007,10 +1036,24 @@ def main():
                 "Planner routing: %s",
                 [{"from": t["role"], "to": rr} for rr, _, t in routed],
             )
+            logger.info("Final routed task count: %d", len(routed))
             for rr, agent, t in routed:
-                task_text = f"{t['title']}: {t['description']}"
-                outputs[rr] = agent.run(idea, task_text)
-            render_cost_summary(selected_mode, st.session_state.get("plan"))
+                try:
+                    out = _invoke_agent(
+                        agent,
+                        idea,
+                        {"title": t["title"], "description": t["description"]},
+                    )
+                except Exception as e:
+                    logger.exception("Agent %s failed: %s", rr, e)
+                    out = {"error": str(e)}
+                outputs.setdefault(rr, []).append(
+                    {
+                        "title": t["title"],
+                        "description": t["description"],
+                        "output": out,
+                    }
+                )
             return outputs
 
         if st.button("2⃣ Run All Domain Experts"):
