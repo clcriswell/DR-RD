@@ -94,11 +94,16 @@ def setup_logging():
 @cache_resource
 def get_agents():
     """Create and return the initialized agents using the core registry."""
-    default_model = AGENT_MODEL_MAP.get("DEFAULT") if isinstance(AGENT_MODEL_MAP, dict) else None
-    agents = build_agents_unified(AGENT_MODEL_MAP if isinstance(AGENT_MODEL_MAP, dict) else {}, default_model)
-    agents["Planner"] = PlannerAgent(AGENT_MODEL_MAP.get("Planner", "gpt-4o"))
+    default_model = (
+        AGENT_MODEL_MAP.get("DEFAULT")
+        or os.getenv("OPENAI_MODEL")
+        or os.getenv("OPENAI_DEFAULT_MODEL")
+        or "gpt-4o-mini"
+    )
+    agents = build_agents_unified(AGENT_MODEL_MAP or {}, default_model)
+    agents["Planner"] = PlannerAgent(AGENT_MODEL_MAP.get("Planner", default_model))
     agents["Synthesizer"] = SynthesizerAgent(
-        AGENT_MODEL_MAP.get("Synthesizer", "gpt-4o")
+        AGENT_MODEL_MAP.get("Synthesizer", default_model)
     )
     logger.info("Registered agents (unified): %s", sorted(agents.keys()))
     return agents
@@ -919,44 +924,18 @@ def main():
                         "Break down the project into role-specific tasks",
                     )
                 update_cost()
-                raw_output = getattr(agents["Planner"], "last_raw", "") or model_output
+                model_output_text = getattr(agents["Planner"], "last_raw", "") or model_output
                 logger.info(
                     "Planner raw (first 400 chars): %s",
-                    str(raw_output)[:400],
+                    str(model_output_text)[:400],
                 )
-                tasks = normalize_plan_to_tasks(model_output)
+                tasks = normalize_plan_to_tasks(model_output_text, backfill=True, dedupe=True)
                 logger.info("Tasks after normalization: %d", len(tasks))
 
-            REQUIRED_ROLES = {
-                "CTO",
-                "Research Scientist",
-                "Regulatory",
-                "Finance",
-                "Marketing Analyst",
-                "IP Analyst",
-            }
-            present = {t["role"] for t in tasks}
-            for missing in sorted(REQUIRED_ROLES - present):
-                tasks.append(
-                    {
-                        "role": missing,
-                        "title": f"Define initial {missing} workplan",
-                        "description": f"Draft first actionable tasks for {missing} to advance the project.",
-                        "tags": [],
-                    }
-                )
-
-            # Simplified plan for display/state without tags
-            simple_tasks = [
-                {
-                    "role": t.get("role", ""),
-                    "title": t.get("title", ""),
-                    "description": t.get("description", ""),
-                }
+            st.session_state["plan"] = [
+                {"role": t["role"], "title": t["title"], "description": t["description"]}
                 for t in tasks
             ]
-
-            st.session_state["plan"] = simple_tasks
             st.session_state["plan_tasks"] = tasks
             routed = route_tasks(tasks, agents)
             st.session_state["routed"] = routed

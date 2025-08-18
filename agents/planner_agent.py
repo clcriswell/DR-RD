@@ -17,14 +17,15 @@ except Exception:  # pragma: no cover
 log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
-  "You are the Creation Planner. Output ONLY valid JSON as a single array.\n"
-  "[{\"role\":\"<one of: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst>\",""title\":\"...\",\"description\":\"...\"}]\n"
-  "Rules:\n"
-  "- Return 8–12 tasks total.\n"
-  "- Include AT LEAST one task for EACH of the six roles.\n"
-  "- Roles MUST be exactly one of those six.\n"
-  "- Titles are short imperatives; descriptions are concise and specific.\n"
-  "- No prose. No backticks. JSON array only."
+    "You are the Creation Planner. Output ONLY valid JSON as a single array.\n"
+    "[{\"role\":\"<one of: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst>\","\
+    "\"title\":\"...\",\"description\":\"...\"}]\n"
+    "Rules:\n"
+    "- Return 8–12 tasks total.\n"
+    "- Include AT LEAST one task for EACH of the six roles.\n"
+    "- Roles MUST be exactly one of those six.\n"
+    "- Titles are short imperatives; descriptions are concise and specific.\n"
+    "- No prose. No backticks. JSON array only."
 )
 
 
