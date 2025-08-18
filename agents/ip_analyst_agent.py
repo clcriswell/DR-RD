@@ -37,9 +37,10 @@ class IPAnalystAgent(BaseAgent):
     def act(self, idea: str, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         prompt = self.user_prompt_template.format(idea=idea, task=task)
         sources: List[str] = []
+        hits: List[Tuple[str, str]] = []
         if RAG_ENABLED and self.retriever:
             try:
-                hits: List[Tuple[str, str]] = self.retriever.query(f"{idea}\n{task}", RAG_TOPK)
+                hits = self.retriever.query(f"{idea}\n{task}", RAG_TOPK)
                 if hits:
                     bundle_lines = []
                     for i, (text, src) in enumerate(hits, 1):
@@ -48,9 +49,20 @@ class IPAnalystAgent(BaseAgent):
                         bundle_lines.append(f"[{i}] {snippet} ({src})")
                         sources.append(src)
                     bundle = "\n".join(bundle_lines)
-                    prompt += "\n\nResearch Bundle:\n" + bundle
+                    prompt += "\n\n# RAG Knowledge\n" + bundle
             except Exception:
-                pass
+                hits = []
+        self.retrieval_hits = len(hits)
+        self.rag_text_len = sum(len(t.split()) for t, _ in hits)
+        self._web_summary = None
+        self._web_sources = []
+        self.maybe_live_search(idea, task)
+        if self._web_summary:
+            prompt += "\n\n# Web Search Results\n" + self._web_summary
+            prompt += (
+                "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
+            )
+            sources = self._web_sources or sources
         
         sel = pick_model(CallHints(stage="exec"))
         response = llm_call(
@@ -101,5 +113,8 @@ class IPAnalystAgent(BaseAgent):
         data.setdefault("findings", [])
         data.setdefault("risks", [])
         data.setdefault("next_steps", [])
-        data.setdefault("sources", sources)
+        if self._web_sources:
+            data["sources"] = self._web_sources
+        else:
+            data.setdefault("sources", sources)
         return data

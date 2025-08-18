@@ -18,6 +18,7 @@ SIM_OPTIMIZER_MAX_EVALS: int = int(os.getenv("SIM_OPTIMIZER_MAX_EVALS", "50"))
 RAG_ENABLED = _flag("RAG_ENABLED")
 RAG_TOPK: int = int(os.getenv("RAG_TOPK", "5"))
 RAG_SNIPPET_TOKENS: int = int(os.getenv("RAG_SNIPPET_TOKENS", "200"))
+ENABLE_LIVE_SEARCH = _flag("ENABLE_LIVE_SEARCH")
 DISABLE_IMAGES_BY_DEFAULT = {"test": True, "balanced": True, "deep": False}
 
 # Default evaluator weights and threshold. ``EVALUATOR_WEIGHTS`` can be
@@ -57,6 +58,7 @@ def get_env_defaults() -> dict:
         "RAG_ENABLED": RAG_ENABLED,
         "RAG_TOPK": RAG_TOPK,
         "RAG_SNIPPET_TOKENS": RAG_SNIPPET_TOKENS,
+        "ENABLE_LIVE_SEARCH": ENABLE_LIVE_SEARCH,
         "SIM_OPTIMIZER_ENABLED": SIM_OPTIMIZER_ENABLED,
         "SIM_OPTIMIZER_STRATEGY": SIM_OPTIMIZER_STRATEGY,
         "SIM_OPTIMIZER_MAX_EVALS": SIM_OPTIMIZER_MAX_EVALS,

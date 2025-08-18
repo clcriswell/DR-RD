@@ -27,7 +27,7 @@ def test_rag_included_when_enabled(mock_create, monkeypatch):
     agent = ba.BaseAgent("Test", "gpt-4o", "sys", "Task: {task}", retriever=StubRetriever())
     agent.run("idea", "do something")
     prompt = mock_create.call_args.kwargs["messages"][1]["content"]
-    assert "Research Bundle" in prompt
+    assert "# RAG Knowledge" in prompt
     assert "alpha data" in prompt
     assert "(alpha.txt)" in prompt
 
@@ -44,7 +44,7 @@ def test_rag_skipped_when_disabled(mock_create, monkeypatch):
     agent = ba.BaseAgent("Test", "gpt-4o", "sys", "Task: {task}", retriever=StubRetriever())
     agent.run("idea", "do something")
     prompt = mock_create.call_args.kwargs["messages"][1]["content"]
-    assert "Research Bundle" not in prompt
+    assert "# RAG Knowledge" not in prompt
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
