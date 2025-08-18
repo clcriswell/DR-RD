@@ -24,7 +24,7 @@ SYSTEM = (
     "- Return 8–12 tasks total.\n"
     "- Include AT LEAST one task for EACH of the six roles.\n"
     "- Roles MUST be exactly one of those six.\n"
-    "- Titles are short imperatives; descriptions are concise and specific.\n"
+    "- Titles are short imperatives; descriptions concise and specific.\n"
     "- No prose. No backticks. JSON array only."
 )
 
