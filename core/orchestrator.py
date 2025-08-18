@@ -29,6 +29,10 @@ def run_pipeline(
     context: Dict[str, List[str]] = {"idea": idea, "summaries": []}
 
     plan = planner.run(idea, "Decompose the project into specialist tasks")
+    logger.info(
+        "Planner raw (first 400 chars): %s",
+        str(getattr(planner, "last_raw", plan))[:400],
+    )
     task_queue.extend(normalize_tasks(normalize_plan_to_tasks(plan)))
 
     while True:
@@ -41,7 +45,7 @@ def run_pipeline(
         batch = list(task_queue)
         task_queue.clear()
         for task in batch:
-            agent, routed_role = choose_agent_for_task(
+            routed_role, agent = choose_agent_for_task(
                 task.get("role"), task.get("title", ""), agents
             )
             logger.info(

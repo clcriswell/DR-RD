@@ -37,7 +37,7 @@ from dr_rd.utils.llm_client import llm_call, METER, set_budget_manager
 from app.ui_cost_meter import render_cost_summary, render_estimator
 from app.lite_runner import render_lite
 from app.config_loader import load_mode
-from core.agents.registry import build_agents, choose_agent_for_task
+from core.agents.registry import build_agents
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from agents.planner_agent import PlannerAgent
 from agents.synthesizer import SynthesizerAgent
@@ -167,16 +167,73 @@ def strip_json_block(md: str) -> str:
     return re.sub(r"```json\s*.*?\s*```", "", md, flags=re.DOTALL).strip()
 
 
-def route_tasks(tasks, agents):
+def route_tasks(tasks_any, agents):
+    # Normalize ANY planner shape to a safe list of task dicts
+    tasks = normalize_tasks(normalize_plan_to_tasks(tasks_any))
+
     routed = []
+    dropped = []
+
+    # Import chooser
+    try:
+        from core.agents.registry import choose_agent_for_task
+    except Exception:
+        choose_agent_for_task = None
+
     for t in tasks:
-        agent, routed_role = choose_agent_for_task(t["role"], t["title"], agents)
+        role = t.get("role", "").strip()
+        title = t.get("title", "").strip()
+        desc = t.get("description", "").strip()
+        if not role or not title or not desc:
+            dropped.append(t)
+            continue
+
+        routed_role = role
+        agent = None
+
+        if choose_agent_for_task:
+            res = choose_agent_for_task(role, title, agents)
+            # Support either return order: (routed_role, agent) or (agent, routed_role)
+            if isinstance(res, (list, tuple)) and len(res) == 2:
+                if isinstance(res[0], str):
+                    routed_role, agent = res[0], res[1]
+                else:
+                    agent, routed_role = res[0], res[1]
+
+        # Fallbacks if chooser not present or returned None
         if agent is None:
-            agent = agents.get("Research Scientist") or agents.get("Research")
-            routed_role = (
-                "Research Scientist" if "Research Scientist" in agents else "Research"
+            agent = (
+                agents.get(role)
+                or (
+                    agents.get("Marketing Analyst")
+                    if "market" in (title + desc).lower()
+                    else None
+                )
+                or (
+                    agents.get("Finance")
+                    if any(
+                        k in (title + desc).lower()
+                        for k in ["budget", "cost", "price", "roi"]
+                    )
+                    else None
+                )
+                or agents.get("Research Scientist")
+                or agents.get("Research")
             )
-        routed.append((routed_role, agent, t))
+            # update routed_role to the key of the selected agent if possible
+            if agent:
+                for k, v in agents.items():
+                    if v is agent:
+                        routed_role = k
+                        break
+
+        if agent:
+            routed.append((routed_role, agent, t))
+        else:
+            dropped.append(t)
+
+    if dropped:
+        logger.warning("Tasks dropped (missing fields or no agent): %s", len(dropped))
     return routed
 
 
@@ -818,6 +875,7 @@ def main():
     idea = st.text_input(
         "🧠 Enter your project idea:", value=st.session_state.get("idea", "")
     )
+    idea_input = idea
     submitted_idea_text = idea
     if not idea:
         st.info("Please describe an idea to get started.")
@@ -879,9 +937,9 @@ def main():
                         "Break down the project into role-specific tasks",
                     )
                 update_cost()
-                model_output_text = getattr(agents["Planner"], "last_raw", model_output)
+                model_output_text = getattr(agents["Planner"], "last_raw", "") or model_output
                 logger.info(
-                    "Planner raw text (first 400 chars): %s",
+                    "Planner raw (first 400 chars): %s",
                     str(model_output_text)[:400],
                 )
                 raw_tasks = normalize_plan_to_tasks(model_output_text)
@@ -902,19 +960,11 @@ def main():
                     {
                         "role": missing,
                         "title": f"Define initial {missing} workplan",
-                        "description": f"Draft the first set of actionable tasks for {missing} to advance the project.",
+                        "description": f"Draft first actionable tasks for {missing} to advance the project.",
                     }
                 )
 
-            routed = []
-            for t in tasks:
-                agent, routed_role = choose_agent_for_task(t["role"], t["title"], agents)
-                if agent is None:
-                    agent = agents.get("Research Scientist") or agents.get("Research")
-                    routed_role = (
-                        "Research Scientist" if "Research Scientist" in agents else "Research"
-                    )
-                routed.append((routed_role, agent, t))
+            routed = route_tasks(tasks, agents)
 
             st.session_state["plan"] = tasks
             st.session_state["routed"] = routed
@@ -931,7 +981,7 @@ def main():
                     db.collection("dr_rd_projects").document(doc_id).set(
                         {
                             "name": st.session_state.get("project_name", ""),
-                            "idea": submitted_idea_text or idea or "",
+                            "idea": submitted_idea_text or idea_input or "",
                             "plan": st.session_state["plan"],
                             **st.session_state.get("test_marker", {}),
                         },
@@ -961,7 +1011,7 @@ def main():
         st.subheader("Project Plan (Role → Task)")
         tasks = st.session_state["plan"]
         if not tasks:
-            st.error("Planner returned no valid tasks. Check logs.")
+            getattr(st, "error", lambda *a, **k: None)("Planner returned no valid tasks. Check logs.")
         else:
             for t in tasks:
                 st.json(t)
