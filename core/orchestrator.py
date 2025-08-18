@@ -19,7 +19,7 @@ def run_pipeline(
     models = load_mode_models(mode)
     planner_model = models.get("Planner", models.get("default", "gpt-3.5-turbo"))
     planner = PlannerAgent(planner_model)
-    agents = build_agents(mode)
+    agents = build_agents(mode, models=models)
 
     max_loops = int(st.session_state.get("MODE_CFG", {}).get("max_loops", 5))
     cycle = 0

@@ -716,10 +716,6 @@ def main():
         profile = sidebar.radio("Profile", ["Lite", "Pro"], index=prof_index, key="profile_choice")
     else:  # fallback for test stubs without radio
         profile = "Lite" if prof_index == 0 else "Pro"
-    if profile == "Lite":
-        # Render the minimal, budget-capped pipeline and exit early
-        render_lite()
-        return
 
     developer_expander = getattr(sidebar, "expander", None)
     if callable(developer_expander):
@@ -749,13 +745,17 @@ def main():
     else:  # fallback for test stubs
         selected_label = "Balanced"
     selected_mode = mode_label_to_key[selected_label]
-    # Install a BudgetManager so Pro mode also enforces a hard spend cap
+    # Install a BudgetManager so both profiles enforce a hard spend cap
     try:
         _mode_cfg, _budget = load_mode(selected_mode)
+        st.session_state["MODE_CFG"] = _mode_cfg
         set_budget_manager(_budget)
     except Exception as _e:
         # Keep running without a budget if config is missing; log only
         logging.info(f"Budget manager not installed: {str(_e)}")
+    if profile == "Lite":
+        render_lite(selected_mode)
+        return
     if selected_mode == "test":
         st.info(
             "**Test (dev)** is ON: minimal tokens, capped domains, tiny image, truncated outputs."
@@ -912,9 +912,7 @@ def main():
     if similar_ideas:
         st.info("Found similar past projects: " + ", ".join(similar_ideas))
 
-    render_estimator(
-        selected_mode, st.session_state.get("idea", ""), price_per_1k=0.005
-    )
+    render_estimator(selected_mode, st.session_state.get("idea", ""))
 
     disable_btn = not project_name or duplicate
     try:
