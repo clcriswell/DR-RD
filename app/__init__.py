@@ -99,6 +99,7 @@ def get_agents():
     agents["Synthesizer"] = SynthesizerAgent(
         AGENT_MODEL_MAP.get("Synthesizer", "gpt-4o")
     )
+    logger.info("Registered agents: %s", sorted(agents.keys()))
     return agents
 
 
@@ -526,11 +527,11 @@ def run_manual_pipeline(
             try:
                 doc_id = get_project_id()
                 db.collection("dr_rd_projects").document(doc_id).set(
-                    {"outputs": st.session_state["answers"], **st.session_state.get("test_marker", {})},
+                    {"results": st.session_state["answers"], **st.session_state.get("test_marker", {})},
                     merge=True,
                 )
             except Exception as e:
-                logging.error(f"Save outputs failed: {e}")
+                logging.error(f"Save results failed: {e}")
 
     # Iterative refinement rounds if selected
     if refinement_rounds > 1:
@@ -578,11 +579,11 @@ def run_manual_pipeline(
             try:
                 doc_id = get_project_id()
                 db.collection("dr_rd_projects").document(doc_id).set(
-                    {"outputs": st.session_state["answers"], **st.session_state.get("test_marker", {})},
+                    {"results": st.session_state["answers"], **st.session_state.get("test_marker", {})},
                     merge=True,
                 )
             except Exception as e:
-                logging.error(f"Save outputs failed: {e}")
+                logging.error(f"Save results failed: {e}")
 
 
 def main():
@@ -784,8 +785,19 @@ def main():
                     if doc.exists:
                         data = doc.to_dict() or {}
                         st.session_state["idea"] = data.get("idea", "")
-                        st.session_state["plan"] = data.get("plan", [])
-                        st.session_state["answers"] = data.get("outputs", {})
+                        plan_data = data.get("plan", [])
+                        st.session_state["plan_tasks"] = plan_data
+                        st.session_state["plan"] = [
+                            {
+                                "role": t.get("role", ""),
+                                "title": t.get("title", ""),
+                                "description": t.get("description", ""),
+                            }
+                            for t in plan_data
+                        ]
+                        st.session_state["answers"] = data.get(
+                            "results", data.get("outputs", {})
+                        )
                         st.session_state["final_doc"] = data.get("proposal", "")
                         st.session_state["images"] = data.get("images", [])
                         st.session_state["project_name"] = data.get(
@@ -799,8 +811,19 @@ def main():
                 for entry in memory_manager.data:
                     if entry.get("name") == selected_project:
                         st.session_state["idea"] = entry.get("idea", "")
-                        st.session_state["plan"] = entry.get("plan", [])
-                        st.session_state["answers"] = entry.get("outputs", {})
+                        plan_data = entry.get("plan", [])
+                        st.session_state["plan_tasks"] = plan_data
+                        st.session_state["plan"] = [
+                            {
+                                "role": t.get("role", ""),
+                                "title": t.get("title", ""),
+                                "description": t.get("description", ""),
+                            }
+                            for t in plan_data
+                        ]
+                        st.session_state["answers"] = entry.get(
+                            "results", entry.get("outputs", {})
+                        )
                         st.session_state["final_doc"] = entry.get("proposal", "")
                         st.session_state["images"] = entry.get("images", [])
                         st.session_state["project_name"] = entry.get(
@@ -812,6 +835,7 @@ def main():
             for key in [
                 "idea",
                 "plan",
+                "plan_tasks",
                 "answers",
                 "final_doc",
                 "images",
@@ -931,16 +955,18 @@ def main():
                 for t in tasks
             ]
 
-            routed = route_tasks(tasks, agents)
-
             st.session_state["plan"] = simple_tasks
+            st.session_state["plan_tasks"] = tasks
+            routed = route_tasks(tasks, agents)
             st.session_state["routed"] = routed
             # Optional UI trace for routed roles
-            st.session_state["plan_tasks"] = tasks
             st.session_state["routed_tasks"] = [
                 {"planned_role": t["role"], "routed_role": rr, "title": t["title"]}
                 for rr, _, t in routed
             ]
+            logger.info(
+                "Final routed task count: %d", len(st.session_state.get("routed", []))
+            )
             safe_log_step(
                 get_project_id(),
                 "Planner",
@@ -955,7 +981,7 @@ def main():
                         {
                             "name": st.session_state.get("project_name", ""),
                             "idea": submitted_idea_text or idea_input or "",
-                            "plan": st.session_state["plan"],
+                            "plan": tasks,
                             **st.session_state.get("test_marker", {}),
                         },
                         merge=True,
@@ -1039,11 +1065,11 @@ def main():
                 try:
                     doc_id = get_project_id()
                     db.collection("dr_rd_projects").document(doc_id).set(
-                        {"outputs": st.session_state["answers"], **st.session_state.get("test_marker", {})},
+                        {"results": st.session_state["answers"], **st.session_state.get("test_marker", {})},
                         merge=True,
                     )
                 except Exception as e:
-                    logging.error(f"Save outputs failed: {e}")
+                    logging.error(f"Save results failed: {e}")
             render_cost_summary(selected_mode, st.session_state.get("plan"))
             getattr(
                 st, "success", lambda *a, **k: None
@@ -1217,10 +1243,10 @@ def main():
                         ),
                     )
                     if isinstance(result, dict) and "document" in result:
-                        final_doc = result["document"]
+                        final_report_text = result["document"]
                         st.session_state["images"] = result.get("images", [])
                     else:
-                        final_doc = result
+                        final_report_text = result
                         st.session_state["images"] = []
                     update_cost()
                     bom = []
@@ -1244,16 +1270,16 @@ def main():
                             st.warning(
                                 f"Skipped incomplete BOM entries: {incomplete_items}"
                             )
-                        final_doc = final_doc.replace(
+                        final_report_text = final_report_text.replace(
                             "## Bill of Materials\n",
                             f"## Bill of Materials\n\n{bom_md}\n",
                         )
                     memory_manager.store_project(
                         st.session_state.get("project_name", ""),
                         idea,
-                        st.session_state.get("plan", {}),
+                        st.session_state.get("plan_tasks", st.session_state.get("plan", {})),
                         st.session_state["answers"],
-                        final_doc,
+                        final_report_text,
                         st.session_state.get("images", []),
                     )
                 except Exception as e:  # pylint: disable=broad-except
@@ -1262,12 +1288,12 @@ def main():
                     )(f"Final proposal synthesis failed: {e}")
                     logging.exception("Error during final proposal synthesis: %s", e)
                     st.stop()
-            st.session_state["final_doc"] = final_doc
+            st.session_state["final_doc"] = final_report_text
             if use_firestore:
                 try:
                     doc_id = get_project_id()
                     db.collection("dr_rd_projects").document(doc_id).set(
-                        {"proposal": st.session_state["final_doc"], **st.session_state.get("test_marker", {})},
+                        {"proposal": final_report_text, **st.session_state.get("test_marker", {})},
                         merge=True,
                     )
                 except Exception as e:
