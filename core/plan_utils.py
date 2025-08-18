@@ -1,33 +1,32 @@
+from typing import Any, Dict, List
 import json
-from typing import Any, Dict, List, Tuple
 
 REQUIRED = ("role","title","description")
 
 def _is_task_obj(x: Any) -> bool:
-    return isinstance(x, dict) and all(k in x and isinstance(x[k], str) and x[k].strip() for k in REQUIRED)
+    return isinstance(x, dict) and all(isinstance(x.get(k,""), str) and x.get(k, "").strip() for k in REQUIRED)
 
-def coerce_planner_json(raw: Any) -> Any:
-    # raw may be JSON string or already-parsed object
+def _coerce(raw: Any) -> Any:
+    if isinstance(raw, (dict, list)): return raw
     if isinstance(raw, str):
         try:
-            raw = json.loads(raw)
+            return json.loads(raw)
         except Exception:
-            # try to salvage: grab the first '{' and last '}' slice
             try:
                 s = raw[ raw.index("{") : raw.rindex("}")+1 ]
-                raw = json.loads(s)
+                return json.loads(s)
             except Exception:
                 return []
-    return raw
+    return []
 
 def normalize_plan_to_tasks(raw: Any) -> List[Dict[str,str]]:
-    obj = coerce_planner_json(raw)
+    obj = _coerce(raw)
 
-    # Case B: already a list of task objects
+    # Case B: already a list of tasks
     if isinstance(obj, list):
-        return [t for t in obj if _is_task_obj(t)]
+        return [ {k: t[k].strip() for k in REQUIRED} for t in obj if _is_task_obj(t) ]
 
-    # Single-object task: {"role","title","description"}  -> wrap into list
+    # Single-object task -> wrap
     if _is_task_obj(obj):
         return [ {k: obj[k].strip() for k in REQUIRED} ]
 
@@ -35,19 +34,16 @@ def normalize_plan_to_tasks(raw: Any) -> List[Dict[str,str]]:
     tasks: List[Dict[str,str]] = []
     if isinstance(obj, dict):
         for role_key, items in obj.items():
-            # only accept lists of dicts; ignore strings to avoid char iteration
-            if isinstance(items, list):
-                for it in items:
-                    if isinstance(it, dict):
-                        title = (it.get("title") or "").strip()
-                        desc  = (it.get("description") or "").strip()
-                        if title and desc:
-                            tasks.append({"role": role_key, "title": title, "description": desc})
-        return tasks
+            if not isinstance(items, list):  # ignore strings to avoid char-splitting
+                continue
+            for it in items:
+                if isinstance(it, dict):
+                    title = (it.get("title") or "").strip()
+                    desc  = (it.get("description") or "").strip()
+                    if title and desc:
+                        tasks.append({"role": str(role_key), "title": title, "description": desc})
+    return tasks
 
-    return []
-
-# Optional: role normalization (alias -> canonical)
 ROLE_MAP = {
     "cto":"CTO","chief technology officer":"CTO",
     "research":"Research Scientist","research scientist":"Research Scientist",
@@ -63,6 +59,8 @@ def normalize_tasks(tasks: List[Dict[str,str]]) -> List[Dict[str,str]]:
     out=[]
     for t in tasks:
         r = normalize_role(t["role"])
-        if r and t["title"].strip() and t["description"].strip():
-            out.append({"role": r, "title": t["title"].strip(), "description": t["description"].strip()})
+        title = t["title"].strip()
+        desc  = t["description"].strip()
+        if r and title and desc:
+            out.append({"role": r, "title": title, "description": desc})
     return out

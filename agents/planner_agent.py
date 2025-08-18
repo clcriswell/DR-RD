@@ -1,5 +1,5 @@
 from agents.base_agent import BaseAgent
-import logging, os
+import logging
 import openai
 from dr_rd.utils.model_router import pick_model, CallHints
 from dr_rd.utils.llm_client import log_usage, llm_call
@@ -16,11 +16,16 @@ except Exception:  # pragma: no cover
 
 log = logging.getLogger(__name__)
 
-PLAN_INSTRUCTIONS = """
-You are the Creation Planner. Output ONLY valid JSON as a single array:
-[{"role":"<one of: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst>","title":"...","description":"..."}]
-Rules: roles MUST be exactly one of those six; titles are short imperatives; descriptions concise and specific. No prose. No backticks.
-"""
+SYSTEM_PROMPT = (
+  "You are the Creation Planner. Output ONLY valid JSON as a single array.\n"
+  "[{\"role\":\"<one of: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst>\",""title\":\"...\",\"description\":\"...\"}]\n"
+  "Rules:\n"
+  "- Return 8–12 tasks total.\n"
+  "- Include AT LEAST one task for EACH of the six roles.\n"
+  "- Roles MUST be exactly one of those six.\n"
+  "- Titles are short imperatives; descriptions are concise and specific.\n"
+  "- No prose. No backticks. JSON array only."
+)
 
 
 def _call_llm_json(model_id: str, messages: list, **params) -> str:
@@ -60,49 +65,21 @@ class PlannerAgent(BaseAgent):
         super().__init__(
             name="Planner",
             model=model,
-            system_message=(
-                "You are an expert project planner specializing in turning ideas into actionable plans."
-            ),
-            user_prompt_template=(
-                "Project Idea: {idea}\n"
-                "As the Planner, your task is {task}.\n\n"
-                "Return **only** a JSON object mapping each relevant team role (from the list below) to one or two succinct tasks. "
-                "Include a role only if it would reasonably contribute to this project:\n"
-                "  - Mechanical Systems Lead\n"
-                "  - Materials & Process Engineer\n"
-                "  - Chemical & Surface Science Specialist\n"
-                "  - Quantum Optics Physicist\n"
-                "  - Nonlinear Optics / Crystal Engineer\n"
-                "  - Optical Systems Engineer\n"
-                "  - Mechanical & Precision-Motion Engineer\n"
-                "  - Photonics Electronics Engineer\n"
-                "  - Electronics & Embedded Controls Engineer\n"
-                "  - Software / Image-Processing Specialist\n"
-                "  - Fluorescence / Biological Sample Expert\n"
-                "  - Systems Integration & Validation Engineer\n"
-                "  - Data Scientist / Analytics Engineer\n"
-                "  - Regulatory & Compliance Lead\n"
-                "  - Prototyping & Test Lab Manager\n"
-                "  - Project Manager / Principal Investigator\n"
-                "  - Product Manager / Translational Lead\n"
-                "  - AI R&D Coordinator\n"
-                "  - Marketing Analyst\n"
-                "  - IP Analyst\n\n"
-                "Only include roles that are relevant, and do not include any roles outside this list. "
-                "Use each role name exactly as given above as JSON keys, and provide a brief task description for each selected role."
-            ),
+            system_message="",
+            user_prompt_template="",
             retriever=retriever,
         )
+        self.last_raw = ""
 
     def run(self, idea: str, task: str, difficulty: str = "normal") -> dict:
         """Return the planner's JSON summary as a Python dict or list."""
         import json
 
         messages = [
-            {"role": "system", "content": PLAN_INSTRUCTIONS.strip()},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": f"Project goal: {idea}\nTask: {task}\nReturn plan as a JSON array.",
+                "content": f"Project goal: {idea}\nTask: {task}",
             },
         ]
 
@@ -112,11 +89,13 @@ class PlannerAgent(BaseAgent):
         params = sel["params"]
 
         raw = _call_llm_json(model_id, messages, **params)
+        self.last_raw = raw
         for _ in range(2):
             try:
                 return json.loads(raw)
             except Exception:
                 raw = _call_llm_json(model_id, messages, **params)
+                self.last_raw = raw
 
         plan = parse_json_loose(raw)
         flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
