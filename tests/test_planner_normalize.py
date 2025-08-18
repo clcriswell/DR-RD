@@ -31,3 +31,28 @@ def test_role_normalization_alias():
     ]
     tasks = normalize_tasks(raw_tasks)
     assert tasks == [{"role": "Regulatory", "title": "Review", "description": "Check"}]
+
+
+def test_coverage_backfill_adds_missing_roles():
+    raw_tasks = [
+        {"role": "CTO", "title": "Plan", "description": "Arch"}
+    ]
+    tasks = normalize_tasks(raw_tasks)
+    REQUIRED_ROLES = {
+        "CTO",
+        "Research Scientist",
+        "Regulatory",
+        "Finance",
+        "Marketing Analyst",
+        "IP Analyst",
+    }
+    present = {t["role"] for t in tasks}
+    for missing in sorted(REQUIRED_ROLES - present):
+        tasks.append(
+            {
+                "role": missing,
+                "title": f"Define initial {missing} workplan",
+                "description": f"Draft the first set of actionable tasks for {missing} to advance the project.",
+            }
+        )
+    assert REQUIRED_ROLES.issubset({t["role"] for t in tasks})

@@ -868,20 +868,56 @@ def main():
         try:
             with st.spinner("📝 Planning..."):
                 try:
-                    raw_plan = agents["Planner"].run(
+                    model_output = agents["Planner"].run(
                         idea,
                         "Break down the project into role-specific tasks",
                         difficulty=st.session_state.get("difficulty", "normal"),
                     )
                 except TypeError:
-                    raw_plan = agents["Planner"].run(
+                    model_output = agents["Planner"].run(
                         idea,
                         "Break down the project into role-specific tasks",
                     )
                 update_cost()
-                raw_tasks = normalize_plan_to_tasks(raw_plan)
+                model_output_text = getattr(agents["Planner"], "last_raw", model_output)
+                logger.info(
+                    "Planner raw text (first 400 chars): %s",
+                    str(model_output_text)[:400],
+                )
+                raw_tasks = normalize_plan_to_tasks(model_output_text)
                 tasks = normalize_tasks(raw_tasks)
+                logger.info("Tasks after normalization: %d", len(tasks))
+
+            REQUIRED_ROLES = {
+                "CTO",
+                "Research Scientist",
+                "Regulatory",
+                "Finance",
+                "Marketing Analyst",
+                "IP Analyst",
+            }
+            present = {t["role"] for t in tasks}
+            for missing in sorted(REQUIRED_ROLES - present):
+                tasks.append(
+                    {
+                        "role": missing,
+                        "title": f"Define initial {missing} workplan",
+                        "description": f"Draft the first set of actionable tasks for {missing} to advance the project.",
+                    }
+                )
+
+            routed = []
+            for t in tasks:
+                agent, routed_role = choose_agent_for_task(t["role"], t["title"], agents)
+                if agent is None:
+                    agent = agents.get("Research Scientist") or agents.get("Research")
+                    routed_role = (
+                        "Research Scientist" if "Research Scientist" in agents else "Research"
+                    )
+                routed.append((routed_role, agent, t))
+
             st.session_state["plan"] = tasks
+            st.session_state["routed"] = routed
             safe_log_step(
                 get_project_id(),
                 "Planner",
@@ -895,7 +931,7 @@ def main():
                     db.collection("dr_rd_projects").document(doc_id).set(
                         {
                             "name": st.session_state.get("project_name", ""),
-                            "idea": submitted_idea_text,
+                            "idea": submitted_idea_text or idea or "",
                             "plan": st.session_state["plan"],
                             **st.session_state.get("test_marker", {}),
                         },
@@ -923,7 +959,12 @@ def main():
 
     if "plan" in st.session_state:
         st.subheader("Project Plan (Role → Task)")
-        st.json(st.session_state["plan"])
+        tasks = st.session_state["plan"]
+        if not tasks:
+            st.error("Planner returned no valid tasks. Check logs.")
+        else:
+            for t in tasks:
+                st.json(t)
 
         refinement_rounds = ui_preset["refinement_rounds"]
         simulate_enabled = st.session_state.get("simulate_enabled", True)
