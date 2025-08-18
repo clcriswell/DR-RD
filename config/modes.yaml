@@ -8,17 +8,17 @@ fast:
   target_cost_usd: 0.75
   models: { plan: gpt-4o-mini, exec: gpt-4o-mini, synth: gpt-4o-mini }
   k_search: 3
-  max_loops: 1
+  max_loops: 2
   stage_weights: { plan: 0.25, exec: 0.45, synth: 0.30 }
 balanced:
   target_cost_usd: 1.00
   models: { plan: gpt-4o, exec: gpt-4o-mini, synth: gpt-4o }
   k_search: 4
-  max_loops: 2
+  max_loops: 3
   stage_weights: { plan: 0.25, exec: 0.45, synth: 0.30 }
 deep:
   target_cost_usd: 2.50
   models: { plan: gpt-4o, exec: gpt-4o, synth: gpt-5 }
   k_search: 6
-  max_loops: 3
+  max_loops: 5
   stage_weights: { plan: 0.20, exec: 0.50, synth: 0.30 }

@@ -26,7 +26,7 @@ def render_lite() -> None:
 
     idea = st.text_area("Project Idea", key="lite_idea")
     modes = _available_modes()
-    idx = max(0, modes.index("test") if "test" in modes else 0)
+    idx = max(0, modes.index("balanced") if "balanced" in modes else 0)
     mode = st.selectbox("Mode", modes, index=idx, key="lite_mode")
 
     if st.button("Run", key="lite_run"):
