@@ -16,9 +16,9 @@ except Exception:  # pragma: no cover
 
 log = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = (
+SYSTEM = (
     "You are the Creation Planner. Output ONLY valid JSON as a single array.\n"
-    "[{\"role\":\"<one of: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst>\","\
+    "[{\"role\":\"<one of: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst>\","
     "\"title\":\"...\",\"description\":\"...\"}]\n"
     "Rules:\n"
     "- Return 8–12 tasks total.\n"
@@ -77,7 +77,7 @@ class PlannerAgent(BaseAgent):
         import json
 
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": SYSTEM},
             {
                 "role": "user",
                 "content": f"Project goal: {idea}\nTask: {task}",
