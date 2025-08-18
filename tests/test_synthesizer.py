@@ -12,7 +12,7 @@ def make_openai_response(text: str):
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
 @patch("agents.synthesizer.make_visuals_for_project", return_value=[{"kind": "schematic", "url": "u", "caption": "S"}])
-@patch('openai.chat.completions.create')
+@patch('agents.synthesizer.openai.chat.completions.create')
 def test_compose_final_proposal(mock_create, _mock_vis):
     fake_response = (
         "## Executive Summary\nOverview\n\n"

@@ -103,16 +103,27 @@ def test_generate_plan_updates_state(monkeypatch):
     )
     patches = {
         "agents.planner_agent.PlannerAgent.run": (
-            lambda self, idea, task: {"Mechanical Systems Lead": "foo", "X": "Y"}
+            lambda self, idea, task, difficulty="normal": [
+                {"role": "CTO", "title": "t1", "description": "d1"},
+                {"role": "X", "title": "t2", "description": "d2"},
+            ]
         )
     }
     reload_app(monkeypatch, st, patches)
-    assert st.session_state["plan"] == {"Mechanical Systems Lead": "foo"}
-    st.warning.assert_called_with("Dropped unrecognized roles: X")
+    assert st.session_state["plan"] == [
+        {"role": "CTO", "title": "t1", "description": "d1"},
+        {"role": "X", "title": "t2", "description": "d2"},
+    ]
+    st.warning.assert_not_called()
 
 
 def test_run_domain_experts(monkeypatch):
-    state = {"plan": {"Mechanical Systems Lead": "task", "Materials & Process Engineer": "task"}}
+    state = {
+        "plan": [
+            {"role": "CTO", "title": "task", "description": "desc"},
+            {"role": "Finance", "title": "budget", "description": "plan"},
+        ]
+    }
     st = make_streamlit(
         "idea",
         {"2⃣ Run All Domain Experts": True},
@@ -120,19 +131,23 @@ def test_run_domain_experts(monkeypatch):
     )
     monkeypatch.setenv("OPENAI_API_KEY", "x")
     patches = {
-        # Adjust BaseAgent.run patch to accept design_depth parameter
         "agents.base_agent.BaseAgent.run": lambda self, idea, task, design_depth="Medium": "out",
-        "openai.chat.completions.create": lambda *a, **k: type('R', (), {'choices': [type('C', (), {'message': type('M', (), {'content': 'out'})()})()]})()
+        "openai.chat.completions.create": lambda *a, **k: type(
+            "R",
+            (),
+            {
+                "choices": [
+                    type("C", (), {"message": type("M", (), {"content": "out"})()})
+                ]
+            },
+        )(),
     }
     reload_app(monkeypatch, st, patches)
-    assert st.session_state["answers"] == {
-        "Mechanical Systems Lead": "out",
-        "Materials & Process Engineer": "out",
-    }
+    assert st.session_state["answers"] == {"CTO": "out", "Finance": "out"}
 
 
 def test_compile_final_proposal(monkeypatch):
-    state = {"answers": {"Mechanical Systems Lead": "out"}, "plan": {}}
+    state = {"answers": {"Mechanical Systems Lead": "out"}, "plan": []}
     st = make_streamlit(
         "idea",
         {"3⃣ Compile Final Proposal": True},

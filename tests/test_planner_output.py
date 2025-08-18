@@ -16,7 +16,7 @@ ALLOWED_ROLES = set(AGENT_MODEL_MAP.keys()) - {"Planner", "Synthesizer"}
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('openai.chat.completions.create')
+@patch('agents.planner_agent.openai.chat.completions.create')
 def test_planner_output_validity(mock_create):
     mock_create.return_value = make_openai_response('{"Mechanical Systems Lead": "Design the frame"}')
     agent = PlannerAgent("gpt-4o")

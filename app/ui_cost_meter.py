@@ -24,7 +24,7 @@ def render_estimator(mode: str, idea_text: str, price_per_1k: float = 0.005):
         else:
             metric(label, f"${est_cost:.2f}")
 
-def render_cost_summary(mode: str, plan: dict | None):
+def render_cost_summary(mode: str, plan: dict | list | None):
     log = st.session_state.get("usage_log", [])
     actual = 0.0
     stage_counts = {}
@@ -34,7 +34,12 @@ def render_cost_summary(mode: str, plan: dict | None):
 
     preset = UI_PRESETS.get(mode, UI_PRESETS["balanced"])
     refinement_rounds = preset.get("refinement_rounds", 1)
-    roles = len(plan.keys()) if plan else 0
+    if isinstance(plan, dict):
+        roles = len(plan.keys())
+    elif isinstance(plan, list):
+        roles = len({t.get("role") for t in plan})
+    else:
+        roles = 0
     expected_calls = {
         "plan": 1,
         "exec": roles * refinement_rounds,

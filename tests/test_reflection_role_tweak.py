@@ -50,7 +50,7 @@ def test_role_tweak_applied(monkeypatch):
             self.count = 0
 
         def run(self, idea, prompt):
-            return {"Engineer": "do stuff"}
+            return [{"role": "Engineer", "title": "do stuff", "description": "do stuff"}]
 
         def revise_plan(self, state):
             self.count += 1
