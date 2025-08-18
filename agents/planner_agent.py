@@ -1,17 +1,61 @@
 from agents.base_agent import BaseAgent
-import logging
+import logging, os
 import openai
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call, log_usage
+from dr_rd.utils.llm_client import log_usage
 from typing import Optional
 import streamlit as st
 
 from config.feature_flags import EVALUATOR_MIN_OVERALL
+from utils.json_safety import parse_json_loose
 
 try:
     from dr_rd.knowledge.retriever import Retriever
 except Exception:  # pragma: no cover
     Retriever = None  # type: ignore
+
+log = logging.getLogger(__name__)
+
+PLAN_INSTRUCTIONS = """
+You are the Creation Planner. Output ONLY valid JSON. No prose, no backticks.
+Acceptable formats (emit exactly ONE of these):
+A) {"CTO":[{"title":"...","description":"..."}, ...], "Research Scientist":[...], ...}
+B) [{"role":"CTO","title":"...","description":"..."}, ...]
+Rules:
+- Use only roles that exist in this system (e.g., CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst, etc.).
+- Titles must be short imperatives; descriptions concise and specific.
+- Do not include commentary, markdown, or code fences. JSON only.
+"""
+
+
+def _call_llm_json(model_id: str, messages: list, **params) -> str:
+    """Call the LLM preferring JSON-mode responses."""
+    base = messages + [
+        {"role": "system", "content": "Respond with a single JSON object or array only."}
+    ]
+    try:
+        kwargs = {"model": model_id, "messages": base, "temperature": 0}
+        kwargs.update(params)
+        if model_id.startswith(("gpt-4o", "gpt-4.1")):
+            kwargs["response_format"] = {"type": "json_object"}
+        resp = openai.chat.completions.create(**kwargs)
+    except Exception:
+        fallback = messages + [
+            {"role": "user", "content": "Output ONLY JSON per the rules above."}
+        ]
+        kwargs = {"model": model_id, "messages": fallback, "temperature": 0}
+        kwargs.update(params)
+        resp = openai.chat.completions.create(**kwargs)
+
+    usage = resp.choices[0].usage if hasattr(resp.choices[0], "usage") else getattr(resp, "usage", None)
+    if usage:
+        log_usage(
+            stage="plan",
+            model=model_id,
+            pt=getattr(usage, "prompt_tokens", 0),
+            ct=getattr(usage, "completion_tokens", 0),
+        )
+    return resp.choices[0].message.content
 
 """Planner Agent for developing project plans."""
 class PlannerAgent(BaseAgent):
@@ -56,60 +100,37 @@ class PlannerAgent(BaseAgent):
         )
 
     def run(self, idea: str, task: str, difficulty: str = "normal") -> dict:
-        """Return the planner's JSON summary as a Python dict."""
+        """Return the planner's JSON summary as a Python dict or list."""
         import json
 
-        prompt = self.user_prompt_template.format(idea=idea, task=task)
-        prompt = self._augment_prompt(prompt, idea, task)
-
-        kwargs = {
-            "messages": [
-                {"role": "system", "content": self.system_message},
-                {"role": "user", "content": prompt},
-            ]
-        }
+        messages = [
+            {"role": "system", "content": PLAN_INSTRUCTIONS.strip()},
+            {
+                "role": "user",
+                "content": f"Project goal: {idea}\nTask: {task}\nReturn plan in JSON (A or B).",
+            },
+        ]
 
         sel = pick_model(CallHints(stage="plan", difficulty=difficulty))
         model_id = self.model if difficulty == "normal" else sel["model"]
-        logging.info(f"Model[plan]={model_id} params={sel['params']}")
-        if model_id.startswith(("gpt-4o", "gpt-4.1")):
-            kwargs["response_format"] = {"type": "json_object"}
-        kwargs.update(sel["params"])
-        response = llm_call(openai, model_id, stage="plan", **kwargs)
-        usage = response.choices[0].usage if hasattr(response.choices[0], "usage") else getattr(response, "usage", None)
-        if usage:
-            log_usage(
-                stage="plan",
-                model=model_id,
-                pt=getattr(usage, "prompt_tokens", 0),
-                ct=getattr(usage, "completion_tokens", 0),
-            )
-        raw_text = response.choices[0].message.content
-        logging.debug("Planner raw response: %s", raw_text)
-        try:
-            plan = json.loads(raw_text)
-        except json.JSONDecodeError:
-            import re
-            logging.warning("Planner returned invalid JSON. Attempting recovery.")
-            match = re.search(r"\{.*", raw_text, re.DOTALL)
-            if not match:
-                raise ValueError(f"Planner returned invalid JSON: {raw_text}")
-            candidate = match.group(0)
-            while candidate.count("{") > candidate.count("}"):
-                candidate += "}"
-            try:
-                plan = json.loads(candidate)
-            except json.JSONDecodeError:
-                last_comma = candidate.rfind(",")
-                if last_comma == -1:
-                    raise ValueError(f"Planner returned invalid JSON: {raw_text}")
-                candidate = candidate[:last_comma] + "}"
-                plan = json.loads(candidate)
+        log.info(f"Model[plan]={model_id} params={sel['params']}")
+        params = sel["params"]
 
+        raw = _call_llm_json(model_id, messages, **params)
+        for _ in range(2):
+            try:
+                return json.loads(raw)
+            except Exception:
+                raw = _call_llm_json(model_id, messages, **params)
+
+        plan = parse_json_loose(raw)
         flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
         if flags.get("TEST_MODE"):
             max_domains = int(flags.get("MAX_DOMAINS", 2))
-            plan = dict(sorted(plan.items(), key=lambda x: x[0])[:max_domains])
+            if isinstance(plan, dict):
+                plan = dict(list(sorted(plan.items(), key=lambda x: x[0])[:max_domains]))
+            elif isinstance(plan, list):
+                plan = plan[:max_domains]
         return plan
 
     def revise_plan(self, workspace_state: dict) -> list[dict]:

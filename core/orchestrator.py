@@ -7,6 +7,7 @@ import streamlit as st
 from agents.planner_agent import PlannerAgent
 from core.agents.registry import build_agents, choose_agent_for_task, load_mode_models
 from core.synthesizer import synthesize
+from utils.plan_normalizer import _normalize_plan_to_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def run_pipeline(
     context: Dict[str, List[str]] = {"idea": idea, "summaries": []}
 
     plan = planner.run(idea, "Decompose the project into specialist tasks")
-    task_queue.extend({"role": r, "title": t} for r, t in plan.items())
+    task_queue.extend(_normalize_plan_to_tasks(plan))
 
     while True:
         if not task_queue:

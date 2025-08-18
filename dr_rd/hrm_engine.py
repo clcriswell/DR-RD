@@ -290,10 +290,11 @@ class HRMLoop:
         try:
             from agents.planner_agent import PlannerAgent
             from config.agent_models import AGENT_MODEL_MAP
+            from utils.plan_normalizer import _normalize_plan_to_tasks
             idea = brief.get("idea", "")
             planner = PlannerAgent(AGENT_MODEL_MAP.get("Planner", ""))
             plan = planner.run(idea, "Break down the project into role-specific tasks")
-            return [{"role": r, "task": t} for r, t in plan.items()]
+            return [{"role": t["role"], "task": t["title"]} for t in _normalize_plan_to_tasks(plan)]
         except Exception:
             return []
 
