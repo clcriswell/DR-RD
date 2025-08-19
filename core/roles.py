@@ -1,9 +1,9 @@
 import os
-from typing import Optional, Set
+from typing import Set
 
 STRICT = os.getenv("HRM_STRICT_ROLE_NORMALIZATION", "false").lower() == "true"
 
-CANONICAL = {
+CANON = {
     "cto": "CTO",
     "chief technology officer": "CTO",
 
@@ -31,9 +31,10 @@ def normalize_role(role: str | None) -> str | None:
         return None
     r = " ".join(role.split()).strip()
     low = r.lower()
+    hit = CANON.get(low)
     if STRICT:
-        return CANONICAL.get(low)
-    return CANONICAL.get(low, r)
+        return hit
+    return hit or r
 
 
 def canonical_roles() -> Set[str]:

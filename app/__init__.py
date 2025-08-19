@@ -1,8 +1,9 @@
 from app.logging_setup import init_gcp_logging
 import os, re
-from typing import Optional
+from typing import Optional, List, Dict
 import json
 import logging
+from core.roles import normalize_role
 import streamlit as st
 import openai
 from agents.synthesizer import compose_final_proposal
@@ -45,6 +46,37 @@ from agents.planner_agent import PlannerAgent
 from agents.synthesizer import SynthesizerAgent
 
 logger = logging.getLogger(__name__)
+
+
+def _ensure_role_coverage(tasks: List[Dict], discovered_roles: List[str]) -> int:
+    """
+    Ensure at least one task exists per discovered role.
+    Adds a minimal seed task if missing.
+    Returns count of tasks added.
+    """
+    if not discovered_roles:
+        return 0
+    have = {normalize_role(t.get("role", "")) or "" for t in tasks}
+    added = 0
+    for r in discovered_roles:
+        nr = normalize_role(r)
+        if not nr:
+            nr = r.strip()
+        if not nr:
+            continue
+        if nr not in have:
+            tasks.append(
+                {
+                    "role": nr,
+                    "title": f"Define initial {nr} workplan",
+                    "description": f"Draft first actionable tasks for {nr} to advance the project.",
+                }
+            )
+            have.add(nr)
+            added += 1
+    if added:
+        logger.info("Coverage added %d tasks to satisfy HRM roles.", added)
+    return added
 
 try:
     from orchestrators.app_builder import build_app_from_idea
@@ -982,6 +1014,17 @@ def main():
                 tasks_norm = normalize_tasks(tasks)
                 logger.info("Planner roles (normalized): %s", sorted({t.get("role") for t in tasks_norm}))
                 tasks = tasks_norm
+                try:
+                    dynamic_roles = locals().get("dynamic_roles", None)
+                    if dynamic_roles:
+                        _ensure_role_coverage(tasks, dynamic_roles)
+                        try:
+                            roles_after = sorted({normalize_role(t.get("role", "")) or t.get("role", "") for t in tasks})
+                            logger.info("Planner roles (post-coverage): %s", roles_after)
+                        except Exception:
+                            pass
+                except Exception:
+                    logger.exception("Failed ensuring HRM role coverage; continuing.")
 
             st.session_state["plan"] = tasks
             st.session_state["plan_tasks"] = tasks

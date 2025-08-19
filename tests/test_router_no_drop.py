@@ -15,8 +15,8 @@ def test_unknown_role_does_not_drop(monkeypatch):
 
 
 def test_alias_maps_to_known():
-    agents = {"Research": Dummy()}
+    agents = {"Research Scientist": Dummy()}
     agent, role = choose_agent_for_task(
-        "Research Scientist", "Investigate", "quantum entanglement", [], agents
+        "Research", "Investigate", "quantum entanglement", [], agents
     )
-    assert role == "Research"
+    assert role == "Research Scientist"
