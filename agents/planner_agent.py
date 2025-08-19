@@ -1,4 +1,4 @@
-from agents.base_agent import BaseAgent
+from agents.base_agent import BaseAgent, LLMRoleAgent
 import logging
 import openai
 from dr_rd.utils.model_router import pick_model, CallHints
@@ -157,3 +157,10 @@ class PlannerAgent(BaseAgent):
                 remediation.append({"role": "AI R&D Coordinator", "task": "Address evaluation weaknesses"})
         out.extend(remediation)
         return out
+
+
+class LLMPlannerAgent(LLMRoleAgent):
+    """Lightweight planner used by the new orchestrator."""
+
+    def __init__(self, model: str):
+        super().__init__("Planner", model)
