@@ -734,16 +734,39 @@ def main():
         if "dev_mode" not in st.session_state:
             st.session_state["dev_mode"] = _get_qs_flag("dev")
 
+    from pathlib import Path
+    import yaml
+
     mode_label_to_key = {"Fast": "fast", "Balanced": "balanced", "Deep": "deep"}
+    env_mode = _os.getenv("DRRD_MODE")
+    if env_mode:
+        try:
+            modes_path = Path(__file__).resolve().parent.parent / "config" / "modes.yaml"
+            with open(modes_path) as fh:
+                modes_yaml = yaml.safe_load(fh) or {}
+            env_mode_key = env_mode.lower()
+            if env_mode_key not in modes_yaml:
+                st.warning(f"Unknown mode: {env_mode}. Falling back to test.")
+                env_mode_key = "test"
+                mode_label_to_key.setdefault("Test (dev)", "test")
+        except Exception:
+            env_mode_key = env_mode.lower()
+    else:
+        env_mode_key = None
+
     if st.session_state.get("dev_mode"):
         mode_label_to_key["Test (dev)"] = "test"
     mode_container = sidebar if hasattr(sidebar, "radio") else st
     labels = list(mode_label_to_key.keys())
+    if env_mode_key and env_mode_key in mode_label_to_key.values():
+        default_label = next(k for k, v in mode_label_to_key.items() if v == env_mode_key)
+    else:
+        default_label = "Balanced"
     if hasattr(mode_container, "radio"):
-        default_index = labels.index("Balanced") if "Balanced" in labels else 0
+        default_index = labels.index(default_label) if default_label in labels else 0
         selected_label = mode_container.radio("Run Mode", labels, index=default_index)
     else:  # fallback for test stubs
-        selected_label = "Balanced"
+        selected_label = default_label
     selected_mode = mode_label_to_key[selected_label]
     # Install a BudgetManager so both profiles enforce a hard spend cap
     try:
@@ -753,6 +776,8 @@ def main():
     except Exception as _e:
         # Keep running without a budget if config is missing; log only
         logging.info(f"Budget manager not installed: {str(_e)}")
+    from app.safety import require_budget_or_block
+    require_budget_or_block()
     if profile == "Lite":
         render_lite(selected_mode)
         return

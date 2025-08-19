@@ -8,16 +8,16 @@ def make_openai_response(text: str):
     return Mock(choices=[mock_choice])
 
 
-@patch("agents.orchestrator.openai")
-def test_needs_follow_up_returns_none(mock_openai):
-    mock_openai.chat.completions.create.return_value = make_openai_response("COMPLETE")
+@patch("agents.orchestrator.llm_call")
+def test_needs_follow_up_returns_none(mock_llm):
+    mock_llm.return_value = make_openai_response("COMPLETE")
     result = orch._needs_follow_up("Physics", "task", "answer")
     assert result is None
 
 
-@patch("agents.orchestrator.openai")
-def test_needs_follow_up_returns_question(mock_openai):
-    mock_openai.chat.completions.create.return_value = make_openai_response(
+@patch("agents.orchestrator.llm_call")
+def test_needs_follow_up_returns_question(mock_llm):
+    mock_llm.return_value = make_openai_response(
         "Please clarify"
     )
     result = orch._needs_follow_up("Physics", "task", "answer")
@@ -26,9 +26,9 @@ def test_needs_follow_up_returns_question(mock_openai):
 
 @patch("agents.orchestrator.route")
 @patch("agents.orchestrator.obfuscate_task")
-@patch("agents.orchestrator.openai")
-def test_refine_once_no_follow_up(mock_openai, mock_obfuscate, mock_route):
-    mock_openai.chat.completions.create.return_value = make_openai_response("COMPLETE")
+@patch("agents.orchestrator.llm_call")
+def test_refine_once_no_follow_up(mock_llm, mock_obfuscate, mock_route):
+    mock_llm.return_value = make_openai_response("COMPLETE")
     plan = {"Physics": "task1"}
     answers = {"Physics": "answer1"}
     result = orch.refine_once(plan, answers)
@@ -39,9 +39,9 @@ def test_refine_once_no_follow_up(mock_openai, mock_obfuscate, mock_route):
 
 @patch("agents.orchestrator.route", return_value="extra info")
 @patch("agents.orchestrator.obfuscate_task", return_value="obf")
-@patch("agents.orchestrator.openai")
-def test_refine_once_with_follow_up(mock_openai, mock_obfuscate, mock_route):
-    mock_openai.chat.completions.create.return_value = make_openai_response(
+@patch("agents.orchestrator.llm_call")
+def test_refine_once_with_follow_up(mock_llm, mock_obfuscate, mock_route):
+    mock_llm.return_value = make_openai_response(
         "More details?"
     )
     plan = {"Chemistry": "task2"}
