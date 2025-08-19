@@ -10,13 +10,12 @@ Call:
     markdown = synthesize(user_idea, answers_dict)
 """
 from typing import Dict
-import openai
-from config.agent_models import AGENT_MODEL_MAP
-from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call, log_usage
 import logging
 import os
 import streamlit as st
+
+from core.llm import complete
+from dr_rd.utils.llm_client import log_usage
 from dr_rd.utils.image_visuals import make_visuals_for_project
 
 _TEMPLATE = """\
@@ -41,40 +40,34 @@ Write a cohesive technical proposal that:
    - ## Remaining Unknowns
 """
 
+MODEL_SYNTH = os.getenv("MODEL_SYNTH", "").strip() or "gpt-4o-mini"
+
+
 def synthesize(idea: str, answers: Dict[str, str]) -> str:
-    findings_md = "\n".join(
-        f"### {d}\n{answers[d]}" for d in answers
-    )
+    findings_md = "\n".join(f"### {d}\n{answers[d]}" for d in answers)
     prompt = _TEMPLATE.format(idea=idea, findings_md=findings_md)
 
-    sel = pick_model(CallHints(stage="synth"))
-    logging.info(f"Model[synth]={sel['model']} params={sel['params']}")
-    resp = llm_call(
-        openai,
-        sel["model"],
-        stage="synth",
-        messages=[
-            {"role": "system", "content": "You are an expert R&D writer."},
-            {"role": "user", "content": prompt},
-        ],
+    logging.info(f"Model[synth]={MODEL_SYNTH}")
+    result = complete(
+        "You are an expert R&D writer.",
+        prompt,
+        model=MODEL_SYNTH,
         temperature=0.3,
-        **sel["params"],
     )
-    usage = resp.choices[0].usage if hasattr(resp.choices[0], "usage") else getattr(resp, "usage", None)
+    usage = result.raw.get("usage") if isinstance(result.raw, dict) else getattr(result.raw, "usage", None)
     if usage:
         log_usage(
             stage="synth",
-            model=sel["model"],
+            model=MODEL_SYNTH,
             pt=getattr(usage, "prompt_tokens", 0),
             ct=getattr(usage, "completion_tokens", 0),
         )
-    return resp.choices[0].message.content.strip()
+    return (result.content or "").strip()
 
 
 def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulations: bool = False):
     """Compose a Prototype Build Guide integrating agent contributions."""
-    sel = pick_model(CallHints(stage="synth", final_pass=True))
-    logging.info(f"Model[synth]={sel['model']} params={sel['params']}")
+    logging.info(f"Model[synth]={MODEL_SYNTH}")
     contributions = "\n".join(f"### {role}\n{content}" for role, content in answers.items())
     sections = [
         "1. Executive Summary",
@@ -90,22 +83,20 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
         + f"Project Idea: {idea}\n\n"
         + f"Agent Contributions:\n{contributions}"
     )
-    response = llm_call(
-        openai,
-        sel["model"],
-        stage="synth",
-        messages=[{"role": "user", "content": prompt}],
-        **sel["params"],
+    result = complete(
+        "You are an expert R&D writer.",
+        prompt,
+        model=MODEL_SYNTH,
     )
-    usage = response.choices[0].usage if hasattr(response.choices[0], "usage") else getattr(response, "usage", None)
+    usage = result.raw.get("usage") if isinstance(result.raw, dict) else getattr(result.raw, "usage", None)
     if usage:
         log_usage(
             stage="synth",
-            model=sel["model"],
+            model=MODEL_SYNTH,
             pt=getattr(usage, "prompt_tokens", 0),
             ct=getattr(usage, "completion_tokens", 0),
         )
-    final_document = response.choices[0].message.content
+    final_document = result.content
 
     flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
     try:

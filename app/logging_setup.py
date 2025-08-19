@@ -9,6 +9,8 @@ standard Python logging instead of crashing.
 import logging
 import streamlit as st
 
+_GCP_LOGGED = False
+
 
 def init_gcp_logging() -> bool:
     """Initialise Google Cloud Logging if credentials are available.
@@ -17,6 +19,15 @@ def init_gcp_logging() -> bool:
     ``False``. Any exception raised during initialisation is caught so the app
     can operate without GCP logging.
     """
+
+    global _GCP_LOGGED
+    if _GCP_LOGGED:
+        return True
+
+    logger = logging.getLogger()
+    if any(getattr(h, "__class__", None).__name__.lower().startswith("gcl") for h in logger.handlers):
+        _GCP_LOGGED = True
+        return True
 
     try:
         from google.cloud import logging as gcp_logging
@@ -33,9 +44,11 @@ def init_gcp_logging() -> bool:
         client = gcp_logging.Client(credentials=credentials)
         client.setup_logging()
         logging.info("✅ Google Cloud Logging initialized")
+        _GCP_LOGGED = True
         return True
     except Exception as exc:  # pragma: no cover - best-effort logging
         logging.warning("⚠️ Google Cloud Logging disabled: %s", exc)
+        _GCP_LOGGED = True
         return False
 
 

@@ -14,6 +14,7 @@ import logging
 import streamlit as st
 from dr_rd.utils.llm_client import llm_call, log_usage
 from core.llm import complete
+from dr_rd.core.prompt_utils import coerce_user_content
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,8 @@ class LLMRoleAgent:
 
     def act(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """Call the model with a system and user prompt."""
+        user_prompt = coerce_user_content(user_prompt)
+        system_prompt = coerce_user_content(system_prompt)
         result = complete(system_prompt, user_prompt, model=self.model, **kwargs)
         return (result.content or "").strip()
 
