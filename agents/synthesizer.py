@@ -106,7 +106,7 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
     bucket = os.environ.get("GCS_BUCKET") or os.environ.get("GCS_IMAGES_BUCKET")
     images = []
     if flags.get("TEST_MODE"):
-        img_size = flags.get("IMAGES_SIZE", "1024x1024")
+        img_size = flags.get("IMAGES_SIZE", "256x256")
         img_quality = flags.get("IMAGES_QUALITY", "high")
         try:
             from dr_rd.utils.image_visuals import _openai as _img_openai, _decode_to_bytes, upload_bytes_to_gcs
