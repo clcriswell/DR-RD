@@ -39,17 +39,16 @@ and limits such as `k_search` and `max_loops`.
 
 Token pricing lives in `config/prices.yaml` (override via `PRICES_PATH`).
 
-Set the mode via `DRRD_MODE` or the Streamlit dropdown. The Streamlit interface now includes an **Agent Trace** expander showing which agent handled each task, token counts and a brief finding.
+Set the mode via the `DRRD_MODE` environment variable. By default the app runs in Deep mode, but a developer-only Test mode can be enabled from the sidebar. The Streamlit interface includes an **Agent Trace** expander showing which agent handled each task, token counts and a brief finding.
 
 ### Modes & Cost
 
-| Mode     | Plan model | Exec model  | Synth model | max_loops | Notes |
-|----------|------------|-------------|-------------|-----------|-------|
-| Test     | 4o         | 4o-mini     | 4o          | 1         | images disabled |
-| Balanced | 4o         | 4o-mini     | 4o          | 2         | images disabled |
-| Deep     | 4o         | 4o-mini     | gpt-5       | 1         | images enabled |
+| Mode | Plan model | Exec model | Synth model | max_loops | Notes |
+|------|------------|------------|-------------|-----------|-------|
+| Test | 3.5-turbo | 3.5-turbo | 3.5-turbo | 1 | images disabled |
+| Deep | 4o | 4o | gpt-5 | 5 | images enabled |
 
-Images are disabled by default for the Test and Balanced modes.
+Images are disabled by default for the Test mode.
 
 ## Quick Start
 1) `pip install -r requirements.txt`
@@ -62,13 +61,4 @@ Images are disabled by default for the Test and Balanced modes.
 
 Set `ENABLE_LIVE_SEARCH=true` and provide a `SERPAPI_KEY` to allow the Research Scientist, IP Analyst, and Regulatory agents to query the live web when local RAG hits are missing or too short. When web results are used, these agents add a `sources` array with short titles or URLs to their JSON output.
 
-### Run profiles
-
-- **Lite**: deterministic single-pass pipeline with a hard budget cap. Good for demos and CI smoke tests.
-- **Pro**: full HRM engine with planning, evaluators, optional RAG, simulations, and persistence.
-
-Select the profile in the sidebar. To default to Lite when launching programmatically:
-
-```bash
-DRRD_DEFAULT_PROFILE=Lite streamlit run app.py
-```
+The application always runs with the full Pro profile. Use the Developer toggle to activate Test mode for quick low-cost checks.

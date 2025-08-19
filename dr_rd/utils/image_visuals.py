@@ -52,7 +52,7 @@ def make_visuals_for_project(
 ) -> list[dict]:
     """Generate schematic and render images for a project."""
 
-    mode = st.session_state.get("MODE", "balanced")
+    mode = st.session_state.get("MODE", "deep")
     if DISABLE_IMAGES_BY_DEFAULT.get(mode, True):
         return []
 

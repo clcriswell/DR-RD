@@ -19,7 +19,7 @@ RAG_ENABLED = _flag("RAG_ENABLED")
 RAG_TOPK: int = int(os.getenv("RAG_TOPK", "5"))
 RAG_SNIPPET_TOKENS: int = int(os.getenv("RAG_SNIPPET_TOKENS", "200"))
 ENABLE_LIVE_SEARCH = _flag("ENABLE_LIVE_SEARCH")
-DISABLE_IMAGES_BY_DEFAULT = {"test": True, "balanced": True, "deep": False}
+DISABLE_IMAGES_BY_DEFAULT = {"test": True, "deep": False}
 
 # Default evaluator weights and threshold. ``EVALUATOR_WEIGHTS`` can be
 # overridden via an environment variable containing a JSON object.

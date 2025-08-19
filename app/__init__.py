@@ -35,7 +35,6 @@ from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from dr_rd.utils.model_router import pick_model, difficulty_from_signals, CallHints
 from dr_rd.utils.llm_client import llm_call, METER, set_budget_manager
 from app.ui_cost_meter import render_cost_summary, render_estimator
-from app.lite_runner import render_lite
 from app.config_loader import load_mode
 from core.agents.unified_registry import build_agents_unified
 from config.agent_models import AGENT_MODEL_MAP
@@ -708,14 +707,7 @@ def main():
         for r in exec_roles:
             sidebar.write(f"- {r}")
 
-    # Profile toggle: Lite (deterministic single-pass) vs Pro (HRM full app)
     import os as _os
-    default_prof = (_os.getenv("DRRD_DEFAULT_PROFILE", "Pro") or "Pro").lower()
-    prof_index = 0 if default_prof == "lite" else 1
-    if hasattr(sidebar, "radio"):
-        profile = sidebar.radio("Profile", ["Lite", "Pro"], index=prof_index, key="profile_choice")
-    else:  # fallback for test stubs without radio
-        profile = "Lite" if prof_index == 0 else "Pro"
 
     developer_expander = getattr(sidebar, "expander", None)
     if callable(developer_expander):
@@ -737,7 +729,6 @@ def main():
     from pathlib import Path
     import yaml
 
-    mode_label_to_key = {"Fast": "fast", "Balanced": "balanced", "Deep": "deep"}
     env_mode = _os.getenv("DRRD_MODE")
     if env_mode:
         try:
@@ -748,27 +739,16 @@ def main():
             if env_mode_key not in modes_yaml:
                 st.warning(f"Unknown mode: {env_mode}. Falling back to test.")
                 env_mode_key = "test"
-                mode_label_to_key.setdefault("Test (dev)", "test")
         except Exception:
             env_mode_key = env_mode.lower()
     else:
         env_mode_key = None
 
+    selected_mode = env_mode_key or "deep"
     if st.session_state.get("dev_mode"):
-        mode_label_to_key["Test (dev)"] = "test"
-    mode_container = sidebar if hasattr(sidebar, "radio") else st
-    labels = list(mode_label_to_key.keys())
-    if env_mode_key and env_mode_key in mode_label_to_key.values():
-        default_label = next(k for k, v in mode_label_to_key.items() if v == env_mode_key)
-    else:
-        default_label = "Balanced"
-    if hasattr(mode_container, "radio"):
-        default_index = labels.index(default_label) if default_label in labels else 0
-        selected_label = mode_container.radio("Run Mode", labels, index=default_index)
-    else:  # fallback for test stubs
-        selected_label = default_label
-    selected_mode = mode_label_to_key[selected_label]
-    # Install a BudgetManager so both profiles enforce a hard spend cap
+        selected_mode = "test"
+    selected_label = "Test (dev)" if selected_mode == "test" else "Deep"
+    # Install a BudgetManager so runs enforce a hard spend cap
     try:
         _mode_cfg, _budget = load_mode(selected_mode)
         st.session_state["MODE_CFG"] = _mode_cfg
@@ -778,9 +758,6 @@ def main():
         logging.info(f"Budget manager not installed: {str(_e)}")
     from app.safety import require_budget_or_block
     require_budget_or_block()
-    if profile == "Lite":
-        render_lite(selected_mode)
-        return
     if selected_mode == "test":
         st.info(
             "**Test (dev)** is ON: minimal tokens, capped domains, tiny image, truncated outputs."
@@ -795,6 +772,7 @@ def main():
     st.session_state["simulate_enabled"] = ui_preset["simulate_enabled"]
     st.session_state["design_depth"] = ui_preset["design_depth"]
     st.session_state["test_marker"] = {"test": True} if final_flags.get("TEST_MODE") else {}
+    st.session_state["MODE"] = selected_mode
     if hasattr(st, "caption"):
         st.caption(
             ("**DEV** • " if selected_mode == "test" else "")
@@ -1357,7 +1335,7 @@ def main():
     if "final_doc" in st.session_state:
         st.subheader("📖 Integrated R&D Proposal")
         st.caption(
-            "Visuals are auto-generated for Balanced/Deep modes. They’ll also be saved with your project."
+            "Visuals are auto-generated in Deep mode. They’ll also be saved with your project."
         )
         doc_text = st.session_state["final_doc"]
         if isinstance(doc_text, dict):

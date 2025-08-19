@@ -23,11 +23,11 @@ AGENT_MODEL_MAP.setdefault(
 def build_agents(mode: str | None = None, models: Dict | None = None) -> Dict[str, Agent]:
     """Build the core advisory agents.
 
-    If ``models`` is supplied (typically from ``config/modes.yaml``), its
+    If ``models`` is supplied (typically from ``config/modes.yaml"), its
     ``exec`` entry is used as the default model for all execution-stage agents
-    (CTO, Research, Regulatory, Finance, Marketing Analyst, IP Analyst).  This
-    lets Lite/Pro profiles honor per-mode model assignments while still
-    falling back to ``config/agent_models.py`` when unspecified.
+    (CTO, Research, Regulatory, Finance, Marketing Analyst, IP Analyst).
+    This allows per-mode model assignments while still falling back to
+    ``config/agent_models.py`` when unspecified.
     """
 
     exec_default = (models or {}).get("exec") or AGENT_MODEL_MAP.get(
