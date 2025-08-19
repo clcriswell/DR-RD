@@ -814,6 +814,14 @@ def main():
             + f"Refinement rounds={ui_preset['refinement_rounds']} • "
             + f"Simulations={'on' if ui_preset['simulate_enabled'] else 'off'}"
         )
+    if selected_mode == "deep":
+        image_toggle_fn = getattr(sidebar, "toggle", getattr(sidebar, "checkbox", lambda *a, **k: False))
+        default_images_on = not ff.DISABLE_IMAGES_BY_DEFAULT.get(selected_mode, True)
+        st.session_state["disable_images"] = not image_toggle_fn(
+            "Generate images",
+            value=default_images_on,
+            help="Include schematic and appearance visuals in the final proposal.",
+        )
     project_names = []
     project_doc_ids = {}
     if db:
