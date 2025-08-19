@@ -1,28 +1,13 @@
 from typing import Any, Dict, List
 import json
 
-_CANON = {"CTO", "Research Scientist", "Regulatory", "Finance", "Marketing Analyst", "IP Analyst"}
-_ALIAS = {
-    "chief technology officer": "CTO",
-    "research": "Research Scientist",
-    "research scientist": "Research Scientist",
-    "regulatory & compliance lead": "Regulatory",
-    "compliance": "Regulatory",
-    "legal": "Regulatory",
-    "marketing": "Marketing Analyst",
-    "ip": "IP Analyst",
-    "ip analyst": "IP Analyst",
-    "intellectual property": "IP Analyst",
-}
+from core.roles import normalize_role, canonical_roles
+
+_CANON = canonical_roles()
 
 
 def _canon_role(name: str) -> str | None:
-    if not name:
-        return None
-    n = name.strip()
-    k = n.lower()
-    r = _ALIAS.get(k, n)
-    return r if r in _CANON else None
+    return normalize_role(name)
 
 
 def _is_task(d: Any) -> bool:

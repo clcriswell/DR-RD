@@ -768,6 +768,8 @@ def main():
     import config.feature_flags as ff
     for k, v in final_flags.items():
         setattr(ff, k, v)
+    if selected_mode.lower() in ("deep", "pro"):
+        _os.environ.setdefault("HRM_ROLE_DISCOVERY", "true")
     ui_preset = UI_PRESETS[selected_mode]
     st.session_state["simulate_enabled"] = ui_preset["simulate_enabled"]
     st.session_state["design_depth"] = ui_preset["design_depth"]
@@ -945,16 +947,28 @@ def main():
                 logging.error(f"Init project failed: {e}")
         try:
             with st.spinner("📝 Planning..."):
+                HRM_ON = os.getenv("HRM_ROLE_DISCOVERY", "false").lower() == "true"
+                dynamic_roles = None
+                if HRM_ON:
+                    try:
+                        from agents.hrm_role_agent import HRMRoleAgent
+                        hrm = HRMRoleAgent()
+                        dynamic_roles = hrm.discover_roles(idea)
+                    except Exception as e:
+                        logger.exception("HRM role discovery failed; continuing without HRM")
+                        dynamic_roles = None
                 try:
                     model_output = agents["Planner"].run(
                         idea,
                         "Break down the project into role-specific tasks",
                         difficulty=st.session_state.get("difficulty", "normal"),
+                        roles=dynamic_roles,
                     )
                 except TypeError:
                     model_output = agents["Planner"].run(
                         idea,
                         "Break down the project into role-specific tasks",
+                        difficulty=st.session_state.get("difficulty", "normal"),
                     )
                 update_cost()
                 model_output_text = getattr(agents["Planner"], "last_raw", "") or model_output
@@ -964,6 +978,10 @@ def main():
                 )
                 tasks = normalize_plan_to_tasks(model_output_text, backfill=True, dedupe=True)
                 logger.info("Tasks after normalization: %d", len(tasks))
+                logger.info("Planner roles (raw): %s", sorted({t.get("role") for t in tasks}))
+                tasks_norm = normalize_tasks(tasks)
+                logger.info("Planner roles (normalized): %s", sorted({t.get("role") for t in tasks_norm}))
+                tasks = tasks_norm
 
             st.session_state["plan"] = tasks
             st.session_state["plan_tasks"] = tasks
@@ -1374,7 +1392,7 @@ def main():
             except TypeError:  # fallback for older Streamlit versions
                 gen = st.button("Generate Streamlit app")
             if gen:
-                import io, zipfile, os
+                import io, zipfile
                 with st.spinner("Planning and generating app files..."):
                     spec, files = build_app_from_idea(idea)
                 st.success(f"App scaffold created → generated_apps/{spec.slug}")
