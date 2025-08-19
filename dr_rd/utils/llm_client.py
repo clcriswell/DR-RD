@@ -3,13 +3,20 @@
 from dr_rd.utils.token_meter import TokenMeter
 from dr_rd.utils import tokenizer
 from core.budget import BudgetManager, BudgetExhausted
+from openai import BadRequestError
 import streamlit as st
 import logging
 
 METER = TokenMeter()
 BUDGET: BudgetManager | None = None
 
-ALLOWED_PARAMS = {"temperature", "response_format", "max_tokens", "top_p"}
+ALLOWED_PARAMS = {
+    "temperature",
+    "response_format",
+    "max_tokens",
+    "max_completion_tokens",
+    "top_p",
+}
 
 
 def set_budget_manager(budget: BudgetManager | None) -> None:
@@ -55,7 +62,13 @@ def llm_call(client, model_id: str, stage: str, messages: list, max_tokens_hint:
 
     chosen_model = model_id
     est_prompt = tokenizer.estimate(messages)
-    est_completion = max(64, max_tokens_hint or safe.get("max_tokens", 0) or 64)
+    est_completion = max(
+        64,
+        max_tokens_hint
+        or safe.get("max_tokens", 0)
+        or safe.get("max_completion_tokens", 0)
+        or 64,
+    )
 
     if BUDGET:
         while not BUDGET.can_afford(stage, chosen_model, est_prompt, est_completion):
@@ -72,9 +85,25 @@ def llm_call(client, model_id: str, stage: str, messages: list, max_tokens_hint:
             if est_completion <= 16:
                 raise BudgetExhausted("Unable to fit call under budget")
 
-        safe["max_tokens"] = min(est_completion, BUDGET.remaining_tokens(chosen_model, "completion"))
+        key = "max_completion_tokens" if "max_completion_tokens" in params else "max_tokens"
+        safe[key] = min(
+            est_completion, BUDGET.remaining_tokens(chosen_model, "completion")
+        )
 
-    resp = client.chat.completions.create(model=chosen_model, messages=messages, **safe)
+    try:
+        resp = client.chat.completions.create(model=chosen_model, messages=messages, **safe)
+    except BadRequestError as e:  # pragma: no cover - best effort compatibility
+        if (
+            "max_tokens" in safe
+            and "max_tokens" in str(e)
+            and "max_completion_tokens" in str(e)
+        ):
+            safe["max_completion_tokens"] = safe.pop("max_tokens")
+            resp = client.chat.completions.create(
+                model=chosen_model, messages=messages, **safe
+            )
+        else:
+            raise
 
     usage_obj = resp.choices[0].usage if hasattr(resp.choices[0], "usage") else getattr(resp, "usage", None)
     if isinstance(usage_obj, dict):
