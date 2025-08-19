@@ -1,23 +1,30 @@
 import json
+import os
 from unittest.mock import patch
 
+os.environ.setdefault("OPENAI_API_KEY", "test")
+
 from agents.hrm_agent import HRMAgent
-from agents.planner_agent import LLMPlannerAgent
+from agents.planner_agent import PlannerAgent
 from agents.reflection_agent import ReflectionAgent
 from core.orchestrator import orchestrate
 
 
-@patch("agents.base_agent.make_chat", return_value='{"roles":["CTO"]}')
-def test_hrm_returns_roles_json(mock_chat):
-    agent = HRMAgent("gpt-4o-mini")
+def _res(text):
+    return type("R", (), {"content": text})()
+
+
+@patch("agents.base_agent.complete", return_value=_res('{"roles":["CTO"]}'))
+def test_hrm_returns_roles_json(mock_complete):
+    agent = HRMAgent("HRM", "gpt-4o-mini")
     out = agent.act("sys", "idea")
     data = json.loads(out)
     assert isinstance(data.get("roles"), list)
 
 
-@patch("agents.base_agent.make_chat", return_value='{"tasks":[{"task":"T","domain":"D"}]}')
-def test_planner_returns_tasks_json(mock_chat):
-    agent = LLMPlannerAgent("gpt-4o-mini")
+@patch("agents.base_agent.complete", return_value=_res('{"tasks":[{"task":"T","domain":"D"}]}'))
+def test_planner_returns_tasks_json(mock_complete):
+    agent = PlannerAgent("Planner", "gpt-4o-mini")
     out = agent.act("sys", "idea")
     data = json.loads(out)
     assert isinstance(data.get("tasks"), list)
@@ -25,31 +32,31 @@ def test_planner_returns_tasks_json(mock_chat):
     assert set(data["tasks"][0].keys()) <= {"task", "domain"}
 
 
-@patch("agents.base_agent.make_chat", return_value='["follow up"]')
-def test_reflection_returns_list(mock_chat):
-    agent = ReflectionAgent("gpt-4o-mini")
+@patch("agents.base_agent.complete", return_value=_res('["follow up"]'))
+def test_reflection_returns_list(mock_complete):
+    agent = ReflectionAgent("Reflection", "gpt-4o-mini")
     out = agent.act("sys", "summary")
     data = json.loads(out)
     assert isinstance(data, list)
 
 
-@patch("agents.base_agent.make_chat", return_value='no further tasks')
-def test_reflection_returns_no_tasks(mock_chat):
-    agent = ReflectionAgent("gpt-4o-mini")
+@patch("agents.base_agent.complete", return_value=_res('no further tasks'))
+def test_reflection_returns_no_tasks(mock_complete):
+    agent = ReflectionAgent("Reflection", "gpt-4o-mini")
     out = agent.act("sys", "summary")
     assert out.strip().lower() == "no further tasks"
 
 
 @patch(
-    "agents.base_agent.make_chat",
+    "agents.base_agent.complete",
     side_effect=[
-        '{"roles":["ResearchScientist"]}',
-        '{"tasks":[{"task":"do research","domain":"research"}]}',
-        "result",
-        "no further tasks",
-        "final plan",
+        _res('{"roles":["ResearchScientist"]}'),
+        _res('{"tasks":[{"task":"do research","domain":"research"}]}'),
+        _res("result"),
+        _res("no further tasks"),
+        _res("final plan"),
     ],
 )
-def test_orchestrate_smoke(mock_chat):
+def test_orchestrate_smoke(mock_complete):
     result = orchestrate("Microscope that uses quantum entanglement")
     assert isinstance(result, str) and result
