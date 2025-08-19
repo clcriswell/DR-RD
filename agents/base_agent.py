@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional, List, Tuple
+import re
 
 from config.feature_flags import (
     RAG_ENABLED,
@@ -17,12 +18,28 @@ from core.llm import complete
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(init=False)
 class LLMRoleAgent:
     """Minimal LLM-backed agent used by the new orchestrator."""
 
     name: str
     model: str
+
+    def __init__(self, name_or_model: str, model: Optional[str] = None):
+        """Allow construction with either (name, model) or just model.
+
+        If only a model is provided, derive the agent name from the class name by
+        stripping a trailing 'Agent' and inserting spaces before capital letters
+        (e.g. ``ResearchScientistAgent`` -> ``Research Scientist``).
+        """
+
+        if model is None:
+            self.model = name_or_model
+            role = type(self).__name__.removesuffix("Agent")
+            self.name = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", role)
+        else:
+            self.name = name_or_model
+            self.model = model
 
     def act(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """Call the model with a system and user prompt."""
