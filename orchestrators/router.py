@@ -1,5 +1,10 @@
 from typing import Dict, List, Tuple
 import re
+import logging
+
+from agents.generic_domain_agent import GenericDomainAgent
+
+log = logging.getLogger(__name__)
 
 # Aliases to handle common naming mismatches from the Planner
 ROLE_ALIASES: Dict[str, str] = {
@@ -81,6 +86,21 @@ def choose_agent_for_task(
     for role, words in KEYWORDS.items():
         if role in agents and any(re.search(rf"\b{re.escape(w)}\b", text) for w in words):
             return agents[role], role
-    # 4) safe default (prefer Research if present)
-    fallback = agents.get("Research") or next(iter(agents.values()))
-    return fallback, "Research"
+    # 4) generic specialist fallback
+    agent = resolve_agent_for_role(planned_role, agents)
+    return agent, getattr(agent, "name", planned_role or "Research")
+
+
+def resolve_agent_for_role(role: str, agents: dict):
+    role_norm = normalize_role(role)
+    if role_norm in agents:
+        return agents[role_norm]
+    if not role_norm:
+        base = agents.get("Research") or next(iter(agents.values()))
+        return base
+    log.info("No concrete agent for role '%s'; using GenericDomainAgent", role_norm)
+    base = agents.get("Research Scientist") or agents.get("CTO") or next(iter(agents.values()))
+    model = getattr(base, "model", None) or "gpt-4o-mini"
+    g = GenericDomainAgent(role=role_norm, model=model)
+    agents[role_norm] = g
+    return g

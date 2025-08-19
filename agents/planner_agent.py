@@ -7,18 +7,26 @@ import re
 
 ROLE_PROMPT = (
     "You are a Project Planner AI. Decompose the given idea into specific tasks, "
-    "noting the domain or role needed for each task."
+    "noting the domain or role needed for each task. Return JSON with a 'tasks' array "
+    "where each item has 'role', 'title', and 'description'."
 )
 
 class PlannerAgent(LLMRoleAgent):
     def act(self, system_prompt: str = ROLE_PROMPT, user_prompt: str = "", **kwargs) -> str:
         return super().act(system_prompt, user_prompt, **kwargs)
 
-    def run(self, idea: str, task: str, difficulty: str = "normal"):
+    def run(self, idea: str, task: str, difficulty: str = "normal", roles: list[str] | None = None):
         """Call the model to produce a task plan and return it as a dict."""
+        roles_section = ""
+        if roles:
+            roles_lines = "\n".join(f"- {r}" for r in roles)
+            roles_section = (
+                "Specialist roles to include (use exactly these when suitable; add truly missing ones if critical):\n"
+                f"{roles_lines}\n"
+            )
         user_prompt = (
-            f"Project Idea: {idea}\nTask: {task}\n"
-            "Respond with a JSON object describing the plan." 
+            f"Project Idea: {idea}\nTask: {task}\n{roles_section}"
+            "Output JSON tasks with a 'role', 'title', and 'description' field."
         )
         params = {}
         if "4o" in self.model:
