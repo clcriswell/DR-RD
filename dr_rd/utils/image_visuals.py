@@ -34,7 +34,7 @@ def _decode_to_bytes(b64: str) -> bytes:
 
 
 def _gen_image(
-    prompt: str, fmt: str = "png", size: str = "1024x1024", quality: str = "high"
+    prompt: str, fmt: str = "png", size: str = "256x256", quality: str = "high"
 ):
     client = _openai()
     res = client.images.generate(
