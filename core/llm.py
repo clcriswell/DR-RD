@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from openai import OpenAI
 from openai import BadRequestError, APIStatusError
 
+from dr_rd.core.prompt_utils import coerce_user_content
+
 # Models that must use the Responses API instead of Chat Completions.
 RESPONSES_ONLY = {
     "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "o3", "o3-mini",
@@ -57,10 +59,17 @@ def _validate_messages(messages: list):
         if m.get("role") not in {"system", "user", "assistant", "tool"}:
             raise ValueError(f"messages[{i}].role invalid: {m.get('role')}")
         c = m.get("content")
-        if c is None or (not isinstance(c, str) and not isinstance(c, list)):
+        if c is None:
             raise ValueError(f"messages[{i}].content must be str or list (for vision).")
+        if not isinstance(c, str) and not isinstance(c, list):
+            c = coerce_user_content(c)
+            m["content"] = c
+            if not isinstance(c, str) and not isinstance(c, list):
+                raise ValueError(
+                    f"messages[{i}].content must be str or list (for vision)."
+                )
 
-def complete(system_prompt: str, user_prompt: str, *, model: t.Optional[str] = None, **kwargs) -> ChatResult:
+def complete(system_prompt: t.Any, user_prompt: t.Any, *, model: t.Optional[str] = None, **kwargs) -> ChatResult:
     """
     Unified completion: chooses Chat Completions or Responses based on model.
     Always sends a proper system+user message array. Returns text content.
@@ -68,8 +77,8 @@ def complete(system_prompt: str, user_prompt: str, *, model: t.Optional[str] = N
     mdl = (model or DEFAULT_MODEL).strip()
 
     messages = [
-        {"role": "system", "content": system_prompt or ""},
-        {"role": "user",   "content": user_prompt or ""}
+        {"role": "system", "content": coerce_user_content(system_prompt)},
+        {"role": "user", "content": coerce_user_content(user_prompt)},
     ]
     _validate_messages(messages)
 
@@ -106,11 +115,17 @@ def complete(system_prompt: str, user_prompt: str, *, model: t.Optional[str] = N
             return ChatResult(content=content, raw=resp.model_dump() if hasattr(resp, "model_dump") else resp)
     except BadRequestError as e:
         _log_400(e)
+        msg = str(getattr(e, "message", e)).lower()
+        if "model" in msg and mdl != "gpt-4o-mini":
+            print("[LLM] Retrying with gpt-4o-mini due to model error")
+            return complete(system_prompt, user_prompt, model="gpt-4o-mini", **kwargs)
         # Help the user if they picked a Responses-only model by mistake
         if mdl in RESPONSES_ONLY:
             print(f"[LLM] Model {mdl} requires the Responses API. We routed correctly. Check other parameters.")
         else:
-            print(f"[LLM] If you intend to use models like gpt-4.1 or o3*, set OPENAI_MODEL accordingly so we use Responses API.")
+            print(
+                "[LLM] If you intend to use models like gpt-4.1 or o3*, set OPENAI_MODEL accordingly so we use Responses API."
+            )
         raise
     except APIStatusError as e:
         print(f"[LLM] API status error: {e}")

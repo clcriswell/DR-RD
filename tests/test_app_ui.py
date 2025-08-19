@@ -141,14 +141,8 @@ def test_run_domain_experts(monkeypatch):
                 ]
             },
         )(),
-        "agents.synthesizer.llm_call": lambda *a, **k: type(
-            "R",
-            (),
-            {
-                "choices": [
-                    type("C", (), {"message": type("M", (), {"content": "out"})()})
-                ]
-            },
+        "agents.synthesizer.complete": lambda *a, **k: type(
+            "R", (), {"content": "out", "raw": {}}
         )(),
     }
     reload_app(monkeypatch, st, patches)

@@ -1062,11 +1062,11 @@ def main():
             logger.info("Final routed task count: %d", len(routed))
             for rr, agent, t in routed:
                 try:
-                    out = _invoke_agent(
-                        agent,
-                        idea,
-                        {"title": t["title"], "description": t["description"]},
-                    )
+                    task = {
+                        "title": str(t.get("title", "")),
+                        "description": str(t.get("description", "")),
+                    }
+                    out = _invoke_agent(agent, idea, task)
                 except Exception as e:
                     logger.exception("Agent %s failed: %s", rr, e)
                     out = {"error": str(e)}
