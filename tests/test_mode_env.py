@@ -2,11 +2,11 @@ from unittest.mock import MagicMock
 from tests.test_app_ui import make_streamlit, reload_app
 
 
-def test_env_selects_fast(monkeypatch):
+def test_env_selects_deep(monkeypatch):
     st = make_streamlit("", {}, raise_on_stop=True)
-    monkeypatch.setenv("DRRD_MODE", "fast")
+    monkeypatch.setenv("DRRD_MODE", "deep")
     reload_app(monkeypatch, st, expect_exit=True)
-    assert st.session_state["MODE_CFG"]["models"]["plan"] == "gpt-4o-mini"
+    assert st.session_state["MODE_CFG"]["models"]["plan"] == "gpt-4o"
 
 
 def test_env_invalid_warns(monkeypatch):

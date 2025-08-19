@@ -23,7 +23,8 @@ logger = logging.getLogger("unified_registry")
 def resolve_model(role: str, purpose: str = "exec") -> str:
     """
     purpose: 'exec' | 'plan' | 'synth'
-    Uses profile/env to decide model. Defaults ensure Deep/Pro use non-mini.
+    Uses environment overrides to decide model. Defaults ensure Deep/Pro
+    runs use non-mini models.
     """
     profile = os.getenv("DRRD_PROFILE", "Pro").lower()
     # env overrides
@@ -32,10 +33,8 @@ def resolve_model(role: str, purpose: str = "exec") -> str:
     if purpose == "synth":
         return os.getenv("DRRD_MODEL_SYNTH", "gpt-4o")
     # exec:
-    if profile in ("pro","deep"):
+    if profile in ("pro", "deep"):
         return os.getenv("DRRD_MODEL_EXEC_PRO", "gpt-4o")
-    if profile in ("balanced",):
-        return os.getenv("DRRD_MODEL_EXEC_BALANCED", "gpt-4o-mini")
     # efficient / default
     return os.getenv("DRRD_MODEL_EXEC_EFFICIENT", "gpt-4o-mini")
 

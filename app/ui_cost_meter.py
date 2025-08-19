@@ -10,7 +10,7 @@ def _estimate_remaining(plan: dict | list | None, stage_counts: dict[str, int], 
     models = cfg.get("models", {})
     weights = cfg.get("stage_weights", {})
     target = cfg.get("target_cost_usd", 0.0)
-    preset = UI_PRESETS.get(mode, UI_PRESETS.get("balanced", {}))
+    preset = UI_PRESETS.get(mode, UI_PRESETS.get("deep", {}))
     refinement_rounds = preset.get("refinement_rounds", 1)
     if isinstance(plan, dict):
         roles = len(plan.keys())
