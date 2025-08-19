@@ -3,10 +3,6 @@ from dataclasses import dataclass
 from typing import Dict, Optional
 
 
-class BudgetExhausted(Exception):
-    """Raised when the budget cannot accommodate a request."""
-
-
 @dataclass
 class Reservation:
     stage: str
@@ -78,8 +74,6 @@ class BudgetManager:
         est_prompt_tokens: int,
         est_completion_tokens: int,
     ) -> Reservation:
-        if not self.can_afford(next_stage_name, model_id, est_prompt_tokens, est_completion_tokens):
-            raise BudgetExhausted("Budget would be exceeded")
         cost = self.cost_of(model_id, est_prompt_tokens, est_completion_tokens)
         self.stage_spend[next_stage_name] = self.stage_spend.get(next_stage_name, 0.0) + cost
         self.spend += cost
