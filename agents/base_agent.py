@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional, List, Tuple
 
 from config.feature_flags import (
@@ -11,21 +12,22 @@ from config.feature_flags import (
 import logging
 import streamlit as st
 from dr_rd.utils.llm_client import llm_call, log_usage
-from core.llm import make_chat
+from core.llm import complete
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class LLMRoleAgent:
     """Minimal LLM-backed agent used by the new orchestrator."""
 
-    def __init__(self, name: str, model: str):
-        self.name = name
-        self.model = model
+    name: str
+    model: str
 
-    def act(self, system_prompt: str, user_prompt: str) -> str:
+    def act(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """Call the model with a system and user prompt."""
-        return make_chat(self.model, system_prompt, user_prompt)
+        result = complete(system_prompt, user_prompt, model=self.model, **kwargs)
+        return (result.content or "").strip()
 
 try:  # avoid import errors when knowledge package is absent
     from dr_rd.knowledge.retriever import Retriever
