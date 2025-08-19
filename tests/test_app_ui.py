@@ -1,4 +1,5 @@
 import importlib
+import os
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -131,7 +132,16 @@ def test_run_domain_experts(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "x")
     patches = {
         "agents.base_agent.BaseAgent.run": lambda self, idea, task, design_depth="Medium": "out",
-        "openai.chat.completions.create": lambda *a, **k: type(
+        "dr_rd.utils.llm_client.llm_call": lambda *a, **k: type(
+            "R",
+            (),
+            {
+                "choices": [
+                    type("C", (), {"message": type("M", (), {"content": "out"})()})
+                ]
+            },
+        )(),
+        "agents.synthesizer.llm_call": lambda *a, **k: type(
             "R",
             (),
             {

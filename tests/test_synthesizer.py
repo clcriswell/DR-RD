@@ -12,15 +12,15 @@ def make_openai_response(text: str):
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
 @patch("agents.synthesizer.make_visuals_for_project", return_value=[{"kind": "schematic", "url": "u", "caption": "S"}])
-@patch('agents.synthesizer.openai.chat.completions.create')
-def test_compose_final_proposal(mock_create, _mock_vis):
+@patch('agents.synthesizer.llm_call')
+def test_compose_final_proposal(mock_llm, _mock_vis):
     fake_response = (
         "## Executive Summary\nOverview\n\n"
         "## Bill of Materials\n|Component|Quantity|Specs|\n|---|---|---|\n|Part|1|Spec|\n\n"
         "## Step-by-Step Instructions\n1. Do X\n\n"
         "## Simulation & Test Results\nNone"
     )
-    mock_create.return_value = make_openai_response(fake_response)
+    mock_llm.return_value = make_openai_response(fake_response)
     answers = {
         "Mechanical Systems Lead": "design",
         "Optical Systems Engineer": "optics",

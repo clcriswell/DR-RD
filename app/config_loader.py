@@ -15,6 +15,10 @@ def load_mode(mode: str) -> tuple[dict, BudgetManager]:
 
     with open(modes_path) as fh:
         modes = yaml.safe_load(fh) or {}
+    if mode not in modes:
+        logging.warning(
+            "Requested mode '%s' not found. Falling back to 'test'.", mode
+        )
     mode_cfg = modes.get(mode, modes.get("test", {}))
     weights = mode_cfg.get("stage_weights")
     if isinstance(weights, dict):
