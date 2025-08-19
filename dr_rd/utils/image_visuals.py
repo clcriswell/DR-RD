@@ -82,18 +82,22 @@ def make_visuals_for_project(
                 content_type = "image/jpeg"
             data = bio.getvalue()
 
+            url = None
             if bucket:
                 filename = f"{ts}-{kind}.{fmt}"
                 try:
                     url = upload_bytes_to_gcs(data, filename, content_type, bucket)
                 except Exception:
-                    url = (
-                        f"data:{content_type};base64,{base64.b64encode(data).decode()}"
-                    )
-            else:
-                url = f"data:{content_type};base64,{base64.b64encode(data).decode()}"
+                    url = None
 
-            out.append({"kind": kind, "url": url, "caption": kind.capitalize()})
+            out.append(
+                {
+                    "kind": kind,
+                    "url": url,
+                    "data": data,
+                    "caption": kind.capitalize(),
+                }
+            )
         except Exception:
             continue
 

@@ -125,15 +125,14 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
             bio = BytesIO(data)
             fmt = "png"
             content_type = "image/png"
+            url = None
             if bucket:
                 filename = f"{int(__import__('time').time())}-test.{fmt}"
                 try:
                     url = upload_bytes_to_gcs(bio.getvalue(), filename, content_type, bucket)
                 except Exception:
-                    url = f"data:{content_type};base64,{b64}"
-            else:
-                url = f"data:{content_type};base64,{b64}"
-            images.append({"kind": "test", "url": url, "caption": "Test Visual"})
+                    url = None
+            images.append({"kind": "test", "url": url, "data": bio.getvalue(), "caption": "Test Visual"})
         except Exception:
             pass
     else:
@@ -142,7 +141,9 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
     if images:
         final_document += "\n\n## 4. Schematics & Visuals\n"
         for i, img in enumerate(images, 1):
-            final_document += f"\n**Figure {i}. {img['caption']}**\n\n![]({img['url']})\n"
+            final_document += f"\n**Figure {i}. {img['caption']}**\n"
+            if img.get("url"):
+                final_document += f"\n![]({img['url']})\n"
 
     result_payload = {"document": final_document, "images": images, "test": bool(flags.get("TEST_MODE"))}
     return result_payload
