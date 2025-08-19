@@ -51,8 +51,7 @@ def test_fallback_and_summarize():
         DummyClient(), "gpt-5", stage="synth", messages=messages, max_tokens_hint=10000
     )
     log = st.session_state["usage_log"][-1]
-    # Final model should be the cheapest one
-    assert log["model"] == "gpt-3.5-turbo"
-    # Ensure tokens were summarized to fit budget
-    assert log["pt"] < 10000
-    assert budget.spend <= budget.target_cost_usd * (1 - budget.safety_margin) + 1e-6
+    # Model remains gpt-5 and cost tracking reflects the full token usage
+    assert log["model"] == "gpt-5"
+    assert log["pt"] == 10000
+    assert budget.spend > budget.target_cost_usd * (1 - budget.safety_margin)

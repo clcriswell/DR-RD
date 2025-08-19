@@ -1,9 +1,9 @@
 test:
-  target_cost_usd: 0.50
-  models: { plan: gpt-3.5-turbo, exec: gpt-3.5-turbo, synth: gpt-3.5-turbo }
-  k_search: 2
-  max_loops: 1
-  stage_weights: { plan: 0.25, exec: 0.45, synth: 0.30 }
+  target_cost_usd: 2.50
+  models: { plan: gpt-5, exec: gpt-5, synth: gpt-5 }
+  k_search: 6
+  max_loops: 5
+  stage_weights: { plan: 0.20, exec: 0.50, synth: 0.30 }
 deep:
   target_cost_usd: 2.50
   models: { plan: o3-deep-research, exec: o3-deep-research, synth: o3-deep-research }
