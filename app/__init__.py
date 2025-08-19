@@ -1325,8 +1325,14 @@ def main():
             if use_firestore:
                 try:
                     doc_id = get_project_id()
+                    images_to_store = []
+                    for im in st.session_state.get("images", []):
+                        item = {k: im.get(k) for k in ("kind", "caption") if im.get(k) is not None}
+                        if im.get("url"):
+                            item["url"] = im["url"]
+                        images_to_store.append(item)
                     db.collection("dr_rd_projects").document(doc_id).set(
-                        {"images": st.session_state.get("images", []), **st.session_state.get("test_marker", {})},
+                        {"images": images_to_store, **st.session_state.get("test_marker", {})},
                         merge=True,
                     )
                 except Exception as e:
@@ -1347,7 +1353,9 @@ def main():
         if imgs:
             st.subheader("Schematics & Visuals")
             for im in imgs:
-                st.image(im["url"], caption=im.get("caption", ""))
+                img_source = im.get("url") or im.get("data")
+                if img_source:
+                    st.image(img_source, caption=im.get("caption", ""))
         pdf_bytes = generate_pdf(doc_text)
         if hasattr(st, "download_button"):
             st.download_button(
