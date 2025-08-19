@@ -11,8 +11,21 @@ from config.feature_flags import (
 import logging
 import streamlit as st
 from dr_rd.utils.llm_client import llm_call, log_usage
+from core.llm import make_chat
 
 logger = logging.getLogger(__name__)
+
+
+class LLMRoleAgent:
+    """Minimal LLM-backed agent used by the new orchestrator."""
+
+    def __init__(self, name: str, model: str):
+        self.name = name
+        self.model = model
+
+    def act(self, system_prompt: str, user_prompt: str) -> str:
+        """Call the model with a system and user prompt."""
+        return make_chat(self.model, system_prompt, user_prompt)
 
 try:  # avoid import errors when knowledge package is absent
     from dr_rd.knowledge.retriever import Retriever

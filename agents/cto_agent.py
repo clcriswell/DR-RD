@@ -1,4 +1,4 @@
-from agents.base_agent import BaseAgent
+from agents.base_agent import BaseAgent, LLMRoleAgent
 
 """CTO Agent for technical strategy and overview."""
 class CTOAgent(BaseAgent):
@@ -21,3 +21,8 @@ class CTOAgent(BaseAgent):
                 "Conclude with a JSON list of key technical decisions and resource requirements."
             ),
         )
+
+
+class SimpleCTOAgent(LLMRoleAgent):
+    def __init__(self, model: str):
+        super().__init__("CTO", model)
