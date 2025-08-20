@@ -6,6 +6,10 @@ from dr_rd.llm_client import call_openai
 from typing import Optional, Dict, Any, List, Tuple
 import json
 import re
+from prompts.prompts import (
+    MARKETING_SYSTEM_PROMPT,
+    MARKETING_USER_PROMPT_TEMPLATE,
+)
 
 try:
     from dr_rd.knowledge.retriever import Retriever  # type: ignore
@@ -22,15 +26,8 @@ class MarketingAgent(BaseAgent):
         super().__init__(
             name="Marketing Analyst",
             model=model,
-            system_message=(
-                "You are a marketing analyst with expertise in market research, "
-                "customer segmentation, competitive landscapes and go-to-market strategies."
-            ),
-            user_prompt_template=(
-                "Project Idea: {idea}\nAs the Marketing Analyst, your task is {task}. "
-                "Provide a marketing overview in Markdown. "
-                "End with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
-            ),
+            system_message=MARKETING_SYSTEM_PROMPT,
+            user_prompt_template=MARKETING_USER_PROMPT_TEMPLATE,
             retriever=retriever,
         )
 

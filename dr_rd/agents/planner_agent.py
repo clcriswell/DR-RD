@@ -7,6 +7,10 @@ from pydantic import BaseModel, Field, ValidationError
 import json
 from dr_rd.llm_client import call_openai, extract_text
 from dr_rd.utils.llm_client import llm_call
+from prompts.prompts import (
+    PLANNER_SYSTEM_PROMPT,
+    PLANNER_USER_PROMPT_TEMPLATE,
+)
 
 # Pydantic schema for planner output -------------------------------------------------
 
@@ -50,9 +54,9 @@ def _repair_to_json(raw_txt: str, model: str) -> str:
 
 # Prompts ---------------------------------------------------------------------------
 
-SYSTEM = "You are a Project Planner AI. Decompose the idea into role-specific tasks. Output ONLY JSON that matches {'tasks':[{'role':str,'title':str,'description':str}]}." 
+SYSTEM = PLANNER_SYSTEM_PROMPT
 
-USER_TMPL = "Project Idea: {idea}\nTask: Break down into role-specific tasks.\nOutput JSON only."
+USER_TMPL = PLANNER_USER_PROMPT_TEMPLATE
 
 
 # Planner call ----------------------------------------------------------------------
