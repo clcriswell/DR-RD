@@ -1,53 +1,47 @@
 from unittest.mock import patch, Mock
-import core.agents as core.agents.orchestrator as orch
+
+from core.orchestrator import generate_plan, execute_plan, compile_proposal
 
 
-def make_openai_response(text: str):
-    mock_choice = Mock()
-    mock_choice.message = Mock(content=text)
-    return Mock(choices=[mock_choice])
-
-
-@patch("core.agents.orchestrator.llm_call")
-def test_needs_follow_up_returns_none(mock_llm):
-    mock_llm.return_value = make_openai_response("COMPLETE")
-    result = orch._needs_follow_up("Physics", "task", "answer")
-    assert result is None
-
-
-@patch("core.agents.orchestrator.llm_call")
-def test_needs_follow_up_returns_question(mock_llm):
-    mock_llm.return_value = make_openai_response(
-        "Please clarify"
+@patch("core.orchestrator.complete")
+def test_generate_plan_parses_llm_output(mock_complete):
+    mock_complete.return_value = Mock(
+        content='[{"role": "CTO", "title": "Plan", "description": "Design"}]'
     )
-    result = orch._needs_follow_up("Physics", "task", "answer")
-    assert result == "Please clarify"
+    tasks = generate_plan("new idea")
+    assert tasks == [
+        {"role": "CTO", "title": "Plan", "description": "Design"}
+    ]
+    mock_complete.assert_called_once()
 
 
-@patch("core.agents.orchestrator.route")
-@patch("core.agents.orchestrator.obfuscate_task")
-@patch("core.agents.orchestrator.llm_call")
-def test_refine_once_no_follow_up(mock_llm, mock_obfuscate, mock_route):
-    mock_llm.return_value = make_openai_response("COMPLETE")
-    plan = {"Physics": "task1"}
-    answers = {"Physics": "answer1"}
-    result = orch.refine_once(plan, answers)
-    assert result == answers
-    mock_obfuscate.assert_not_called()
-    mock_route.assert_not_called()
+@patch("core.orchestrator._invoke_agent")
+@patch("core.orchestrator.choose_agent_for_task")
+def test_execute_plan_routes_and_invokes_agents(mock_choose, mock_invoke):
+    class DummyAgent:
+        def __init__(self, model):
+            self.model = model
+
+    mock_choose.return_value = ("Research Scientist", DummyAgent)
+
+    def side_effect(agent, idea, task):
+        return f"{task['title']}-out"
+
+    mock_invoke.side_effect = side_effect
+    tasks = [
+        {"role": "Research Scientist", "title": "t1", "description": "d1"},
+        {"role": "Research Scientist", "title": "t2", "description": "d2"},
+    ]
+    answers = execute_plan("idea", tasks)
+    assert answers["Research Scientist"] == "t1-out\n\nt2-out"
+    assert mock_choose.call_count == 2
 
 
-@patch("core.agents.orchestrator.route", return_value="extra info")
-@patch("core.agents.orchestrator.obfuscate_task", return_value="obf")
-@patch("core.agents.orchestrator.llm_call")
-def test_refine_once_with_follow_up(mock_llm, mock_obfuscate, mock_route):
-    mock_llm.return_value = make_openai_response(
-        "More details?"
-    )
-    plan = {"Chemistry": "task2"}
-    answers = {"Chemistry": "answer2"}
-    result = orch.refine_once(plan, answers)
-    expected = {"Chemistry": "answer2\n\n--- *(Loop-refined)* ---\nextra info"}
-    assert result == expected
-    mock_obfuscate.assert_called_once_with("Chemistry", "More details?")
-    mock_route.assert_called_once_with("obf")
+@patch("core.orchestrator.complete")
+def test_compile_proposal_formats_findings(mock_complete):
+    mock_complete.return_value = Mock(content=" final plan ")
+    answers = {"CTO": "analysis"}
+    result = compile_proposal("idea", answers)
+    assert result == "final plan"
+    system_prompt, prompt = mock_complete.call_args[0]
+    assert "analysis" in prompt and "idea" in prompt
