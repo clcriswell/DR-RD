@@ -4,6 +4,7 @@ AGENT_MODEL_MAP = {
     "Planner": "gpt-4o",
     "CTO": "gpt-4o",
     "Research": "gpt-4o",
+    "Research Scientist": "gpt-4o",
     "Mechanical Systems Lead": "gpt-4o",
     "Materials & Process Engineer": "gpt-4o",
     "Chemical & Surface Science Specialist": "gpt-4o",

@@ -138,7 +138,8 @@ def load_mode_models(mode: str | None = None) -> dict:
     from app.config_loader import load_mode
     from dr_rd.utils.llm_client import set_budget_manager
 
-    mode = mode or "test"
+    # Default to deep reasoning profile when no mode is specified
+    mode = mode or "deep"
     mode_cfg, budget = load_mode(mode)
 
     # Share mode config with callers that read st.session_state
