@@ -10,7 +10,10 @@ from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
+import core
 from core.agents.simulation_agent import SimulationAgent
+from core.agents.planner_agent import PlannerAgent
+from core.agents.synthesizer_agent import SynthesizerAgent
 import io
 import fitz
 from markdown_pdf import MarkdownPdf, Section
@@ -89,7 +92,7 @@ def get_agents():
     agents["Synthesizer"] = SynthesizerAgent(
         getattr(AGENT_MODEL_MAP, "get", lambda *_: None)("Synthesizer") or default_model
     )
-    logger.info("Registered agents (unified): %s", sorted(core.agents.keys()))
+    logger.info("Registered agents (unified): %s", sorted(agents.keys()))
     return agents
 
 
