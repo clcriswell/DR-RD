@@ -16,6 +16,7 @@ Concept planning artifacts are largely absent. The repository lacks templates, r
 - No mentions of redaction in planning prompts
 - Failing tests under `tests/audit/test_plan_v1.py`
 
+
 ## Gaps
 - Missing concept brief template
 - No role cards or agent definitions
