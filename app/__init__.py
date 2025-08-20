@@ -6,6 +6,7 @@ import logging
 from core.roles import normalize_role
 import streamlit as st
 from memory import audit_logger  # import the audit logger
+from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
 from agents.simulation_agent import SimulationAgent
