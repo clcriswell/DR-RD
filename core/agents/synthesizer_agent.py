@@ -6,7 +6,7 @@ multi-domain answers to draft a cohesive, testable design or development
 plan.  Returns Markdown text ready for Streamlit rendering.
 
 Call:
-    from core.agents.synthesizer import synthesize
+    from core.agents.synthesizer_agent import synthesize
     markdown = synthesize(user_idea, answers_dict)
 """
 from typing import Dict

@@ -17,7 +17,7 @@ from core.agents.prototyping_test_lab_manager_agent import PrototypingTestLabMan
 from core.agents.project_manager_principal_investigator_agent import ProjectManagerPrincipalInvestigatorAgent
 from core.agents.product_manager_translational_lead_agent import ProductManagerTranslationalLeadAgent
 from core.agents.ai_rd_coordinator_agent import AIResearchDevelopmentCoordinatorAgent
-from core.agents.synthesizer import SynthesizerAgent
+from core.agents.synthesizer_agent import SynthesizerAgent
 from config.agent_models import AGENT_MODEL_MAP
 
 

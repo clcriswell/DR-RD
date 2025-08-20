@@ -1,7 +1,7 @@
 from unittest.mock import patch
 import os
 import pytest
-from core.agents.synthesizer import compose_final_proposal
+from core.agents.synthesizer_agent import compose_final_proposal
 from core.llm import ChatResult
 
 
@@ -10,8 +10,8 @@ def make_chat_result(text: str):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch("core.agents.synthesizer.make_visuals_for_project", return_value=[{"kind": "schematic", "url": "u", "caption": "S"}])
-@patch("core.agents.synthesizer.complete")
+@patch("core.agents.synthesizer_agent.make_visuals_for_project", return_value=[{"kind": "schematic", "url": "u", "caption": "S"}])
+@patch("core.agents.synthesizer_agent.complete")
 def test_compose_final_proposal(mock_complete, _mock_vis):
     fake_response = (
         "## Executive Summary\nOverview\n\n"

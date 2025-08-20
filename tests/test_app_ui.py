@@ -141,7 +141,7 @@ def test_run_domain_experts(monkeypatch):
                 ]
             },
         )(),
-        "core.agents.synthesizer.complete": lambda *a, **k: type(
+        "core.agents.synthesizer_agent.complete": lambda *a, **k: type(
             "R", (), {"content": "out", "raw": {}}
         )(),
     }
@@ -157,7 +157,7 @@ def test_compile_final_proposal(monkeypatch):
         state=state,
     )
     patches = {
-        "core.agents.synthesizer.compose_final_proposal": (
+        "core.agents.synthesizer_agent.compose_final_proposal": (
             lambda idea, answers, include_simulations=False: {"document": "final", "images": []}
         )
     }

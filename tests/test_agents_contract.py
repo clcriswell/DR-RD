@@ -1,8 +1,8 @@
-from core.agents.scientist_agent import ResearchScientistAgent
+from core.agents.research_scientist_agent import ResearchScientistAgent
 
 
 def test_agent_output_contract(monkeypatch):
-    agent = ResearchScientistAgent(model_id="gpt-5")
+    agent = ResearchScientistAgent("gpt-5")
     sample = (
         '{"role": "Research", "task": "t", '
         '"findings": ["f"], "risks": ["r"], "next_steps": ["n"], "sources": []}'
