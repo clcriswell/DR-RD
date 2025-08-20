@@ -6,7 +6,8 @@ from typing import Dict, List, Tuple, Any
 from core.agents_registry import agents_dict
 import streamlit as st
 from core.agents.planner_agent import PlannerAgent
-from core.agents.registry import build_agents, choose_agent_for_task, load_mode_models
+from core.agents.registry import build_agents, load_mode_models
+from core.router import choose_agent_for_task
 from core.synthesizer import synthesize
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 
@@ -270,9 +271,15 @@ def run_pipeline(
         batch = list(task_queue)
         task_queue.clear()
         for task in batch:
-            routed_role, agent = choose_agent_for_task(
-                task.get("role"), task.get("title", ""), agents
+            routed_role, AgentCls = choose_agent_for_task(
+                task.get("role"), task.get("title", ""), task.get("description", "")
             )
+            agent = agents.get(routed_role)
+            if agent is None:
+                base = agents.get("Research Scientist")
+                model = getattr(base, "model", "gpt-5")
+                agent = AgentCls(model)
+                agents[routed_role] = agent
             logger.info(
                 "Dispatch '%s' planned_role=%s -> routed_role=%s",
                 task.get("title"),

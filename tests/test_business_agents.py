@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 from core.agents.marketing_agent import MarketingAgent
 from core.agents.ip_analyst_agent import IPAnalystAgent
-from core.agents import registry
+from core.router import choose_agent_for_task
 
 
 def _fake_response(payload: dict):
@@ -63,12 +63,11 @@ def test_ip_agent_contract(mock_call):
 
 
 def test_router_dispatches_to_new_agents():
-    agents = registry.build_agents("test")
-    role1, a1 = registry.choose_agent_for_task(
-        None, "Analyze competitor pricing and market segments", agents
+    role1, cls1 = choose_agent_for_task(
+        None, "Analyze competitor pricing and market segments", ""
     )
-    assert a1.name == "Marketing Analyst" and role1 == "Marketing Analyst"
-    role2, a2 = registry.choose_agent_for_task(
-        None, "Review patent claims for novelty", agents
+    assert cls1.__name__ == "MarketingAgent" and role1 == "Marketing Analyst"
+    role2, cls2 = choose_agent_for_task(
+        None, "Review patent claims for novelty", ""
     )
-    assert a2.name == "IP Analyst" and role2 == "IP Analyst"
+    assert cls2.__name__ == "IPAnalystAgent" and role2 == "IP Analyst"

@@ -1,22 +1,15 @@
-from orchestrators.router import choose_agent_for_task
+from core.router import choose_agent_for_task
 
 
-class Dummy:
-    pass
-
-
-def test_unknown_role_does_not_drop(monkeypatch):
-    agents = {"Research Scientist": Dummy(), "Finance": Dummy(), "Regulatory": Dummy()}
-    # planned role not in agents, but finance keywords route it
-    agent, role = choose_agent_for_task(
-        "Finance Analyst", "Budget Planning", "ROI and BOM", ["finance"], agents
+def test_keyword_routing():
+    role, cls = choose_agent_for_task(
+        "Finance Analyst", "Budget Planning", "ROI and BOM"
     )
-    assert role in agents
+    assert role == "Finance"
 
 
-def test_alias_maps_to_known():
-    agents = {"Research Scientist": Dummy()}
-    agent, role = choose_agent_for_task(
-        "Research", "Investigate", "quantum entanglement", [], agents
+def test_default_role():
+    role, cls = choose_agent_for_task(
+        "Unknown", "Investigate", "quantum entanglement"
     )
     assert role == "Research Scientist"

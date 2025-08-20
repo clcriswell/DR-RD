@@ -1,5 +1,7 @@
 import logging
-from core.agents.unified_registry import build_agents_unified, ensure_canonical_agent_keys, choose_agent_for_task
+import core
+from core.agents.unified_registry import build_agents_unified, ensure_canonical_agent_keys
+from core.router import choose_agent_for_task
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from core.roles import canonical_roles
 
@@ -28,14 +30,8 @@ def route_tasks(tasks_any, agents):
     routed = []
     for t in tasks:
         role = t["role"]; title = t["title"]; desc = t["description"]
-        try:
-            rr, agent = choose_agent_for_task(role, title, desc, agents)
-        except TypeError:
-            agent, rr = choose_agent_for_task(role, title, agents)
-        if not agent:
-            low = (title + " " + desc).lower()
-            agent = core.agents.get("Marketing Analyst") if "market" in low else None
-            rr = "Marketing Analyst" if agent else role
+        rr, _ = choose_agent_for_task(role, title, desc)
+        agent = agents.get(rr)
         if not agent:
             rr, agent = _pick_default_agent(agents)
         routed.append((rr, agent, t))
