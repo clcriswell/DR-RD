@@ -9,8 +9,10 @@ def test_streamlit_intake_screen_exists():
     found = False
     for path in candidates:
         if os.path.exists(path):
+
             with open(path, "r", encoding="utf-8") as f:
                 text = f.read().lower()
+
             needed = ["problem", "constraint", "budget", "time", "allowed", "redaction"]
             if all(term in text for term in needed):
                 found = True
@@ -26,16 +28,20 @@ def test_orchestrator_module_present():
 def test_memory_layer_has_ttl_or_session():
     path = "memory/memory_manager.py"
     assert os.path.exists(path), "Memory manager missing"
+
     with open(path, "r", encoding="utf-8") as f:
         text = f.read().lower()
+
     assert "ttl" in text or "session" in text, "Memory layer lacks TTL or session keys"
 
 
 def test_config_supports_redaction_and_caps():
     path = "config/modes.yaml"
     assert os.path.exists(path), "modes.yaml missing"
+
     with open(path, "r", encoding="utf-8") as f:
         text = f.read().lower()
+
     assert "redact" in text and "time" in text, "Redaction or time caps not configured"
 
 
