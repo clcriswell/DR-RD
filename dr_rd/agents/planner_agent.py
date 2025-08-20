@@ -125,7 +125,7 @@ def run_planner(idea: str, model: str, utility_model: Optional[str] = None):
 class PlannerAgent:
     """Lightweight wrapper maintaining backwards compatible interface."""
 
-    def __init__(self, model: str = "o3-deep-research", repair_model: Optional[str] = "gpt-4o-mini"):
+    def __init__(self, model: str = "o3-deep-research", repair_model: Optional[str] = "o3-deep-research"):
         self.model = model
         self.repair_model = repair_model
         self.system_message = SYSTEM
