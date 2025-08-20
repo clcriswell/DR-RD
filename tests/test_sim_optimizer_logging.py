@@ -1,7 +1,7 @@
 import logging
 
-from dr_rd.simulation.design_space import DesignSpace
-from dr_rd.simulation.optimizer import optimize
+from simulation.design_space import DesignSpace
+from simulation.optimizer import optimize
 
 
 def test_optimizer_logs_best_trial(caplog):
@@ -13,7 +13,7 @@ def test_optimizer_logs_best_trial(caplog):
     def objective(d, metrics):
         return metrics["score"]
 
-    with caplog.at_level(logging.INFO, logger="dr_rd.simulation.optimizer"):
+    with caplog.at_level(logging.INFO, logger="simulation.optimizer"):
         best_design, _ = optimize({}, space, objective, simulator, strategy="grid")
 
     assert best_design["x"] == 2

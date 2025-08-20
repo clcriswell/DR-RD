@@ -6,8 +6,8 @@ from config.feature_flags import (
     SIM_OPTIMIZER_STRATEGY,
     SIM_OPTIMIZER_MAX_EVALS,
 )
-from dr_rd.simulation.design_space import DesignSpace
-from dr_rd.simulation.optimizer import optimize
+from simulation.design_space import DesignSpace
+from simulation.optimizer import optimize
 
 
 def determine_sim_type(role: str, design_spec: str) -> str:

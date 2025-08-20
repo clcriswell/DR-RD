@@ -1,7 +1,7 @@
 import streamlit as st
 
 from core.budget import BudgetManager
-from dr_rd.utils.llm_client import llm_call, set_budget_manager
+from core.llm_client import llm_call, set_budget_manager
 
 
 class DummyClient:

@@ -15,7 +15,7 @@ def make_openai_response(text: str):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch("dr_rd.utils.llm_client.llm_call")
+@patch("core.llm_client.llm_call")
 def test_rag_included_when_enabled(mock_llm, monkeypatch):
     mock_llm.return_value = make_openai_response("ok")
     monkeypatch.setenv("RAG_ENABLED", "true")
@@ -33,7 +33,7 @@ def test_rag_included_when_enabled(mock_llm, monkeypatch):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch("dr_rd.utils.llm_client.llm_call")
+@patch("core.llm_client.llm_call")
 def test_rag_skipped_when_disabled(mock_llm, monkeypatch):
     mock_llm.return_value = make_openai_response("ok")
     monkeypatch.setenv("RAG_ENABLED", "false")
@@ -48,7 +48,7 @@ def test_rag_skipped_when_disabled(mock_llm, monkeypatch):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch("dr_rd.utils.llm_client.llm_call")
+@patch("core.llm_client.llm_call")
 def test_rag_snippet_not_truncated(mock_llm, monkeypatch):
     mock_llm.return_value = make_openai_response("ok")
     monkeypatch.setenv("RAG_ENABLED", "true")

@@ -1,5 +1,5 @@
 import pytest
-from dr_rd.utils.llm_client import set_budget_manager
+from core.llm_client import set_budget_manager
 
 
 @pytest.fixture(autouse=True)

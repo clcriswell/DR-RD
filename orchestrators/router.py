@@ -2,6 +2,7 @@ from typing import Dict, List, Tuple, Optional
 import re
 import logging
 import importlib, inspect, pkgutil
+import core
 
 from core.agents.generic_domain_agent import GenericDomainAgent
 
@@ -59,7 +60,7 @@ def _try_load_specialist_class(role: str) -> Optional[type]:
         return None
     class_guess = "".join(w.capitalize() for w in tokens) + "Agent"
     try:
-        import agents
+        import core.agents as agents
         for m in pkgutil.iter_modules(core.agents.__path__):
             mod = importlib.import_module(f"core.agents.{m.name}")
             for name, obj in inspect.getmembers(mod, inspect.isclass):

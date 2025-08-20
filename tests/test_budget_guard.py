@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 from tests.test_app_ui import make_streamlit, reload_app
-import dr_rd.utils.llm_client as lc
+import core.llm_client as lc
 
 
 def test_budget_guard(monkeypatch):

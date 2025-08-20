@@ -2,8 +2,8 @@ from __future__ import annotations
 import json, os, re
 from typing import Dict, Tuple, List
 
-from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.llm_client import call_openai
+from core.model_router import pick_model, CallHints
+from core.llm_client import call_openai
 from app_builder.spec import AppSpec, PageSpec
 from app_builder.codegen import render_streamlit_app
 

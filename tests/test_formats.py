@@ -22,7 +22,7 @@ def test_hrm_returns_roles_json(mock_complete):
     assert isinstance(data.get("roles"), list)
 
 
-@patch("dr_rd.agents.planner_agent.run_planner", return_value=({"tasks":[{"task":"T","domain":"D"}]}, {}))
+@patch("core.agents.planner_agent.run_planner", return_value=({"tasks":[{"task":"T","domain":"D"}]}, {}))
 def test_planner_returns_tasks_json(mock_run):
     agent = PlannerAgent("gpt-5")
     out = agent.run("idea", "task")
@@ -55,7 +55,7 @@ def test_reflection_returns_no_tasks(mock_complete):
         _res("final plan"),
     ],
 )
-@patch("dr_rd.agents.planner_agent.run_planner", return_value=({"tasks":[{"task":"do research","domain":"research"}]}, {}))
+@patch("core.agents.planner_agent.run_planner", return_value=({"tasks":[{"task":"do research","domain":"research"}]}, {}))
 def test_orchestrate_smoke(mock_run, mock_complete):
     result = orchestrate("Microscope that uses quantum entanglement")
     assert isinstance(result, str) and result

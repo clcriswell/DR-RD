@@ -14,12 +14,11 @@ from core.agents.simulation_agent import SimulationAgent
 import io
 import fitz
 from markdown_pdf import MarkdownPdf, Section
-from dr_rd.config.feature_flags import get_env_defaults
-from dr_rd.config.mode_profiles import apply_profile, UI_PRESETS
-from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
-from dr_rd.utils.model_router import pick_model, difficulty_from_signals, CallHints
-from dr_rd.llm_client import call_openai
-from dr_rd.utils.llm_client import METER, set_budget_manager
+from config.feature_flags import get_env_defaults
+from config.mode_profiles import apply_profile, UI_PRESETS
+from utils.firestore_workspace import FirestoreWorkspace as WS
+from core.model_router import pick_model, difficulty_from_signals, CallHints
+from core.llm_client import call_openai, METER, set_budget_manager
 from app.ui_cost_meter import render_cost_summary, render_estimator
 from app.config_loader import load_mode
 from core.agents.unified_registry import build_agents_unified
@@ -477,7 +476,7 @@ def run_manual_pipeline(
         if use_firestore:
             try:
                 doc_id = get_project_id()
-                db.collection("dr_rd_projects").document(doc_id).set(
+                db.collection("rd_projects").document(doc_id).set(
                     {"results": st.session_state["answers"], **st.session_state.get("test_marker", {})},
                     merge=True,
                 )
@@ -529,7 +528,7 @@ def run_manual_pipeline(
         if use_firestore:
             try:
                 doc_id = get_project_id()
-                db.collection("dr_rd_projects").document(doc_id).set(
+                db.collection("rd_projects").document(doc_id).set(
                     {"results": st.session_state["answers"], **st.session_state.get("test_marker", {})},
                     merge=True,
                 )
@@ -682,7 +681,7 @@ def main():
     project_doc_ids = {}
     if db:
         try:
-            docs = db.collection("dr_rd_projects").stream()
+            docs = db.collection("rd_projects").stream()
             for doc in docs:
                 data = doc.to_dict() or {}
                 name = data.get("name") or doc.id
@@ -718,7 +717,7 @@ def main():
             if use_firestore:
                 try:
                     doc_id = project_doc_ids.get(selected_project, selected_project)
-                    doc = db.collection("dr_rd_projects").document(doc_id).get()
+                    doc = db.collection("rd_projects").document(doc_id).get()
                     if doc.exists:
                         data = doc.to_dict() or {}
                         st.session_state["idea"] = data.get("idea", "")
@@ -854,7 +853,7 @@ def main():
             if use_firestore:
                 try:
                     doc_id = get_project_id()
-                    db.collection("dr_rd_projects").document(doc_id).set(
+                    db.collection("rd_projects").document(doc_id).set(
                         {
                             "name": st.session_state.get("project_name", ""),
                             "idea": submitted_idea_text or idea_input or "",
@@ -906,7 +905,7 @@ def main():
                     if use_firestore:
                         try:
                             doc_id = get_project_id()
-                            db.collection("dr_rd_projects").document(doc_id).set(
+                            db.collection("rd_projects").document(doc_id).set(
                                 {"results": results, **st.session_state.get("test_marker", {})},
                                 merge=True,
                             )
@@ -1090,7 +1089,7 @@ def main():
             if use_firestore:
                 try:
                     doc_id = get_project_id()
-                    db.collection("dr_rd_projects").document(doc_id).set(
+                    db.collection("rd_projects").document(doc_id).set(
                         {"proposal": final_report_text, **st.session_state.get("test_marker", {})},
                         merge=True,
                     )
@@ -1201,7 +1200,7 @@ def main():
     prior_chat = []
     if use_firestore:
         try:
-            snap = db.collection("dr_rd_projects").document(doc_id).get()
+            snap = db.collection("rd_projects").document(doc_id).get()
             if snap.exists:
                 prior_chat = snap.to_dict().get("chat", []) or []
         except Exception as e:
@@ -1231,7 +1230,7 @@ def main():
         if st.session_state.get("final_doc"):
             context_bits.append("PROPOSAL: present")
 
-        from dr_rd.utils.model_router import pick_model, CallHints
+        from core.model_router import pick_model, CallHints
 
         sel = pick_model(CallHints(stage="exec", deep_reasoning=(selected_mode == "deep")))
         msg = "\n\n".join(context_bits) + f"\n\nUser: {user_msg}"
@@ -1256,7 +1255,7 @@ def main():
         ]
         if use_firestore:
             try:
-                db.collection("dr_rd_projects").document(doc_id).set(
+                db.collection("rd_projects").document(doc_id).set(
                     {"chat": new_chat, **st.session_state.get("test_marker", {})},
                     merge=True,
                 )

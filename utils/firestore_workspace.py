@@ -6,7 +6,7 @@ from google.cloud import firestore
 from google.oauth2 import service_account
 import streamlit as st
 
-_COLLECTION = "dr_rd_projects"          # single namespace!
+_COLLECTION = "rd_projects"          # single namespace!
 
 
 def _client() -> firestore.Client:

@@ -45,7 +45,7 @@ def score_with_rubric(text: str, rubric: str) -> float:
     """Score ``text`` against ``rubric`` using the configured LLM.
 
     The function attempts to obtain a JSON response like ``{"score": 0.5, ...}``
-    from either an internal ``dr_rd.llm`` client or the OpenAI API. Any errors
+    from either an internal ``core.llm`` client or the OpenAI API. Any errors
     or malformed responses result in a score of ``0.0``. The final score is
     clipped to the range [0.0, 1.0].
     """
@@ -59,22 +59,9 @@ def score_with_rubric(text: str, rubric: str) -> float:
         f"{text}\n"
     )
 
-    # Prefer an internal helper if available.
-    try:  # pragma: no cover - exercised via monkeypatch in tests
-        from dr_rd.llm import chat_json  # type: ignore
-
-        try:
-            resp = chat_json(prompt)
-            score = float(resp.get("score", 0.0))
-            return _clip(score)
-        except Exception:
-            pass
-    except Exception:
-        pass
-
-    # Fallback to OpenAI; tests monkeypatch this function so no network call.
+    # Call OpenAI; tests monkeypatch this function so no network call.
     try:  # pragma: no cover - network not exercised in tests
-        from dr_rd.llm_client import call_openai
+        from core.llm_client import call_openai
 
         model = (
             os.getenv("DRRD_LLM_MODEL")

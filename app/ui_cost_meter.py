@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import streamlit as st
-from dr_rd.config.mode_profiles import UI_PRESETS
+from config.mode_profiles import UI_PRESETS
 from app.price_loader import cost_usd, load_prices
 
 

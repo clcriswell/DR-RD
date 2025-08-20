@@ -1,4 +1,4 @@
-from dr_rd.extensions.registry import Registry
+from extensions.registry import Registry
 
 
 class Dummy:

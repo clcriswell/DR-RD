@@ -1,4 +1,4 @@
-from dr_rd.config.model_routing import DEFAULTS, CallHints
+from config.model_routing import DEFAULTS, CallHints
 import streamlit as st
 
 

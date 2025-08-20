@@ -51,7 +51,7 @@ class MemoryManager:
                     )
                     db = firestore.Client(credentials=creds, project=creds.project_id)
                     doc_id = _slugify(name)
-                    db.collection("dr_rd_projects").document(doc_id).set(entry)
+                    db.collection("rd_projects").document(doc_id).set(entry)
                 else:
                     logging.info(
                         "Firestore save skipped: missing gcp_service_account secret"

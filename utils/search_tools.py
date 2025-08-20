@@ -7,7 +7,7 @@ from typing import List, Dict
 import requests
 from html import unescape
 
-from dr_rd.llm_client import call_openai
+from core.llm_client import call_openai
 
 
 def _strip_html(text: str) -> str:

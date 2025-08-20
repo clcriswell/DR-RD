@@ -1,6 +1,6 @@
 import time
 
-from dr_rd.engine.executor import run_tasks
+from core.engine.executor import run_tasks
 
 
 class DummyWS:

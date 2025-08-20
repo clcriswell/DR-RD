@@ -2,7 +2,7 @@
 
 The engine supports pluggable **evaluators** that score the workspace state
 after each execution cycle. Evaluators implement the
-`dr_rd.extensions.abcs.BaseEvaluator` interface:
+`extensions.abcs.BaseEvaluator` interface:
 
 ```python
 class BaseEvaluator(ABC):
@@ -15,12 +15,12 @@ and an optional list of `notes`.
 
 ## Registering an evaluator
 
-Create a module under `dr_rd/evaluators/` that subclasses `BaseEvaluator` and
+Create a module under `evaluators/` that subclasses `BaseEvaluator` and
 registers it with the `EvaluatorRegistry`:
 
 ```python
-from dr_rd.extensions.abcs import BaseEvaluator
-from dr_rd.extensions.registry import EvaluatorRegistry
+from extensions.abcs import BaseEvaluator
+from extensions.registry import EvaluatorRegistry
 
 class MyEvaluator(BaseEvaluator):
     def evaluate(self, state: dict) -> dict:

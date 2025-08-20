@@ -1,5 +1,5 @@
 import json, importlib, pkgutil, inspect
-paths = ["core.agents", "agents", "dr_rd.agents"]
+paths = ["core.agents"]
 inventory = {}
 def collect(pkg_name):
     try:

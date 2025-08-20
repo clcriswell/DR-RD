@@ -6,8 +6,8 @@ maintains a simple mapping from a string name to a class.
 ## Example: Register an evaluator
 
 ```python
-from dr_rd.extensions.abcs import BaseEvaluator
-from dr_rd.extensions.registry import EvaluatorRegistry
+from extensions.abcs import BaseEvaluator
+from extensions.registry import EvaluatorRegistry
 
 class MyEval(BaseEvaluator):
     def evaluate(self, state: dict) -> dict:

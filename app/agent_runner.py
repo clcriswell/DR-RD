@@ -5,10 +5,10 @@ import argparse
 import hashlib
 from typing import Optional
 
-from dr_rd import cache
+from core import cache
 
-from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.llm_client import call_openai
+from core.model_router import pick_model, CallHints
+from core.llm_client import call_openai
 import logging
 
 _DEF_PROMPTS = {

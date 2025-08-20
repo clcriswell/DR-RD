@@ -2,7 +2,7 @@ import importlib
 
 
 def test_tot_strategy_adds_clarification_task_when_requirements_missing():
-    from dr_rd.planning.strategies.tot import ToTPlannerStrategy
+    from planning.strategies.tot import ToTPlannerStrategy
 
     state = {"idea": "novel gadget"}
     baseline = [
@@ -26,7 +26,7 @@ def test_tot_strategy_adds_clarification_task_when_requirements_missing():
 
 def test_tot_strategy_heuristic_when_no_evaluators(monkeypatch):
     monkeypatch.setenv("EVALUATORS_ENABLED", "true")
-    from dr_rd.planning.strategies import tot as tot_module
+    from planning.strategies import tot as tot_module
 
     importlib.reload(tot_module)
     monkeypatch.setattr(tot_module.EvaluatorRegistry, "list", lambda: [])
