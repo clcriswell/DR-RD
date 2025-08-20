@@ -42,3 +42,15 @@ def test_responses_route():
         res = llm.complete("You are a test.", "Say OK.", model="gpt-4.1")
     assert isinstance(res.content, str)
     fake.responses.create.assert_called_once()
+
+
+def test_responses_drops_temperature():
+    fake = MagicMock()
+    fake.responses.create.return_value = make_resp_resp()
+    with patch.object(lc, "client", fake):
+        res = llm.complete(
+            "You are a test.", "Say OK.", model="gpt-4.1", temperature=0.9
+        )
+    assert isinstance(res.content, str)
+    fake.responses.create.assert_called_once()
+    assert "temperature" not in fake.responses.create.call_args.kwargs
