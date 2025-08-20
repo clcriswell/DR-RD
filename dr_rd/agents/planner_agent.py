@@ -6,6 +6,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, ValidationError
 import json
 from dr_rd.llm_client import call_openai, extract_text
+from dr_rd.utils.llm_client import llm_call
 
 # Pydantic schema for planner output -------------------------------------------------
 
@@ -66,8 +67,6 @@ def run_planner(idea: str, model: str, utility_model: Optional[str] = None):
     ]
 
     params = {
-        "model": model,
-        "messages": messages,
         "temperature": 0.2,
         "presence_penalty": 0,
         "frequency_penalty": 0,
@@ -75,10 +74,14 @@ def run_planner(idea: str, model: str, utility_model: Optional[str] = None):
     if not model.startswith("gpt-4") or model.startswith("gpt-4o"):
         params["response_format"] = {"type": "json_object"}
 
-    result = call_openai(**params)
-    resp = result["raw"]
-
-    raw = result["text"] or "{}"
+    resp = llm_call(None, model, "plan", messages, **params)
+    raw = extract_text(resp)
+    if not isinstance(raw, str):
+        try:
+            raw = getattr(resp.choices[0].message, "content", raw)
+        except Exception:
+            raw = "{}"
+    raw = raw or "{}"
     finish = None
     if getattr(resp, "choices", None):
         finish = getattr(resp.choices[0], "finish_reason", None)
