@@ -3,13 +3,74 @@ import re
 import logging
 from typing import Dict, List, Tuple, Any
 
+from config.agent_models import AGENT_MODEL_MAP
+from core.llm import complete
+from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
+from core.router import choose_agent_for_task
+from prompts.prompts import (
+    PLANNER_SYSTEM_PROMPT,
+    PLANNER_USER_PROMPT_TEMPLATE,
+    SYNTHESIZER_TEMPLATE,
+)
+
 from core.agents_registry import agents_dict
 import streamlit as st
 from core.agents.planner_agent import PlannerAgent
 from core.agents.registry import build_agents, load_mode_models
-from core.router import choose_agent_for_task
 from core.synthesizer import synthesize
-from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
+
+
+def _invoke_agent(agent, idea: str, task: Dict[str, str]) -> str:
+    """Call an agent with best-effort interface detection."""
+    text = f"{task.get('title','')}: {task.get('description','')}"
+    # Preferred call signatures
+    for name in ("run", "act", "execute", "__call__"):
+        fn = getattr(agent, name, None)
+        if callable(fn):
+            try:
+                return fn(idea, task)
+            except TypeError:
+                try:
+                    return fn(text)
+                except TypeError:
+                    continue
+    raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
+
+
+def generate_plan(idea: str) -> List[Dict[str, str]]:
+    """Use the Planner to create and normalize a task list."""
+    user_prompt = PLANNER_USER_PROMPT_TEMPLATE.format(idea=idea)
+    result = complete(PLANNER_SYSTEM_PROMPT, user_prompt)
+    raw = result.content or ""
+    tasks = normalize_tasks(normalize_plan_to_tasks(raw))
+    return tasks
+
+
+def execute_plan(idea: str, tasks: List[Dict[str, str]]) -> Dict[str, str]:
+    """Dispatch tasks to routed agents and collect their outputs."""
+    answers: Dict[str, str] = {}
+    for t in normalize_tasks(tasks):
+        planned_role = t.get("role")
+        title = t.get("title", "")
+        description = t.get("description", "")
+        role, AgentCls = choose_agent_for_task(planned_role, title, description)
+        model = AGENT_MODEL_MAP.get(role, AGENT_MODEL_MAP.get("Research Scientist", "gpt-5"))
+        agent = AgentCls(model)
+        try:
+            out = _invoke_agent(agent, idea, {"title": title, "description": description})
+        except Exception as e:
+            out = f"ERROR: {e}"
+        text = out if isinstance(out, str) else json.dumps(out)
+        answers[role] = (answers.get(role, "") + ("\n\n" if role in answers else "") + text)
+    return answers
+
+
+def compile_proposal(idea: str, answers: Dict[str, str]) -> str:
+    """Combine agent outputs into a final proposal using the Synthesizer."""
+    findings_md = "\n".join(f"### {r}\n{a}" for r, a in answers.items())
+    prompt = SYNTHESIZER_TEMPLATE.format(idea=idea, findings_md=findings_md)
+    result = complete("You are an expert R&D writer.", prompt)
+    return (result.content or "").strip()
 
 
 def orchestrate(user_idea: str) -> str:

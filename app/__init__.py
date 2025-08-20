@@ -40,11 +40,7 @@ from app.ui_cost_meter import render_cost_summary, render_estimator
 from app.config_loader import load_mode
 from core.agents.unified_registry import build_agents_unified
 from config.agent_models import AGENT_MODEL_MAP
-from orchestrators.plan_utils import normalize_plan_to_tasks
-from core.router import choose_agent_for_task
-from core.plan_utils import normalize_tasks
-from core.agents.planner_agent import PlannerAgent
-from core.agents.synthesizer_agent import SynthesizerAgent
+from core.orchestrator import generate_plan, execute_plan, compile_proposal
 
 logger = logging.getLogger(__name__)
 
@@ -210,54 +206,6 @@ def extract_json_from_markdown(md: str):
 def strip_json_block(md: str) -> str:
     """Remove JSON code block from markdown output."""
     return re.sub(r"```json\s*.*?\s*```", "", md, flags=re.DOTALL).strip()
-
-
-def route_tasks(tasks_any, agents):
-    """Route all planner tasks to available agents without dropping."""
-    tasks = normalize_plan_to_tasks(tasks_any)
-    tasks = [t for t in tasks if not (len(t.get("title", "")) == 1 and len(t.get("description", "")) == 1)]
-    routed = []
-    for t in tasks:
-        routed_role, AgentCls = choose_agent_for_task(
-            planned_role=t.get("role"),
-            title=t.get("title"),
-            description=t.get("description"),
-        )
-        agent = agents.get(routed_role)
-        if agent is None:
-            base = agents.get("Research Scientist") or next(iter(agents.values()))
-            model = getattr(base, "model", "gpt-5")
-            agent = AgentCls(model)
-            agents[routed_role] = agent
-        routed.append((routed_role, agent, t))
-    return routed
-
-
-def _invoke_agent(agent, idea, task_dict):
-    # Accepts {"title","description"} and builds a text form too
-    text = f"{task_dict['title']}: {task_dict['description']}"
-    # Prefer .run(idea, task_dict)
-    fn = getattr(agent, "run", None)
-    if callable(fn):
-        try:
-            return fn(idea, task_dict)
-        except TypeError:
-            try:
-                return fn(text)
-            except TypeError:
-                pass
-    # Try common alternates
-    for name in ("execute", "act", "__call__"):
-        fn = getattr(agent, name, None)
-        if callable(fn):
-            try:
-                return fn(idea, task_dict)
-            except TypeError:
-                try:
-                    return fn(text)
-                except TypeError:
-                    continue
-    raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
 
 
 def _get_qs_flag(name: str) -> bool:
@@ -983,65 +931,11 @@ def main():
                 logging.error(f"Init project failed: {e}")
         try:
             with st.spinner("📝 Planning..."):
-                HRM_ON = os.getenv("HRM_ROLE_DISCOVERY", "false").lower() == "true"
-                dynamic_roles = None
-                if HRM_ON:
-                    try:
-                        from core.agents.hrm_role_agent import HRMRoleAgent
-                        hrm = HRMRoleAgent()
-                        dynamic_roles = hrm.discover_roles(idea)
-                    except Exception as e:
-                        logger.exception("HRM role discovery failed; continuing without HRM")
-                        dynamic_roles = None
-                try:
-                    model_output = agents["Planner"].run(
-                        idea,
-                        "Break down the project into role-specific tasks",
-                        difficulty=st.session_state.get("difficulty", "normal"),
-                        roles=dynamic_roles,
-                    )
-                except TypeError:
-                    model_output = agents["Planner"].run(
-                        idea,
-                        "Break down the project into role-specific tasks",
-                        difficulty=st.session_state.get("difficulty", "normal"),
-                    )
+                tasks = generate_plan(idea)
                 update_cost()
-                model_output_text = getattr(agents["Planner"], "last_raw", "") or model_output
-                logger.info(
-                    "Planner raw (first 400 chars): %s",
-                    str(model_output_text)[:400],
-                )
-                tasks = normalize_plan_to_tasks(model_output_text, backfill=True, dedupe=True)
-                logger.info("Tasks after normalization: %d", len(tasks))
-                logger.info("Planner roles (raw): %s", sorted({t.get("role") for t in tasks}))
-                tasks_norm = normalize_tasks(tasks)
-                logger.info("Planner roles (normalized): %s", sorted({t.get("role") for t in tasks_norm}))
-                tasks = tasks_norm
-                try:
-                    dynamic_roles = locals().get("dynamic_roles", None)
-                    if dynamic_roles:
-                        _ensure_role_coverage(tasks, dynamic_roles)
-                        try:
-                            roles_after = sorted({normalize_role(t.get("role", "")) or t.get("role", "") for t in tasks})
-                            logger.info("Planner roles (post-coverage): %s", roles_after)
-                        except Exception:
-                            pass
-                except Exception:
-                    logger.exception("Failed ensuring HRM role coverage; continuing.")
-
             st.session_state["plan"] = tasks
             st.session_state["plan_tasks"] = tasks
-            routed = route_tasks(tasks, agents)
-            st.session_state["routed"] = routed
-            # Optional UI trace for routed roles
-            st.session_state["routed_tasks"] = [
-                {"planned_role": t["role"], "routed_role": rr, "title": t["title"]}
-                for rr, _, t in routed
-            ]
-            logger.info(
-                "Final routed task count: %d", len(st.session_state.get("routed", []))
-            )
+            logger.info("Planner tasks: %d", len(tasks))
             safe_log_step(
                 get_project_id(),
                 "Planner",
@@ -1095,33 +989,6 @@ def main():
         design_depth = st.session_state.get("design_depth", "Low")
         re_run_simulations = ui_preset["rerun_sims_each_round"]
 
-        def classic_execute(tasks):
-            outputs = {}
-            routed = route_tasks(tasks, agents)
-            logger.info(
-                "Planner routing: %s",
-                [{"from": t["role"], "to": rr} for rr, _, t in routed],
-            )
-            logger.info("Final routed task count: %d", len(routed))
-            for rr, agent, t in routed:
-                try:
-                    task = {
-                        "title": str(t.get("title", "")),
-                        "description": str(t.get("description", "")),
-                    }
-                    out = _invoke_agent(agent, idea, task)
-                except Exception as e:
-                    logger.exception("Agent %s failed: %s", rr, e)
-                    out = {"error": str(e)}
-                outputs.setdefault(rr, []).append(
-                    {
-                        "title": t["title"],
-                        "description": t["description"],
-                        "output": out,
-                    }
-                )
-            return outputs
-
         if st.button("2⃣ Run All Domain Experts"):
             brief = {"idea": idea}
             hrm = HRMBridge(HRMLoop, ws)
@@ -1130,7 +997,7 @@ def main():
                 tasks = st.session_state.get("plan", [])
                 if not tasks:
                     tasks = hrm.plan_only(brief)
-                results = {t["role"]: "out" for t in tasks}
+                results = execute_plan(idea, tasks)
                 score, notes, cov = hrm.evaluate_only(results)
                 laps = 0
                 while (score < EVAL_THRESHOLD or cov < COVERAGE_THRESHOLD) and laps < MAX_LAPS:
@@ -1140,16 +1007,14 @@ def main():
                     advice = hrm.seek_help_only(brief, results)
                     brief = merge_brief(brief, advice)
                     tasks = hrm.plan_only(brief, replan=True)
-                    results = classic_execute(tasks)
+                    results = execute_plan(idea, tasks)
                     score, notes, cov = hrm.evaluate_only(results)
                     laps += 1
-                final_report = agents["Synthesizer"].run(idea, results)
+                final_report = compile_proposal(idea, results)
                 ws.log(f"✅ Final score={score:.2f}")
             st.session_state["hrm_report"] = final_report
             st.session_state["hrm_state"] = {"results": results}
-            st.session_state["answers"] = {
-                t["role"]: "out" for t in st.session_state.get("plan", [])
-            }
+            st.session_state["answers"] = results
             if use_firestore:
                 try:
                     doc_id = get_project_id()
