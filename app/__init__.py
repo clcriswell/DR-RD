@@ -41,7 +41,7 @@ from app.config_loader import load_mode
 from core.agents.unified_registry import build_agents_unified
 from config.agent_models import AGENT_MODEL_MAP
 from orchestrators.plan_utils import normalize_plan_to_tasks
-from orchestrators.router import choose_agent_for_task
+from core.router import choose_agent_for_task
 from core.plan_utils import normalize_tasks
 from core.agents.planner_agent import PlannerAgent
 from core.agents.synthesizer_agent import SynthesizerAgent
@@ -218,13 +218,17 @@ def route_tasks(tasks_any, agents):
     tasks = [t for t in tasks if not (len(t.get("title", "")) == 1 and len(t.get("description", "")) == 1)]
     routed = []
     for t in tasks:
-        agent, routed_role = choose_agent_for_task(
+        routed_role, AgentCls = choose_agent_for_task(
             planned_role=t.get("role"),
             title=t.get("title"),
             description=t.get("description"),
-            tags=t.get("tags") or [],
-            agents=agents,
         )
+        agent = agents.get(routed_role)
+        if agent is None:
+            base = agents.get("Research Scientist") or next(iter(agents.values()))
+            model = getattr(base, "model", "gpt-5")
+            agent = AgentCls(model)
+            agents[routed_role] = agent
         routed.append((routed_role, agent, t))
     return routed
 
