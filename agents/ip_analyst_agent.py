@@ -1,9 +1,9 @@
 from agents.base_agent import BaseAgent
 from config.feature_flags import RAG_ENABLED, RAG_TOPK
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call, log_usage
+from dr_rd.utils.llm_client import log_usage
+from dr_rd.llm_client import call_openai
 from typing import Optional, Dict, Any, List, Tuple
-import openai
 import json
 import re
 
@@ -64,17 +64,18 @@ class IPAnalystAgent(BaseAgent):
             sources = self._web_sources or sources
         
         sel = pick_model(CallHints(stage="exec"))
-        response = llm_call(
-            openai,
-            sel["model"],
-            stage="exec",
+        result = call_openai(
+            model=sel["model"],
             messages=[
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
             ],
             **sel["params"],
         )
-        usage = response.choices[0].usage if hasattr(response.choices[0], "usage") else getattr(response, "usage", None)
+        resp = result["raw"]
+        usage = getattr(resp, "usage", None)
+        if usage is None and getattr(resp, "choices", None):
+            usage = getattr(resp.choices[0], "usage", None)
         if usage:
             log_usage(
                 stage="exec",
@@ -82,7 +83,7 @@ class IPAnalystAgent(BaseAgent):
                 pt=getattr(usage, "prompt_tokens", 0),
                 ct=getattr(usage, "completion_tokens", 0),
             )
-        raw = response.choices[0].message.content.strip()
+        raw = (result["text"] or "").strip()
         data: Dict[str, Any]
         try:
             data = json.loads(raw)

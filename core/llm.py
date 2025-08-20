@@ -1,49 +1,17 @@
 import os, json, typing as t
 from dataclasses import dataclass
-from openai import OpenAI
-from openai import BadRequestError, APIStatusError
 
 from dr_rd.core.prompt_utils import coerce_user_content
-
-# Models that must use the Responses API instead of Chat Completions.
-RESPONSES_ONLY = {
-    "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "o3", "o3-mini",
-    "gpt-4.1-search-preview", "gpt-4o-search-preview"
-}
-
-# Models known to work with Chat Completions (not exhaustive).
-CHAT_COMPAT = {
-    "gpt-4o", "o3-deep-research", "gpt-4o-audio-preview", "gpt-3.5-turbo"
-}
+from dr_rd.llm_client import call_openai
 
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "o3-deep-research").strip()
+
 
 @dataclass
 class ChatResult:
     content: str
-    raw: dict
+    raw: t.Any
 
-client = OpenAI()
-
-
-def _via_responses(system_prompt: t.Any, user_prompt: t.Any, mdl: str, scrub: dict) -> ChatResult:
-    """Call the Responses API and normalize its output to ChatResult."""
-    resp = client.responses.create(
-        model=mdl,
-        input=[
-            {"role": "system", "content": system_prompt or ""},
-            {"role": "user", "content": user_prompt or ""},
-        ],
-        **scrub,
-    )
-    text_chunks = []
-    for item in getattr(resp, "output", []) or []:
-        if getattr(item, "type", "") == "message":
-            for c in getattr(item, "content", []) or []:
-                if getattr(c, "type", "") == "output_text":
-                    text_chunks.append(getattr(c, "text", ""))
-    content = "".join(text_chunks) if text_chunks else (getattr(resp, "output_text", None) or "")
-    return ChatResult(content=content, raw=resp.model_dump() if hasattr(resp, "model_dump") else resp)
 
 def _log_request(model: str, messages: list, extra: dict):
     try:
@@ -59,9 +27,9 @@ def _log_request(model: str, messages: list, extra: dict):
     except Exception as e:
         print(f"[LLM] Could not log request preview: {e}")
 
+
 def _log_400(e: Exception):
-    print(f"[LLM] OpenAI 400 Bad Request: {e}")
-    # Try to dump server body if present
+    print(f"[LLM] OpenAI error: {e}")
     try:
         if hasattr(e, "response") and hasattr(e.response, "json"):
             print(f"[LLM] Error JSON: {e.response.json()}")
@@ -69,6 +37,7 @@ def _log_400(e: Exception):
             print(f"[LLM] Error text: {e.response.text}")
     except Exception as inner:
         print(f"[LLM] Could not log error body: {inner}")
+
 
 def _validate_messages(messages: list):
     if not isinstance(messages, list) or not messages:
@@ -89,56 +58,27 @@ def _validate_messages(messages: list):
                     f"messages[{i}].content must be str or list (for vision)."
                 )
 
-def complete(system_prompt: t.Any, user_prompt: t.Any, *, model: t.Optional[str] = None, **kwargs) -> ChatResult:
-    """
-    Unified completion: chooses Chat Completions or Responses based on model.
-    Always sends a proper system+user message array. Returns text content.
-    """
-    mdl = (model or DEFAULT_MODEL).strip()
 
+def complete(system_prompt: t.Any, user_prompt: t.Any, *, model: t.Optional[str] = None, **kwargs) -> ChatResult:
+    mdl = (model or DEFAULT_MODEL).strip()
     messages = [
         {"role": "system", "content": coerce_user_content(system_prompt)},
         {"role": "user", "content": coerce_user_content(user_prompt)},
     ]
     _validate_messages(messages)
 
-    # Defensive param scrub for Chat endpoint
     scrub = dict(kwargs)
-    scrub.pop("response_format", None)  # Responses-only schemas
     if scrub.get("stream_options") and not scrub.get("stream"):
         scrub.pop("stream_options", None)
 
     _log_request(mdl, messages, scrub)
 
     try:
-        if mdl in RESPONSES_ONLY:
-            return _via_responses(system_prompt, user_prompt, mdl, scrub)
-        # Default to Chat Completions
-        resp = client.chat.completions.create(model=mdl, messages=messages, **scrub)
-        content = resp.choices[0].message.content if resp.choices else ""
-        return ChatResult(content=content, raw=resp.model_dump() if hasattr(resp, "model_dump") else resp)
-    except BadRequestError as e:
+        result = call_openai(model=mdl, messages=messages, **scrub)
+        resp = result["raw"]
+        content = result["text"] or ""
+        raw = resp.model_dump() if hasattr(resp, "model_dump") else resp
+        return ChatResult(content=content, raw=raw)
+    except Exception as e:
         _log_400(e)
-        msg = str(getattr(e, "message", e)).lower()
-        if "model" in msg and mdl != "o3-deep-research":
-            print("[LLM] Retrying with o3-deep-research due to model error")
-            return complete(system_prompt, user_prompt, model="o3-deep-research", **kwargs)
-        # Help the user if they picked a Responses-only model by mistake
-        if mdl in RESPONSES_ONLY:
-            print(f"[LLM] Model {mdl} requires the Responses API. We routed correctly. Check other parameters.")
-        else:
-            print(
-                "[LLM] If you intend to use models like gpt-4.1 or o3*, set OPENAI_MODEL accordingly so we use Responses API."
-            )
-        raise
-    except APIStatusError as e:
-        msg = str(getattr(e, "message", e)).lower()
-        if "v1/responses" in msg and mdl not in RESPONSES_ONLY:
-            print(f"[LLM] Model {mdl} requires the Responses API. Retrying with Responses.")
-            try:
-                return _via_responses(system_prompt, user_prompt, mdl, scrub)
-            except Exception as inner:
-                print(f"[LLM] Retry via Responses failed: {inner}")
-                raise
-        print(f"[LLM] API status error: {e}")
         raise

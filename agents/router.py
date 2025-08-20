@@ -14,11 +14,11 @@ SERPAPI_KEYS      comma-separated list (or SERPAPI_KEY)  – optional
 PROXY_POOL        comma-separated list of http[s]://user:pass@ip:port – optional
 """
 
-import os, random, requests, openai
+import os, random, requests
 from typing import Dict, Any
 import logging
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.llm_client import call_openai, client as oai_client
 
 # ---------- helpers ----------
 _HEADERS = [
@@ -74,7 +74,7 @@ def route(prompt: str, domain: str | None = None) -> str:
 
 # ---------- back-ends ----------
 def _openai_chat(prompt: str, domain: str | None = None) -> str:
-    openai.api_key = _pick(_OAI_KEYS)
+    oai_client.api_key = _pick(_OAI_KEYS)
     sel = pick_model(CallHints(stage="exec"))
     logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
     messages = [
@@ -84,15 +84,13 @@ def _openai_chat(prompt: str, domain: str | None = None) -> str:
         messages.insert(
             0, {"role": "system", "content": f"You are an expert in {domain}."}
         )
-    resp = llm_call(
-        openai,
-        sel["model"],
-        stage="exec",
+    result = call_openai(
+        model=sel["model"],
         temperature=0.4,
         messages=messages,
         **sel["params"],
     )
-    return resp.choices[0].message.content.strip()
+    return (result["text"] or "").strip()
 
 
 def _serp_search(query: str) -> str:

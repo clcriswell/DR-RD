@@ -11,7 +11,8 @@ from config.feature_flags import (
 )
 import logging
 import streamlit as st
-from dr_rd.utils.llm_client import llm_call, log_usage
+from dr_rd.llm_client import call_openai
+from dr_rd.utils.llm_client import log_usage
 from core.llm import complete
 from dr_rd.core.prompt_utils import coerce_user_content
 
@@ -142,8 +143,6 @@ class BaseAgent:
 
     def run(self, idea: str, task, design_depth: str = "Medium") -> str:
         """Construct the prompt and call the OpenAI API. Returns assistant text."""
-        import openai
-
         if isinstance(task, dict):
             task = f"{task.get('title', '')}: {task.get('description', '')}"
         # Base prompt from template
@@ -173,16 +172,17 @@ class BaseAgent:
         from core.agents.unified_registry import resolve_model  # local import to avoid circular
         model_id = self.model or resolve_model(self.name)
         logger.info(f"Model[exec]={model_id} params={{}}")
-        response = llm_call(
-            openai,
-            model_id,
-            stage="exec",
+        result = call_openai(
+            model=model_id,
             messages=[
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
             ],
         )
-        usage = response.choices[0].usage if hasattr(response.choices[0], "usage") else getattr(response, "usage", None)
+        resp = result["raw"]
+        usage = getattr(resp, "usage", None)
+        if usage is None and getattr(resp, "choices", None):
+            usage = getattr(resp.choices[0], "usage", None)
         if usage:
             log_usage(
                 stage="exec",
@@ -190,7 +190,7 @@ class BaseAgent:
                 pt=getattr(usage, "prompt_tokens", 0),
                 ct=getattr(usage, "completion_tokens", 0),
             )
-        answer = response.choices[0].message.content.strip()
+        answer = (result["text"] or "").strip()
         flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
         if flags.get("TEST_MODE"):
             max_chars = int(flags.get("MAX_OUTPUT_CHARS", 900))

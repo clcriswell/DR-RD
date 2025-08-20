@@ -7,13 +7,8 @@ from typing import Optional
 
 from dr_rd import cache
 
-try:
-    import openai
-except Exception:  # pragma: no cover - openai optional in tests
-    openai = None
-
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.llm_client import call_openai
 import logging
 
 _DEF_PROMPTS = {
@@ -35,25 +30,20 @@ def run_agent(role: str, prompt: str, depth: str = "Low") -> str:
     if cached:
         return cached
 
-    if openai is None:
-        raise RuntimeError("openai package not available")
-
     depth_suffix = _DEF_PROMPTS.get(depth_norm, _DEF_PROMPTS["Low"])
     message = f"{prompt}\n\n{depth_suffix}"
 
     sel = pick_model(CallHints(stage="exec"))
     logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
-    response = llm_call(
-        openai,
-        sel["model"],
-        stage="exec",
+    result = call_openai(
+        model=sel["model"],
         messages=[
             {"role": "system", "content": f"You are acting as {role}."},
             {"role": "user", "content": message},
         ],
         **sel["params"],
-    )
-    result = response.choices[0].message.content.strip()
+    )["text"]
+    result = (result or "").strip()
     cache.save_result(task_hash, result)
     return result
 

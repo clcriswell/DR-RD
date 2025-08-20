@@ -7,8 +7,7 @@ from typing import List, Dict
 import requests
 from html import unescape
 
-from dr_rd.utils.llm_client import llm_call
-import openai
+from dr_rd.llm_client import call_openai
 
 
 def _strip_html(text: str) -> str:
@@ -54,13 +53,11 @@ def summarize_search(snippets: List[str], model: str | None = None) -> str:
         f"- {s}" for s in snippets
     )
     try:
-        resp = llm_call(
-            openai,
-            model_id,
-            stage="exec",
+        result = call_openai(
+            model=model_id,
             messages=[{"role": "user", "content": prompt}],
         )
-        return resp.choices[0].message.content.strip()
+        return (result["text"] or "").strip()
     except Exception:
         return ""
 

@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from abc import ABC
 
-import openai
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.llm_client import call_openai
 
 
 @dataclass
@@ -29,8 +28,8 @@ class Agent(ABC):
                 ),
             },
         ]
-        resp = llm_call(openai, self.model_id, stage="exec", messages=messages)
-        return resp.choices[0].message.content
+        result = call_openai(model=self.model_id, messages=messages)
+        return result["text"] or ""
 
     def act(self, idea: str, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute the agent for a given task and shared context."""

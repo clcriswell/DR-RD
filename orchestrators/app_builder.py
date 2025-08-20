@@ -2,10 +2,8 @@ from __future__ import annotations
 import json, os, re
 from typing import Dict, Tuple, List
 
-import openai
-
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.llm_client import call_openai
 from app_builder.spec import AppSpec, PageSpec
 from app_builder.codegen import render_streamlit_app
 
@@ -36,14 +34,12 @@ def plan_app_spec(idea: str, packages_extra: List[str] | None = None) -> AppSpec
         {"role": "system", "content": "You turn app ideas into minimal JSON specifications."},
         {"role": "user", "content": PROMPT.format(idea=idea)},
     ]
-    response = llm_call(
-        openai,
-        sel["model"],
-        stage="plan",
+    result = call_openai(
+        model=sel["model"],
         messages=messages,
         **sel.get("params", {})
     )
-    content = response.choices[0].message.content
+    content = result["text"] or ""
     try:
         data = json.loads(content)
     except Exception:
@@ -53,14 +49,12 @@ def plan_app_spec(idea: str, packages_extra: List[str] | None = None) -> AppSpec
             {"role": "system", "content": "Return ONLY valid JSON."},
             messages[1],
         ]
-        response = llm_call(
-            openai,
-            sel["model"],
-            stage="plan",
+        result = call_openai(
+            model=sel["model"],
             messages=retry_messages,
             **sel.get("params", {})
         )
-        content = response.choices[0].message.content
+        content = result["text"] or ""
         try:
             data = json.loads(content)
         except Exception:
