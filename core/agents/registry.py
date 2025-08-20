@@ -1,43 +1,76 @@
 from __future__ import annotations
 
-from typing import Dict, Tuple
-from .base_agent import Agent
+"""Central registry for all concrete agent classes.
+
+This module exposes a mapping from canonical role names to their implementing
+classes. Other parts of the system can look up agent classes here instead of
+maintaining ad-hoc registries.
+"""
+
+from typing import Dict, Tuple, Type, Optional
+
+from .base_agent import LLMRoleAgent as BaseAgent
 
 from .cto_agent import CTOAgent
 from .research_scientist_agent import ResearchScientistAgent
 from .regulatory_agent import RegulatoryAgent
 from .finance_agent import FinanceAgent
-from core.agents.marketing_agent import MarketingAgent
-from core.agents.ip_analyst_agent import IPAnalystAgent
+from .marketing_agent import MarketingAgent
+from .ip_analyst_agent import IPAnalystAgent
+from .planner_agent import PlannerAgent
+from .synthesizer_agent import SynthesizerAgent
 from config.agent_models import AGENT_MODEL_MAP
 
-DEFAULT_EXEC_MODEL = AGENT_MODEL_MAP.get("Research", "gpt-5")
+# ---------------------------------------------------------------------------
+# Canonical registry
+# ---------------------------------------------------------------------------
+
+AGENT_REGISTRY: Dict[str, Type[BaseAgent]] = {
+    "CTO": CTOAgent,
+    "Research Scientist": ResearchScientistAgent,
+    "Regulatory": RegulatoryAgent,
+    "Finance": FinanceAgent,
+    "Marketing Analyst": MarketingAgent,
+    "IP Analyst": IPAnalystAgent,
+    "Planner": PlannerAgent,
+    "Synthesizer": SynthesizerAgent,
+}
+
+
+def get_agent_class(role: str) -> Optional[Type[BaseAgent]]:
+    """Return the agent class for ``role`` if registered."""
+
+    return AGENT_REGISTRY.get(role)
+
+
+# ---------------------------------------------------------------------------
+# Factory utilities for creating commonly used agent instances
+# ---------------------------------------------------------------------------
+
+DEFAULT_EXEC_MODEL = AGENT_MODEL_MAP.get("Research Scientist", "gpt-5")
 AGENT_MODEL_MAP.setdefault(
-    "Marketing Analyst", AGENT_MODEL_MAP.get("Research", DEFAULT_EXEC_MODEL)
+    "Marketing Analyst", AGENT_MODEL_MAP.get("Research Scientist", DEFAULT_EXEC_MODEL)
 )
 AGENT_MODEL_MAP.setdefault(
-    "IP Analyst", AGENT_MODEL_MAP.get("Research", DEFAULT_EXEC_MODEL)
+    "IP Analyst", AGENT_MODEL_MAP.get("Research Scientist", DEFAULT_EXEC_MODEL)
 )
 
 
-def build_agents(mode: str | None = None, models: Dict | None = None) -> Dict[str, Agent]:
-    """Build the core advisory core.agents.
+def build_agents(mode: str | None = None, models: Dict | None = None) -> Dict[str, BaseAgent]:
+    """Instantiate the standard execution-stage agents.
 
-    If ``models`` is supplied (typically from ``config/modes.yaml"), its
-    ``exec`` entry is used as the default model for all execution-stage agents
-    (CTO, Research, Regulatory, Finance, Marketing Analyst, IP Analyst).
-    This allows per-mode model assignments while still falling back to
-    ``config/agent_models.py`` when unspecified.
+    ``models`` may supply per-role model overrides; otherwise ``AGENT_MODEL_MAP``
+    and ``DEFAULT_EXEC_MODEL`` are consulted.
     """
 
     exec_default = (models or {}).get("exec") or AGENT_MODEL_MAP.get(
-        "Research", DEFAULT_EXEC_MODEL
+        "Research Scientist", DEFAULT_EXEC_MODEL
     )
 
     def _m(role: str) -> str:
         if models and role in {
             "CTO",
-            "Research",
+            "Research Scientist",
             "Regulatory",
             "Finance",
             "Marketing Analyst",
@@ -46,14 +79,19 @@ def build_agents(mode: str | None = None, models: Dict | None = None) -> Dict[st
             return models.get("exec", exec_default)
         return AGENT_MODEL_MAP.get(role, exec_default)
 
-    return {
-        "CTO": CTOAgent(_m("CTO")),
-        "Research": ResearchScientistAgent(_m("Research")),
-        "Regulatory": RegulatoryAgent(_m("Regulatory")),
-        "Finance": FinanceAgent(_m("Finance")),
-        "Marketing Analyst": MarketingAgent(_m("Marketing Analyst")),
-        "IP Analyst": IPAnalystAgent(_m("IP Analyst")),
-    }
+    agents: Dict[str, BaseAgent] = {}
+    for role in [
+        "CTO",
+        "Research Scientist",
+        "Regulatory",
+        "Finance",
+        "Marketing Analyst",
+        "IP Analyst",
+    ]:
+        cls = get_agent_class(role)
+        if cls:
+            agents[role] = cls(_m(role))
+    return agents
 
 
 AGENTS = build_agents()
@@ -103,13 +141,13 @@ KEYWORDS = {
     ],
     "Regulatory": ["regulatory", "compliance", "fda", "ce", "iso", "510(k)", "hipaa", "gdpr"],
     "CTO": ["architecture", "system design", "tech strategy", "roadmap"],
-    "Research": [],
+    "Research Scientist": [],
 }
 
 
 def choose_agent_for_task(
-    planned_role: str | None, title: str, agents: Dict[str, Agent]
-) -> Tuple[str, Agent]:
+    planned_role: str | None, title: str, agents: Dict[str, BaseAgent]
+) -> Tuple[str, BaseAgent]:
     # 1) Exact role match
     if planned_role and planned_role in agents:
         return planned_role, agents[planned_role]
@@ -119,11 +157,11 @@ def choose_agent_for_task(
         if role_key in agents and any(w in t for w in words):
             return role_key, agents[role_key]
     # 3) Safe default
-    fallback = core.agents.get("Research") or next(iter(core.agents.values()))
-    return "Research", fallback
+    fallback = agents.get("Research Scientist") or next(iter(agents.values()))
+    return "Research Scientist", fallback
 
 
-def get_agent_for_task(task: str, agents: Dict[str, Agent] | None = None) -> Agent:
+def get_agent_for_task(task: str, agents: Dict[str, BaseAgent] | None = None) -> BaseAgent:
     _, agent = choose_agent_for_task(None, task, agents or AGENTS)
     return agent
 

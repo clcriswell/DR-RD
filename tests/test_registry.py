@@ -14,7 +14,7 @@ def test_agent_mapping_research():
     role, agent = registry.choose_agent_for_task(
         None, "Survey materials and physics literature", agents
     )
-    assert agent.name == "Research" and role == "Research"
+    assert agent.name == "Research Scientist" and role == "Research Scientist"
 
 
 def test_agent_mapping_regulatory():
@@ -44,4 +44,4 @@ def test_agent_exact_role_over_keyword():
 def test_agent_mapping_default():
     agents = registry.build_agents("test")
     role, agent = registry.choose_agent_for_task(None, "Unrecognized task", agents)
-    assert agent.name == "Research" and role == "Research"
+    assert agent.name == "Research Scientist" and role == "Research Scientist"

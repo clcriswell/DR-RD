@@ -7,15 +7,8 @@ from typing import Dict, Tuple, Optional, TYPE_CHECKING
 # Import BaseAgent only for type checking to avoid circular imports.
 if TYPE_CHECKING:  # pragma: no cover - for static typing only
     from core.agents.base_agent import BaseAgent
-# Import the canonical small set that we KNOW take (model) in ctor:
-from core.agents.cto_agent import CTOAgent
-from core.agents.research_scientist_agent import ResearchScientistAgent
-from core.agents.regulatory_agent import RegulatoryAgent
-from core.agents.finance_agent import FinanceAgent
-from core.agents.marketing_agent import MarketingAgent
-from core.agents.ip_analyst_agent import IPAnalystAgent
-from core.agents.planner_agent import PlannerAgent
-from core.agents.synthesizer_agent import SynthesizerAgent
+
+from core.agents.registry import get_agent_class
 
 logger = logging.getLogger("unified_registry")
 
@@ -57,26 +50,42 @@ def build_agents_unified(
         return overrides.get(role) or default_model or resolve_model(role, purpose)
 
     agents: Dict[str, BaseAgent] = {}
-    # Core business roles
-    agents["CTO"] = CTOAgent(_model("CTO"))
-    agents["Research Scientist"] = ResearchScientistAgent(_model("Research Scientist"))
-    agents["Regulatory"] = RegulatoryAgent(_model("Regulatory"))
-    agents["Finance"] = FinanceAgent(_model("Finance"))
-    agents["Marketing Analyst"] = MarketingAgent(_model("Marketing Analyst"))
-    agents["IP Analyst"] = IPAnalystAgent(_model("IP Analyst"))
-    # Planner / Synthesizer
-    agents["Planner"] = PlannerAgent(_model("Planner", "plan"))
-    agents["Synthesizer"] = SynthesizerAgent(_model("Synthesizer", "synth"))
 
-    # Try to import legacy specialist agents, but don’t fail the build if their
-    # constructors differ. They remain available for fallback routing.
-    try:
-        from core.agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
-        agents["Mechanical Systems Lead"] = MechanicalSystemsLeadAgent(resolve_model("Mechanical Systems Lead"))
-    except Exception as e:
-        logger.warning("Could not instantiate legacy agent MechanicalSystemsLeadAgent: %s", e)
+    for role in [
+        "CTO",
+        "Research Scientist",
+        "Regulatory",
+        "Finance",
+        "Marketing Analyst",
+        "IP Analyst",
+        "Planner",
+        "Synthesizer",
+    ]:
+        cls = get_agent_class(role)
+        if not cls:
+            continue
+        purpose = "plan" if role == "Planner" else "synth" if role == "Synthesizer" else "exec"
+        agents[role] = cls(_model(role, purpose))
 
-    # (Repeat pattern for a handful of legacy specialists you still want.)
+    # Try to instantiate optional legacy specialists via the registry
+    for legacy_role in ["Mechanical Systems Lead"]:
+        cls = get_agent_class(legacy_role)
+        if not cls:
+            try:
+                from core.agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent as cls  # type: ignore
+            except Exception as e:  # pragma: no cover - best effort
+                logger.warning(
+                    "Could not instantiate legacy agent %s: %s", legacy_role, e
+                )
+                cls = None
+        if cls:
+            try:
+                agents[legacy_role] = cls(resolve_model(legacy_role))  # type: ignore[arg-type]
+            except Exception as e:  # pragma: no cover - best effort
+                logger.warning(
+                    "Failed to create legacy agent %s with error: %s", legacy_role, e
+                )
+
     return agents
 
 def ensure_canonical_agent_keys(agents: Dict[str, BaseAgent]) -> Dict[str, BaseAgent]:

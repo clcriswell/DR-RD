@@ -6,7 +6,7 @@ class Dummy:
 
 
 def test_unknown_role_does_not_drop(monkeypatch):
-    agents = {"Research": Dummy(), "Finance": Dummy(), "Regulatory": Dummy()}
+    agents = {"Research Scientist": Dummy(), "Finance": Dummy(), "Regulatory": Dummy()}
     # planned role not in agents, but finance keywords route it
     agent, role = choose_agent_for_task(
         "Finance Analyst", "Budget Planning", "ROI and BOM", ["finance"], agents

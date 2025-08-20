@@ -9,13 +9,12 @@ from core.agents import registry
 
 
 def _fake_response(payload: dict):
-    choice = Mock()
-    choice.message = Mock(content=json.dumps(payload))
-    choice.usage = Mock(prompt_tokens=1, completion_tokens=1)
-    return Mock(choices=[choice])
+    raw = Mock()
+    raw.usage = Mock(prompt_tokens=1, completion_tokens=1)
+    return {"raw": raw, "text": json.dumps(payload)}
 
 
-@patch("core.agents.marketing_agent.llm_call")
+@patch("core.agents.marketing_agent.call_openai")
 def test_marketing_agent_contract(mock_call):
     mock_call.return_value = _fake_response(
         {
@@ -39,7 +38,7 @@ def test_marketing_agent_contract(mock_call):
     }
 
 
-@patch("core.agents.ip_analyst_agent.llm_call")
+@patch("core.agents.ip_analyst_agent.call_openai")
 def test_ip_agent_contract(mock_call):
     mock_call.return_value = _fake_response(
         {
