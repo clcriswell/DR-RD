@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 import yaml
 from core.budget import BudgetManager
-from dr_rd.utils.llm_client import llm_call, set_budget_manager
+from core.llm_client import llm_call, set_budget_manager
 
 
 def load_prices():
@@ -26,7 +26,7 @@ def test_budget_no_fallback():
     set_budget_manager(bm)
     mock_create = Mock(return_value=DummyResp())
     client = Mock(chat=Mock(completions=Mock(create=mock_create)))
-    with patch("dr_rd.utils.llm_client.st.session_state", {}):
+    with patch("core.llm_client.st.session_state", {}):
         llm_call(
             client,
             "gpt-5",
@@ -43,7 +43,7 @@ def test_budget_does_not_raise():
     set_budget_manager(bm)
     mock_create = Mock(return_value=DummyResp())
     client = Mock(chat=Mock(completions=Mock(create=mock_create)))
-    with patch("dr_rd.utils.llm_client.st.session_state", {}):
+    with patch("core.llm_client.st.session_state", {}):
         llm_call(
             client,
             "gpt-5",

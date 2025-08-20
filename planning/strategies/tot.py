@@ -22,11 +22,11 @@ from config.feature_flags import (
     TOT_K,
     TOT_MAX_DEPTH,
 )
-from dr_rd.extensions.abcs import BasePlannerStrategy
-from dr_rd.extensions.registry import EvaluatorRegistry, PlannerStrategyRegistry
+from extensions.abcs import BasePlannerStrategy
+from extensions.registry import EvaluatorRegistry, PlannerStrategyRegistry
 
 if EVALUATORS_ENABLED:
-    from dr_rd import evaluators  # noqa: F401
+    import evaluators  # noqa: F401
 
 
 logger = logging.getLogger(__name__)

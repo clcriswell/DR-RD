@@ -1,5 +1,5 @@
 import streamlit as st
-from dr_rd.utils.llm_client import BUDGET
+from core.llm_client import BUDGET
 
 
 def require_budget_or_block():

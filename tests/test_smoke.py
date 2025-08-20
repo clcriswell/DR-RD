@@ -12,8 +12,8 @@ def test_feature_flags_default_false():
 
 
 def test_run_smoke():
-    from dr_rd.hrm_engine import run
+    from core.orchestrator import orchestrate
 
-    result = run("test idea")
-    assert isinstance(result, dict)
+    result = orchestrate("test idea")
+    assert isinstance(result, str)
     assert result

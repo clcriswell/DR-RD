@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from dr_rd.llm_client import call_openai
+from core.llm_client import call_openai
 
 
 def synthesize(idea: str, results_by_role: Dict[str, List[dict]], model_id: str) -> str:

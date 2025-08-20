@@ -1,6 +1,6 @@
 import logging
-from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.llm_client import call_openai
+from core.model_router import pick_model, CallHints
+from core.llm_client import call_openai
 
 def agent_chat(agentA, agentB, idea, outputA, outputB):
     """

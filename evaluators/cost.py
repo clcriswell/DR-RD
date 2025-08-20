@@ -3,8 +3,8 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-import dr_rd.evaluation.llm_rubric as lr
-from dr_rd.extensions.abcs import BaseEvaluator
+import evaluation.llm_rubric as lr
+from extensions.abcs import BaseEvaluator
 
 
 COST_RUBRIC = (

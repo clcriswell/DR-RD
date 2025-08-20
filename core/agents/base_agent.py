@@ -11,10 +11,9 @@ from config.feature_flags import (
 )
 import logging
 import streamlit as st
-from dr_rd.llm_client import call_openai
-from dr_rd.utils.llm_client import log_usage
+from core.llm_client import call_openai, log_usage
 from core.llm import complete
-from dr_rd.core.prompt_utils import coerce_user_content
+from core.prompt_utils import coerce_user_content
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +52,8 @@ class LLMRoleAgent:
 Agent = LLMRoleAgent
 
 try:  # avoid import errors when knowledge package is absent
-    from dr_rd.knowledge.retriever import Retriever
-    from dr_rd.knowledge.faiss_store import build_default_retriever
+    from knowledge.retriever import Retriever
+    from knowledge.faiss_store import build_default_retriever
 except Exception:  # pragma: no cover - fallback when module missing
     Retriever = None  # type: ignore
     build_default_retriever = lambda: None  # type: ignore

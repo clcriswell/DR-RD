@@ -2,7 +2,7 @@ import os
 os.environ.setdefault("OPENAI_API_KEY", "test")
 from unittest.mock import patch, MagicMock
 import core.llm as llm
-import dr_rd.llm_client as lc
+import core.llm_client as lc
 
 
 def make_chat_resp():

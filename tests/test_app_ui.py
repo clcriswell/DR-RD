@@ -132,7 +132,7 @@ def test_run_domain_experts(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "x")
     patches = {
         "core.agents.base_agent.BaseAgent.run": lambda self, idea, task, design_depth="Medium": "out",
-        "dr_rd.utils.llm_client.llm_call": lambda *a, **k: type(
+        "core.llm_client.llm_call": lambda *a, **k: type(
             "R",
             (),
             {

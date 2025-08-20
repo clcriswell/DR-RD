@@ -1,8 +1,7 @@
 from core.agents.base_agent import BaseAgent
 from config.feature_flags import RAG_ENABLED, RAG_TOPK
-from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import log_usage
-from dr_rd.llm_client import call_openai
+from core.model_router import pick_model, CallHints
+from core.llm_client import log_usage, call_openai
 from typing import Optional, Dict, Any, List, Tuple
 import json
 import re
@@ -12,8 +11,8 @@ from prompts.prompts import (
 )
 
 try:
-    from dr_rd.knowledge.retriever import Retriever  # type: ignore
-    from dr_rd.knowledge.faiss_store import build_default_retriever  # type: ignore
+    from knowledge.retriever import Retriever  # type: ignore
+    from knowledge.faiss_store import build_default_retriever  # type: ignore
 except Exception:  # pragma: no cover
     Retriever = None  # type: ignore
     build_default_retriever = lambda: None  # type: ignore

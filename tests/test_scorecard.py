@@ -1,7 +1,7 @@
 import pytest
 
-from dr_rd.evaluation import Scorecard
-from dr_rd.extensions.abcs import BaseEvaluator
+from evaluation import Scorecard
+from extensions.abcs import BaseEvaluator
 
 
 class EvalA(BaseEvaluator):

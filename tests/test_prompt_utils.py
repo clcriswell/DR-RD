@@ -1,4 +1,4 @@
-from dr_rd.core.prompt_utils import coerce_user_content
+from core.prompt_utils import coerce_user_content
 
 
 def test_string_passthrough():

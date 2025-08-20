@@ -1,5 +1,5 @@
 """Built-in evaluators and registration."""
-from dr_rd.extensions.registry import EvaluatorRegistry
+from extensions.registry import EvaluatorRegistry
 
 from .cost import CostEvaluator
 from .feasibility import FeasibilityEvaluator

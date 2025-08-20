@@ -169,12 +169,12 @@ def get_agent_for_task(task: str, agents: Dict[str, BaseAgent] | None = None) ->
 def load_mode_models(mode: str | None = None) -> dict:
     """
     Load per-mode model assignments from config/modes.yaml, install the BudgetManager
-    so dr_rd.utils.llm_client enforces caps, and expose a simple mapping used by
+    so core.llm_client enforces caps, and expose a simple mapping used by
     core.orchestrator.
     """
     import streamlit as st
     from app.config_loader import load_mode
-    from dr_rd.utils.llm_client import set_budget_manager
+    from core.llm_client import set_budget_manager
 
     # Default to deep reasoning profile when no mode is specified
     mode = mode or "deep"

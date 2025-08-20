@@ -2,11 +2,11 @@ import math
 
 import pytest
 
-import dr_rd.evaluation.llm_rubric as lr
-from dr_rd.evaluators.feasibility import FeasibilityEvaluator
-from dr_rd.evaluators.novelty import NoveltyEvaluator
-from dr_rd.evaluators.compliance import ComplianceEvaluator
-from dr_rd.evaluators.cost import CostEvaluator
+import evaluation.llm_rubric as lr
+from evaluators.feasibility import FeasibilityEvaluator
+from evaluators.novelty import NoveltyEvaluator
+from evaluators.compliance import ComplianceEvaluator
+from evaluators.cost import CostEvaluator
 
 
 class FakeWorkspace:

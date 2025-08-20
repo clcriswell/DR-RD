@@ -15,8 +15,8 @@ import os
 import streamlit as st
 
 from core.llm import complete
-from dr_rd.utils.llm_client import log_usage
-from dr_rd.utils.image_visuals import make_visuals_for_project
+from core.llm_client import log_usage
+from utils.image_visuals import make_visuals_for_project
 from prompts.prompts import (
     SYNTHESIZER_TEMPLATE,
     SYNTHESIZER_BUILD_GUIDE_TEMPLATE,
@@ -97,7 +97,7 @@ def compose_final_proposal(
         img_size = flags.get("IMAGES_SIZE", "256x256")
         img_quality = flags.get("IMAGES_QUALITY", "high")
         try:
-            from dr_rd.utils.image_visuals import _openai as _img_openai, _decode_to_bytes, upload_bytes_to_gcs
+            from utils.image_visuals import _openai as _img_openai, _decode_to_bytes, upload_bytes_to_gcs
             client = _img_openai()
             prompt = f"Schematic/appearance concept for dev test: {idea[:160]}"
             res = client.images.generate(
