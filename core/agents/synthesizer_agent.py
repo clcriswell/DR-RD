@@ -17,28 +17,10 @@ import streamlit as st
 from core.llm import complete
 from dr_rd.utils.llm_client import log_usage
 from dr_rd.utils.image_visuals import make_visuals_for_project
-
-_TEMPLATE = """\
-You are a multi-disciplinary R&D lead.
-
-**Goal**: “{idea}”
-
-We have gathered the following domain findings (some may include loop-refined
-addenda separated by "--- *(Loop-refined)* ---"):
-
-{findings_md}
-
-Write a cohesive technical proposal that:
-
-1. Summarizes key insights per domain (concise bullet list each).
-2. Integrates those insights into a unified prototype / development plan.
-3. Calls out any remaining unknowns or recommended next experiments.
-4. Uses clear Markdown with headings:
-   - ## Executive Summary
-   - ## Domain Insights
-   - ## Integrated Prototype Plan
-   - ## Remaining Unknowns
-"""
+from prompts.prompts import (
+    SYNTHESIZER_TEMPLATE,
+    SYNTHESIZER_BUILD_GUIDE_TEMPLATE,
+)
 
 # Default to the deep-research model unless explicitly overridden
 MODEL_SYNTH = os.getenv("MODEL_SYNTH", os.getenv("DRRD_MODEL_SYNTH", "gpt-5")).strip()
@@ -46,7 +28,7 @@ MODEL_SYNTH = os.getenv("MODEL_SYNTH", os.getenv("DRRD_MODEL_SYNTH", "gpt-5")).s
 
 def synthesize(idea: str, answers: Dict[str, str], model: str | None = None) -> str:
     findings_md = "\n".join(f"### {d}\n{answers[d]}" for d in answers)
-    prompt = _TEMPLATE.format(idea=idea, findings_md=findings_md)
+    prompt = SYNTHESIZER_TEMPLATE.format(idea=idea, findings_md=findings_md)
 
     model_id = model or MODEL_SYNTH
     logging.info(f"Model[synth]={model_id}")
@@ -84,12 +66,10 @@ def compose_final_proposal(
     ]
     if include_simulations:
         sections.append("4. Simulation & Test Results (if available)")
-    prompt = (
-        "You are a senior R&D expert. Produce a Prototype Build Guide in Markdown with these sections:\n"
-        + "\n".join(sections)
-        + "\nIntegrate these agent contributions into one cohesive document.\n\n"
-        + f"Project Idea: {idea}\n\n"
-        + f"Agent Contributions:\n{contributions}"
+    prompt = SYNTHESIZER_BUILD_GUIDE_TEMPLATE.format(
+        sections="\n".join(sections),
+        idea=idea,
+        contributions=contributions,
     )
     result = complete(
         "You are an expert R&D writer.",

@@ -1,4 +1,8 @@
 from core.agents.base_agent import BaseAgent
+from prompts.prompts import (
+    FINANCE_SYSTEM_PROMPT,
+    FINANCE_USER_PROMPT_TEMPLATE,
+)
 
 class FinanceAgent(BaseAgent):
     """Financial analyst for budgeting and cost estimates."""
@@ -7,8 +11,6 @@ class FinanceAgent(BaseAgent):
         super().__init__(
             name="Finance",
             model=model,
-            system_message="You evaluate budgets, BOM costs and financial risks.",
-            user_prompt_template=(
-                "Project Idea: {idea}\nAs the Finance lead, your task is {task}."
-            ),
+            system_message=FINANCE_SYSTEM_PROMPT,
+            user_prompt_template=FINANCE_USER_PROMPT_TEMPLATE,
         )

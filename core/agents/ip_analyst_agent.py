@@ -6,6 +6,10 @@ from dr_rd.llm_client import call_openai
 from typing import Optional, Dict, Any, List, Tuple
 import json
 import re
+from prompts.prompts import (
+    IP_ANALYST_SYSTEM_PROMPT,
+    IP_ANALYST_USER_PROMPT_TEMPLATE,
+)
 
 try:
     from dr_rd.knowledge.retriever import Retriever  # type: ignore
@@ -22,15 +26,8 @@ class IPAnalystAgent(BaseAgent):
         super().__init__(
             name="IP Analyst",
             model=model,
-            system_message=(
-                "You are an intellectual-property analyst skilled at prior-art searches, "
-                "novelty assessment, patentability, and freedom-to-operate risk."
-            ),
-            user_prompt_template=(
-                "Project Idea: {idea}\nAs the IP Analyst, your task is {task}. "
-                "Provide an IP analysis in Markdown. "
-                "End with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
-            ),
+            system_message=IP_ANALYST_SYSTEM_PROMPT,
+            user_prompt_template=IP_ANALYST_USER_PROMPT_TEMPLATE,
             retriever=retriever,
         )
 
