@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from dr_rd.core.prompt_utils import coerce_user_content
 from dr_rd.llm_client import call_openai
 
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "o3-deep-research").strip()
+DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5").strip()
 
 
 @dataclass

@@ -23,26 +23,21 @@ logger = logging.getLogger("unified_registry")
 def resolve_model(role: str, purpose: str = "exec") -> str:
     """
     purpose: 'exec' | 'plan' | 'synth'
-    Uses environment overrides to decide model. Defaults:
-    - profile "test" -> gpt-5
-    - profile "pro" -> o3-deep-research
-    - profile "deep" or unset -> o3-deep-research
-    - anything else -> o3-deep-research
+    Uses environment overrides to decide model. Defaults to ``gpt-5`` for all
+    profiles.
     """
     profile = os.getenv("DRRD_PROFILE", "deep").lower()
     if purpose == "plan":
-        default_model = "gpt-5" if profile == "test" else "o3-deep-research"
-        return os.getenv("DRRD_MODEL_PLAN", default_model)
+        return os.getenv("DRRD_MODEL_PLAN", "gpt-5")
     if purpose == "synth":
-        default_model = "gpt-5" if profile == "test" else "o3-deep-research"
-        return os.getenv("DRRD_MODEL_SYNTH", default_model)
+        return os.getenv("DRRD_MODEL_SYNTH", "gpt-5")
     if profile == "test":
         return os.getenv("DRRD_MODEL_EXEC_TEST", "gpt-5")
     if profile == "pro":
-        return os.getenv("DRRD_MODEL_EXEC_PRO", "o3-deep-research")
+        return os.getenv("DRRD_MODEL_EXEC_PRO", "gpt-5")
     if profile == "deep":
-        return os.getenv("DRRD_MODEL_EXEC_DEEP", "o3-deep-research")
-    return os.getenv("DRRD_MODEL_EXEC_EFFICIENT", "o3-deep-research")
+        return os.getenv("DRRD_MODEL_EXEC_DEEP", "gpt-5")
+    return os.getenv("DRRD_MODEL_EXEC_EFFICIENT", "gpt-5")
 
 def build_agents_unified(
     overrides: Dict[str, str] | None = None,

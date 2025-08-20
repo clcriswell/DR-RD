@@ -173,7 +173,7 @@ def resolve_agent_for_role(role: str, agents: dict):
 
     log.info("No concrete agent for role '%s'; using GenericDomainAgent", role)
     base = agents.get("Research Scientist") or agents.get("CTO") or next(iter(agents.values()))
-    model = getattr(base, "model", None) or "o3-deep-research"
+    model = getattr(base, "model", None) or "gpt-5"
     g = GenericDomainAgent(role=role, model=model)
     agents[role] = g
     return g

@@ -26,20 +26,11 @@ def make_resp_resp():
     return resp
 
 
-def test_chat_route():
-    fake = MagicMock()
-    fake.chat.completions.create.return_value = make_chat_resp()
-    with patch.object(lc, "client", fake):
-        res = llm.complete("You are a test.", "Say OK.", model="gpt-4o-mini")
-    assert isinstance(res.content, str)
-    fake.chat.completions.create.assert_called_once()
-
-
 def test_responses_route():
     fake = MagicMock()
     fake.responses.create.return_value = make_resp_resp()
     with patch.object(lc, "client", fake):
-        res = llm.complete("You are a test.", "Say OK.", model="gpt-4.1")
+        res = llm.complete("You are a test.", "Say OK.", model="gpt-5")
     assert isinstance(res.content, str)
     fake.responses.create.assert_called_once()
 
@@ -49,7 +40,7 @@ def test_responses_drops_temperature():
     fake.responses.create.return_value = make_resp_resp()
     with patch.object(lc, "client", fake):
         res = llm.complete(
-            "You are a test.", "Say OK.", model="gpt-4.1", temperature=0.9
+            "You are a test.", "Say OK.", model="gpt-5", temperature=0.9
         )
     assert isinstance(res.content, str)
     fake.responses.create.assert_called_once()

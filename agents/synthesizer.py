@@ -41,7 +41,7 @@ Write a cohesive technical proposal that:
 """
 
 # Default to the deep-research model unless explicitly overridden
-MODEL_SYNTH = os.getenv("MODEL_SYNTH", os.getenv("DRRD_MODEL_SYNTH", "o3-deep-research")).strip()
+MODEL_SYNTH = os.getenv("MODEL_SYNTH", os.getenv("DRRD_MODEL_SYNTH", "gpt-5")).strip()
 
 
 def synthesize(idea: str, answers: Dict[str, str], model: str | None = None) -> str:

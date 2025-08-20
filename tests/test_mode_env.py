@@ -6,7 +6,7 @@ def test_env_selects_deep(monkeypatch):
     st = make_streamlit("", {}, raise_on_stop=True)
     monkeypatch.setenv("DRRD_MODE", "deep")
     reload_app(monkeypatch, st, expect_exit=True)
-    assert st.session_state["MODE_CFG"]["models"]["plan"] == "o3-deep-research"
+    assert st.session_state["MODE_CFG"]["models"]["plan"] == "gpt-5"
 
 
 def test_env_invalid_warns(monkeypatch):

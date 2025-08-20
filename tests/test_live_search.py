@@ -30,7 +30,7 @@ def test_live_search_triggered(monkeypatch):
         return DummyResp('{"role":"IP Analyst","task":"x","findings":[],"risks":[],"next_steps":[]}')
 
     monkeypatch.setattr(ip_agent, "llm_call", fake_agent_llm)
-    agent = ip_agent.IPAnalystAgent(model="gpt-4o-mini", retriever=None)
+    agent = ip_agent.IPAnalystAgent(model="gpt-5", retriever=None)
     out = agent.act("idea", "task")
     assert "# Web Search Results" in captured["prompt"]
     assert out["sources"] == ["T1"]
@@ -63,7 +63,7 @@ def test_no_live_search_with_rag(monkeypatch):
         def query(self, q, k):
             return [("word " * 60, "Doc1")]
 
-    agent = ip_agent.IPAnalystAgent(model="gpt-4o-mini", retriever=DummyRetriever())
+    agent = ip_agent.IPAnalystAgent(model="gpt-5", retriever=DummyRetriever())
     agent.act("idea", "task")
     assert "# Web Search Results" not in captured.get("prompt", "")
     assert called["search"] is False
@@ -90,7 +90,7 @@ def test_live_search_disabled(monkeypatch):
         return DummyResp('{"role":"IP Analyst","task":"x","findings":[],"risks":[],"next_steps":[]}')
 
     monkeypatch.setattr(ip_agent, "llm_call", fake_agent_llm)
-    agent = ip_agent.IPAnalystAgent(model="gpt-4o-mini", retriever=None)
+    agent = ip_agent.IPAnalystAgent(model="gpt-5", retriever=None)
     agent.act("idea", "task")
     assert "# Web Search Results" not in captured.get("prompt", "")
     assert called["search"] is False

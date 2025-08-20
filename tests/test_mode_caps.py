@@ -30,9 +30,6 @@ class DummyClient:
 
 PRICE_TABLE = {
     "models": {
-        "gpt-3.5-turbo": {"in_per_1k": 0.0005, "out_per_1k": 0.0015},
-        "gpt-4o-mini": {"in_per_1k": 0.00060, "out_per_1k": 0.00240},
-        "gpt-4o": {"in_per_1k": 0.00500, "out_per_1k": 0.02000},
         "gpt-5": {"in_per_1k": 0.00125, "out_per_1k": 0.01000},
     }
 }

@@ -241,7 +241,7 @@ def run_pipeline(
 ) -> Tuple[str, Dict[str, List[dict]], List[dict]]:
     """Run iterative planner → specialists → synthesis pipeline."""
     models = load_mode_models(mode)
-    planner_model = models.get("Planner", models.get("default", "gpt-3.5-turbo"))
+    planner_model = models.get("Planner", models.get("default", "gpt-5"))
     planner = PlannerAgent(planner_model)
     agents = build_agents(mode, models=models)
 

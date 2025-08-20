@@ -4,19 +4,19 @@ import streamlit as st
 
 def pick_model(h: CallHints) -> dict:
     if h.stage == "plan":
-        sel = {"model": DEFAULTS["PLANNER"], "repair_model": "gpt-4o-mini", "params": {}}
+        sel = {"model": DEFAULTS["PLANNER"], "repair_model": "gpt-5", "params": {}}
         if h.difficulty == "hard":
-            sel["model"] = "o3-deep-research"
+            sel["model"] = "gpt-5"
     elif h.stage == "exec":
         sel = {"model": DEFAULTS["RESEARCHER"], "params": {}}
         if h.difficulty == "hard":
-            sel["model"] = "o3-deep-research"
+            sel["model"] = "gpt-5"
     elif h.stage == "eval":
         sel = {"model": DEFAULTS["EVALUATOR"], "params": {}}
     elif h.stage == "brain":
         model = DEFAULTS["BRAIN_MODE_LOOP"]
         if h.deep_reasoning:
-            model = "o3-deep-research"
+            model = "gpt-5"
         sel = {"model": model, "params": {}}
     elif h.stage == "synth":
         model = DEFAULTS["SYNTHESIZER"]
@@ -36,7 +36,7 @@ def pick_model(h: CallHints) -> dict:
         if override:
             sel["model"] = override
         else:
-            sel["model"] = flags.get("MODEL_EXEC", "o3-deep-research")
+            sel["model"] = flags.get("MODEL_EXEC", "gpt-5")
         params = sel.get("params", {})
         params["temperature"] = min(0.3, params.get("temperature", 0.3))
         sel["params"] = params

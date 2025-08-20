@@ -29,11 +29,11 @@ def test_budget_no_fallback():
     with patch("dr_rd.utils.llm_client.st.session_state", {}):
         llm_call(
             client,
-            "gpt-4o",
+            "gpt-5",
             stage="exec",
             messages=[{"role": "user", "content": "hi"}],
         )
-    assert mock_create.call_args[1]["model"] == "gpt-4o"
+    assert mock_create.call_args[1]["model"] == "gpt-5"
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
@@ -46,7 +46,7 @@ def test_budget_does_not_raise():
     with patch("dr_rd.utils.llm_client.st.session_state", {}):
         llm_call(
             client,
-            "gpt-3.5-turbo",
+            "gpt-5",
             stage="exec",
             messages=[{"role": "user", "content": "hi"}],
         )

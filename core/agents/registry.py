@@ -11,7 +11,7 @@ from agents.marketing_agent import MarketingAgent
 from agents.ip_analyst_agent import IPAnalystAgent
 from config.agent_models import AGENT_MODEL_MAP
 
-DEFAULT_EXEC_MODEL = AGENT_MODEL_MAP.get("Research", "gpt-3.5-turbo")
+DEFAULT_EXEC_MODEL = AGENT_MODEL_MAP.get("Research", "gpt-5")
 AGENT_MODEL_MAP.setdefault(
     "Marketing Analyst", AGENT_MODEL_MAP.get("Research", DEFAULT_EXEC_MODEL)
 )
@@ -155,8 +155,8 @@ def load_mode_models(mode: str | None = None) -> dict:
     AGENTS = build_agents(mode, models=m)
     # Map planner/synth plus sensible defaults for exec/default
     return {
-        "Planner": m.get("plan", "gpt-3.5-turbo"),
-        "exec": m.get("exec", m.get("plan", "gpt-3.5-turbo")),
-        "synth": m.get("synth", m.get("exec", "gpt-3.5-turbo")),
-        "default": m.get("exec", m.get("plan", "gpt-3.5-turbo")),
+        "Planner": m.get("plan", "gpt-5"),
+        "exec": m.get("exec", m.get("plan", "gpt-5")),
+        "synth": m.get("synth", m.get("exec", "gpt-5")),
+        "default": m.get("exec", m.get("plan", "gpt-5")),
     }

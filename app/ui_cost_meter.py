@@ -25,7 +25,7 @@ def _estimate_remaining(plan: dict | list | None, stage_counts: dict[str, int], 
         remaining = calls - stage_counts.get(stage, 0)
         if remaining <= 0:
             continue
-        model = models.get(stage, models.get("exec", models.get("plan", "gpt-3.5-turbo")))
+        model = models.get(stage, models.get("exec", models.get("plan", "gpt-5")))
         weight = weights.get(stage, 0.0)
         stage_budget = target * weight
         per_call_budget = stage_budget / calls if calls else 0.0

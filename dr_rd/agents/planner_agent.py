@@ -70,9 +70,8 @@ def run_planner(idea: str, model: str, utility_model: Optional[str] = None):
         "temperature": 0.2,
         "presence_penalty": 0,
         "frequency_penalty": 0,
+        "response_format": {"type": "json_object"},
     }
-    if not model.startswith("gpt-4") or model.startswith("gpt-4o"):
-        params["response_format"] = {"type": "json_object"}
 
     resp = llm_call(None, model, "plan", messages, **params)
     raw = extract_text(resp)
@@ -115,7 +114,7 @@ def run_planner(idea: str, model: str, utility_model: Optional[str] = None):
 class PlannerAgent:
     """Lightweight wrapper maintaining backwards compatible interface."""
 
-    def __init__(self, model: str = "o3-deep-research", repair_model: Optional[str] = "o3-deep-research"):
+    def __init__(self, model: str = "gpt-5", repair_model: Optional[str] = "gpt-5"):
         self.model = model
         self.repair_model = repair_model
         self.system_message = SYSTEM
