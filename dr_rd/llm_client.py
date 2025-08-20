@@ -51,11 +51,22 @@ def call_openai(model: str, messages: List[Dict[str, Any]], **kwargs) -> Dict[st
     if "max_tokens" in params and "max_output_tokens" not in params:
         params["max_output_tokens"] = params.pop("max_tokens")
     try:
-        resp = client.responses.create(
-            model=model,
-            input=_to_responses_input(messages),
-            **params,
-        )
+        try:
+            resp = client.responses.create(
+                model=model,
+                input=_to_responses_input(messages),
+                **params,
+            )
+        except TypeError as e:
+            if "response_format" in params:
+                cleaned = {k: v for k, v in params.items() if k != "response_format"}
+                resp = client.responses.create(
+                    model=model,
+                    input=_to_responses_input(messages),
+                    **cleaned,
+                )
+            else:
+                raise
         text = extract_text(resp)
         logger.info("call_openai: used Responses API for %s", model)
         return {"raw": resp, "text": text}

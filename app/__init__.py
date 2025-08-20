@@ -3,6 +3,7 @@ import os, re
 from typing import Optional, List, Dict
 import json
 import logging
+import openai
 from core.roles import normalize_role
 import streamlit as st
 from memory import audit_logger  # import the audit logger
