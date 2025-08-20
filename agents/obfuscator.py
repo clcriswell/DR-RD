@@ -10,10 +10,9 @@ Usage:
 """
 
 from typing import Dict
-import openai
 import logging
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.llm_client import call_openai
 
 SYSTEM_PROMPT = (
     "You are an R&D anonymizer. Given a research TASK and its DOMAIN, "
@@ -27,10 +26,8 @@ def obfuscate_task(domain: str, task: str) -> str:
     """Return an obfuscated version of a single domain task."""
     sel = pick_model(CallHints(stage="exec"))
     logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
-    resp = llm_call(
-        openai,
-        sel["model"],
-        stage="exec",
+    result = call_openai(
+        model=sel["model"],
         temperature=0.5,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -38,4 +35,4 @@ def obfuscate_task(domain: str, task: str) -> str:
         ],
         **sel["params"],
     )
-    return resp.choices[0].message.content.strip()
+    return (result["text"] or "").strip()

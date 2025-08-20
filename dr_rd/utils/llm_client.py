@@ -1,8 +1,7 @@
-"""LLM client with budget awareness."""
-
 from dr_rd.utils.token_meter import TokenMeter
 from core.budget import BudgetManager
 import streamlit as st
+from dr_rd.llm_client import call_openai
 
 METER = TokenMeter()
 BUDGET: BudgetManager | None = None
@@ -24,18 +23,20 @@ def log_usage(stage, model, pt, ct, cost=0.0):
     if "usage_log" not in st.session_state:
         st.session_state["usage_log"] = []
     st.session_state["usage_log"].append(
-        {"stage": stage, "model": model, "pt": pt, "ct": ct, "cost": cost}
+        {"stage": stage, "model": model, "pt": pt, "ct": ct, "cost": cost},
     )
 
 
 def llm_call(client, model_id: str, stage: str, messages: list, **params):
+    """Backward-compatible wrapper around :func:`call_openai`."""
     safe = {k: v for k, v in params.items() if k in ALLOWED_PARAMS}
-
     chosen_model = model_id
+    result = call_openai(model=chosen_model, messages=messages, **safe)
+    resp = result["raw"]
 
-    resp = client.chat.completions.create(model=chosen_model, messages=messages, **safe)
-
-    usage_obj = resp.choices[0].usage if hasattr(resp.choices[0], "usage") else getattr(resp, "usage", None)
+    usage_obj = getattr(resp, "usage", None)
+    if usage_obj is None and getattr(resp, "choices", None):
+        usage_obj = getattr(resp.choices[0], "usage", None)
     if isinstance(usage_obj, dict):
         usage = {
             "prompt_tokens": usage_obj.get("prompt_tokens", 0),

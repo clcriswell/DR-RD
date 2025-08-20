@@ -1,7 +1,6 @@
-import openai
 import logging
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.llm_client import call_openai
 
 def agent_chat(agentA, agentB, idea, outputA, outputB):
     """
@@ -19,14 +18,12 @@ def agent_chat(agentA, agentB, idea, outputA, outputB):
     )
     sel = pick_model(CallHints(stage="exec"))
     logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
-    response = llm_call(
-        openai,
-        sel["model"],
-        stage="exec",
+    result = call_openai(
+        model=sel["model"],
         messages=[{"role": "user", "content": prompt}],
         **sel["params"],
     )
-    content = response.choices[0].message.content.strip()
+    content = (result["text"] or "").strip()
     # Extract updated outputs from the response content
     updated_cto = ""
     updated_rs = ""

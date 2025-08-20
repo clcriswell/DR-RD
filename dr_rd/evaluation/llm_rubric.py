@@ -74,8 +74,7 @@ def score_with_rubric(text: str, rubric: str) -> float:
 
     # Fallback to OpenAI; tests monkeypatch this function so no network call.
     try:  # pragma: no cover - network not exercised in tests
-        import openai  # type: ignore
-        from dr_rd.utils.llm_client import llm_call
+        from dr_rd.llm_client import call_openai
 
         model = (
             os.getenv("DRRD_LLM_MODEL")
@@ -83,10 +82,8 @@ def score_with_rubric(text: str, rubric: str) -> float:
             or "o3-deep-research"
         )
 
-        resp = llm_call(
-            openai,
-            model,
-            stage="eval",
+        result = call_openai(
+            model=model,
             messages=[
                 {"role": "system", "content": "Return only valid JSON."},
                 {"role": "user", "content": prompt},
@@ -94,7 +91,7 @@ def score_with_rubric(text: str, rubric: str) -> float:
             response_format={"type": "json_object"},
             temperature=0,
         )
-        content = resp.choices[0].message.content  # type: ignore[index]
+        content = result["text"] or "{}"
         data: Dict[str, Any] = json.loads(content or "{}")
         score = float(data.get("score", 0.0))
         return _clip(score)

@@ -1,7 +1,6 @@
-import openai
 import logging
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.llm_client import call_openai
 
 
 def refine_agent_output(agent, idea, task, prev_output, other_outputs):
@@ -23,14 +22,12 @@ def refine_agent_output(agent, idea, task, prev_output, other_outputs):
     )
     sel = pick_model(CallHints(stage="exec"))
     logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
-    response = llm_call(
-        openai,
-        sel["model"],
-        stage="exec",
+    result = call_openai(
+        model=sel["model"],
         messages=[
             {"role": "system", "content": agent.system_message},
             {"role": "user", "content": user_prompt}
         ],
         **sel["params"],
     )
-    return response.choices[0].message.content.strip()
+    return (result["text"] or "").strip()

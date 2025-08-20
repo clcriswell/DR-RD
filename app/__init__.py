@@ -5,13 +5,11 @@ import json
 import logging
 from core.roles import normalize_role
 import streamlit as st
-import openai
-from agents.synthesizer import compose_final_proposal
-from memory.memory_manager import MemoryManager
 from memory import audit_logger  # import the audit logger
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
 from agents.simulation_agent import SimulationAgent
+from agents.synthesizer import compose_final_proposal
 import io
 import fitz
 import time
@@ -34,7 +32,8 @@ from dr_rd.agents.hrm_agent import HRMAgent
 from dr_rd.evaluators import feasibility_ev, clarity_ev, coherence_ev, goal_fit_ev
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from dr_rd.utils.model_router import pick_model, difficulty_from_signals, CallHints
-from dr_rd.utils.llm_client import llm_call, METER, set_budget_manager
+from dr_rd.llm_client import call_openai
+from dr_rd.utils.llm_client import METER, set_budget_manager
 from app.ui_cost_meter import render_cost_summary, render_estimator
 from app.config_loader import load_mode
 from core.agents.unified_registry import build_agents_unified
@@ -363,17 +362,15 @@ def run_manual_pipeline(
                 diff = st.session_state.get("difficulty", "normal")
                 sel = pick_model(CallHints(stage="exec", difficulty=diff))
                 logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
-                response = llm_call(
-                    openai,
-                    sel["model"],
-                    stage="exec",
+                result = call_openai(
+                    model=sel["model"],
                     messages=[
                         {"role": "system", "content": agent.system_message},
                         {"role": "user", "content": prompt_with_context},
                     ],
                     **sel["params"],
-                )
-                result = response.choices[0].message.content.strip()
+                )["text"]
+                result = (result or "").strip()
                 update_cost()
             except Exception as e:
                 result = f"❌ {role} failed: {e}"
@@ -436,10 +433,8 @@ def run_manual_pipeline(
                         logging.info(
                             f"Model[exec]={sel['model']} params={sel['params']}"
                         )
-                        revised_response = llm_call(
-                            openai,
-                            sel["model"],
-                            stage="exec",
+                        new_result = call_openai(
+                            model=sel["model"],
                             messages=[
                                 {"role": "system", "content": agent.system_message},
                                 {
@@ -459,9 +454,9 @@ def run_manual_pipeline(
                                 },
                             ],
                             **sel["params"],
-                        )
+                        )["text"]
                         update_cost()
-                        new_result = revised_response.choices[0].message.content.strip()
+                        new_result = (new_result or "").strip()
                     except Exception as e:
                         new_result = result  # if the re-run fails, keep the last result
                     # Run simulation again on the revised output
@@ -1217,10 +1212,8 @@ def main():
                         logging.info(
                             f"Model[plan]={sel['model']} params={sel['params']}"
                         )
-                        planner_resp = llm_call(
-                            openai,
-                            sel["model"],
-                            stage="plan",
+                        planner_text = call_openai(
+                            model=sel["model"],
                             messages=[
                                 {
                                     "role": "system",
@@ -1229,9 +1222,9 @@ def main():
                                 {"role": "user", "content": planner_query},
                             ],
                             **sel["params"],
-                        )
+                        )["text"]
                         update_cost()
-                        planner_text = planner_resp.choices[0].message.content.strip()
+                        planner_text = (planner_text or "").strip()
                         integrate = planner_text.lower().startswith("yes")
                         planner_reason = (
                             planner_text[3:].strip(" .:-")
@@ -1254,10 +1247,8 @@ def main():
                         logging.info(
                             f"Model[exec]={sel['model']} params={sel['params']}"
                         )
-                        revised_resp = llm_call(
-                            openai,
-                            sel["model"],
-                            stage="exec",
+                        revised_output = call_openai(
+                            model=sel["model"],
                             messages=[
                                 {
                                     "role": "system",
@@ -1273,9 +1264,9 @@ def main():
                                 {"role": "user", "content": suggestion_prompt},
                             ],
                             **sel["params"],
-                        )
+                        )["text"]
                         update_cost()
-                        revised_output = revised_resp.choices[0].message.content.strip()
+                        revised_output = (revised_output or "").strip()
                         st.markdown(
                             f"**{role} response:**\n\n{revised_output}",
                             unsafe_allow_html=True,
@@ -1551,15 +1542,12 @@ def main():
             context_bits.append("PROPOSAL: present")
 
         from dr_rd.utils.model_router import pick_model, CallHints
-        from dr_rd.utils.llm_client import llm_call
 
         sel = pick_model(CallHints(stage="exec", deep_reasoning=(selected_mode == "deep")))
         msg = "\n\n".join(context_bits) + f"\n\nUser: {user_msg}"
         try:
-            reply = llm_call(
-                openai,
-                sel["model"],
-                stage="exec",
+            reply = call_openai(
+                model=sel["model"],
                 messages=[
                     {
                         "role": "system",
@@ -1568,7 +1556,8 @@ def main():
                     {"role": "user", "content": msg},
                 ],
                 **sel["params"],
-            ).choices[0].message.content.strip()
+            )["text"]
+            reply = (reply or "").strip()
         except Exception as e:
             reply = f"(assistant error: {e})"
         new_chat = prior_chat + [

@@ -12,20 +12,17 @@ Call:
 """
 
 from typing import Dict
-import openai
 from agents.obfuscator import obfuscate_task
 from agents.router import route
 from dr_rd.utils.model_router import pick_model, CallHints
-from dr_rd.utils.llm_client import llm_call
+from dr_rd.llm_client import call_openai
 
 
 def _needs_follow_up(domain: str, task: str, answer: str) -> str | None:
     """Return a follow-up question *or* None if answer is judged complete."""
     sel = pick_model(CallHints(stage="exec"))
-    review = llm_call(
-        openai,
-        sel["model"],
-        stage="exec",
+    result = call_openai(
+        model=sel["model"],
         temperature=0,
         messages=[
             {
@@ -48,7 +45,7 @@ def _needs_follow_up(domain: str, task: str, answer: str) -> str | None:
         ],
         **sel["params"],
     )
-    proposal = review.choices[0].message.content.strip()
+    proposal = (result["text"] or "").strip()
     return None if proposal.upper().startswith("COMPLETE") else proposal
 
 

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from typing import List, Optional
-
 from pydantic import BaseModel, Field, ValidationError
 import json
+from dr_rd.llm_client import call_openai, extract_text
 
 # Pydantic schema for planner output -------------------------------------------------
 
@@ -18,26 +18,6 @@ class Task(BaseModel):
 
 class Plan(BaseModel):
     tasks: List[Task] = Field(default_factory=list)
-
-
-def llm_call(**kwargs):
-    """Wrapper around the OpenAI chat completions API for easy patching in tests."""
-
-    # If the compatibility shim has been patched, delegate to it.
-    try:  # pragma: no cover - avoids circular import during normal runtime
-        from agents import planner_agent as compat  # type: ignore
-        ext = getattr(compat, "llm_call", None)
-        if ext is not None and ext is not llm_call:
-            return ext(**kwargs)
-    except Exception:  # pragma: no cover - ignore if import fails
-        pass
-
-    try:  # pragma: no cover - best effort fallback if module path changes
-        from dr_rd.utils.openai_client import client  # type: ignore
-    except Exception:  # pragma: no cover - fallback to core client if available
-        from core.llm import client  # type: ignore
-
-    return client.chat.completions.create(**kwargs)
 
 
 def _try_parse_plan(txt: str) -> dict:
@@ -58,13 +38,13 @@ def _repair_to_json(raw_txt: str, model: str) -> str:
         },
     ]
 
-    resp = llm_call(
+    result = call_openai(
         model=model,
         messages=repair_msgs,
         temperature=0.0,
         response_format={"type": "json_object"},
     )
-    return resp.choices[0].message.content or "{}"
+    return result["text"] or "{}"
 
 
 # Prompts ---------------------------------------------------------------------------
@@ -95,11 +75,18 @@ def run_planner(idea: str, model: str, utility_model: Optional[str] = None):
     if not model.startswith("gpt-4") or model.startswith("gpt-4o"):
         params["response_format"] = {"type": "json_object"}
 
-    resp = llm_call(**params)
+    result = call_openai(**params)
+    resp = result["raw"]
 
-    raw = resp.choices[0].message.content or "{}"
-    finish = resp.choices[0].finish_reason
-    usage_obj = resp.choices[0].usage if hasattr(resp.choices[0], "usage") else getattr(resp, "usage", {})
+    raw = result["text"] or "{}"
+    finish = None
+    if getattr(resp, "choices", None):
+        finish = getattr(resp.choices[0], "finish_reason", None)
+        usage_obj = getattr(resp.choices[0], "usage", None)
+    else:
+        usage_obj = getattr(resp, "usage", None)
+        if hasattr(resp, "output") and resp.output:
+            finish = getattr(resp.output[0], "finish_reason", None)
     usage = {
         "prompt_tokens": getattr(usage_obj, "prompt_tokens", 0),
         "completion_tokens": getattr(usage_obj, "completion_tokens", 0),
@@ -149,13 +136,13 @@ class PlannerAgent:
             },
             {"role": "user", "content": json.dumps(workspace)},
         ]
-        resp = llm_call(
+        result = call_openai(
             model=self.repair_model or self.model,
             messages=messages,
             temperature=0.2,
             response_format={"type": "json_object"},
         )
-        raw = resp.choices[0].message.content or "{}"
+        raw = result["text"] or "{}"
         try:
             data = json.loads(raw)
         except Exception:
