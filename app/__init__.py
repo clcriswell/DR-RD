@@ -732,12 +732,7 @@ def main():
     else:
         st.markdown("## Configuration")
 
-    # Optional: display which roles can execute this run
-    exec_roles = sorted(k for k in agents.keys() if k not in ("Planner", "Synthesizer"))
-    if hasattr(sidebar, "markdown") and hasattr(sidebar, "write"):
-        sidebar.markdown("### Executable roles this run")
-        for r in exec_roles:
-            sidebar.write(f"- {r}")
+
 
     import os as _os
 
