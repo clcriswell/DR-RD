@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
 DEFAULTS = {
-    "PLANNER": "o3-deep-research",
-    "RESEARCHER": "o3-deep-research",
-    "EVALUATOR": "o3-deep-research",
-    "SYNTHESIZER": "o3-deep-research",
-    "FINAL_SYNTH": "o3-deep-research",
-    "BRAIN_MODE_LOOP": "o3-deep-research",
+    "PLANNER": "gpt-5",
+    "RESEARCHER": "gpt-5",
+    "EVALUATOR": "gpt-5",
+    "SYNTHESIZER": "gpt-5",
+    "FINAL_SYNTH": "gpt-5",
+    "BRAIN_MODE_LOOP": "gpt-5",
 }
 
 

@@ -19,7 +19,7 @@ ALLOWED_ROLES = set(AGENT_MODEL_MAP.keys()) - {"Planner", "Synthesizer"}
 @patch('agents.planner_agent.llm_call')
 def test_planner_output_validity(mock_llm):
     mock_llm.return_value = make_openai_response('{"Mechanical Systems Lead": "Design the frame"}')
-    agent = PlannerAgent("gpt-4o")
+    agent = PlannerAgent("gpt-5")
     result = agent.run("a quantum entangled laser alignment tool with an FPGA controller", "Develop a plan")
 
     assert isinstance(result, dict)

@@ -17,12 +17,12 @@ AGENTS = [
 ]
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('agents.base_agent.llm_call')
+@patch('agents.base_agent.call_openai')
 @pytest.mark.parametrize("cls", AGENTS)
-def test_agent_output_structure(mock_llm, cls):
+def test_agent_output_structure(mock_call, cls):
     fake_md = "Result\n```json\n{\"key\": 1}\n```"
-    mock_llm.return_value = make_openai_response(fake_md)
-    agent = cls("gpt-4o")
+    mock_call.return_value = {"text": fake_md, "raw": {}}
+    agent = cls("gpt-5")
     result = agent.run("idea", "task")
     stripped = result.strip()
     assert stripped.endswith("```")

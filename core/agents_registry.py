@@ -9,7 +9,7 @@ from agents.research_scientist_agent import ResearchScientistAgent
 from agents.materials_engineer_agent import MaterialsEngineerAgent
 from agents.regulatory_specialist_agent import RegulatorySpecialistAgent
 
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+MODEL = os.getenv("OPENAI_MODEL", "gpt-5").strip()
 
 agents_dict = {
     "HRM": HRMAgent("HRM", MODEL),

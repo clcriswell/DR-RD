@@ -15,7 +15,7 @@ def make_openai_response(text: str):
 @patch('agents.planner_agent.llm_call')
 def test_planner_adds_remediation_task(mock_llm):
     mock_llm.return_value = make_openai_response('{"updated_tasks": []}')
-    agent = PlannerAgent("gpt-4o-mini")
+    agent = PlannerAgent("gpt-5")
     workspace = {"tasks": [], "scorecard": {"overall": EVALUATOR_MIN_OVERALL - 0.1, "metrics": {}}}
     tasks = agent.revise_plan(workspace)
     assert any("Improve" in t["task"] or "Address" in t["task"] for t in tasks)

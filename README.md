@@ -45,8 +45,8 @@ Set the mode via the `DRRD_MODE` environment variable. By default the app runs i
 
 | Mode | Plan model | Exec model | Synth model | max_loops | Notes |
 |------|------------|------------|-------------|-----------|-------|
-| Test | 3.5-turbo | 3.5-turbo | 3.5-turbo | 1 | images disabled |
-| Deep | 4o | 4o | gpt-5 | 5 | images optional |
+| Test | gpt-5 | gpt-5 | gpt-5 | 1 | images disabled |
+| Deep | gpt-5 | gpt-5 | gpt-5 | 5 | images optional |
 
 Images are disabled by default for the Test mode. Deep mode lets users toggle images on or off.
 

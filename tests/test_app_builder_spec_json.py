@@ -6,14 +6,12 @@ from orchestrators.app_builder import plan_app_spec
 
 
 def _make_response(text: str):
-    choice = Mock()
-    choice.message = Mock(content=text)
-    return Mock(choices=[choice])
+    return {"text": text, "raw": {}}
 
 
 @pytest.mark.timeout(30)
-@patch("orchestrators.app_builder.llm_call")
-def test_plan_app_spec_returns_json(mock_llm):
+@patch("orchestrators.app_builder.call_openai")
+def test_plan_app_spec_returns_json(mock_call):
     valid_json = json.dumps(
         {
             "name": "My App",
@@ -22,7 +20,7 @@ def test_plan_app_spec_returns_json(mock_llm):
             "python_packages": ["pandas"],
         }
     )
-    mock_llm.side_effect = [_make_response("not json"), _make_response(valid_json)]
+    mock_call.side_effect = [_make_response("not json"), _make_response(valid_json)]
 
     spec = plan_app_spec("demo idea")
 
@@ -30,5 +28,5 @@ def test_plan_app_spec_returns_json(mock_llm):
     assert spec.description == "Demo"
     assert spec.pages and spec.pages[0].name == "Home"
     assert "pandas" in spec.python_packages
-    assert mock_llm.call_count == 2
+    assert mock_call.call_count == 2
 

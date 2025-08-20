@@ -27,7 +27,7 @@ def test_marketing_agent_contract(mock_call):
             "sources": [],
         }
     )
-    agent = MarketingAgent("gpt-4o-mini")
+    agent = MarketingAgent("gpt-5")
     result = agent.act("idea", "study customers")
     assert set(result.keys()) >= {
         "role",
@@ -51,7 +51,7 @@ def test_ip_agent_contract(mock_call):
             "sources": [],
         }
     )
-    agent = IPAnalystAgent("gpt-4o-mini")
+    agent = IPAnalystAgent("gpt-5")
     result = agent.act("idea", "scan patents")
     assert set(result.keys()) >= {
         "role",

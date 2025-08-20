@@ -130,7 +130,7 @@ def get_agents():
         getattr(AGENT_MODEL_MAP, "get", lambda *_: None)("DEFAULT")
         or os.getenv("OPENAI_MODEL")
         or os.getenv("OPENAI_DEFAULT_MODEL")
-        or "o3-deep-research"
+        or "gpt-5"
     )
     agents = build_agents_unified(
         AGENT_MODEL_MAP if isinstance(AGENT_MODEL_MAP, dict) else {}, default_model

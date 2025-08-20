@@ -11,25 +11,13 @@ def make_openai_response(text: str):
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
 @patch('agents.planner_agent.llm_call')
-def test_planner_agent_returns_dict_without_response_format(mock_llm):
-    """Legacy models should not receive the response_format parameter."""
+def test_planner_agent_uses_response_format(mock_llm):
+    """Modern models should use the response_format parameter."""
     mock_llm.return_value = make_openai_response('{"X": "Y"}')
-    agent = PlannerAgent("gpt-4")
+    agent = PlannerAgent("gpt-5")
     result = agent.run('idea', 'task')
 
     assert result == {"X": "Y"}
-    # Ensure response_format was not supplied for unsupported models
-    _, kwargs = mock_llm.call_args
-    assert "response_format" not in kwargs
-
-
-@patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('agents.planner_agent.llm_call')
-def test_planner_agent_uses_response_format_for_new_models(mock_llm):
-    mock_llm.return_value = make_openai_response('{"X": "Y"}')
-    agent = PlannerAgent("gpt-4o-mini")
-    agent.run('idea', 'task')
-
     _, kwargs = mock_llm.call_args
     assert kwargs.get("response_format") == {"type": "json_object"}
 
@@ -39,7 +27,7 @@ def test_planner_agent_uses_response_format_for_new_models(mock_llm):
 def test_planner_agent_handles_truncated_json(mock_llm):
     text = '{ "A": "B", "C": "D", "E": "F'
     mock_llm.return_value = make_openai_response(text)
-    agent = PlannerAgent("gpt-4o")
+    agent = PlannerAgent("gpt-5")
     result = agent.run('idea', 'task')
 
     assert result == {"A": "B", "C": "D"}

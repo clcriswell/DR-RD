@@ -24,7 +24,7 @@ def test_rag_included_when_enabled(mock_llm, monkeypatch):
     importlib.reload(ff)
     import agents.base_agent as ba
     importlib.reload(ba)
-    agent = ba.BaseAgent("Test", "gpt-4o", "sys", "Task: {task}", retriever=StubRetriever())
+    agent = ba.BaseAgent("Test", "gpt-5", "sys", "Task: {task}", retriever=StubRetriever())
     agent.run("idea", "do something")
     prompt = mock_llm.call_args.kwargs["messages"][1]["content"]
     assert "# RAG Knowledge" in prompt
@@ -41,7 +41,7 @@ def test_rag_skipped_when_disabled(mock_llm, monkeypatch):
     importlib.reload(ff)
     import agents.base_agent as ba
     importlib.reload(ba)
-    agent = ba.BaseAgent("Test", "gpt-4o", "sys", "Task: {task}", retriever=StubRetriever())
+    agent = ba.BaseAgent("Test", "gpt-5", "sys", "Task: {task}", retriever=StubRetriever())
     agent.run("idea", "do something")
     prompt = mock_llm.call_args.kwargs["messages"][1]["content"]
     assert "# RAG Knowledge" not in prompt
@@ -62,7 +62,7 @@ def test_rag_snippet_not_truncated(mock_llm, monkeypatch):
     importlib.reload(ff)
     import agents.base_agent as ba
     importlib.reload(ba)
-    agent = ba.BaseAgent("Test", "gpt-4o", "sys", "Task: {task}", retriever=LongRetriever())
+    agent = ba.BaseAgent("Test", "gpt-5", "sys", "Task: {task}", retriever=LongRetriever())
     agent.run("idea", "do something")
     prompt = mock_llm.call_args.kwargs["messages"][1]["content"]
     assert "one two three four five" in prompt

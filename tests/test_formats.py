@@ -16,7 +16,7 @@ def _res(text):
 
 @patch("agents.base_agent.complete", return_value=_res('{"roles":["CTO"]}'))
 def test_hrm_returns_roles_json(mock_complete):
-    agent = HRMAgent("HRM", "gpt-4o-mini")
+    agent = HRMAgent("HRM", "gpt-5")
     out = agent.act("sys", "idea")
     data = json.loads(out)
     assert isinstance(data.get("roles"), list)
@@ -24,7 +24,7 @@ def test_hrm_returns_roles_json(mock_complete):
 
 @patch("agents.base_agent.complete", return_value=_res('{"tasks":[{"task":"T","domain":"D"}]}'))
 def test_planner_returns_tasks_json(mock_complete):
-    agent = PlannerAgent("Planner", "gpt-4o-mini")
+    agent = PlannerAgent("Planner", "gpt-5")
     out = agent.act("sys", "idea")
     data = json.loads(out)
     assert isinstance(data.get("tasks"), list)
@@ -34,7 +34,7 @@ def test_planner_returns_tasks_json(mock_complete):
 
 @patch("agents.base_agent.complete", return_value=_res('["follow up"]'))
 def test_reflection_returns_list(mock_complete):
-    agent = ReflectionAgent("Reflection", "gpt-4o-mini")
+    agent = ReflectionAgent("Reflection", "gpt-5")
     out = agent.act("sys", "summary")
     data = json.loads(out)
     assert isinstance(data, list)
@@ -42,7 +42,7 @@ def test_reflection_returns_list(mock_complete):
 
 @patch("agents.base_agent.complete", return_value=_res('no further tasks'))
 def test_reflection_returns_no_tasks(mock_complete):
-    agent = ReflectionAgent("Reflection", "gpt-4o-mini")
+    agent = ReflectionAgent("Reflection", "gpt-5")
     out = agent.act("sys", "summary")
     assert out.strip().lower() == "no further tasks"
 
