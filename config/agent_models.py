@@ -1,4 +1,7 @@
 # Static model assignments to reduce cost in DR-RD
+from collections import defaultdict
+
+from config.model_routing import TEST_MODEL_ID, _cheap_default, PRICE_TABLE
 
 AGENT_MODEL_MAP = {
     "Planner": "gpt-5",
@@ -32,3 +35,5 @@ AGENT_MODEL_MAP = {
     "Marketing": "gpt-5",
     "IP": "gpt-5",
 }
+
+TEST_ROLE_MODELS = defaultdict(lambda: TEST_MODEL_ID or _cheap_default(PRICE_TABLE))

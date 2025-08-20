@@ -1,15 +1,16 @@
-"""Helpers to load mode and pricing configuration and create a BudgetManager."""
+"""Helpers to load mode and pricing configuration and create a CostTracker."""
 
 from pathlib import Path
 import os
 import yaml
 import logging
-from core.budget import BudgetManager
+from core.budget import CostTracker
+from config.model_routing import _cheap_default, TEST_MODEL_ID
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
 
-def load_mode(mode: str) -> tuple[dict, BudgetManager]:
+def load_mode(mode: str) -> tuple[dict, CostTracker]:
     modes_path = CONFIG_DIR / "modes.yaml"
     prices_path = Path(os.getenv("PRICES_PATH", CONFIG_DIR / "prices.yaml"))
 
@@ -32,5 +33,9 @@ def load_mode(mode: str) -> tuple[dict, BudgetManager]:
     with open(prices_path) as fh:
         prices = yaml.safe_load(fh) or {}
 
-    budget = BudgetManager(mode_cfg, prices)
+    if mode == "test":
+        cheap = TEST_MODEL_ID or _cheap_default(prices.get("models", {}))
+        mode_cfg["models"] = {s: cheap for s in ["plan", "exec", "synth"]}
+
+    budget = CostTracker(mode_cfg, prices)
     return mode_cfg, budget

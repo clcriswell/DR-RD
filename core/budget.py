@@ -91,3 +91,47 @@ class BudgetManager:
         if stage:
             self.stage_spend[stage] = self.stage_spend.get(stage, 0.0) + cost
         return cost
+
+
+class CostTracker:
+    """Lightweight token cost tracker with BudgetManager's interface."""
+
+    def __init__(self, mode_cfg: Dict, price_table: Dict, safety_margin: float = 0.05):
+        self.price_table: Dict = price_table or {"models": {}}
+        self.stage_weights: Dict[str, float] = mode_cfg.get("stage_weights", {})
+        self.target_cost_usd: float = float(mode_cfg.get("target_cost_usd", 0.0))
+        self.safety_margin: float = safety_margin
+        self.reset_run()
+
+    def reset_run(self) -> None:
+        self.spend = 0.0
+        self.stage_spend = {s: 0.0 for s in self.stage_weights}
+
+    def _price(self, model_id: str) -> Dict[str, float]:
+        models = self.price_table.get("models", {})
+        return models.get(model_id, models.get("default", {"in_per_1k": 0.0, "out_per_1k": 0.0}))
+
+    def cost_of(self, model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
+        p = self._price(model_id)
+        return (prompt_tokens / 1000.0) * p.get("in_per_1k", 0.0) + (
+            completion_tokens / 1000.0
+        ) * p.get("out_per_1k", 0.0)
+
+    def can_afford(self, *args, **kwargs) -> bool:  # pragma: no cover - always true
+        return True
+
+    def reserve(self, *args, **kwargs):  # pragma: no cover - no-op reservation
+        return Reservation("", "", 0, 0, 0.0)
+
+    def consume(
+        self,
+        actual_prompt_tokens: int,
+        actual_completion_tokens: int,
+        model_id: str,
+        stage: Optional[str] = None,
+    ) -> float:
+        cost = self.cost_of(model_id, actual_prompt_tokens, actual_completion_tokens)
+        self.spend += cost
+        if stage:
+            self.stage_spend[stage] = self.stage_spend.get(stage, 0.0) + cost
+        return cost

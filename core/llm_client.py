@@ -90,11 +90,12 @@ def call_openai(model: str, messages: List[Dict[str, Any]], **kwargs) -> Dict[st
     text = extract_text(resp)
     return {"raw": resp, "text": text}
 from core.token_meter import TokenMeter
-from core.budget import BudgetManager
+from core.budget import BudgetManager, CostTracker
 import streamlit as st
 
 METER = TokenMeter()
-BUDGET: BudgetManager | None = None
+BUDGET: BudgetManager | CostTracker | None = None
+ENFORCE_BUDGET = False
 
 ALLOWED_PARAMS = {
     "temperature",
@@ -103,8 +104,8 @@ ALLOWED_PARAMS = {
 }
 
 
-def set_budget_manager(budget: BudgetManager | None) -> None:
-    """Install a :class:`BudgetManager` to enforce spending caps."""
+def set_budget_manager(budget: BudgetManager | CostTracker | None) -> None:
+    """Install a cost tracker for logging only."""
     global BUDGET
     BUDGET = budget
 
@@ -141,14 +142,11 @@ def llm_call(client, model_id: str, stage: str, messages: list, **params):
         }
 
     cost = 0.0
-    try:
-        METER.add_usage(chosen_model, stage, usage)
-        if BUDGET:
-            cost = BUDGET.consume(
-                usage["prompt_tokens"], usage["completion_tokens"], chosen_model, stage=stage
-            )
-    except Exception:
-        pass
+    METER.add_usage(chosen_model, stage, usage)
+    if BUDGET:
+        cost = BUDGET.consume(
+            usage["prompt_tokens"], usage["completion_tokens"], chosen_model, stage=stage
+        )
 
     log_usage(stage, chosen_model, usage["prompt_tokens"], usage["completion_tokens"], cost)
     return resp

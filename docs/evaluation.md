@@ -31,3 +31,7 @@ EvaluatorRegistry.register("my_eval", MyEvaluator)
 
 Once registered and `EVALUATORS_ENABLED` is set, the evaluator will be invoked
 by the orchestrator and its score will contribute to the per‑cycle scorecard.
+
+## Cost tracking
+
+Evaluations run in both **deep** and **test** modes. Runs record token spend via a CostTracker for reporting only—no budget caps are enforced.

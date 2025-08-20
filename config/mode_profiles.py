@@ -11,13 +11,10 @@ PROFILES = {
         "IMAGES_SIZE": "256x256",
     },
 }
-
 PROFILES["test"] = deepcopy(PROFILES["deep"])
+PROFILES["test"]["TEST_MODE"] = True
 
-# Backward compatibility: treat "explore" as "deep"
-PROFILES["explore"] = PROFILES["deep"]
-
-# UI presets baked into the three modes. The app reads these to hide knobs.
+# UI presets baked into the two modes. The app reads these to hide knobs.
 UI_PRESETS = {
     "deep":     {"simulate_enabled": True,  "design_depth": "High",   "refinement_rounds": 3, "rerun_sims_each_round": True,  "estimator": {"exec_tokens": 90000, "help_prob": 0.50}},
 }
