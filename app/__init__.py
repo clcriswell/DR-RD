@@ -11,27 +11,11 @@ from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
 from core.agents.simulation_agent import SimulationAgent
-from core.agents.synthesizer_agent import compose_final_proposal
 import io
 import fitz
-import time
 from markdown_pdf import MarkdownPdf, Section
-from dr_rd.config.feature_flags import (
-    get_env_defaults,
-    EVAL_THRESHOLD,
-    COVERAGE_THRESHOLD,
-    MAX_LAPS,
-    RUN_SOFT_TIME_LIMIT_SEC,
-    AGENT_HRM_ENABLED,
-    AGENT_TOPK,
-    AGENT_MAX_RETRIES,
-    AGENT_THRESHOLD,
-)
+from dr_rd.config.feature_flags import get_env_defaults
 from dr_rd.config.mode_profiles import apply_profile, UI_PRESETS
-from dr_rd.hrm_engine import HRMLoop
-from dr_rd.hrm_bridge import HRMBridge
-from dr_rd.agents.hrm_agent import HRMAgent
-from dr_rd.evaluators import feasibility_ev, clarity_ev, coherence_ev, goal_fit_ev
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
 from dr_rd.utils.model_router import pick_model, difficulty_from_signals, CallHints
 from dr_rd.llm_client import call_openai
@@ -43,37 +27,6 @@ from config.agent_models import AGENT_MODEL_MAP
 from core.orchestrator import generate_plan, execute_plan, compile_proposal
 
 logger = logging.getLogger(__name__)
-
-
-def _ensure_role_coverage(tasks: List[Dict], discovered_roles: List[str]) -> int:
-    """
-    Ensure at least one task exists per discovered role.
-    Adds a minimal seed task if missing.
-    Returns count of tasks added.
-    """
-    if not discovered_roles:
-        return 0
-    have = {normalize_role(t.get("role", "")) or "" for t in tasks}
-    added = 0
-    for r in discovered_roles:
-        nr = normalize_role(r)
-        if not nr:
-            nr = r.strip()
-        if not nr:
-            continue
-        if nr not in have:
-            tasks.append(
-                {
-                    "role": nr,
-                    "title": f"Define initial {nr} workplan",
-                    "description": f"Draft first actionable tasks for {nr} to advance the project.",
-                }
-            )
-            have.add(nr)
-            added += 1
-    if added:
-        logger.info("Coverage added %d tasks to satisfy HRM roles.", added)
-    return added
 
 try:
     from orchestrators.app_builder import build_app_from_idea
@@ -181,26 +134,6 @@ def safe_log_step(project_id, role, step_type, content, success=True):
         audit_logger.log_step(project_id, role, step_type, content, success=success)
     except Exception as e:
         logging.warning(f"Audit logging failed: {e}")
-
-
-def merge_brief(brief, advice_list):
-    brief = dict(brief or {})
-    existing = list(brief.get("help_notes") or [])
-    if advice_list:
-        existing.extend(advice_list if isinstance(advice_list, list) else [advice_list])
-    brief["help_notes"] = existing
-    return brief
-
-
-def extract_json_from_markdown(md: str):
-    """Extract JSON array from a markdown code block."""
-    match = re.search(r"```json\s*(\[.*?\])\s*```", md, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group(1))
-        except json.JSONDecodeError:
-            return []
-    return []
 
 
 def strip_json_block(md: str) -> str:
@@ -634,27 +567,6 @@ def main():
 
     base_agents = get_agents()
     agents = dict(base_agents)
-    if AGENT_HRM_ENABLED and use_firestore:
-        planner = core.agents.get("Planner")
-        synth = core.agents.get("Synthesizer")
-        agents["Planner"] = HRMAgent(
-            planner,
-            [feasibility_ev, clarity_ev],
-            ws,
-            "Planner",
-            top_k=AGENT_TOPK,
-            max_retries=AGENT_MAX_RETRIES,
-            threshold=AGENT_THRESHOLD,
-        )
-        agents["Synthesizer"] = HRMAgent(
-            synth,
-            [coherence_ev, goal_fit_ev],
-            ws,
-            "Synthesizer",
-            top_k=AGENT_TOPK,
-            max_retries=AGENT_MAX_RETRIES,
-            threshold=AGENT_THRESHOLD,
-        )
 
     memory_manager = get_memory_manager()
 
@@ -802,8 +714,6 @@ def main():
 
     last_selected = st.session_state.get("last_selected_project")
     if selected_project != last_selected:
-        st.session_state.pop("hrm_report", None)
-        st.session_state.pop("hrm_state", None)
         if selected_project != "(New Project)":
             if use_firestore:
                 try:
@@ -868,8 +778,6 @@ def main():
                 "images",
                 "project_name",
                 "project_id",
-                "hrm_report",
-                "hrm_state",
                 "project_saved",
             ]:
                 st.session_state.pop(key, None)
@@ -990,59 +898,33 @@ def main():
         re_run_simulations = ui_preset["rerun_sims_each_round"]
 
         if st.button("2⃣ Run All Domain Experts"):
-            brief = {"idea": idea}
-            hrm = HRMBridge(HRMLoop, ws)
-            with st.spinner("🤖 Running plan → execute → evaluate…"):
-                t0 = time.time()
-                tasks = st.session_state.get("plan", [])
-                if not tasks:
-                    tasks = hrm.plan_only(brief)
-                results = execute_plan(idea, tasks)
-                score, notes, cov = hrm.evaluate_only(results)
-                laps = 0
-                while (score < EVAL_THRESHOLD or cov < COVERAGE_THRESHOLD) and laps < MAX_LAPS:
-                    if time.time() - t0 > RUN_SOFT_TIME_LIMIT_SEC:
-                        ws.log("⏱ Soft time limit reached; skipping extra lap")
-                        break
-                    advice = hrm.seek_help_only(brief, results)
-                    brief = merge_brief(brief, advice)
-                    tasks = hrm.plan_only(brief, replan=True)
-                    results = execute_plan(idea, tasks)
-                    score, notes, cov = hrm.evaluate_only(results)
-                    laps += 1
-                final_report = compile_proposal(idea, results)
-                ws.log(f"✅ Final score={score:.2f}")
-            st.session_state["hrm_report"] = final_report
-            st.session_state["hrm_state"] = {"results": results}
-            st.session_state["answers"] = results
-            if use_firestore:
+            with st.spinner("🤖 Running domain experts..."):
                 try:
-                    doc_id = get_project_id()
-                    db.collection("dr_rd_projects").document(doc_id).set(
-                        {"results": st.session_state["answers"], **st.session_state.get("test_marker", {})},
-                        merge=True,
+                    tasks = st.session_state.get("plan", [])
+                    results = execute_plan(idea, tasks)
+                    st.session_state["answers"] = results
+                    if use_firestore:
+                        try:
+                            doc_id = get_project_id()
+                            db.collection("dr_rd_projects").document(doc_id).set(
+                                {"results": results, **st.session_state.get("test_marker", {})},
+                                merge=True,
+                            )
+                        except Exception as e:
+                            logging.error(f"Save results failed: {e}")
+                    render_cost_summary(selected_mode, st.session_state.get("plan"))
+                except openai.OpenAIError as e:
+                    logging.exception("OpenAI error during plan execution: %s", e)
+                    getattr(st, "error", lambda *a, **k: None)(
+                        "Execution failed: Unable to run domain experts. Please check your API key or try again later."
                     )
-                except Exception as e:
-                    logging.error(f"Save results failed: {e}")
-            render_cost_summary(selected_mode, st.session_state.get("plan"))
-            getattr(
-                st, "success", lambda *a, **k: None
-            )("✅ HRM R&D complete!")
-
-    if st.session_state.get("hrm_report"):
-        st.subheader("Final Report")
-        st.markdown(st.session_state["hrm_report"])
-        pdf = generate_pdf(st.session_state["hrm_report"])
-        getattr(
-            st, "download_button", lambda *a, **k: None
-        )(
-            "📄 Download Report",
-            data=pdf,
-            file_name="R&D_Report.pdf",
-            mime="application/pdf",
-        )
-        st.subheader("Results")
-        st.json(st.session_state.get("hrm_state", {}).get("results", {}))
+                except Exception as e:  # pylint: disable=broad-except
+                    logging.exception("Unexpected error during plan execution: %s", e)
+                    getattr(st, "error", lambda *a, **k: None)(
+                        "Execution failed: An unexpected error occurred."
+                    )
+                else:
+                    getattr(st, "success", lambda *a, **k: None)("✅ Domain experts complete!")
 
     if "answers" in st.session_state:
         st.subheader("Domain Expert Outputs")
@@ -1185,52 +1067,18 @@ def main():
             logging.info("User compiled final proposal")
             with st.spinner("🚀 Synthesizing final R&D proposal..."):
                 try:
-                    result = compose_final_proposal(
+                    final_report_text = compile_proposal(
                         idea,
                         st.session_state["answers"],
-                        include_simulations=st.session_state.get(
-                            "simulate_enabled", True
-                        ),
                     )
-                    if isinstance(result, dict) and "document" in result:
-                        final_report_text = result["document"]
-                        st.session_state["images"] = result.get("images", [])
-                    else:
-                        final_report_text = result
-                        st.session_state["images"] = []
                     update_cost()
-                    bom = []
-                    for output in st.session_state["answers"].values():
-                        bom.extend(extract_json_from_markdown(output))
-                    if bom:
-                        bom_md = "|Component|Quantity|Specs|\n|---|---|---|\n"
-                        incomplete_items = []
-                        for item in bom:
-                            name = item.get("name")
-                            quantity = item.get("quantity")
-                            specs = item.get("specs")
-                            if None in (name, quantity, specs):
-                                logging.warning(
-                                    f"Skipping incomplete BOM entry: {item}"
-                                )
-                                incomplete_items.append(item)
-                                continue
-                            bom_md += f"|{name}|{quantity}|{specs}|\n"
-                        if incomplete_items:
-                            st.warning(
-                                f"Skipped incomplete BOM entries: {incomplete_items}"
-                            )
-                        final_report_text = final_report_text.replace(
-                            "## Bill of Materials\n",
-                            f"## Bill of Materials\n\n{bom_md}\n",
-                        )
                     memory_manager.store_project(
                         st.session_state.get("project_name", ""),
                         idea,
                         st.session_state.get("plan_tasks", st.session_state.get("plan", {})),
                         st.session_state["answers"],
                         final_report_text,
-                        st.session_state.get("images", []),
+                        [],
                     )
                 except Exception as e:  # pylint: disable=broad-except
                     getattr(
@@ -1248,40 +1096,11 @@ def main():
                     )
                 except Exception as e:
                     logging.error(f"Save proposal failed: {e}")
-            if use_firestore:
-                try:
-                    doc_id = get_project_id()
-                    images_to_store = []
-                    for im in st.session_state.get("images", []):
-                        item = {k: im.get(k) for k in ("kind", "caption") if im.get(k) is not None}
-                        if im.get("url"):
-                            item["url"] = im["url"]
-                        images_to_store.append(item)
-                    db.collection("dr_rd_projects").document(doc_id).set(
-                        {"images": images_to_store, **st.session_state.get("test_marker", {})},
-                        merge=True,
-                    )
-                except Exception as e:
-                    logging.error(f"Save images failed: {e}")
 
     if "final_doc" in st.session_state:
         st.subheader("📖 Integrated R&D Proposal")
-        st.caption(
-            "Visuals are auto-generated in Deep mode. They’ll also be saved with your project."
-        )
         doc_text = st.session_state["final_doc"]
-        if isinstance(doc_text, dict):
-            imgs = doc_text.get("images")
-            doc_text = doc_text.get("document", "")
-        else:
-            imgs = st.session_state.get("images")
         st.markdown(doc_text)
-        if imgs:
-            st.subheader("Schematics & Visuals")
-            for im in imgs:
-                img_source = im.get("url") or im.get("data")
-                if img_source:
-                    st.image(img_source, caption=im.get("caption", ""))
         pdf_bytes = generate_pdf(doc_text)
         if hasattr(st, "download_button"):
             st.download_button(
