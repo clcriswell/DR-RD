@@ -25,6 +25,26 @@ class ChatResult:
 
 client = OpenAI()
 
+
+def _via_responses(system_prompt: t.Any, user_prompt: t.Any, mdl: str, scrub: dict) -> ChatResult:
+    """Call the Responses API and normalize its output to ChatResult."""
+    resp = client.responses.create(
+        model=mdl,
+        input=[
+            {"role": "system", "content": system_prompt or ""},
+            {"role": "user", "content": user_prompt or ""},
+        ],
+        **scrub,
+    )
+    text_chunks = []
+    for item in getattr(resp, "output", []) or []:
+        if getattr(item, "type", "") == "message":
+            for c in getattr(item, "content", []) or []:
+                if getattr(c, "type", "") == "output_text":
+                    text_chunks.append(getattr(c, "text", ""))
+    content = "".join(text_chunks) if text_chunks else (getattr(resp, "output_text", None) or "")
+    return ChatResult(content=content, raw=resp.model_dump() if hasattr(resp, "model_dump") else resp)
+
 def _log_request(model: str, messages: list, extra: dict):
     try:
         preview = {
@@ -92,27 +112,11 @@ def complete(system_prompt: t.Any, user_prompt: t.Any, *, model: t.Optional[str]
 
     try:
         if mdl in RESPONSES_ONLY:
-            # Use Responses API
-            resp = client.responses.create(
-                model=mdl,
-                input=[{"role": "system", "content": system_prompt or ""}, {"role": "user", "content": user_prompt or ""}],
-                **scrub
-            )
-            # The Responses API returns output in a different shape
-            # Extract plain text
-            text_chunks = []
-            for item in getattr(resp, "output", []) or []:
-                if getattr(item, "type", "") == "message":
-                    for c in getattr(item, "content", []) or []:
-                        if getattr(c, "type", "") == "output_text":
-                            text_chunks.append(getattr(c, "text", ""))
-            content = "".join(text_chunks) if text_chunks else (getattr(resp, "output_text", None) or "")
-            return ChatResult(content=content, raw=resp.model_dump() if hasattr(resp, "model_dump") else resp)
-        else:
-            # Default to Chat Completions
-            resp = client.chat.completions.create(model=mdl, messages=messages, **scrub)
-            content = resp.choices[0].message.content if resp.choices else ""
-            return ChatResult(content=content, raw=resp.model_dump() if hasattr(resp, "model_dump") else resp)
+            return _via_responses(system_prompt, user_prompt, mdl, scrub)
+        # Default to Chat Completions
+        resp = client.chat.completions.create(model=mdl, messages=messages, **scrub)
+        content = resp.choices[0].message.content if resp.choices else ""
+        return ChatResult(content=content, raw=resp.model_dump() if hasattr(resp, "model_dump") else resp)
     except BadRequestError as e:
         _log_400(e)
         msg = str(getattr(e, "message", e)).lower()
@@ -128,5 +132,13 @@ def complete(system_prompt: t.Any, user_prompt: t.Any, *, model: t.Optional[str]
             )
         raise
     except APIStatusError as e:
+        msg = str(getattr(e, "message", e)).lower()
+        if "v1/responses" in msg and mdl not in RESPONSES_ONLY:
+            print(f"[LLM] Model {mdl} requires the Responses API. Retrying with Responses.")
+            try:
+                return _via_responses(system_prompt, user_prompt, mdl, scrub)
+            except Exception as inner:
+                print(f"[LLM] Retry via Responses failed: {inner}")
+                raise
         print(f"[LLM] API status error: {e}")
         raise
