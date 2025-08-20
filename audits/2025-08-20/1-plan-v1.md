@@ -14,6 +14,8 @@ Concept planning artifacts are largely absent. The repository lacks templates, r
 - No `docs/roles/` directory
 - No task plan YAML or JSON under `planning/`
 - No mentions of redaction in planning prompts
+- Failing tests under `tests/audit/test_plan_v1.py`
+
 
 ## Gaps
 - Missing concept brief template
