@@ -27,7 +27,7 @@ def resolve_model(role: str, purpose: str = "exec") -> str:
     - profile "test" -> gpt-5
     - profile "pro" -> o3-deep-research
     - profile "deep" or unset -> o3-deep-research
-    - anything else -> gpt-4o-mini
+    - anything else -> o3-deep-research
     """
     profile = os.getenv("DRRD_PROFILE", "deep").lower()
     if purpose == "plan":
@@ -42,7 +42,7 @@ def resolve_model(role: str, purpose: str = "exec") -> str:
         return os.getenv("DRRD_MODEL_EXEC_PRO", "o3-deep-research")
     if profile == "deep":
         return os.getenv("DRRD_MODEL_EXEC_DEEP", "o3-deep-research")
-    return os.getenv("DRRD_MODEL_EXEC_EFFICIENT", "gpt-4o-mini")
+    return os.getenv("DRRD_MODEL_EXEC_EFFICIENT", "o3-deep-research")
 
 def build_agents_unified(
     overrides: Dict[str, str] | None = None,
