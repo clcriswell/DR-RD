@@ -5,6 +5,7 @@ from dr_rd.agents.planner_agent import (
     Plan,
     SYSTEM,
     USER_TMPL,
+    llm_call,
     run_planner,
     PlannerAgent,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "Plan",
     "SYSTEM",
     "USER_TMPL",
+    "llm_call",
     "run_planner",
     "PlannerAgent",
 ]

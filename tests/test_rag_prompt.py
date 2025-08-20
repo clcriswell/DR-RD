@@ -49,11 +49,10 @@ def test_rag_skipped_when_disabled(mock_llm, monkeypatch):
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
 @patch("dr_rd.utils.llm_client.llm_call")
-def test_rag_snippet_token_truncation(mock_llm, monkeypatch):
+def test_rag_snippet_not_truncated(mock_llm, monkeypatch):
     mock_llm.return_value = make_openai_response("ok")
     monkeypatch.setenv("RAG_ENABLED", "true")
     monkeypatch.setenv("RAG_TOPK", "1")
-    monkeypatch.setenv("RAG_SNIPPET_TOKENS", "3")
 
     class LongRetriever:
         def query(self, text: str, top_k: int):
@@ -66,5 +65,4 @@ def test_rag_snippet_token_truncation(mock_llm, monkeypatch):
     agent = ba.BaseAgent("Test", "gpt-4o", "sys", "Task: {task}", retriever=LongRetriever())
     agent.run("idea", "do something")
     prompt = mock_llm.call_args.kwargs["messages"][1]["content"]
-    assert "one two three" in prompt
-    assert "four" not in prompt
+    assert "one two three four five" in prompt

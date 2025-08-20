@@ -1,5 +1,5 @@
 from agents.base_agent import BaseAgent
-from config.feature_flags import RAG_ENABLED, RAG_TOPK, RAG_SNIPPET_TOKENS
+from config.feature_flags import RAG_ENABLED, RAG_TOPK
 from dr_rd.utils.model_router import pick_model, CallHints
 from dr_rd.utils.llm_client import llm_call, log_usage
 from typing import Optional, Dict, Any, List, Tuple
@@ -45,8 +45,7 @@ class IPAnalystAgent(BaseAgent):
                     bundle_lines = []
                     for i, (text, src) in enumerate(hits, 1):
                         raw = text.replace("\n", " ")
-                        snippet = self._truncate_tokens(raw, RAG_SNIPPET_TOKENS)
-                        bundle_lines.append(f"[{i}] {snippet} ({src})")
+                        bundle_lines.append(f"[{i}] {raw} ({src})")
                         sources.append(src)
                     bundle = "\n".join(bundle_lines)
                     prompt += "\n\n# RAG Knowledge\n" + bundle

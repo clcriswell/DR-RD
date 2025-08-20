@@ -38,7 +38,6 @@ def pick_model(h: CallHints) -> dict:
         else:
             sel["model"] = flags.get("MODEL_EXEC", "o3-deep-research")
         params = sel.get("params", {})
-        params["max_tokens"] = min(800, params.get("max_tokens", 4000))
         params["temperature"] = min(0.3, params.get("temperature", 0.3))
         sel["params"] = params
 
