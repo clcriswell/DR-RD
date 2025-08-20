@@ -843,6 +843,8 @@ def main():
             with st.spinner("📝 Planning..."):
                 tasks = generate_plan(idea)
                 update_cost()
+            if isinstance(tasks, dict):
+                tasks = tasks.get("tasks", [])
             st.session_state["plan"] = tasks
             st.session_state["plan_tasks"] = tasks
             logger.info("Planner tasks: %d", len(tasks))
@@ -887,12 +889,16 @@ def main():
 
     if "plan" in st.session_state:
         st.subheader("Project Plan (Role → Task)")
-        tasks = st.session_state["plan"]
+        raw_tasks = st.session_state["plan"]
+        tasks = raw_tasks.get("tasks", []) if isinstance(raw_tasks, dict) else raw_tasks
         if not tasks:
             getattr(st, "error", lambda *a, **k: None)("Planner returned no valid tasks. Check logs.")
         else:
             for t in tasks:
-                st.json(t)
+                st.write("role:", t.get("role", ""))
+                st.write("title:", t.get("title", ""))
+                st.write("description:", t.get("description", ""))
+                st.write("")
 
         refinement_rounds = ui_preset["refinement_rounds"]
         simulate_enabled = st.session_state.get("simulate_enabled", True)
