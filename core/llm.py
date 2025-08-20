@@ -13,10 +13,10 @@ RESPONSES_ONLY = {
 
 # Models known to work with Chat Completions (not exhaustive).
 CHAT_COMPAT = {
-    "gpt-4o", "gpt-4o-mini", "gpt-4o-audio-preview", "gpt-3.5-turbo"
+    "gpt-4o", "o3-deep-research", "gpt-4o-audio-preview", "gpt-3.5-turbo"
 }
 
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "o3-deep-research").strip()
 
 @dataclass
 class ChatResult:
@@ -120,9 +120,9 @@ def complete(system_prompt: t.Any, user_prompt: t.Any, *, model: t.Optional[str]
     except BadRequestError as e:
         _log_400(e)
         msg = str(getattr(e, "message", e)).lower()
-        if "model" in msg and mdl != "gpt-4o-mini":
-            print("[LLM] Retrying with gpt-4o-mini due to model error")
-            return complete(system_prompt, user_prompt, model="gpt-4o-mini", **kwargs)
+        if "model" in msg and mdl != "o3-deep-research":
+            print("[LLM] Retrying with o3-deep-research due to model error")
+            return complete(system_prompt, user_prompt, model="o3-deep-research", **kwargs)
         # Help the user if they picked a Responses-only model by mistake
         if mdl in RESPONSES_ONLY:
             print(f"[LLM] Model {mdl} requires the Responses API. We routed correctly. Check other parameters.")
