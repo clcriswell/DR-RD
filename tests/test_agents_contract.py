@@ -1,14 +1,21 @@
+import json
+
 from core.agents.research_scientist_agent import ResearchScientistAgent
+from core.agents import base_agent
+
+
+def _res(text):
+    return type("R", (), {"content": text})()
 
 
 def test_agent_output_contract(monkeypatch):
     agent = ResearchScientistAgent("gpt-5")
     sample = (
-        '{"role": "Research", "task": "t", '
+        '{"role": "Research Scientist", "task": "t", '
         '"findings": ["f"], "risks": ["r"], "next_steps": ["n"], "sources": []}'
     )
-    monkeypatch.setattr(agent, "_call_openai", lambda idea, task, context: sample)
-    result = agent.act("idea", "t")
+    monkeypatch.setattr(base_agent, "complete", lambda s, u, **k: _res(sample))
+    result = json.loads(agent.act("idea", "t"))
     assert set(result.keys()) >= {
         "role",
         "task",
