@@ -22,10 +22,10 @@ from config.mode_profiles import apply_profile, UI_PRESETS
 from utils.firestore_workspace import FirestoreWorkspace as WS
 from core.model_router import pick_model, difficulty_from_signals, CallHints
 from core.llm_client import call_openai, METER, set_budget_manager
-from app.ui_cost_meter import render_cost_summary, render_estimator
+from app.ui_cost_meter import render_cost_summary
 from app.config_loader import load_mode
 from core.agents.unified_registry import build_agents_unified
-from config.agent_models import AGENT_MODEL_MAP
+from config.agent_models import AGENT_MODEL_MAP, TEST_ROLE_MODELS
 from core.orchestrator import generate_plan, execute_plan, compile_proposal
 
 logger = logging.getLogger(__name__)
@@ -77,21 +77,17 @@ def setup_logging():
 @cache_resource
 def get_agents():
     """Create and return the initialized agents using the core registry."""
+    use_test = st.session_state.get("MODE") == "test"
+    mapping = TEST_ROLE_MODELS if use_test else AGENT_MODEL_MAP
     default_model = (
-        getattr(AGENT_MODEL_MAP, "get", lambda *_: None)("DEFAULT")
+        mapping.get("DEFAULT")
         or os.getenv("OPENAI_MODEL")
         or os.getenv("OPENAI_DEFAULT_MODEL")
         or "gpt-5"
     )
-    agents = build_agents_unified(
-        AGENT_MODEL_MAP if isinstance(AGENT_MODEL_MAP, dict) else {}, default_model
-    )
-    agents["Planner"] = PlannerAgent(
-        getattr(AGENT_MODEL_MAP, "get", lambda *_: None)("Planner") or default_model
-    )
-    agents["Synthesizer"] = SynthesizerAgent(
-        getattr(AGENT_MODEL_MAP, "get", lambda *_: None)("Synthesizer") or default_model
-    )
+    agents = build_agents_unified(mapping, default_model)
+    agents["Planner"] = PlannerAgent(mapping.get("Planner") or default_model)
+    agents["Synthesizer"] = SynthesizerAgent(mapping.get("Synthesizer") or default_model)
     logger.info("Registered agents (unified): %s", sorted(agents.keys()))
     return agents
 
@@ -646,8 +642,6 @@ def main():
     except Exception as _e:
         # Keep running without a budget if config is missing; log only
         logging.info(f"Budget manager not installed: {str(_e)}")
-    from app.safety import require_budget_or_block
-    require_budget_or_block()
     if selected_mode == "test":
         st.info(
             "**Test (dev)** is ON: minimal tokens, capped domains, tiny image, truncated outputs."
@@ -658,7 +652,7 @@ def main():
     import config.feature_flags as ff
     for k, v in final_flags.items():
         setattr(ff, k, v)
-    if selected_mode.lower() in ("deep", "pro"):
+    if selected_mode == "deep":
         _os.environ.setdefault("HRM_ROLE_DISCOVERY", "true")
     ui_preset = UI_PRESETS[selected_mode]
     st.session_state["simulate_enabled"] = ui_preset["simulate_enabled"]
@@ -811,7 +805,6 @@ def main():
     if similar_ideas:
         st.info("Found similar past projects: " + ", ".join(similar_ideas))
 
-    render_estimator(selected_mode, st.session_state.get("idea", ""))
 
     disable_btn = not project_name or duplicate
     try:
