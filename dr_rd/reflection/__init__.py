@@ -1,1 +1,1 @@
-"""Reflection utilities for meta agents."""
+"""Reflection utilities for meta core.agents."""

@@ -1,1 +1,1 @@
-from agents.research_scientist_agent import ResearchScientistAgent  # noqa: F401
+from core.agents.research_scientist_agent import ResearchScientistAgent  # noqa: F401

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def get_agents():
     agents = build_agents_unified()
     agents = ensure_canonical_agent_keys(agents)
-    logger.info("Registered agents (unified): %s", sorted(agents.keys()))
+    logger.info("Registered agents (unified): %s", sorted(core.agents.keys()))
     return agents
 
 FALLBACK_ORDER = ["Research Scientist","Research","AI R&D Coordinator","Mechanical Systems Lead"]
@@ -18,7 +18,7 @@ def _pick_default_agent(agents: dict):
     for k in FALLBACK_ORDER:
         if k in agents:
             return k, agents[k]
-    k = next(iter(agents.keys()))
+    k = next(iter(core.agents.keys()))
     return k, agents[k]
 
 
@@ -34,7 +34,7 @@ def route_tasks(tasks_any, agents):
             agent, rr = choose_agent_for_task(role, title, agents)
         if not agent:
             low = (title + " " + desc).lower()
-            agent = agents.get("Marketing Analyst") if "market" in low else None
+            agent = core.agents.get("Marketing Analyst") if "market" in low else None
             rr = "Marketing Analyst" if agent else role
         if not agent:
             rr, agent = _pick_default_agent(agents)

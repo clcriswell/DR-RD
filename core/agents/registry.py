@@ -7,8 +7,8 @@ from .cto_agent import CTOAgent
 from .scientist_agent import ResearchScientistAgent
 from .regulatory_agent import RegulatoryAgent
 from .finance_agent import FinanceAgent
-from agents.marketing_agent import MarketingAgent
-from agents.ip_analyst_agent import IPAnalystAgent
+from core.agents.marketing_agent import MarketingAgent
+from core.agents.ip_analyst_agent import IPAnalystAgent
 from config.agent_models import AGENT_MODEL_MAP
 
 DEFAULT_EXEC_MODEL = AGENT_MODEL_MAP.get("Research", "gpt-5")
@@ -21,7 +21,7 @@ AGENT_MODEL_MAP.setdefault(
 
 
 def build_agents(mode: str | None = None, models: Dict | None = None) -> Dict[str, Agent]:
-    """Build the core advisory agents.
+    """Build the core advisory core.agents.
 
     If ``models`` is supplied (typically from ``config/modes.yaml"), its
     ``exec`` entry is used as the default model for all execution-stage agents
@@ -119,7 +119,7 @@ def choose_agent_for_task(
         if role_key in agents and any(w in t for w in words):
             return role_key, agents[role_key]
     # 3) Safe default
-    fallback = agents.get("Research") or next(iter(agents.values()))
+    fallback = core.agents.get("Research") or next(iter(core.agents.values()))
     return "Research", fallback
 
 

@@ -9,7 +9,7 @@ def test_optimizer_finds_best(monkeypatch):
 
     # Reload config and agent to pick up env vars
     import config.feature_flags as ff
-    import agents.simulation_agent as sa
+    import core.agents.simulation_agent as sa
     import dr_rd.simulation.design_space as ds
     importlib.reload(ff)
     importlib.reload(sa)

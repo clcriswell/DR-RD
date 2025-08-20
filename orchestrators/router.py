@@ -3,7 +3,7 @@ import re
 import logging
 import importlib, inspect, pkgutil
 
-from agents.generic_domain_agent import GenericDomainAgent
+from core.agents.generic_domain_agent import GenericDomainAgent
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def _alias_role(role: str) -> str:
 
 
 # Attempt to import a specialist agent class matching the role.
-# Strategy: convert role to CamelCase + 'Agent', then scan agents.* modules.
+# Strategy: convert role to CamelCase + 'Agent', then scan core.agents.* modules.
 def _try_load_specialist_class(role: str) -> Optional[type]:
     if not role:
         return None
@@ -60,8 +60,8 @@ def _try_load_specialist_class(role: str) -> Optional[type]:
     class_guess = "".join(w.capitalize() for w in tokens) + "Agent"
     try:
         import agents
-        for m in pkgutil.iter_modules(agents.__path__):
-            mod = importlib.import_module(f"agents.{m.name}")
+        for m in pkgutil.iter_modules(core.agents.__path__):
+            mod = importlib.import_module(f"core.agents.{m.name}")
             for name, obj in inspect.getmembers(mod, inspect.isclass):
                 # exact match first
                 if name.lower() == class_guess.lower():
@@ -153,14 +153,14 @@ def resolve_agent_for_role(role: str, agents: dict):
     if role in agents:
         return agents[role]
     if not role:
-        base = agents.get("Research Scientist") or agents.get("CTO") or next(iter(agents.values()))
+        base = core.agents.get("Research Scientist") or core.agents.get("CTO") or next(iter(core.agents.values()))
         return base
 
     # Try to preload a specialist class if available
     try:
         Specialist = _try_load_specialist_class(role)
         if Specialist is not None:
-            base = agents.get("Research Scientist") or agents.get("CTO")
+            base = core.agents.get("Research Scientist") or core.agents.get("CTO")
             kw = {}
             if base and hasattr(base, "model"):
                 kw["model"] = getattr(base, "model")
@@ -172,7 +172,7 @@ def resolve_agent_for_role(role: str, agents: dict):
         log.exception("Specialist preload failed for role '%s'", role)
 
     log.info("No concrete agent for role '%s'; using GenericDomainAgent", role)
-    base = agents.get("Research Scientist") or agents.get("CTO") or next(iter(agents.values()))
+    base = core.agents.get("Research Scientist") or core.agents.get("CTO") or next(iter(core.agents.values()))
     model = getattr(base, "model", None) or "gpt-5"
     g = GenericDomainAgent(role=role, model=model)
     agents[role] = g

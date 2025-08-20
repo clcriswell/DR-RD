@@ -2,8 +2,8 @@ import types
 import importlib
 
 import config.feature_flags as ff
-import agents.base_agent as ba
-import agents.ip_analyst_agent as ip_agent
+import core.agents as core.agents.base_agent as ba
+import core.agents as core.agents.ip_analyst_agent as ip_agent
 
 
 class DummyResp:

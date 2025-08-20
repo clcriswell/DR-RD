@@ -1,13 +1,21 @@
-from .base_agent import Agent
+from core.agents.base_agent import BaseAgent
 
-
-class RegulatoryAgent(Agent):
-    """Compliance and regulatory advisor."""
-
-    def __init__(self, model_id: str, name: str = "Regulatory"):
+"""Regulatory Agent for compliance and standards analysis."""
+class RegulatoryAgent(BaseAgent):
+    """Agent that ensures the project meets regulatory and compliance requirements."""
+    def __init__(self, model):
         super().__init__(
-            name=name,
-            role="Regulatory Specialist",
-            model_id=model_id,
-            system_prompt="You ensure compliance with standards such as FDA, ISO and FCC.",
+            name="Regulatory",
+            model=model,
+            system_message=(
+                "You are a regulatory compliance expert with knowledge of industry standards and laws. "
+                "You provide detailed compliance analysis, referencing standards and guidelines. "
+                "You justify how the design meets (or needs modifications to meet) each requirement and adjust recommendations if testing/simulation reveals new issues."
+            ),
+            user_prompt_template=(
+                "Project Idea: {idea}\nAs the Regulatory expert, your task is {task}. "
+                "Provide a thorough analysis of regulatory requirements and compliance steps in Markdown format, including any certifications or standards needed, and mapping of system components to regulations. "
+                "Include justification for each compliance recommendation (e.g., why a certain standard applies). "
+                "Conclude with a JSON checklist of regulatory steps and compliance requirements."
+            ),
         )

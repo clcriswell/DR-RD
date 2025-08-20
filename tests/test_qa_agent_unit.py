@@ -1,5 +1,5 @@
 import os, tempfile, textwrap
-from agents.qa_agent import syntax_check, detect_imports, patch_requirements, write_smoke_test
+from core.agents.qa_agent import syntax_check, detect_imports, patch_requirements, write_smoke_test
 
 def test_syntax_and_imports_minimal():
     with tempfile.TemporaryDirectory() as d:

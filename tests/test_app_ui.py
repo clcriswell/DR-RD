@@ -103,7 +103,7 @@ def test_generate_plan_updates_state(monkeypatch):
         {"1⃣ Generate Research Plan": True},
     )
     patches = {
-        "agents.planner_agent.PlannerAgent.run": (
+        "core.agents.planner_agent.PlannerAgent.run": (
             lambda self, idea, task, difficulty="normal": [
                 {"role": "CTO", "title": "t1", "description": "d1"},
                 {"role": "X", "title": "t2", "description": "d2"},
@@ -131,7 +131,7 @@ def test_run_domain_experts(monkeypatch):
     )
     monkeypatch.setenv("OPENAI_API_KEY", "x")
     patches = {
-        "agents.base_agent.BaseAgent.run": lambda self, idea, task, design_depth="Medium": "out",
+        "core.agents.base_agent.BaseAgent.run": lambda self, idea, task, design_depth="Medium": "out",
         "dr_rd.utils.llm_client.llm_call": lambda *a, **k: type(
             "R",
             (),
@@ -141,7 +141,7 @@ def test_run_domain_experts(monkeypatch):
                 ]
             },
         )(),
-        "agents.synthesizer.complete": lambda *a, **k: type(
+        "core.agents.synthesizer.complete": lambda *a, **k: type(
             "R", (), {"content": "out", "raw": {}}
         )(),
     }
@@ -157,7 +157,7 @@ def test_compile_final_proposal(monkeypatch):
         state=state,
     )
     patches = {
-        "agents.synthesizer.compose_final_proposal": (
+        "core.agents.synthesizer.compose_final_proposal": (
             lambda idea, answers, include_simulations=False: {"document": "final", "images": []}
         )
     }

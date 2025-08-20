@@ -10,8 +10,8 @@ from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
-from agents.simulation_agent import SimulationAgent
-from agents.synthesizer import compose_final_proposal
+from core.agents.simulation_agent import SimulationAgent
+from core.agents.synthesizer import compose_final_proposal
 import io
 import fitz
 import time
@@ -43,8 +43,8 @@ from config.agent_models import AGENT_MODEL_MAP
 from orchestrators.plan_utils import normalize_plan_to_tasks
 from orchestrators.router import choose_agent_for_task
 from core.plan_utils import normalize_tasks
-from agents.planner_agent import PlannerAgent
-from agents.synthesizer import SynthesizerAgent
+from core.agents.planner_agent import PlannerAgent
+from core.agents.synthesizer import SynthesizerAgent
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +85,8 @@ except Exception:
     build_app_from_idea = None  # optional feature
 
 try:
-    from agents.qa_agent import qa_all
-    from agents.publisher_agent import make_zip_bytes, write_publishing_md, try_create_github_repo
+    from core.agents.qa_agent import qa_all
+    from core.agents.publisher_agent import make_zip_bytes, write_publishing_md, try_create_github_repo
 except Exception:
     qa_all = None
     make_zip_bytes = write_publishing_md = try_create_github_repo = None
@@ -141,7 +141,7 @@ def get_agents():
     agents["Synthesizer"] = SynthesizerAgent(
         getattr(AGENT_MODEL_MAP, "get", lambda *_: None)("Synthesizer") or default_model
     )
-    logger.info("Registered agents (unified): %s", sorted(agents.keys()))
+    logger.info("Registered agents (unified): %s", sorted(core.agents.keys()))
     return agents
 
 
@@ -683,8 +683,8 @@ def main():
     base_agents = get_agents()
     agents = dict(base_agents)
     if AGENT_HRM_ENABLED and use_firestore:
-        planner = agents.get("Planner")
-        synth = agents.get("Synthesizer")
+        planner = core.agents.get("Planner")
+        synth = core.agents.get("Synthesizer")
         agents["Planner"] = HRMAgent(
             planner,
             [feasibility_ev, clarity_ev],
@@ -983,7 +983,7 @@ def main():
                 dynamic_roles = None
                 if HRM_ON:
                     try:
-                        from agents.hrm_role_agent import HRMRoleAgent
+                        from core.agents.hrm_role_agent import HRMRoleAgent
                         hrm = HRMRoleAgent()
                         dynamic_roles = hrm.discover_roles(idea)
                     except Exception as e:
@@ -1194,8 +1194,8 @@ def main():
 
                 if submit_clicked:
                     try:
-                        planner_agent = agents.get("Planner")
-                        domain_agent = agents.get(role)
+                        planner_agent = core.agents.get("Planner")
+                        domain_agent = core.agents.get(role)
                         orig_output = output
                         role_task = next(
                             (

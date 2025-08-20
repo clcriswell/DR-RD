@@ -1,1 +1,1 @@
-from agents.synthesizer import SynthesizerAgent  # noqa: F401
+from core.agents.synthesizer import SynthesizerAgent  # noqa: F401

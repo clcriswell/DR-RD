@@ -1,6 +1,6 @@
 from unittest.mock import patch
 import pytest
-from agents.simulation_agent import SimulationAgent
+from core.agents.simulation_agent import SimulationAgent
 from simulation.simulation_manager import SimulationManager
 
 @pytest.fixture

@@ -1,9 +1,9 @@
 from unittest.mock import Mock, patch
 import os
 import pytest
-from agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
-from agents.optical_systems_engineer_agent import OpticalSystemsEngineerAgent
-from agents.ai_rd_coordinator_agent import AIResearchDevelopmentCoordinatorAgent
+from core.agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
+from core.agents.optical_systems_engineer_agent import OpticalSystemsEngineerAgent
+from core.agents.ai_rd_coordinator_agent import AIResearchDevelopmentCoordinatorAgent
 
 def make_openai_response(text: str):
     mock_choice = Mock()
@@ -17,7 +17,7 @@ AGENTS = [
 ]
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('agents.base_agent.call_openai')
+@patch('core.agents.base_agent.call_openai')
 @pytest.mark.parametrize("cls", AGENTS)
 def test_agent_output_structure(mock_call, cls):
     fake_md = "Result\n```json\n{\"key\": 1}\n```"
