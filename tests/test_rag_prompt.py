@@ -22,7 +22,7 @@ def test_rag_included_when_enabled(mock_llm, monkeypatch):
     monkeypatch.setenv("RAG_TOPK", "2")
     import config.feature_flags as ff
     importlib.reload(ff)
-    import agents.base_agent as ba
+    import core.agents.base_agent as ba
     importlib.reload(ba)
     agent = ba.BaseAgent("Test", "gpt-5", "sys", "Task: {task}", retriever=StubRetriever())
     agent.run("idea", "do something")
@@ -39,7 +39,7 @@ def test_rag_skipped_when_disabled(mock_llm, monkeypatch):
     monkeypatch.setenv("RAG_ENABLED", "false")
     import config.feature_flags as ff
     importlib.reload(ff)
-    import agents.base_agent as ba
+    import core.agents.base_agent as ba
     importlib.reload(ba)
     agent = ba.BaseAgent("Test", "gpt-5", "sys", "Task: {task}", retriever=StubRetriever())
     agent.run("idea", "do something")
@@ -60,7 +60,7 @@ def test_rag_snippet_not_truncated(mock_llm, monkeypatch):
 
     import config.feature_flags as ff
     importlib.reload(ff)
-    import agents.base_agent as ba
+    import core.agents.base_agent as ba
     importlib.reload(ba)
     agent = ba.BaseAgent("Test", "gpt-5", "sys", "Task: {task}", retriever=LongRetriever())
     agent.run("idea", "do something")

@@ -5,7 +5,7 @@ Rewrites each domain-specific task so external APIs never see the
 user’s full project intent.
 
 Usage:
-    from agents.obfuscator import obfuscate_task
+    from core.agents.obfuscator import obfuscate_task
     anon = obfuscate_task("Physics", "Determine lift-to-drag ratio for…")
 """
 

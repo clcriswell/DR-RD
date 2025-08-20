@@ -63,7 +63,7 @@ class CognitiveOrchestrator:
     def seek_help(self) -> List[Dict[str, Any]]:
         inputs: List[Dict[str, Any]] = []
         for role in ("CTO", "ResearchScientist", "Engineer"):
-            agent = self.agents.get(role)
+            agent = self.core.agents.get(role)
             if not agent:
                 continue
             try:

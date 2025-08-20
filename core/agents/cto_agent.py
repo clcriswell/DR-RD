@@ -1,13 +1,16 @@
-from .base_agent import Agent
+from core.agents.base_agent import LLMRoleAgent
 
 
-class CTOAgent(Agent):
-    """Technical strategy and architecture expert."""
-
-    def __init__(self, model_id: str, name: str = "CTO"):
-        super().__init__(
-            name=name,
-            role="CTO",
-            model_id=model_id,
-            system_prompt="You are a CTO focusing on architecture, scalability, and technical risks.",
-        )
+class CTOAgent(LLMRoleAgent):
+    def act(self, idea, task=None, **kwargs) -> str:
+        if isinstance(task, dict):
+            system_prompt = (
+                "You are the CTO. Assess feasibility, architecture, and risks. Return clear, structured guidance."
+            )
+            user_prompt = (
+                f"Project Idea:\n{idea}\n\n"
+                f"Task Title:\n{task.get('title','')}\n\n"
+                f"Task Description:\n{task.get('description','')}"
+            )
+            return super().act(system_prompt, user_prompt, **kwargs)
+        return super().act(idea, task or "", **kwargs)

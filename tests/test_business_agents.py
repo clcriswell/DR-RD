@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch
 import json
 from unittest.mock import Mock, patch
 
-from agents.marketing_agent import MarketingAgent
-from agents.ip_analyst_agent import IPAnalystAgent
+from core.agents.marketing_agent import MarketingAgent
+from core.agents.ip_analyst_agent import IPAnalystAgent
 from core.agents import registry
 
 
@@ -15,7 +15,7 @@ def _fake_response(payload: dict):
     return Mock(choices=[choice])
 
 
-@patch("agents.marketing_agent.llm_call")
+@patch("core.agents.marketing_agent.llm_call")
 def test_marketing_agent_contract(mock_call):
     mock_call.return_value = _fake_response(
         {
@@ -39,7 +39,7 @@ def test_marketing_agent_contract(mock_call):
     }
 
 
-@patch("agents.ip_analyst_agent.llm_call")
+@patch("core.agents.ip_analyst_agent.llm_call")
 def test_ip_agent_contract(mock_call):
     mock_call.return_value = _fake_response(
         {

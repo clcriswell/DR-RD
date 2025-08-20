@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch
 import os
 
-from agents.planner_agent import PlannerAgent
+from core.agents.planner_agent import PlannerAgent
 from config.feature_flags import EVALUATOR_MIN_OVERALL
 
 
@@ -12,7 +12,7 @@ def make_openai_response(text: str):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('agents.planner_agent.llm_call')
+@patch('core.agents.planner_agent.llm_call')
 def test_planner_adds_remediation_task(mock_llm):
     mock_llm.return_value = make_openai_response('{"updated_tasks": []}')
     agent = PlannerAgent("gpt-5")

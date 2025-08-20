@@ -1,4 +1,4 @@
-from agents.base_agent import BaseAgent
+from core.agents.base_agent import BaseAgent
 
 class FinanceAgent(BaseAgent):
     """Financial analyst for budgeting and cost estimates."""

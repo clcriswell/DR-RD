@@ -1,1 +1,1 @@
-from agents.regulatory_agent import RegulatoryAgent  # re-export
+from core.agents.regulatory_agent import RegulatoryAgent  # re-export

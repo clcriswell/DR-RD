@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple, Any
 
 from core.agents_registry import agents_dict
 import streamlit as st
-from agents.planner_agent import PlannerAgent
+from core.agents.planner_agent import PlannerAgent
 from core.agents.registry import build_agents, choose_agent_for_task, load_mode_models
 from core.synthesizer import synthesize
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks

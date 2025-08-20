@@ -1,13 +1,13 @@
 import os
-from agents.base_agent import LLMRoleAgent
-from agents.hrm_agent import HRMAgent
-from agents.planner_agent import PlannerAgent
-from agents.reflection_agent import ReflectionAgent
-from agents.chief_scientist_agent import ChiefScientistAgent
-from agents.cto_agent import CTOAgent
-from agents.research_scientist_agent import ResearchScientistAgent
-from agents.materials_engineer_agent import MaterialsEngineerAgent
-from agents.regulatory_specialist_agent import RegulatorySpecialistAgent
+from core.agents.base_agent import LLMRoleAgent
+from core.agents.hrm_agent import HRMAgent
+from core.agents.planner_agent import PlannerAgent
+from core.agents.reflection_agent import ReflectionAgent
+from core.agents.chief_scientist_agent import ChiefScientistAgent
+from core.agents.cto_agent import CTOAgent
+from core.agents.research_scientist_agent import ResearchScientistAgent
+from core.agents.materials_engineer_agent import MaterialsEngineerAgent
+from core.agents.regulatory_specialist_agent import RegulatorySpecialistAgent
 
 MODEL = os.getenv("OPENAI_MODEL", "gpt-5").strip()
 

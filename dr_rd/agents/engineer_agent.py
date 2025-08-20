@@ -1,1 +1,1 @@
-from agents.engineer_agent import EngineerAgent  # noqa: F401
+from core.agents.engineer_agent import EngineerAgent  # noqa: F401

@@ -1,5 +1,5 @@
 import pytest
-from agents.simulation_agent import determine_sim_type
+from core.agents.simulation_agent import determine_sim_type
 
 
 @pytest.mark.parametrize(

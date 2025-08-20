@@ -1,5 +1,5 @@
 from unittest.mock import patch, Mock
-import agents.orchestrator as orch
+import core.agents as core.agents.orchestrator as orch
 
 
 def make_openai_response(text: str):
@@ -8,14 +8,14 @@ def make_openai_response(text: str):
     return Mock(choices=[mock_choice])
 
 
-@patch("agents.orchestrator.llm_call")
+@patch("core.agents.orchestrator.llm_call")
 def test_needs_follow_up_returns_none(mock_llm):
     mock_llm.return_value = make_openai_response("COMPLETE")
     result = orch._needs_follow_up("Physics", "task", "answer")
     assert result is None
 
 
-@patch("agents.orchestrator.llm_call")
+@patch("core.agents.orchestrator.llm_call")
 def test_needs_follow_up_returns_question(mock_llm):
     mock_llm.return_value = make_openai_response(
         "Please clarify"
@@ -24,9 +24,9 @@ def test_needs_follow_up_returns_question(mock_llm):
     assert result == "Please clarify"
 
 
-@patch("agents.orchestrator.route")
-@patch("agents.orchestrator.obfuscate_task")
-@patch("agents.orchestrator.llm_call")
+@patch("core.agents.orchestrator.route")
+@patch("core.agents.orchestrator.obfuscate_task")
+@patch("core.agents.orchestrator.llm_call")
 def test_refine_once_no_follow_up(mock_llm, mock_obfuscate, mock_route):
     mock_llm.return_value = make_openai_response("COMPLETE")
     plan = {"Physics": "task1"}
@@ -37,9 +37,9 @@ def test_refine_once_no_follow_up(mock_llm, mock_obfuscate, mock_route):
     mock_route.assert_not_called()
 
 
-@patch("agents.orchestrator.route", return_value="extra info")
-@patch("agents.orchestrator.obfuscate_task", return_value="obf")
-@patch("agents.orchestrator.llm_call")
+@patch("core.agents.orchestrator.route", return_value="extra info")
+@patch("core.agents.orchestrator.obfuscate_task", return_value="obf")
+@patch("core.agents.orchestrator.llm_call")
 def test_refine_once_with_follow_up(mock_llm, mock_obfuscate, mock_route):
     mock_llm.return_value = make_openai_response(
         "More details?"

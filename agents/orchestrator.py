@@ -7,13 +7,13 @@ the answer.  Uses OpenAI for the review, then re-uses the existing
 obfuscator + router for follow-up.
 
 Call:
-    from agents.orchestrator import refine_once
+    from core.agents.orchestrator import refine_once
     enriched = refine_once(plan, answers)
 """
 
 from typing import Dict
-from agents.obfuscator import obfuscate_task
-from agents.router import route
+from core.agents.obfuscator import obfuscate_task
+from core.agents.router import route
 from dr_rd.utils.model_router import pick_model, CallHints
 from dr_rd.llm_client import call_openai
 

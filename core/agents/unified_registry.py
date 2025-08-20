@@ -6,7 +6,7 @@ from typing import Dict, Tuple, Optional, TYPE_CHECKING
 
 # Import BaseAgent only for type checking to avoid circular imports.
 if TYPE_CHECKING:  # pragma: no cover - for static typing only
-    from agents.base_agent import BaseAgent
+    from core.agents.base_agent import BaseAgent
 # Import the canonical small set that we KNOW take (model) in ctor:
 from core.agents.cto import CTOAgent
 from core.agents.research_scientist import ResearchScientistAgent
@@ -14,8 +14,8 @@ from core.agents.regulatory import RegulatoryAgent
 from core.agents.finance import FinanceAgent
 from core.agents.marketing import MarketingAgent
 from core.agents.ip_analyst import IPAnalystAgent
-from agents.planner_agent import PlannerAgent
-from agents.synthesizer import SynthesizerAgent
+from core.agents.planner_agent import PlannerAgent
+from core.agents.synthesizer import SynthesizerAgent
 
 logger = logging.getLogger("unified_registry")
 
@@ -43,7 +43,7 @@ def build_agents_unified(
     overrides: Dict[str, str] | None = None,
     default_model: Optional[str] = None,
 ) -> Dict[str, BaseAgent]:
-    """Instantiate the core set of agents.
+    """Instantiate the core set of core.agents.
 
     Parameters
     ----------
@@ -71,7 +71,7 @@ def build_agents_unified(
     # Try to import legacy specialist agents, but don’t fail the build if their
     # constructors differ. They remain available for fallback routing.
     try:
-        from agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
+        from core.agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
         agents["Mechanical Systems Lead"] = MechanicalSystemsLeadAgent(resolve_model("Mechanical Systems Lead"))
     except Exception as e:
         logger.warning("Could not instantiate legacy agent MechanicalSystemsLeadAgent: %s", e)
@@ -88,7 +88,7 @@ def ensure_canonical_agent_keys(agents: Dict[str, BaseAgent]) -> Dict[str, BaseA
     if "CTO" not in agents and "AI R&D Coordinator" in agents:
         agents["CTO"] = agents["AI R&D Coordinator"]
     # Business-role graceful fallbacks
-    default = agents.get("Research Scientist") or next(iter(agents.values()))
+    default = core.agents.get("Research Scientist") or next(iter(core.agents.values()))
     for k in ["Marketing Analyst","IP Analyst","Finance"]:
         if k not in agents:
             agents[k] = default
@@ -96,18 +96,18 @@ def ensure_canonical_agent_keys(agents: Dict[str, BaseAgent]) -> Dict[str, BaseA
 
 def choose_agent_for_task(planned_role: str, title: str, desc: Optional[str], agents: Dict[str, BaseAgent]) -> Tuple[str, BaseAgent]:
     # Exact match first
-    agent = agents.get(planned_role)
+    agent = core.agents.get(planned_role)
     if agent:
         return planned_role, agent
 
     low = f"{title} {desc or ''}".lower()
     if any(k in low for k in ["market","position","segment","competitor","pricing"]):
-        a = agents.get("Marketing Analyst")
+        a = core.agents.get("Marketing Analyst")
         if a: return "Marketing Analyst", a
     if any(k in low for k in ["budget","cost","price","roi","capex","opex"]):
-        a = agents.get("Finance")
+        a = core.agents.get("Finance")
         if a: return "Finance", a
 
     # Default
-    routed_role = "Research Scientist" if "Research Scientist" in agents else next(iter(agents.keys()))
+    routed_role = "Research Scientist" if "Research Scientist" in agents else next(iter(core.agents.keys()))
     return routed_role, agents[routed_role]

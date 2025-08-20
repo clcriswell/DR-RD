@@ -1,4 +1,4 @@
-"""HRM engine using FirestoreWorkspace and specialized agents."""
+"""HRM engine using FirestoreWorkspace and specialized core.agents."""
 from __future__ import annotations
 
 from typing import Tuple, Callable, Optional, Dict, Any, List
@@ -11,7 +11,7 @@ from dr_rd.engine.executor import run_tasks
 from dr_rd.engine.cognitive_orchestrator import CognitiveOrchestrator, CogConfig
 
 from dr_rd.utils.firestore_workspace import FirestoreWorkspace as WS
-from agents import initialize_agents
+from core.agents import initialize_agents
 from dr_rd.evaluation import Scorecard
 from dr_rd.extensions.registry import (
     EvaluatorRegistry,
@@ -102,7 +102,7 @@ class HRMLoop:
 
     # ---------- execution helpers ----------
     def _execute(self, task: dict) -> Tuple[dict, float]:
-        agent = self.agents.get(task["role"])
+        agent = self.core.agents.get(task["role"])
         if not agent:
             raise ValueError(f"No agent for role {task['role']}")
         result = agent.run(self.idea, task["task"])
@@ -288,7 +288,7 @@ class HRMLoop:
     def plan_from_brief(brief: dict):
         """Return a list of tasks extracted from a brief."""
         try:
-            from agents.planner_agent import PlannerAgent
+            from core.agents.planner_agent import PlannerAgent
             from config.agent_models import AGENT_MODEL_MAP
             from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
             idea = brief.get("idea", "")
