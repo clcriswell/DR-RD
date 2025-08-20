@@ -80,7 +80,7 @@ def score_with_rubric(text: str, rubric: str) -> float:
         model = (
             os.getenv("DRRD_LLM_MODEL")
             or os.getenv("OPENAI_MODEL")
-            or "gpt-4o-mini"
+            or "o3-deep-research"
         )
 
         resp = llm_call(
