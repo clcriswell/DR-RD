@@ -32,7 +32,6 @@ def test_budget_no_fallback():
             "gpt-4o",
             stage="exec",
             messages=[{"role": "user", "content": "hi"}],
-            max_tokens_hint=100,
         )
     assert mock_create.call_args[1]["model"] == "gpt-4o"
 
@@ -50,6 +49,5 @@ def test_budget_does_not_raise():
             "gpt-3.5-turbo",
             stage="exec",
             messages=[{"role": "user", "content": "hi"}],
-            max_tokens_hint=100,
         )
     assert bm.spend > 0

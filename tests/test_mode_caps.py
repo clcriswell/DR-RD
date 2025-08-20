@@ -9,7 +9,7 @@ class DummyClient:
         class _Completions:
             def create(self, model, messages, **params):
                 prompt = sum(len(m.get("content", "").split()) for m in messages)
-                completion = params.get("max_tokens", 0)
+                completion = 0
 
                 class Choice:
                     usage = {
@@ -47,9 +47,7 @@ def test_fallback_and_summarize():
     budget = BudgetManager(MODE_CFG, PRICE_TABLE)
     set_budget_manager(budget)
     messages = [{"role": "user", "content": "word " * 10000}]
-    llm_call(
-        DummyClient(), "gpt-5", stage="synth", messages=messages, max_tokens_hint=10000
-    )
+    llm_call(DummyClient(), "gpt-5", stage="synth", messages=messages)
     log = st.session_state["usage_log"][-1]
     # Model remains gpt-5 and cost tracking reflects the full token usage
     assert log["model"] == "gpt-5"

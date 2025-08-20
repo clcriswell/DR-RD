@@ -20,9 +20,28 @@ class Plan(BaseModel):
     tasks: List[Task] = Field(default_factory=list)
 
 
-def _try_parse_plan(txt: str) -> Plan:
-    obj = json.loads(txt)
-    return Plan.model_validate(obj)
+def llm_call(**kwargs):
+    """Wrapper around the OpenAI chat completions API for easy patching in tests."""
+
+    # If the compatibility shim has been patched, delegate to it.
+    try:  # pragma: no cover - avoids circular import during normal runtime
+        from agents import planner_agent as compat  # type: ignore
+        ext = getattr(compat, "llm_call", None)
+        if ext is not None and ext is not llm_call:
+            return ext(**kwargs)
+    except Exception:  # pragma: no cover - ignore if import fails
+        pass
+
+    try:  # pragma: no cover - best effort fallback if module path changes
+        from dr_rd.utils.openai_client import client  # type: ignore
+    except Exception:  # pragma: no cover - fallback to core client if available
+        from core.llm import client  # type: ignore
+
+    return client.chat.completions.create(**kwargs)
+
+
+def _try_parse_plan(txt: str) -> dict:
+    return json.loads(txt)
 
 
 def _repair_to_json(raw_txt: str, model: str) -> str:
@@ -39,17 +58,11 @@ def _repair_to_json(raw_txt: str, model: str) -> str:
         },
     ]
 
-    try:  # pragma: no cover - best effort fallback if module path changes
-        from dr_rd.utils.openai_client import client  # type: ignore
-    except Exception:  # pragma: no cover - fallback to core client if available
-        from core.llm import client  # type: ignore
-
-    resp = client.chat.completions.create(
+    resp = llm_call(
         model=model,
         messages=repair_msgs,
         temperature=0.0,
         response_format={"type": "json_object"},
-        max_output_tokens=800,
     )
     return resp.choices[0].message.content or "{}"
 
@@ -67,25 +80,22 @@ USER_TMPL = "Project Idea: {idea}\nTask: Break down into role-specific tasks.\nO
 def run_planner(idea: str, model: str, utility_model: Optional[str] = None):
     """Run the planner model and ensure a valid :class:`Plan` is returned."""
 
-    try:  # pragma: no cover - best effort fallback if module path changes
-        from dr_rd.utils.openai_client import client  # type: ignore
-    except Exception:  # pragma: no cover
-        from core.llm import client  # type: ignore
-
     messages = [
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": USER_TMPL.format(idea=idea)},
     ]
 
-    resp = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=0.2,
-        presence_penalty=0,
-        frequency_penalty=0,
-        response_format={"type": "json_object"},
-        max_output_tokens=1400,
-    )
+    params = {
+        "model": model,
+        "messages": messages,
+        "temperature": 0.2,
+        "presence_penalty": 0,
+        "frequency_penalty": 0,
+    }
+    if not model.startswith("gpt-4") or model.startswith("gpt-4o"):
+        params["response_format"] = {"type": "json_object"}
+
+    resp = llm_call(**params)
 
     raw = resp.choices[0].message.content or "{}"
     finish = resp.choices[0].finish_reason
@@ -97,12 +107,16 @@ def run_planner(idea: str, model: str, utility_model: Optional[str] = None):
     }
 
     try:
-        plan = _try_parse_plan(raw)
+        data = _try_parse_plan(raw)
     except Exception:
-        repaired = _repair_to_json(raw, utility_model or model)
-        plan = _try_parse_plan(repaired)
+        fixed = raw.rsplit(",", 1)[0] + "}"
+        try:
+            data = _try_parse_plan(fixed)
+        except Exception:
+            repaired = _repair_to_json(raw, utility_model or model)
+            data = _try_parse_plan(repaired)
 
-    return plan, {"finish_reason": finish, "usage": usage}
+    return data, {"finish_reason": finish, "usage": usage}
 
 
 # Minimal class wrapper --------------------------------------------------------------
@@ -118,6 +132,42 @@ class PlannerAgent:
         self.name = "Planner"
 
     def run(self, idea: str, task: str, difficulty: str = "normal", roles: List[str] | None = None):
-        plan, _meta = run_planner(idea, self.model, self.repair_model)
-        return [t.model_dump() for t in plan.tasks]
+        data, _meta = run_planner(idea, self.model, self.repair_model)
+        return data
+
+    def revise_plan(self, workspace: dict) -> List[dict]:
+        from config.feature_flags import EVALUATOR_MIN_OVERALL
+
+        score = workspace.get("scorecard", {}).get("overall", 1.0)
+        if score >= EVALUATOR_MIN_OVERALL:
+            return workspace.get("tasks", [])
+
+        messages = [
+            {
+                "role": "system",
+                "content": "Return JSON with key 'updated_tasks' listing remediation tasks.",
+            },
+            {"role": "user", "content": json.dumps(workspace)},
+        ]
+        resp = llm_call(
+            model=self.repair_model or self.model,
+            messages=messages,
+            temperature=0.2,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content or "{}"
+        try:
+            data = json.loads(raw)
+        except Exception:
+            data = {}
+        tasks = data.get("updated_tasks") or []
+        if not tasks:
+            tasks = [
+                {
+                    "role": "Project Manager",
+                    "task": "Improve plan based on evaluator feedback",
+                    "description": "Address weaknesses identified in the scorecard.",
+                }
+            ]
+        return tasks
 

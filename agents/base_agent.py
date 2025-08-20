@@ -7,7 +7,6 @@ import re
 from config.feature_flags import (
     RAG_ENABLED,
     RAG_TOPK,
-    RAG_SNIPPET_TOKENS,
     ENABLE_LIVE_SEARCH,
 )
 import logging
@@ -84,13 +83,6 @@ class BaseAgent:
         self._web_summary: str | None = None
         self._web_sources: list[str] = []
 
-    @staticmethod
-    def _truncate_tokens(text: str, max_tokens: int) -> str:
-        tokens = text.split()
-        if len(tokens) <= max_tokens:
-            return text
-        return " ".join(tokens[:max_tokens])
-
     def _augment_prompt(self, prompt: str, idea: str, task: str) -> str:
         """Attach retrieved snippets and optionally web summary."""
         context = f"{idea}\n{task}"
@@ -106,8 +98,7 @@ class BaseAgent:
             bundle_lines = []
             for i, (text, src) in enumerate(hits, 1):
                 raw = text.replace("\n", " ")
-                snippet = self._truncate_tokens(raw, RAG_SNIPPET_TOKENS)
-                bundle_lines.append(f"[{i}] {snippet} ({src})")
+                bundle_lines.append(f"[{i}] {raw} ({src})")
             bundle = "\n".join(bundle_lines)
             print(f"[RAG] {self.name} retrieved {len(hits)} snippet(s)")
             prompt += "\n\n# RAG Knowledge\n" + bundle
