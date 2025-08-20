@@ -40,34 +40,42 @@ Write a cohesive technical proposal that:
    - ## Remaining Unknowns
 """
 
-MODEL_SYNTH = os.getenv("MODEL_SYNTH", "").strip() or "gpt-4o-mini"
+# Default to the deep-research model unless explicitly overridden
+MODEL_SYNTH = os.getenv("MODEL_SYNTH", os.getenv("DRRD_MODEL_SYNTH", "o3-deep-research")).strip()
 
 
-def synthesize(idea: str, answers: Dict[str, str]) -> str:
+def synthesize(idea: str, answers: Dict[str, str], model: str | None = None) -> str:
     findings_md = "\n".join(f"### {d}\n{answers[d]}" for d in answers)
     prompt = _TEMPLATE.format(idea=idea, findings_md=findings_md)
 
-    logging.info(f"Model[synth]={MODEL_SYNTH}")
+    model_id = model or MODEL_SYNTH
+    logging.info(f"Model[synth]={model_id}")
     result = complete(
         "You are an expert R&D writer.",
         prompt,
-        model=MODEL_SYNTH,
+        model=model_id,
         temperature=0.3,
     )
     usage = result.raw.get("usage") if isinstance(result.raw, dict) else getattr(result.raw, "usage", None)
     if usage:
         log_usage(
             stage="synth",
-            model=MODEL_SYNTH,
+            model=model_id,
             pt=getattr(usage, "prompt_tokens", 0),
             ct=getattr(usage, "completion_tokens", 0),
         )
     return (result.content or "").strip()
 
 
-def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulations: bool = False):
+def compose_final_proposal(
+    idea: str,
+    answers: Dict[str, str],
+    include_simulations: bool = False,
+    model: str | None = None,
+):
     """Compose a Prototype Build Guide integrating agent contributions."""
-    logging.info(f"Model[synth]={MODEL_SYNTH}")
+    model_id = model or MODEL_SYNTH
+    logging.info(f"Model[synth]={model_id}")
     contributions = "\n".join(f"### {role}\n{content}" for role, content in answers.items())
     sections = [
         "1. Executive Summary",
@@ -86,13 +94,13 @@ def compose_final_proposal(idea: str, answers: Dict[str, str], include_simulatio
     result = complete(
         "You are an expert R&D writer.",
         prompt,
-        model=MODEL_SYNTH,
+        model=model_id,
     )
     usage = result.raw.get("usage") if isinstance(result.raw, dict) else getattr(result.raw, "usage", None)
     if usage:
         log_usage(
             stage="synth",
-            model=MODEL_SYNTH,
+            model=model_id,
             pt=getattr(usage, "prompt_tokens", 0),
             ct=getattr(usage, "completion_tokens", 0),
         )
@@ -157,4 +165,9 @@ class SynthesizerAgent:
 
     def run(self, idea: str, answers: Dict[str, str], include_simulations: bool = False):
         """Delegate to compose_final_proposal using the configured model."""
-        return compose_final_proposal(idea, answers, include_simulations=include_simulations)
+        return compose_final_proposal(
+            idea,
+            answers,
+            include_simulations=include_simulations,
+            model=self.model,
+        )
