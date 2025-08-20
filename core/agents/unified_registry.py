@@ -8,14 +8,14 @@ from typing import Dict, Tuple, Optional, TYPE_CHECKING
 if TYPE_CHECKING:  # pragma: no cover - for static typing only
     from core.agents.base_agent import BaseAgent
 # Import the canonical small set that we KNOW take (model) in ctor:
-from core.agents.cto import CTOAgent
-from core.agents.research_scientist import ResearchScientistAgent
-from core.agents.regulatory import RegulatoryAgent
-from core.agents.finance import FinanceAgent
-from core.agents.marketing import MarketingAgent
-from core.agents.ip_analyst import IPAnalystAgent
+from core.agents.cto_agent import CTOAgent
+from core.agents.research_scientist_agent import ResearchScientistAgent
+from core.agents.regulatory_agent import RegulatoryAgent
+from core.agents.finance_agent import FinanceAgent
+from core.agents.marketing_agent import MarketingAgent
+from core.agents.ip_analyst_agent import IPAnalystAgent
 from core.agents.planner_agent import PlannerAgent
-from core.agents.synthesizer import SynthesizerAgent
+from core.agents.synthesizer_agent import SynthesizerAgent
 
 logger = logging.getLogger("unified_registry")
 

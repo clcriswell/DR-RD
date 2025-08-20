@@ -49,6 +49,9 @@ class LLMRoleAgent:
         result = complete(system_prompt, user_prompt, model=self.model, **kwargs)
         return (result.content or "").strip()
 
+# Backwards compatibility: legacy code imports `Agent` as the minimal LLM agent.
+Agent = LLMRoleAgent
+
 try:  # avoid import errors when knowledge package is absent
     from dr_rd.knowledge.retriever import Retriever
     from dr_rd.knowledge.faiss_store import build_default_retriever

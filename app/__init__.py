@@ -11,7 +11,7 @@ from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
 from core.agents.simulation_agent import SimulationAgent
-from core.agents.synthesizer import compose_final_proposal
+from core.agents.synthesizer_agent import compose_final_proposal
 import io
 import fitz
 import time
@@ -44,7 +44,7 @@ from orchestrators.plan_utils import normalize_plan_to_tasks
 from orchestrators.router import choose_agent_for_task
 from core.plan_utils import normalize_tasks
 from core.agents.planner_agent import PlannerAgent
-from core.agents.synthesizer import SynthesizerAgent
+from core.agents.synthesizer_agent import SynthesizerAgent
 
 logger = logging.getLogger(__name__)
 

@@ -1,13 +1,14 @@
-from .base_agent import Agent
+from core.agents.base_agent import BaseAgent
 
-
-class FinanceAgent(Agent):
+class FinanceAgent(BaseAgent):
     """Financial analyst for budgeting and cost estimates."""
 
-    def __init__(self, model_id: str, name: str = "Finance"):
+    def __init__(self, model: str):
         super().__init__(
-            name=name,
-            role="Finance Analyst",
-            model_id=model_id,
-            system_prompt="You evaluate budgets, BOM costs and financial risks.",
+            name="Finance",
+            model=model,
+            system_message="You evaluate budgets, BOM costs and financial risks.",
+            user_prompt_template=(
+                "Project Idea: {idea}\nAs the Finance lead, your task is {task}."
+            ),
         )

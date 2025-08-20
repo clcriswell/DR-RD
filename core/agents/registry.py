@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 from .base_agent import Agent
 
 from .cto_agent import CTOAgent
-from .scientist_agent import ResearchScientistAgent
+from .research_scientist_agent import ResearchScientistAgent
 from .regulatory_agent import RegulatoryAgent
 from .finance_agent import FinanceAgent
 from core.agents.marketing_agent import MarketingAgent
@@ -47,12 +47,12 @@ def build_agents(mode: str | None = None, models: Dict | None = None) -> Dict[st
         return AGENT_MODEL_MAP.get(role, exec_default)
 
     return {
-        "CTO": CTOAgent(model_id=_m("CTO")),
-        "Research": ResearchScientistAgent(model_id=_m("Research")),
-        "Regulatory": RegulatoryAgent(model_id=_m("Regulatory")),
-        "Finance": FinanceAgent(model_id=_m("Finance")),
-        "Marketing Analyst": MarketingAgent(model=_m("Marketing Analyst")),
-        "IP Analyst": IPAnalystAgent(model=_m("IP Analyst")),
+        "CTO": CTOAgent(_m("CTO")),
+        "Research": ResearchScientistAgent(_m("Research")),
+        "Regulatory": RegulatoryAgent(_m("Regulatory")),
+        "Finance": FinanceAgent(_m("Finance")),
+        "Marketing Analyst": MarketingAgent(_m("Marketing Analyst")),
+        "IP Analyst": IPAnalystAgent(_m("IP Analyst")),
     }
 
 
