@@ -4,7 +4,7 @@ import streamlit as st
 
 def pick_model(h: CallHints) -> dict:
     if h.stage == "plan":
-        sel = {"model": DEFAULTS["PLANNER"], "params": {}}
+        sel = {"model": DEFAULTS["PLANNER"], "repair_model": "gpt-4o-mini", "params": {}}
         if h.difficulty == "hard":
             sel["model"] = "o3-deep-research"
     elif h.stage == "exec":
