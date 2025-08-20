@@ -49,7 +49,7 @@ def summarize_search(snippets: List[str], model: str | None = None) -> str:
     """Summarize snippets into a concise paragraph using the repo's LLM helper."""
     if not snippets:
         return ""
-    model_id = model or "gpt-4o-mini"
+    model_id = model or "o3-deep-research"
     prompt = "Summarize the following search snippets in a single concise paragraph:\n" + "\n".join(
         f"- {s}" for s in snippets
     )
