@@ -476,7 +476,12 @@ def run_manual_pipeline(
             try:
                 doc_id = get_project_id()
                 db.collection("rd_projects").document(doc_id).set(
-                    {"results": st.session_state["answers"], **st.session_state.get("test_marker", {})},
+                    {
+                        "results": st.session_state["answers"],
+                        "constraints": st.session_state.get("constraints", ""),
+                        "risk_posture": st.session_state.get("risk_posture", "Medium"),
+                        **st.session_state.get("test_marker", {}),
+                    },
                     merge=True,
                 )
             except Exception as e:
@@ -528,7 +533,12 @@ def run_manual_pipeline(
             try:
                 doc_id = get_project_id()
                 db.collection("rd_projects").document(doc_id).set(
-                    {"results": st.session_state["answers"], **st.session_state.get("test_marker", {})},
+                    {
+                        "results": st.session_state["answers"],
+                        "constraints": st.session_state.get("constraints", ""),
+                        "risk_posture": st.session_state.get("risk_posture", "Medium"),
+                        **st.session_state.get("test_marker", {}),
+                    },
                     merge=True,
                 )
             except Exception as e:
@@ -718,6 +728,12 @@ def main():
                     if doc.exists:
                         data = doc.to_dict() or {}
                         st.session_state["idea"] = data.get("idea", "")
+                        st.session_state["constraints"] = data.get(
+                            "constraints", ""
+                        )
+                        st.session_state["risk_posture"] = data.get(
+                            "risk_posture", "Medium"
+                        )
                         plan_data = data.get("plan", [])
                         st.session_state["plan_tasks"] = plan_data
                         st.session_state["plan"] = [
@@ -744,6 +760,12 @@ def main():
                 for entry in memory_manager.data:
                     if entry.get("name") == selected_project:
                         st.session_state["idea"] = entry.get("idea", "")
+                        st.session_state["constraints"] = entry.get(
+                            "constraints", ""
+                        )
+                        st.session_state["risk_posture"] = entry.get(
+                            "risk_posture", "Medium"
+                        )
                         plan_data = entry.get("plan", [])
                         st.session_state["plan_tasks"] = plan_data
                         st.session_state["plan"] = [
@@ -775,6 +797,8 @@ def main():
                 "project_name",
                 "project_id",
                 "project_saved",
+                "constraints",
+                "risk_posture",
             ]:
                 st.session_state.pop(key, None)
         st.session_state["last_selected_project"] = selected_project
@@ -786,6 +810,17 @@ def main():
     )
     idea = st.text_input(
         "🧠 Enter your project idea:", value=st.session_state.get("idea", "")
+    )
+    constraints = st.text_area(
+        "Constraints (optional)",
+        key="constraints",
+        placeholder="Limits, compliance, vendors to avoid, deadlines…",
+    )
+    risk_posture = st.selectbox(
+        "Risk posture",
+        ["Low", "Medium", "High"],
+        index=1,
+        key="risk_posture",
     )
     idea_input = idea
     submitted_idea_text = idea
@@ -834,7 +869,11 @@ def main():
                 logging.error(f"Init project failed: {e}")
         try:
             with st.spinner("📝 Planning..."):
-                tasks = generate_plan(idea)
+                tasks = generate_plan(
+                    idea,
+                    st.session_state.get("constraints"),
+                    st.session_state.get("risk_posture"),
+                )
                 update_cost()
             if isinstance(tasks, dict):
                 tasks = tasks.get("tasks", [])
@@ -864,6 +903,8 @@ def main():
                         {
                             "name": st.session_state.get("project_name", ""),
                             "idea": submitted_idea_text or idea_input or "",
+                            "constraints": st.session_state.get("constraints", ""),
+                            "risk_posture": st.session_state.get("risk_posture", "Medium"),
                             "plan": tasks,
                             **st.session_state.get("test_marker", {}),
                         },
@@ -951,7 +992,12 @@ def main():
                         try:
                             doc_id = get_project_id()
                             db.collection("rd_projects").document(doc_id).set(
-                                {"results": results, **st.session_state.get("test_marker", {})},
+                                {
+                                    "results": results,
+                                    "constraints": st.session_state.get("constraints", ""),
+                                    "risk_posture": st.session_state.get("risk_posture", "Medium"),
+                                    **st.session_state.get("test_marker", {}),
+                                },
                                 merge=True,
                             )
                         except Exception as e:
@@ -1123,6 +1169,8 @@ def main():
                         st.session_state["answers"],
                         final_report_text,
                         [],
+                        constraints=st.session_state.get("constraints", ""),
+                        risk_posture=st.session_state.get("risk_posture", "Medium"),
                     )
                 except Exception as e:  # pylint: disable=broad-except
                     getattr(
@@ -1135,7 +1183,12 @@ def main():
                 try:
                     doc_id = get_project_id()
                     db.collection("rd_projects").document(doc_id).set(
-                        {"proposal": final_report_text, **st.session_state.get("test_marker", {})},
+                        {
+                            "proposal": final_report_text,
+                            "constraints": st.session_state.get("constraints", ""),
+                            "risk_posture": st.session_state.get("risk_posture", "Medium"),
+                            **st.session_state.get("test_marker", {}),
+                        },
                         merge=True,
                     )
                 except Exception as e:
@@ -1301,7 +1354,12 @@ def main():
         if use_firestore:
             try:
                 db.collection("rd_projects").document(doc_id).set(
-                    {"chat": new_chat, **st.session_state.get("test_marker", {})},
+                    {
+                        "chat": new_chat,
+                        "constraints": st.session_state.get("constraints", ""),
+                        "risk_posture": st.session_state.get("risk_posture", "Medium"),
+                        **st.session_state.get("test_marker", {}),
+                    },
                     merge=True,
                 )
             except Exception as e:

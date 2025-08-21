@@ -4,9 +4,9 @@ PLANNER_SYSTEM_PROMPT = (
     "You are a Project Planner AI. Decompose the idea into role-specific tasks. Output ONLY JSON that matches {'tasks':[{'role':str,'title':str,'description':str}]}.")
 
 PLANNER_USER_PROMPT_TEMPLATE = (
-    "Project Idea: {idea}\n"
-    "Task: Break down into role-specific tasks.\n"
-    "Output JSON only.")
+    "Project idea: {idea}{constraints_section}{risk_section}\n"
+    "Break the project into role-specific tasks. "
+    "Output ONLY JSON matching {{\"tasks\": [...]}}.")
 
 SYNTHESIZER_TEMPLATE = """\
 You are a multi-disciplinary R&D lead.

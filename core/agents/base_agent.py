@@ -124,14 +124,9 @@ class BaseAgent:
         ):
             return
         try:
-            from utils.search_tools import (
-                search_google,
-                summarize_search,
-                obfuscate_query,
-            )
+            from utils.search_tools import search_google, summarize_search
 
-            query = obfuscate_query(self.name, idea, task)
-            results = search_google(query, k=5)
+            results = search_google(self.name, idea, task, k=5)
             if not results:
                 return
             summary = summarize_search([r.get("snippet", "") for r in results])

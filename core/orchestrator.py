@@ -42,9 +42,19 @@ def _invoke_agent(agent, idea: str, task: Dict[str, str]) -> str:
     raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
 
 
-def generate_plan(idea: str) -> List[Dict[str, str]]:
+def generate_plan(
+    idea: str,
+    constraints: str | None = None,
+    risk_posture: str | None = None,
+) -> List[Dict[str, str]]:
     """Use the Planner to create and normalize a task list."""
-    user_prompt = PLANNER_USER_PROMPT_TEMPLATE.format(idea=idea)
+    constraints_section = f"\nConstraints: {constraints}" if constraints else ""
+    risk_section = f"\nRisk posture: {risk_posture}" if risk_posture else ""
+    user_prompt = PLANNER_USER_PROMPT_TEMPLATE.format(
+        idea=idea,
+        constraints_section=constraints_section,
+        risk_section=risk_section,
+    )
     result = complete(PLANNER_SYSTEM_PROMPT, user_prompt)
     raw = result.content or ""
     tasks = normalize_tasks(normalize_plan_to_tasks(raw))

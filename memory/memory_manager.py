@@ -31,6 +31,9 @@ class MemoryManager:
             self.data = []
         if not isinstance(self.data, list):
             self.data = []
+        for entry in self.data:
+            entry.setdefault("constraints", "")
+            entry.setdefault("risk_posture", "Medium")
 
         cfg = load_config()
         ttl_cfg = cfg.get("memory", {}).get("ttl_seconds", 86400)
@@ -80,7 +83,18 @@ class MemoryManager:
         return removed
 
     # Legacy project persistence helpers
-    def store_project(self, name, idea, plan, results, proposal, images=None):
+    def store_project(
+        self,
+        name,
+        idea,
+        plan,
+        results,
+        proposal,
+        images=None,
+        *,
+        constraints: str | None = None,
+        risk_posture: str | None = None,
+    ):
         entry = {
             "name": name,
             "idea": idea,
@@ -88,6 +102,8 @@ class MemoryManager:
             "results": results,
             "proposal": proposal,
             "images": images or [],
+            "constraints": constraints or "",
+            "risk_posture": risk_posture or "Medium",
         }
         try:  # pragma: no cover - optional Firestore
             if name:
