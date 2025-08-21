@@ -1,0 +1,164 @@
+version: 1
+generated_at: '2025-08-21T22:38:09.043378Z'
+git_sha: 4f977b98f798592522bee42179f8ba9b8f2a3c37
+entry_points:
+- name: streamlit_app
+  path: app.py
+- name: package_init
+  path: app/__init__.py:main
+architecture: "Planner \u2192 Router/Registry \u2192 Executor \u2192 Synthesizer"
+runtime_modes:
+  test:
+    target_cost_usd: 2.5
+    enforce_caps: false
+    models:
+      plan: gpt-4-turbo
+      exec: gpt-4-turbo
+      synth: gpt-4-turbo
+    k_search: 6
+    max_loops: 5
+    stage_weights:
+      plan: 0.2
+      exec: 0.5
+      synth: 0.3
+  deep:
+    target_cost_usd: 2.5
+    enforce_caps: false
+    models:
+      plan: gpt-5
+      exec: gpt-5
+      synth: gpt-5
+    k_search: 6
+    max_loops: 5
+    stage_weights:
+      plan: 0.2
+      exec: 0.5
+      synth: 0.3
+env_flags:
+- DRRD_MODE
+- RAG_ENABLED
+- ENABLE_LIVE_SEARCH
+- SERPAPI_KEY
+modules:
+- path: core/agents/hrm_agent.py
+  role: Agent[HRM]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/planner_agent.py
+  role: Agent[Planner]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/reflection_agent.py
+  role: Agent[Reflection]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/chief_scientist_agent.py
+  role: Agent[ChiefScientist]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/materials_engineer_agent.py
+  role: Agent[MaterialsEngineer]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/regulatory_specialist_agent.py
+  role: Agent[RegulatorySpecialist]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/spec_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/__init__.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/router.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/qa_router.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/plan_utils.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/app_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: app.py
+  role: UI
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: app/__init__.py
+  role: UI
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+agent_registry:
+  HRM: core/agents/hrm_agent.py
+  Planner: core/agents/planner_agent.py
+  Reflection: core/agents/reflection_agent.py
+  ChiefScientist: core/agents/chief_scientist_agent.py
+  MaterialsEngineer: core/agents/materials_engineer_agent.py
+  RegulatorySpecialist: core/agents/regulatory_specialist_agent.py
+config_files:
+- path: config/modes.yaml
+  required_keys:
+  - test
+  - deep
+- path: config/prices.yaml
+  required_keys:
+  - models
+prompts_dir: prompts
+tests_dir: tests
+orchestrators_dir: orchestrators
+ui_files:
+- app.py
+- app/__init__.py
+execution_flow: "User idea \u2192 Planner \u2192 Router/Registry \u2192 Executor \u2192\
+  \ Synthesizer \u2192 UI"
+rules_ref: docs/REPO_RULES.md

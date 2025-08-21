@@ -1,0 +1,39 @@
+# Repository Map
+
+## Overview & Flow Diagram
+{{ execution_flow }}
+
+## Entry Points & Run Modes
+
+### Entry Points
+{% for ep in entry_points %}- {{ ep.name }}: `{{ ep.path }}`
+{% endfor %}
+
+### Runtime Modes
+{% for name, mode in runtime_modes.items() %}- **{{ name }}**: target cost USD {{ mode.target_cost_usd }}
+{% endfor %}
+
+## Agent Roster
+| Role | Module | Contract |
+| --- | --- | --- |
+{% for role, module in agent_registry.items() %}| {{ role }} | `{{ module }}` | JSON |
+{% endfor %}
+
+## Orchestrator & Executor Responsibilities
+Contracts are strict JSON between pipeline stages.
+
+## Config & Env Flags
+Config files:
+{% for cfg in config_files %}- `{{ cfg.path }}` (requires keys: {{ cfg.required_keys | join(', ') }})
+{% endfor %}
+
+Environment flags: {{ env_flags | join(', ') }}
+
+## What Runs When
+Streamlit imports `app.main` from `app/__init__.py`.
+
+## Change Rules & Conventions
+See [REPO_RULES.md](REPO_RULES.md).
+
+_Last generated at {{ generated_at }} from commit {{ git_sha[:7] }}_
+
