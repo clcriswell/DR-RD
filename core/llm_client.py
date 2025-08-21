@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
 import time
+import uuid
 from openai import APIStatusError, OpenAI
 from utils.config import load_config
 import streamlit as st
@@ -74,19 +75,33 @@ def responses_json_schema_for(model_cls: Type[Any], name: str) -> dict:
 
 
 def call_openai(
+    *,
     model: str,
     messages: List[Dict[str, Any]],
-    *,
-    seed: int | None = None,
-    temperature: float | None = None,
+    response_format: Dict[str, Any] | None = None,
+    meta: Dict[str, Any] | None = None,
     **kwargs,
 ) -> Dict[str, Any]:
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
+
+    request_id = uuid.uuid4().hex
+    start = time.monotonic()
+    meta = meta or {}
+    logger.info(
+        "LLM start req=%s model=%s purpose=%s agent=%s",
+        request_id,
+        model,
+        meta.get("purpose"),
+        meta.get("agent"),
+    )
+
     compiled_prompt = " \n".join(
         m.get("content", "") if isinstance(m.get("content", ""), str) else "" for m in messages
     )
     if os.getenv("DRRD_DRY_RUN", "").lower() in ("1", "true", "yes"):
         stub = _dry_stub(compiled_prompt)
+        duration = int((time.monotonic() - start) * 1000)
+        logger.info("LLM end   req=%s status=%s duration_ms=%d", request_id, 0, duration)
         return {"raw": {}, "text": stub["text"]}
 
     cfg = load_config()
@@ -96,11 +111,17 @@ def call_openai(
         try:
             with open(path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
+            duration = int((time.monotonic() - start) * 1000)
+            logger.info("LLM end   req=%s status=%s duration_ms=%d", request_id, 0, duration)
             return {"raw": data, "text": data.get("text", "")}
         except Exception:
+            duration = int((time.monotonic() - start) * 1000)
+            logger.info("LLM end   req=%s status=%s duration_ms=%d", request_id, 0, duration)
             return {"raw": {}, "text": ""}
 
     params = dict(kwargs)
+    if response_format is not None:
+        params["response_format"] = response_format
     mode = None
     try:
         import streamlit as st  # type: ignore
@@ -108,46 +129,37 @@ def call_openai(
         mode = st.session_state.get("MODE")
     except Exception:
         mode = os.getenv("MODE")
-    if temperature is None and mode == "test":
+    if params.get("temperature") is None and mode == "test":
         params["temperature"] = 0.0
-    elif temperature is not None:
-        params["temperature"] = temperature
-    if seed is not None:
-        params["seed"] = seed
     if "max_tokens" in params and "max_output_tokens" not in params:
         params["max_output_tokens"] = params.pop("max_tokens")
     backoff = 0.1
+    http_status: int | str = "error"
     for attempt in range(4):
         try:
             response_params = {k: v for k, v in params.items() if k != "temperature"}
-            try:
-                logger.info("call_openai: model=%s, api=Responses", model)
-                resp = client.responses.create(
-                    model=model,
-                    input=_to_responses_input(messages),
-                    **response_params,
-                )
-            except TypeError:
-                if "response_format" in response_params:
-                    cleaned = {k: v for k, v in response_params.items() if k != "response_format"}
-                    logger.info("call_openai: model=%s, api=Responses", model)
-                    resp = client.responses.create(
-                        model=model,
-                        input=_to_responses_input(messages),
-                        **cleaned,
-                    )
-                else:
-                    raise
+            resp = client.responses.create(
+                model=model,
+                input=_to_responses_input(messages),
+                **response_params,
+            )
+            http_status = getattr(resp, "http_status", 200)
             text = extract_text(resp)
+            duration = int((time.monotonic() - start) * 1000)
+            logger.info(
+                "LLM end   req=%s status=%s duration_ms=%d",
+                request_id,
+                http_status,
+                duration,
+            )
             return {"raw": resp, "text": text}
         except APIStatusError as e:
+            http_status = e.status_code
             if e.status_code not in (404, 429, 500, 502, 503, 504):
                 raise
             if e.status_code == 404:
-                logger.info("call_openai: falling back to Chat Completions")
                 break
             if attempt == 3:
-                logger.error("call_openai: failed after retries for %s", model)
                 raise
             time.sleep(backoff + random.uniform(0, backoff))
             backoff *= 2
@@ -155,20 +167,27 @@ def call_openai(
             msg = str(e).lower()
             if "404" not in msg:
                 if attempt == 3:
-                    logger.error("call_openai: failed after retries for %s", model)
                     raise
                 time.sleep(backoff + random.uniform(0, backoff))
                 backoff *= 2
                 continue
-            logger.info("call_openai: falling back to Chat Completions")
             break
 
     params = dict(kwargs)
+    if response_format is not None:
+        params["response_format"] = response_format
     if "max_output_tokens" in params and "max_tokens" not in params:
         params["max_tokens"] = params.pop("max_output_tokens")
-    logger.info("call_openai: model=%s, api=ChatCompletions", model)
     resp = client.chat.completions.create(model=model, messages=messages, **params)
+    http_status = getattr(resp, "http_status", 200)
     text = extract_text(resp)
+    duration = int((time.monotonic() - start) * 1000)
+    logger.info(
+        "LLM end   req=%s status=%s duration_ms=%d",
+        request_id,
+        http_status,
+        duration,
+    )
     return {"raw": resp, "text": text}
 
 

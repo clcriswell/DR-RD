@@ -1,4 +1,3 @@
-import os
 from core.agents.base_agent import LLMRoleAgent
 from core.agents.hrm_agent import HRMAgent
 from core.agents.planner_agent import PlannerAgent
@@ -7,8 +6,9 @@ from core.agents.chief_scientist_agent import ChiefScientistAgent
 from core.agents.materials_engineer_agent import MaterialsEngineerAgent
 from core.agents.regulatory_specialist_agent import RegulatorySpecialistAgent
 from core.agents.registry import get_agent_class
+from core.llm import select_model
 
-MODEL = os.getenv("OPENAI_MODEL", "gpt-5").strip()
+MODEL = select_model("agent")
 
 agents_dict = {
     "HRM": HRMAgent("HRM", MODEL),

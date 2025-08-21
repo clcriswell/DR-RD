@@ -6,23 +6,25 @@ from config.model_routing import (
     _cheap_default,
 )
 import streamlit as st
+from core.llm import select_model
 
 
 def pick_model(h: CallHints) -> dict:
+    hard_model = select_model("agent")
     if h.stage == "plan":
-        sel = {"model": DEFAULTS["PLANNER"], "repair_model": "gpt-5", "params": {}}
+        sel = {"model": DEFAULTS["PLANNER"], "repair_model": hard_model, "params": {}}
         if h.difficulty == "hard":
-            sel["model"] = "gpt-5"
+            sel["model"] = hard_model
     elif h.stage == "exec":
         sel = {"model": DEFAULTS["RESEARCHER"], "params": {}}
         if h.difficulty == "hard":
-            sel["model"] = "gpt-5"
+            sel["model"] = hard_model
     elif h.stage == "eval":
         sel = {"model": DEFAULTS["EVALUATOR"], "params": {}}
     elif h.stage == "brain":
         model = DEFAULTS["BRAIN_MODE_LOOP"]
         if h.deep_reasoning:
-            model = "gpt-5"
+            model = hard_model
         sel = {"model": model, "params": {}}
     elif h.stage == "synth":
         model = DEFAULTS["SYNTHESIZER"]
