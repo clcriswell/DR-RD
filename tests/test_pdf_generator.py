@@ -40,3 +40,14 @@ def test_generate_pdf_wraps_long_lines(tmp_path):
     assert long_value[:40] in page_text
     assert long_value[-40:] in page_text
     (tmp_path / "json_report.pdf").write_bytes(pdf_bytes)
+
+
+def test_generate_pdf_normalizes_heading_levels(tmp_path):
+    if not md_spec:
+        pytest.skip("markdown_pdf not installed")
+    md = "## Subtitle\n\nContent\n\n### Subsection"
+    pdf_bytes = generate_pdf(md)
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    toc = doc.get_toc()
+    doc.close()
+    assert toc and toc[0][0] == 1
