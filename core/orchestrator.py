@@ -15,7 +15,6 @@ from utils.config import load_config
 from utils.logging import logger, safe_exc
 from utils.paths import new_run_dir
 
-from config.agent_models import AGENT_MODEL_MAP
 from core.agents.planner_agent import PlannerAgent
 from core.agents.registry import build_agents, load_mode_models
 from core.agents_registry import agents_dict
@@ -23,7 +22,7 @@ from core.dossier import Dossier, Finding
 from core.llm import complete, select_model
 from core.observability import EvidenceSet, build_coverage
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
-from core.router import choose_agent_for_task
+from core.router import route_task
 from core.synthesizer import synthesize
 from core.schemas import Plan, ScopeNote
 from core.privacy import pseudonymize_for_model, rehydrate_output
@@ -37,7 +36,7 @@ from prompts.prompts import (
 )
 
 
-def _invoke_agent(agent, idea: str, task: Dict[str, str]) -> str:
+def _invoke_agent(agent, idea: str, task: Dict[str, str], model: str | None = None) -> str:
     """Call an agent with best-effort interface detection."""
     text = f"{task.get('title', '')}: {task.get('description', '')}"
     # Preferred call signatures
@@ -45,10 +44,10 @@ def _invoke_agent(agent, idea: str, task: Dict[str, str]) -> str:
         fn = getattr(agent, name, None)
         if callable(fn):
             try:
-                return fn(idea, task)
+                return fn(idea, task, model=model)
             except TypeError:
                 try:
-                    return fn(text)
+                    return fn(text, model=model)
                 except TypeError:
                     continue
     raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
@@ -175,6 +174,7 @@ def execute_plan(
     save_decision_log: bool = True,
     save_evidence: bool = True,
     project_name: Optional[str] = None,
+    ui_model: str | None = None,
 ) -> Dict[str, str]:
     """Dispatch tasks to routed agents and collect their outputs."""
     project_id = project_id or _slugify(idea)
@@ -183,21 +183,16 @@ def execute_plan(
     evidence = EvidenceSet(project_id=project_id) if save_evidence else None
     role_to_findings: Dict[str, dict] = {}
     for t in normalize_tasks(tasks):
-        planned_role = t.get("role")
-        title = t.get("title", "")
-        description = t.get("description", "")
-        role, AgentCls = choose_agent_for_task(planned_role, title, description)
+        role, AgentCls, model, routed = route_task(t, ui_model)
         if save_decision_log:
-            log_decision(project_id, "route", {"planned_role": planned_role, "title": title})
-        model = AGENT_MODEL_MAP.get(
-            role,
-            AGENT_MODEL_MAP.get(
-                "Research Scientist", os.getenv("DRRD_OPENAI_MODEL", "gpt-4.1-mini")
-            ),
-        )
+            log_decision(
+                project_id,
+                "route",
+                {"planned_role": t.get("role"), "title": routed.get("title", "")},
+            )
         agent = AgentCls(model)
         try:
-            out = _invoke_agent(agent, idea, {"title": title, "description": description})
+            out = _invoke_agent(agent, idea, routed, model=model)
         except Exception as e:
             safe_exc(logger, idea, f"invoke_agent[{role}]", e)
             out = f"ERROR: {e}"
@@ -208,7 +203,7 @@ def execute_plan(
         if evidence is not None:
             evidence.add(
                 role=role,
-                task_title=title,
+                task_title=routed.get("title", ""),
                 claim=payload.get("summary") or payload.get("findings", ""),
                 sources=payload.get("sources", []),
                 quotes=payload.get("quotes", []),

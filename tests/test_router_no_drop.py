@@ -3,7 +3,7 @@ from core.agents.registry import AGENT_REGISTRY
 
 
 def test_keyword_routing():
-    role, cls = choose_agent_for_task(
+    role, cls, _ = choose_agent_for_task(
         None, "Budget Planning", "ROI and BOM"
     )
     assert role == "Finance"
@@ -11,8 +11,8 @@ def test_keyword_routing():
 
 
 def test_default_role():
-    role, cls = choose_agent_for_task(
+    role, cls, _ = choose_agent_for_task(
         None, "Investigate", "quantum entanglement"
     )
-    assert role == "Research Scientist"
-    assert cls is AGENT_REGISTRY["Research Scientist"]
+    assert role == "Synthesizer"
+    assert cls is AGENT_REGISTRY["Synthesizer"]

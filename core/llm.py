@@ -10,21 +10,40 @@ from core.prompt_utils import coerce_user_content
 from core.privacy import redact_for_logging
 
 
-def select_model(purpose: str, ui_model: str | None) -> str:
-    """Resolve the model to use based on UI and environment settings."""
+def select_model(
+    purpose: str, ui_model: str | None = None, agent_name: str | None = None
+) -> str:
+    """Resolve the model to use based on UI, agent, or env settings."""
+
+    model: str | None = ui_model.strip() if ui_model else None
+
+    if not model and agent_name:
+        import re
+
+        env_name = re.sub(r"[^0-9A-Za-z]+", "_", agent_name.upper())
+        agent_env = os.getenv(f"DRRD_MODEL_AGENT_{env_name}")
+        if agent_env:
+            model = agent_env.strip()
+
+    if not model:
+        env_purpose = os.getenv(f"DRRD_MODEL_{purpose.upper()}")
+        if env_purpose:
+            model = env_purpose.strip()
+
+    if not model:
+        env_global = os.getenv("DRRD_OPENAI_MODEL")
+        if env_global:
+            model = env_global.strip()
+
+    if not model:
+        model = "gpt-4.1-mini"
+
     force = os.getenv("DRRD_FORCE_MODEL")
     if force:
         logger.warning("select_model: forced override %s", force)
-        return force.strip()
-    if ui_model:
-        return ui_model.strip()
-    env_purpose = os.getenv(f"DRRD_MODEL_{purpose.upper()}")
-    if env_purpose:
-        return env_purpose.strip()
-    env_global = os.getenv("DRRD_OPENAI_MODEL")
-    if env_global:
-        return env_global.strip()
-    return "gpt-4.1-mini"
+        model = force.strip()
+
+    return model
 
 
 @dataclass

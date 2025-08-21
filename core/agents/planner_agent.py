@@ -130,9 +130,9 @@ def run_planner(
 class PlannerAgent:
     """Lightweight wrapper maintaining backwards compatible interface."""
 
-    def __init__(self, model: str = "gpt-5", repair_model: Optional[str] = "gpt-5"):
+    def __init__(self, model: str = "gpt-4.1-mini", repair_model: Optional[str] = None):
         self.model = model
-        self.repair_model = repair_model
+        self.repair_model = repair_model or model
         self.system_message = SYSTEM
         self.name = "Planner"
 

@@ -93,10 +93,26 @@ def rehydrate_output(obj: Union[dict, str], alias_map: Dict[str, str]) -> Union[
     return _apply_aliases(obj, reverse)
 
 
+ALLOWLIST = {
+    "CTO",
+    "Planner",
+    "Research Scientist",
+    "Regulatory",
+    "Synthesizer",
+    "Finance",
+    "IP Analyst",
+    "Marketing Analyst",
+    "Mechanical Systems Lead",
+    "Project Manager",
+    "Risk Manager",
+}
+
+
 def redact_for_logging(obj: Union[dict, str]) -> Union[dict, str]:
     text = _gather_text(obj)
     alias_map = generate_alias_map(text)
-    redactions = {orig: alias.replace("[", "[REDACTED:") for orig, alias in alias_map.items()}
+    filtered = {orig: alias for orig, alias in alias_map.items() if orig not in ALLOWLIST}
+    redactions = {orig: alias.replace("[", "[REDACTED:") for orig, alias in filtered.items()}
     return _apply_aliases(obj, redactions)
 
 

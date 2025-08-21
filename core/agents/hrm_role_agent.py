@@ -23,13 +23,13 @@ Output strictly as JSON: {{"roles": [...]}}
 
 class HRMRoleAgent(BaseAgent):
     def __init__(self, **kwargs):
-        model = kwargs.pop("model", os.getenv("DRRD_PLAN_MODEL", "gpt-5"))
+        model = kwargs.pop("model", os.getenv("DRRD_PLAN_MODEL", "gpt-4.1-mini"))
         super().__init__(name="HRM Role Agent", model=model, system_message="", user_prompt_template="", **kwargs)
 
     def discover_roles(self, idea: str) -> list[str]:
         user_prompt = HRM_USER_FMT.format(idea=idea)
         try:
-            out = complete(HRM_SYSTEM, user_prompt, model=os.getenv("DRRD_PLAN_MODEL", "gpt-5"))
+            out = complete(HRM_SYSTEM, user_prompt, model=os.getenv("DRRD_PLAN_MODEL", "gpt-4.1-mini"))
         except TypeError:
             out = complete(HRM_SYSTEM, user_prompt)
         text = out if isinstance(out, str) else getattr(out, "content", str(out))

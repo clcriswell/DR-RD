@@ -11,10 +11,9 @@ Call:
 """
 from typing import Dict
 import logging
-import os
 import streamlit as st
 
-from core.llm import complete
+from core.llm import complete, select_model
 from core.llm_client import log_usage
 from utils.image_visuals import make_visuals_for_project
 from prompts.prompts import (
@@ -22,15 +21,11 @@ from prompts.prompts import (
     SYNTHESIZER_BUILD_GUIDE_TEMPLATE,
 )
 
-# Default to the deep-research model unless explicitly overridden
-MODEL_SYNTH = os.getenv("MODEL_SYNTH", os.getenv("DRRD_MODEL_SYNTH", "gpt-5")).strip()
-
-
 def synthesize(idea: str, answers: Dict[str, str], model: str | None = None) -> str:
     findings_md = "\n".join(f"### {d}\n{answers[d]}" for d in answers)
     prompt = SYNTHESIZER_TEMPLATE.format(idea=idea, findings_md=findings_md)
 
-    model_id = model or MODEL_SYNTH
+    model_id = model or select_model("agent", agent_name="Synthesizer")
     logging.info(f"Model[synth]={model_id}")
     result = complete(
         "You are an expert R&D writer.",
@@ -56,7 +51,7 @@ def compose_final_proposal(
     model: str | None = None,
 ):
     """Compose a Prototype Build Guide integrating agent contributions."""
-    model_id = model or MODEL_SYNTH
+    model_id = model or select_model("agent", agent_name="Synthesizer")
     logging.info(f"Model[synth]={model_id}")
     contributions = "\n".join(f"### {role}\n{content}" for role, content in answers.items())
     sections = [
@@ -143,11 +138,18 @@ class SynthesizerAgent:
     def __init__(self, model: str):
         self.model = model
 
-    def run(self, idea: str, answers: Dict[str, str], include_simulations: bool = False):
+    def run(
+        self,
+        idea: str,
+        answers: Dict[str, str],
+        include_simulations: bool = False,
+        *,
+        model: str | None = None,
+    ):
         """Delegate to compose_final_proposal using the configured model."""
         return compose_final_proposal(
             idea,
             answers,
             include_simulations=include_simulations,
-            model=self.model,
+            model=model or self.model,
         )

@@ -33,7 +33,7 @@ class Task(BaseModel):
 class Plan(BaseModel):
     """Planner response schema."""
 
-    tasks: List[Task] = Field(default_factory=list)
+    tasks: List[Task] = Field(min_length=1)
 
 
 class ConceptBrief(BaseModel):
