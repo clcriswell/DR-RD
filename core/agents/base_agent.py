@@ -1,21 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Optional, List, Tuple
 import re
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
+import streamlit as st
+from utils.logging import logger
 
 from config.feature_flags import (
+    ENABLE_LIVE_SEARCH,
     RAG_ENABLED,
     RAG_TOPK,
-    ENABLE_LIVE_SEARCH,
 )
-import logging
-import streamlit as st
-from core.llm_client import call_openai, log_usage
 from core.llm import complete
+from core.llm_client import call_openai, log_usage
 from core.prompt_utils import coerce_user_content
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(init=False)
@@ -48,12 +47,13 @@ class LLMRoleAgent:
         result = complete(system_prompt, user_prompt, model=self.model, **kwargs)
         return (result.content or "").strip()
 
+
 # Backwards compatibility: legacy code imports `Agent` as the minimal LLM agent.
 Agent = LLMRoleAgent
 
 try:  # avoid import errors when knowledge package is absent
-    from knowledge.retriever import Retriever
     from knowledge.faiss_store import build_default_retriever
+    from knowledge.retriever import Retriever
 except Exception:  # pragma: no cover - fallback when module missing
     Retriever = None  # type: ignore
     build_default_retriever = lambda: None  # type: ignore
@@ -103,7 +103,7 @@ class BaseAgent:
                 raw = text.replace("\n", " ")
                 bundle_lines.append(f"[{i}] {raw} ({src})")
             bundle = "\n".join(bundle_lines)
-            print(f"[RAG] {self.name} retrieved {len(hits)} snippet(s)")
+            logger.info("[RAG] %s retrieved %d snippet(s)", self.name, len(hits))
             prompt += "\n\n# RAG Knowledge\n" + bundle
 
         self._web_summary = None
@@ -111,17 +111,13 @@ class BaseAgent:
         self.maybe_live_search(idea, task)
         if self._web_summary:
             prompt += "\n\n# Web Search Results\n" + self._web_summary
-            prompt += (
-                "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
-            )
+            prompt += "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
         return prompt
 
     def maybe_live_search(self, idea: str, task: str) -> None:
         if not ENABLE_LIVE_SEARCH:
             return
-        if not (
-            self.retrieval_hits == 0 or self.rag_text_len < 50
-        ):
+        if not (self.retrieval_hits == 0 or self.rag_text_len < 50):
             return
         try:
             from utils.search_tools import search_google, summarize_search
@@ -132,9 +128,7 @@ class BaseAgent:
             summary = summarize_search([r.get("snippet", "") for r in results])
             if summary:
                 self._web_summary = summary
-                self._web_sources = [
-                    r.get("title") or r.get("link") or "" for r in results
-                ][:5]
+                self._web_sources = [r.get("title") or r.get("link") or "" for r in results][:5]
         except Exception:
             return
 
@@ -166,7 +160,10 @@ class BaseAgent:
             )
 
         # Call OpenAI via llm_client
-        from core.agents.unified_registry import resolve_model  # local import to avoid circular
+        from core.agents.unified_registry import (
+            resolve_model,  # local import to avoid circular
+        )
+
         model_id = self.model or resolve_model(self.name)
         logger.info(f"Model[exec]={model_id} params={{}}")
         result = call_openai(
@@ -194,4 +191,3 @@ class BaseAgent:
             if isinstance(answer, str) and len(answer) > max_chars:
                 answer = answer[:max_chars] + " …[truncated test]"
         return answer
-

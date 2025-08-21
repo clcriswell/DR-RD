@@ -1,39 +1,38 @@
+import csv
 import json
+import os
 import re
-import logging
-from typing import Dict, List, Tuple, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import streamlit as st
+from utils.agent_json import extract_json_block
+from utils.config import load_config
+from utils.logging import logger, safe_exc
+from utils.paths import new_run_dir
+from utils.redaction import load_policy
 
 from config.agent_models import AGENT_MODEL_MAP
+from core.agents.planner_agent import PlannerAgent
+from core.agents.registry import build_agents, load_mode_models
+from core.agents_registry import agents_dict
+from core.dossier import Dossier, Finding
 from core.llm import complete
+from core.observability import EvidenceSet, build_coverage
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from core.router import choose_agent_for_task
+from core.synthesizer import synthesize
+from memory.decision_log import log_decision
 from prompts.prompts import (
     PLANNER_SYSTEM_PROMPT,
     PLANNER_USER_PROMPT_TEMPLATE,
     SYNTHESIZER_TEMPLATE,
 )
-from core.observability import EvidenceSet, build_coverage
-from utils.agent_json import extract_json_block
-from memory.decision_log import log_decision
-import csv
-import os
-import re
-
-from core.agents_registry import agents_dict
-import streamlit as st
-from core.agents.planner_agent import PlannerAgent
-from core.agents.registry import build_agents, load_mode_models
-from core.synthesizer import synthesize
-from utils.config import load_config
-from utils.paths import new_run_dir
-from utils.redaction import load_policy, redact_text
-from core.dossier import Dossier, Finding
 
 
 def _invoke_agent(agent, idea: str, task: Dict[str, str]) -> str:
     """Call an agent with best-effort interface detection."""
-    text = f"{task.get('title','')}: {task.get('description','')}"
+    text = f"{task.get('title', '')}: {task.get('description', '')}"
     # Preferred call signatures
     for name in ("run", "act", "execute", "__call__"):
         fn = getattr(agent, name, None)
@@ -100,9 +99,10 @@ def execute_plan(
         try:
             out = _invoke_agent(agent, idea, {"title": title, "description": description})
         except Exception as e:
+            safe_exc(logger, idea, f"invoke_agent[{role}]", e)
             out = f"ERROR: {e}"
         text = out if isinstance(out, str) else json.dumps(out)
-        answers[role] = (answers.get(role, "") + ("\n\n" if role in answers else "") + text)
+        answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
         payload = extract_json_block(text) or {}
         role_to_findings[role] = payload
         if evidence is not None:
@@ -124,8 +124,12 @@ def execute_plan(
         out_dir = os.path.join("audits", project_id)
         os.makedirs(out_dir, exist_ok=True)
         if rows:
-            fieldnames = ["project_id", "role"] + [k for k in rows[0].keys() if k not in ("project_id", "role")]
-            with open(os.path.join(out_dir, "coverage.csv"), "w", newline="", encoding="utf-8") as f:
+            fieldnames = ["project_id", "role"] + [
+                k for k in rows[0].keys() if k not in ("project_id", "role")
+            ]
+            with open(
+                os.path.join(out_dir, "coverage.csv"), "w", newline="", encoding="utf-8"
+            ) as f:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(rows)
@@ -151,8 +155,9 @@ def execute_plan(
             pass
     enable_build = os.environ.get("DRRD_ENABLE_BUILD_SPEC", "false").lower() == "true"
     if enable_build:
-        from orchestrators.spec_builder import assemble_from_agent_payloads
         from utils.reportgen import render, write_csv
+
+        from orchestrators.spec_builder import assemble_from_agent_payloads
 
         sdd, impl = assemble_from_agent_payloads(project_name, idea, answers)
         out_dir = f"audits/{project_id}/build"
@@ -178,7 +183,8 @@ def execute_plan(
                 "w",
                 encoding="utf-8",
             ).write(
-                f"# {i.name}\n\nProducer: {i.producer}\nConsumer: {i.consumer}\n\nContract:\n{i.contract}\n"
+                f"# {i.name}\n\nProducer: {i.producer}\n"
+                f"Consumer: {i.consumer}\n\nContract:\n{i.contract}\n"
             )
 
     return answers
@@ -196,11 +202,7 @@ def compile_proposal(idea: str, answers: Dict[str, str]) -> str:
 
         slug = st.session_state.get("project_slug", _slugify(idea))
         project_id = slug
-        tasks = (
-            st.session_state.get("plan_tasks")
-            or st.session_state.get("plan")
-            or []
-        )
+        tasks = st.session_state.get("plan_tasks") or st.session_state.get("plan") or []
         artifacts = {
             "evidence": f"audits/{slug}/evidence.json",
             "coverage": f"audits/{slug}/coverage.csv",
@@ -223,21 +225,22 @@ def compile_proposal(idea: str, answers: Dict[str, str]) -> str:
         out_paths = write_final_bundle(slug, final_markdown, appendices, trace_rows)
         st.session_state["final_paths"] = out_paths
     except Exception as e:  # pragma: no cover - best effort
-        logging.warning("Failed to build final bundle: %s", e)
+        logger.warning("Failed to build final bundle: %s", e)
     return final_markdown
 
 
 def run_poc(project_id: str, test_plan):
     """Execute Proof-of-Concept tests defined in ``test_plan``."""
-    from core.poc import gates
-    from core.poc.testplan import TestPlan, TestCase, Metric
-    from core.poc.results import TestResult, PoCReport
-    from simulation import runner
-    from simulation import simulation_manager  # ensure registry hooks
-    from memory.memory_manager import MemoryManager
-    from pathlib import Path
-    import json
     import csv
+    import json
+    from pathlib import Path
+
+    from core.poc import gates
+    from core.poc.results import PoCReport, TestResult
+    from core.poc.testplan import TestPlan
+    from memory.memory_manager import MemoryManager
+    from simulation import simulation_manager  # noqa: F401 - ensure registry hooks
+    from simulation import runner
 
     if not isinstance(test_plan, TestPlan):
         test_plan = TestPlan.parse_obj(test_plan)
@@ -315,9 +318,7 @@ def orchestrate(user_idea: str) -> str:
     into a final plan.
     """
 
-    global agents_dict
-
-    print(f"[User] Idea submitted: {user_idea}")
+    logger.info("[User] Idea submitted: %s", user_idea)
 
     role_personas: Dict[str, str] = {
         "HRM": (
@@ -337,20 +338,24 @@ def orchestrate(user_idea: str) -> str:
             "Integrate all contributions into a comprehensive final R&D plan."
         ),
         "CTO": (
-            "You are the Chief Technology Officer (CTO) for this project, focusing on technical strategy and feasibility. "
+            "You are the Chief Technology Officer (CTO) for this project, "
+            "focusing on technical strategy and feasibility. "
             "Address architecture, potential technical risks, and ensure coherence across domains in the plan."
         ),
         "ResearchScientist": (
             "You are a Research Scientist with expertise in the project's field. "
-            "Research the state-of-the-art and summarize key findings, relevant studies, and gaps related to the idea."
+            "Research the state-of-the-art and summarize key findings, "
+            "relevant studies, and gaps related to the idea."
         ),
         "MaterialsEngineer": (
             "You are a Materials Engineer specialized in material selection and engineering feasibility. "
-            "Evaluate material and engineering aspects of the idea and suggest solutions to any challenges."
+            "Evaluate material and engineering aspects of the idea "
+            "and suggest solutions to any challenges."
         ),
         "RegulatorySpecialist": (
             "You are a Regulatory Compliance Specialist. "
-            "Review the idea for any regulatory or safety requirements and highlight compliance issues to address."
+            "Review the idea for any regulatory or safety requirements "
+            "and highlight compliance issues to address."
         ),
     }
 
@@ -361,7 +366,9 @@ def orchestrate(user_idea: str) -> str:
         try:
             roles_needed = json.loads(hrm_output)
             if isinstance(roles_needed, dict):
-                roles_needed = roles_needed.get("roles", list(roles_needed.values())[0] if roles_needed else [])
+                roles_needed = roles_needed.get(
+                    "roles", list(roles_needed.values())[0] if roles_needed else []
+                )
         except json.JSONDecodeError:
             parts = re.split(r"[\n,;]+", hrm_output)
             roles_needed = [role.strip() for role in parts if role.strip()]
@@ -372,7 +379,7 @@ def orchestrate(user_idea: str) -> str:
             roles_needed = list(hrm_output)
         except Exception:
             roles_needed = [str(hrm_output)]
-    print(f"[HRM] Roles needed: {roles_needed}")
+    logger.info("[HRM] Roles needed: %s", roles_needed)
 
     planner_output = agents_dict["Planner"].act(role_personas["Planner"], user_idea)
 
@@ -400,13 +407,19 @@ def orchestrate(user_idea: str) -> str:
             domain = t.get("domain") or t.get("Domain") or None
             normalized_tasks.append({"task": task_desc, "domain": domain})
     tasks = normalized_tasks
-    print(f"[Planner] Tasks identified: {tasks}")
+    logger.info("[Planner] Tasks identified: %s", tasks)
 
     if not tasks:
-        print("[Planner] No tasks were generated. Proceeding to final plan synthesis directly.")
-        direct_input = f"Roles: {roles_needed}. Idea: {user_idea}. Provide a comprehensive R&D plan."
-        final_plan = agents_dict["ChiefScientist"].act(role_personas["ChiefScientist"], direct_input)
-        print("[ChiefScientist] Final plan (direct synthesis) ready.")
+        logger.info(
+            "[Planner] No tasks were generated. Proceeding to final plan synthesis directly."
+        )
+        direct_input = (
+            f"Roles: {roles_needed}. Idea: {user_idea}. Provide a comprehensive R&D plan."
+        )
+        final_plan = agents_dict["ChiefScientist"].act(
+            role_personas["ChiefScientist"], direct_input
+        )
+        logger.info("[ChiefScientist] Final plan (direct synthesis) ready.")
         return final_plan
 
     def assign_role(task: Dict[str, Any]) -> str:
@@ -427,7 +440,9 @@ def orchestrate(user_idea: str) -> str:
                 return "CTO"
         desc_lower = task_desc.lower()
         if any(word in desc_lower for word in ["material", "materials"]):
-            return "MaterialsEngineer" if "MaterialsEngineer" in agents_dict else "MaterialsScientist"
+            return (
+                "MaterialsEngineer" if "MaterialsEngineer" in agents_dict else "MaterialsScientist"
+            )
         if any(word in desc_lower for word in ["regulatory", "regulation", "compliance"]):
             return "RegulatorySpecialist"
         if any(word in desc_lower for word in ["research", "analysis", "study"]):
@@ -444,13 +459,17 @@ def orchestrate(user_idea: str) -> str:
         role_assigned = assign_role(task)
         agent = agents_dict.get(role_assigned)
         if agent is None:
-            print(f"[Warning] No agent found for role {role_assigned}, skipping task: {task_desc}")
+            logger.info(
+                "[Warning] No agent found for role %s, skipping task: %s",
+                role_assigned,
+                task_desc,
+            )
             continue
         system_prompt = role_personas.get(role_assigned, f"You are a {role_assigned} expert.")
         user_prompt = task_desc
         result = agent.act(system_prompt, user_prompt)
         all_outputs.setdefault(role_assigned, []).append({"task": task_desc, "result": result})
-        print(f"[{role_assigned}] Completed task: '{task_desc}' -> Result captured.")
+        logger.info("[%s] Completed task: '%s' -> Result captured.", role_assigned, task_desc)
 
     reflection_summary = ""
     for role, outputs in all_outputs.items():
@@ -458,10 +477,14 @@ def orchestrate(user_idea: str) -> str:
             reflection_summary += f"\n- {role} on '{entry['task']}': {entry['result']}"
     reflection_user_prompt = (
         "The team of agents have completed their tasks with the following results:"
-        f"{reflection_summary}\nGiven these results, determine if any additional follow-up tasks are needed to address remaining gaps or questions. "
-        "If yes, list the new tasks (as a JSON list of task descriptions or task dicts with domains if applicable); if not, respond with 'no further tasks'."
+        f"{reflection_summary}\n"
+        "Given these results, determine if any additional follow-up tasks are needed to address remaining gaps or questions. "
+        "If yes, list the new tasks (as a JSON list of task descriptions or task dicts with domains if applicable); "
+        "if not, respond with 'no further tasks'."
     )
-    reflection_output = agents_dict["Reflection"].act(role_personas["Reflection"], reflection_user_prompt)
+    reflection_output = agents_dict["Reflection"].act(
+        role_personas["Reflection"], reflection_user_prompt
+    )
 
     follow_up_tasks: List[Any] = []
     if reflection_output:
@@ -478,7 +501,8 @@ def orchestrate(user_idea: str) -> str:
                 except json.JSONDecodeError:
                     lines = [
                         line.strip("- ").strip()
-                        for line in reflection_output.splitlines() if line.strip()
+                        for line in reflection_output.splitlines()
+                        if line.strip()
                     ]
                     if any("no further tasks" in line.lower() for line in lines):
                         follow_up_tasks = []
@@ -499,7 +523,7 @@ def orchestrate(user_idea: str) -> str:
             follow_up_tasks = reflection_output.get("tasks") or list(reflection_output.values())
 
     if follow_up_tasks:
-        print(f"[Reflection] Follow-up tasks suggested: {follow_up_tasks}")
+        logger.info("[Reflection] Follow-up tasks suggested: %s", follow_up_tasks)
         for ftask in follow_up_tasks:
             if isinstance(ftask, str):
                 ftask = {"task": ftask}
@@ -507,15 +531,23 @@ def orchestrate(user_idea: str) -> str:
             role_assigned = assign_role(ftask)
             agent = agents_dict.get(role_assigned)
             if agent is None:
-                print(f"[Warning] No agent for follow-up role {role_assigned}, skipping task: {ftask_desc}")
+                logger.info(
+                    "[Warning] No agent for follow-up role %s, skipping task: %s",
+                    role_assigned,
+                    ftask_desc,
+                )
                 continue
             system_prompt = role_personas.get(role_assigned, f"You are a {role_assigned} expert.")
             user_prompt = ftask_desc
             result = agent.act(system_prompt, user_prompt)
             all_outputs.setdefault(role_assigned, []).append({"task": ftask_desc, "result": result})
-            print(f"[{role_assigned}] Completed follow-up task: '{ftask_desc}' -> Result captured.")
+            logger.info(
+                "[%s] Completed follow-up task: '%s' -> Result captured.",
+                role_assigned,
+                ftask_desc,
+            )
     else:
-        print("[Reflection] No follow-up tasks needed.")
+        logger.info("[Reflection] No follow-up tasks needed.")
 
     synthesis_summary = ""
     for role, outputs in all_outputs.items():
@@ -523,10 +555,14 @@ def orchestrate(user_idea: str) -> str:
             synthesis_summary += f"\n{role} ({entry['task']}): {entry['result']}"
     chief_user_prompt = (
         "All specialist tasks are complete. Here are the results:"
-        f"{synthesis_summary}\nAs the Chief Scientist, please synthesize these contributions into a final comprehensive R&D plan."
+        f"{synthesis_summary}\n"
+        "As the Chief Scientist, please synthesize these contributions "
+        "into a final comprehensive R&D plan."
     )
-    final_plan = agents_dict["ChiefScientist"].act(role_personas["ChiefScientist"], chief_user_prompt)
-    print("[ChiefScientist] Final R&D plan synthesized.")
+    final_plan = agents_dict["ChiefScientist"].act(
+        role_personas["ChiefScientist"], chief_user_prompt
+    )
+    logger.info("[ChiefScientist] Final R&D plan synthesized.")
     return final_plan
 
 
@@ -559,7 +595,6 @@ def run_pipeline(
     context: Dict[str, List[str]] = {"idea": idea, "summaries": []}
 
     plan = planner.run(idea, "Decompose the project into specialist tasks")
-    logger = logging.getLogger(__name__)
     logger.info(
         "Planner raw (first 400 chars): %s",
         str(getattr(planner, "last_raw", plan))[:400],
@@ -609,9 +644,7 @@ def run_pipeline(
                 usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
             )
             trace.append({"agent": routed_role, "tokens": tokens, "finding": summary_line})
-        logger.info(
-            "Cycle %s — executed %s tasks; queue=%s", cycle, len(batch), len(task_queue)
-        )
+        logger.info("Cycle %s — executed %s tasks; queue=%s", cycle, len(batch), len(task_queue))
         if cycle >= max_loops and not task_queue:
             break
 

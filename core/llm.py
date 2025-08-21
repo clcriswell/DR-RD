@@ -1,8 +1,12 @@
-import os, json, typing as t
+import json
+import os
+import typing as t
 from dataclasses import dataclass
 
-from core.prompt_utils import coerce_user_content
+from utils.logging import logger, safe_exc
+
 from core.llm_client import call_openai
+from core.prompt_utils import coerce_user_content
 
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5").strip()
 
@@ -23,20 +27,20 @@ def _log_request(model: str, messages: list, extra: dict):
             "has_user": any(m.get("role") == "user" for m in messages),
             "extra_keys": list(extra.keys()),
         }
-        print(f"[LLM] Request preview: {json.dumps(preview)[:1000]}")
+        logger.info("[LLM] Request preview: %s", json.dumps(preview)[:1000])
     except Exception as e:
-        print(f"[LLM] Could not log request preview: {e}")
+        safe_exc(logger, "", "[LLM] Could not log request preview", e)
 
 
 def _log_400(e: Exception):
-    print(f"[LLM] OpenAI error: {e}")
+    safe_exc(logger, "", "[LLM] OpenAI error", e)
     try:
         if hasattr(e, "response") and hasattr(e.response, "json"):
-            print(f"[LLM] Error JSON: {e.response.json()}")
+            safe_exc(logger, "", "[LLM] Error JSON", Exception(e.response.json()))
         elif hasattr(e, "response") and hasattr(e.response, "text"):
-            print(f"[LLM] Error text: {e.response.text}")
+            safe_exc(logger, "", "[LLM] Error text", Exception(e.response.text))
     except Exception as inner:
-        print(f"[LLM] Could not log error body: {inner}")
+        safe_exc(logger, "", "[LLM] Could not log error body", inner)
 
 
 def _validate_messages(messages: list):
@@ -54,12 +58,12 @@ def _validate_messages(messages: list):
             c = coerce_user_content(c)
             m["content"] = c
             if not isinstance(c, str) and not isinstance(c, list):
-                raise ValueError(
-                    f"messages[{i}].content must be str or list (for vision)."
-                )
+                raise ValueError(f"messages[{i}].content must be str or list (for vision).")
 
 
-def complete(system_prompt: t.Any, user_prompt: t.Any, *, model: t.Optional[str] = None, **kwargs) -> ChatResult:
+def complete(
+    system_prompt: t.Any, user_prompt: t.Any, *, model: t.Optional[str] = None, **kwargs
+) -> ChatResult:
     mdl = (model or DEFAULT_MODEL).strip()
     messages = [
         {"role": "system", "content": coerce_user_content(system_prompt)},

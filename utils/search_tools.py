@@ -1,10 +1,10 @@
 import os
 import re
-import logging
-from typing import List, Dict
+from html import unescape
+from typing import Dict, List
 
 import requests
-from html import unescape
+from utils.logging import logger
 
 from core.llm_client import call_openai
 
@@ -56,14 +56,16 @@ def search_google(role: str, idea: str, q: str, k: int = 5) -> List[Dict]:
     q_red = obfuscate_query(role, idea, q)
     try:
         params = {"engine": "google", "q": q_red, "api_key": key}
-        logging.info("search_google[%s]: %s", role, q_red)
+        logger.info("search_google[%s]: %s", role, q_red)
         resp = requests.get("https://serpapi.com/search.json", params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         out: List[Dict] = []
         for item in data.get("organic_results", [])[:k]:
             snippet = _strip_html(item.get("snippet") or item.get("summary") or "")
-            out.append({"snippet": snippet, "link": item.get("link", ""), "title": item.get("title", "")})
+            out.append(
+                {"snippet": snippet, "link": item.get("link", ""), "title": item.get("title", "")}
+            )
         return out
     except Exception:
         return []
@@ -85,4 +87,3 @@ def summarize_search(snippets: List[str], model: str | None = None) -> str:
         return (result["text"] or "").strip()
     except Exception:
         return ""
-

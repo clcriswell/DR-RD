@@ -1,37 +1,42 @@
-name: Run DR-RD Tests
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
+name: tests
+on: [push, pull_request]
 jobs:
-  test:
+  lint-type-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11"]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
+          python-version: "3.11"
+      - name: Install deps
         run: |
-          python -m pip install --upgrade pip
-          # Continue even if optional dependencies like markdown_pdf fail to install
-          pip install -r requirements.txt || echo "Failed to install some optional dependencies"
-          pip install pytest pytest-mock
-      - name: Run Pytest
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov mypy
+          pip install black isort flake8 bandit
+      - name: Lint
         run: |
-          set -o pipefail
-          pytest --maxfail=5 --disable-warnings -q | tee pytest.log
-      - name: Show test results
-        if: ${{ always() }}
+          black --check .
+          isort --check-only .
+          flake8 .
+          bandit -q -r core utils app orchestrators planning plugins
+      - name: Typecheck
+        run: mypy --ignore-missing-imports core app utils orchestrators planning || true
+      - name: Tests with coverage
+        run: pytest -q --cov=core --cov=app --cov=utils --cov-report=term-missing --cov-report=xml
+      - name: Enforce coverage floor
         run: |
-          tail -n 20 pytest.log
-          echo '## Pytest results' >> $GITHUB_STEP_SUMMARY
-          tail -n 20 pytest.log >> $GITHUB_STEP_SUMMARY
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          cov = float(ET.parse('coverage.xml').getroot().attrib['line-rate'])
+          assert cov >= 0.80, f"Coverage {cov*100:.1f}% < 80%"
+          PY
+      - name: Upload audits/final artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audits-and-final
+          path: |
+            audits/**/*
+            **/final_bundle.zip
+          if-no-files-found: ignore

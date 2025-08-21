@@ -5,11 +5,11 @@ import argparse
 import hashlib
 from typing import Optional
 
-from core import cache
+from utils.logging import logger
 
-from core.model_router import pick_model, CallHints
+from core import cache
 from core.llm_client import call_openai
-import logging
+from core.model_router import CallHints, pick_model
 
 _DEF_PROMPTS = {
     "Low": "Provide a brief high-level summary.",
@@ -34,7 +34,7 @@ def run_agent(role: str, prompt: str, depth: str = "Low") -> str:
     message = f"{prompt}\n\n{depth_suffix}"
 
     sel = pick_model(CallHints(stage="exec"))
-    logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+    logger.info("Model[exec]=%s params=%s", sel["model"], sel["params"])
     result = call_openai(
         model=sel["model"],
         messages=[
@@ -65,7 +65,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     args = _parse_args(argv)
     depth = args.design_depth.capitalize()
     output = run_agent(args.role, args.prompt, depth)
-    print(output)
+    logger.info(output)
 
 
 if __name__ == "__main__":  # pragma: no cover
