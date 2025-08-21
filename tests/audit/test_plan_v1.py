@@ -4,16 +4,19 @@ from pathlib import Path
 
 
 def test_concept_brief_template_exists():
+    """1.1 Concept brief template exists."""
     path = Path("docs/concept_brief.md")
     assert path.is_file(), "Concept brief template missing"
 
 
 def test_role_cards_exist():
+    """1.2 Role cards exist for Planner/PM and other agents."""
     roles_dir = Path("docs/roles")
     assert roles_dir.is_dir() and any(roles_dir.glob("*.md")), "Role cards missing"
 
 
 def test_task_segmentation_plan_structure():
+    """1.3 Task segmentation plan exists as structured data."""
     plan_dir = Path("planning")
     candidates = list(plan_dir.glob("*.yaml")) + list(plan_dir.glob("*.yml")) + list(plan_dir.glob("*.json"))
     assert candidates, "Task segmentation plan file missing"
@@ -36,6 +39,7 @@ def test_task_segmentation_plan_structure():
 
 
 def test_redaction_policy_bound_in_planning_prompts():
+    """1.4 Redaction policy bound into planning prompts."""
     prompt_paths = list(Path("prompts").rglob("*.py")) + list(Path("core/agents").glob("*planner*.py"))
     found = False
     for path in prompt_paths:

@@ -18,6 +18,7 @@ Concept planning artifacts are largely absent. The repository lacks templates, r
   - `tests/audit/test_plan_v1.py::test_role_cards_exist`
   - `tests/audit/test_plan_v1.py::test_task_segmentation_plan_structure`
   - `tests/audit/test_plan_v1.py::test_redaction_policy_bound_in_planning_prompts`
+  - pytest assertions show missing files and prompts
 
 ## Gaps
 - Missing concept brief template
