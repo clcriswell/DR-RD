@@ -6,7 +6,7 @@ profile = "black"
 
 [tool.flake8]
 max-line-length = 100
-per-file-ignores = {
-  "core/agents/base_agent.py" = ["E731", "E501"],
-  "core/orchestrator.py" = ["E501"],
-}
+
+[tool.flake8.per-file-ignores]
+"core/agents/base_agent.py" = ["E731", "E501"]
+"core/orchestrator.py" = ["E501"]
