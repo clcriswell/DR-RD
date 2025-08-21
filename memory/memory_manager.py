@@ -9,6 +9,7 @@ import re
 from difflib import SequenceMatcher
 
 from utils.config import load_config
+from filelock import FileLock
 
 
 def _slugify(name: str) -> str:
@@ -23,9 +24,10 @@ class MemoryManager:
 
     def __init__(self, file_path: str = "memory/project_memory.json", ttl_default: Optional[int] = None):
         self.file_path = file_path
+        self._lock = FileLock(f"{self.file_path}.lock")
         os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
         try:
-            with open(self.file_path, "r", encoding="utf-8") as f:
+            with self._lock, open(self.file_path, "r", encoding="utf-8") as f:
                 self.data = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             self.data = []
@@ -130,7 +132,7 @@ class MemoryManager:
             )
 
         self.data.append(entry)
-        with open(self.file_path, "w", encoding="utf-8") as f:
+        with self._lock, open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, indent=2)
 
     def find_similar_ideas(self, idea, top_n=3):
@@ -182,5 +184,5 @@ class MemoryManager:
             self.data.append(entry)
         entry["test_plan"] = test_plan
         entry["poc_report"] = poc_report
-        with open(self.file_path, "w", encoding="utf-8") as f:
+        with self._lock, open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, indent=2)

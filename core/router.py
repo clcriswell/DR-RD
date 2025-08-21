@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Dict, Tuple, Type
 
 from core.agents.registry import AGENT_REGISTRY
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Lightweight keyword heuristics
@@ -23,6 +26,17 @@ KEYWORDS: Dict[str, str] = {
     "budget": "Finance",
     "architecture": "CTO",
 }
+
+# Common role aliases to canonical registry roles
+ALIASES: Dict[str, str] = {
+    "manufacturing technician": "Research Scientist",
+}
+
+
+def _alias(role: str | None) -> str | None:
+    if not role:
+        return role
+    return ALIASES.get(role.strip().lower(), role)
 
 
 def choose_agent_for_task(
@@ -46,8 +60,9 @@ def choose_agent_for_task(
     """
 
     # 1) Exact match on planned_role via the central registry
-    if planned_role and planned_role in AGENT_REGISTRY:
-        return planned_role, AGENT_REGISTRY[planned_role]
+    role = _alias(planned_role)
+    if role and role in AGENT_REGISTRY:
+        return role, AGENT_REGISTRY[role]
 
     # 2) Keyword heuristics over title + description
     text = f"{title} {description}".lower()
@@ -55,9 +70,22 @@ def choose_agent_for_task(
         if kw in text and role in AGENT_REGISTRY:
             return role, AGENT_REGISTRY[role]
 
-    # 3) Default to Research Scientist
+    # 3) Default to Research Scientist with warning
+    if planned_role:
+        logger.warning("Unresolved role: %s", planned_role)
     return "Research Scientist", AGENT_REGISTRY["Research Scientist"]
 
 
-__all__ = ["choose_agent_for_task", "KEYWORDS"]
+def route_task(task: Dict[str, str]) -> Tuple[str, Type, Dict[str, str]]:
+    """Resolve role/agent for a task dict without dropping fields."""
+    role, cls = choose_agent_for_task(
+        task.get("role"), task.get("title", ""), task.get("description", "")
+    )
+    out = dict(task)
+    out["role"] = role
+    out.setdefault("stop_rules", task.get("stop_rules", []))
+    return role, cls, out
+
+
+__all__ = ["choose_agent_for_task", "KEYWORDS", "ALIASES", "route_task"]
 
