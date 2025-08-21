@@ -39,3 +39,11 @@ def test_model_router_respects_mode_cfg(monkeypatch):
     fake_st.session_state["final_flags"]["MODEL_EXEC"] = "alt-model"
     assert crouter.pick_model(mr.CallHints(stage="exec"))["model"] == "alt-model"
     assert crouter.pick_model(mr.CallHints(stage="plan"))["model"] == "gpt-4-turbo"
+
+def test_cheap_default_from_prices(monkeypatch):
+    """_cheap_default should pick the lowest-cost model from the price table."""
+    monkeypatch.delenv("TEST_MODEL_ID", raising=False)
+    importlib.reload(mr)
+    # Ensure the model chosen from the repository's price table is gpt-4-turbo.
+    assert mr._cheap_default(mr.PRICE_TABLE) == "gpt-4-turbo"
+    assert mr.pick_model("plan", None, mode="test") == "gpt-4-turbo"
