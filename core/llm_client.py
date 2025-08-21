@@ -5,6 +5,7 @@ import random
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import time
 from openai import APIStatusError, OpenAI
 from utils.config import load_config
 import streamlit as st
@@ -107,36 +108,51 @@ def call_openai(
         params["seed"] = seed
     if "max_tokens" in params and "max_output_tokens" not in params:
         params["max_output_tokens"] = params.pop("max_tokens")
-    try:
-        response_params = {k: v for k, v in params.items() if k != "temperature"}
+    backoff = 0.1
+    for attempt in range(4):
         try:
-            resp = client.responses.create(
-                model=model,
-                input=_to_responses_input(messages),
-                **response_params,
-            )
-        except TypeError:
-            if "response_format" in response_params:
-                cleaned = {k: v for k, v in response_params.items() if k != "response_format"}
+            response_params = {k: v for k, v in params.items() if k != "temperature"}
+            try:
                 resp = client.responses.create(
                     model=model,
                     input=_to_responses_input(messages),
-                    **cleaned,
+                    **response_params,
                 )
-            else:
+            except TypeError:
+                if "response_format" in response_params:
+                    cleaned = {k: v for k, v in response_params.items() if k != "response_format"}
+                    resp = client.responses.create(
+                        model=model,
+                        input=_to_responses_input(messages),
+                        **cleaned,
+                    )
+                else:
+                    raise
+            text = extract_text(resp)
+            logger.info("call_openai: used Responses API for %s", model)
+            return {"raw": resp, "text": text}
+        except APIStatusError as e:
+            if e.status_code not in (404, 429, 500, 502, 503, 504):
                 raise
-        text = extract_text(resp)
-        logger.info("call_openai: used Responses API for %s", model)
-        return {"raw": resp, "text": text}
-    except APIStatusError as e:
-        if e.status_code != 404:
-            raise
-        logger.info("call_openai: falling back to Chat Completions for %s", model)
-    except Exception as e:
-        msg = str(e).lower()
-        if "404" not in msg:
-            raise
-        logger.info("call_openai: falling back to Chat Completions for %s", model)
+            if e.status_code == 404:
+                logger.info("call_openai: falling back to Chat Completions for %s", model)
+                break
+            if attempt == 3:
+                logger.error("call_openai: failed after retries for %s", model)
+                raise
+            time.sleep(backoff + random.uniform(0, backoff))
+            backoff *= 2
+        except Exception as e:
+            msg = str(e).lower()
+            if "404" not in msg:
+                if attempt == 3:
+                    logger.error("call_openai: failed after retries for %s", model)
+                    raise
+                time.sleep(backoff + random.uniform(0, backoff))
+                backoff *= 2
+                continue
+            logger.info("call_openai: falling back to Chat Completions for %s", model)
+            break
 
     params = dict(kwargs)
     if "max_output_tokens" in params and "max_tokens" not in params:
@@ -216,4 +232,10 @@ def llm_call(
         )
 
     log_usage(stage, chosen_model, usage["prompt_tokens"], usage["completion_tokens"], cost)
+    try:
+        setattr(resp, "tokens_in", usage["prompt_tokens"])
+        setattr(resp, "tokens_out", usage["completion_tokens"])
+        setattr(resp, "cost_usd", cost)
+    except Exception:
+        pass
     return resp

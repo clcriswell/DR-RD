@@ -6,11 +6,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import streamlit as st
-from utils.agent_json import extract_json_block
+from utils.agent_json import (
+    AgentOutputFormatError,
+    extract_json_block,
+    extract_json_strict,
+)
 from utils.config import load_config
 from utils.logging import logger, safe_exc
 from utils.paths import new_run_dir
-from utils.redaction import load_policy
 
 from config.agent_models import AGENT_MODEL_MAP
 from core.agents.planner_agent import PlannerAgent
@@ -22,6 +25,8 @@ from core.observability import EvidenceSet, build_coverage
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from core.router import choose_agent_for_task
 from core.synthesizer import synthesize
+from core.schemas import Plan, ScopeNote
+from planning.segmenter import load_redaction_policy, redact_text
 from memory.decision_log import log_decision
 from prompts.prompts import (
     PLANNER_SYSTEM_PROMPT,
@@ -52,18 +57,54 @@ def generate_plan(
     constraints: str | None = None,
     risk_posture: str | None = None,
 ) -> List[Dict[str, str]]:
-    """Use the Planner to create and normalize a task list."""
-    constraints_section = f"\nConstraints: {constraints}" if constraints else ""
-    risk_section = f"\nRisk posture: {risk_posture}" if risk_posture else ""
+    """Use the Planner to create and normalize a task list.
+
+    The input idea/constraints are pre-redacted according to the redaction
+    policy.  The planner output is validated against :class:`Plan`; if the
+    JSON is malformed a single retry with an explicit instruction is made.
+    """
+
+    policy = load_redaction_policy()
+    constraint_list = [c.strip() for c in (constraints or "").splitlines() if c.strip()]
+    redacted_idea = redact_text(policy, idea)
+    redacted_constraints = [redact_text(policy, c) for c in constraint_list]
+    sn = ScopeNote(
+        idea=redacted_idea,
+        constraints=redacted_constraints,
+        risk_posture=(risk_posture or "medium").lower(),
+        redaction_rules=list(policy.keys()),
+    )
+    try:  # persist for UI tests
+        st.session_state["scope_note"] = sn.model_dump()
+    except Exception:
+        pass
+
+    constraints_section = (
+        f"\nConstraints: {'; '.join(redacted_constraints)}" if redacted_constraints else ""
+    )
+    risk_section = f"\nRisk posture: {sn.risk_posture}" if risk_posture else ""
+
+    def _call(extra: str = "") -> List[Dict[str, str]]:
+        result = complete(PLANNER_SYSTEM_PROMPT, user_prompt + extra)
+        raw = result.content or "{}"
+        data = extract_json_strict(raw)
+        Plan.model_validate(data)
+        return normalize_tasks(normalize_plan_to_tasks(data["tasks"]))
+
     user_prompt = PLANNER_USER_PROMPT_TEMPLATE.format(
-        idea=idea,
+        idea=sn.idea,
         constraints_section=constraints_section,
         risk_section=risk_section,
     )
-    result = complete(PLANNER_SYSTEM_PROMPT, user_prompt)
-    raw = result.content or ""
-    tasks = normalize_tasks(normalize_plan_to_tasks(raw))
-    return tasks
+
+    try:
+        return _call()
+    except Exception as e:
+        try:
+            msg = "\nMalformed JSON in prior response. Return valid JSON only."
+            return _call(msg)
+        except Exception as e2:
+            raise ValueError(f"Planner JSON validation failed: {e2}") from e
 
 
 def _slugify(name: str) -> str:

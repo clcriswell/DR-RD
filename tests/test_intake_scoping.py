@@ -61,3 +61,22 @@ def test_memory_persists_new_fields(tmp_path):
     assert data[-1]["constraints"] == "C"
     assert data[-1]["risk_posture"] == "High"
 
+
+def test_scope_note_normalization(monkeypatch):
+    import types
+    import core.orchestrator as orch
+
+    def fake_complete(system, user_prompt):
+        class R:
+            content = "{\"tasks\":[]}"
+
+        return R()
+
+    monkeypatch.setattr(orch, "complete", fake_complete)
+    monkeypatch.setattr(orch, "st", types.SimpleNamespace(session_state={}))
+
+    orch.generate_plan("Build", "C1\nC2", risk_posture="HIGH")
+    scope = orch.st.session_state["scope_note"]
+    assert scope["constraints"] == ["C1", "C2"]
+    assert scope["risk_posture"] == "high"
+
