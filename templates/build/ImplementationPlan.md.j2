@@ -1,0 +1,9 @@
+# Implementation Plan
+## Work Breakdown
+{% for w in impl.work %}- {{ w.id }}: {{ w.title }} (owner: {{ w.owner }}) deps: {{ ", ".join(w.deps) }}
+{% endfor %}
+## Milestones
+{% for m in impl.milestones %}- {{ m.id }}: {{ m.name }} due {{ m.due }} ({{ ", ".join(m.deliverables) }})
+{% endfor %}
+## Rollback
+{{ impl.rollback }}

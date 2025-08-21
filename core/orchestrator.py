@@ -80,9 +80,11 @@ def execute_plan(
     project_id: Optional[str] = None,
     save_decision_log: bool = True,
     save_evidence: bool = True,
+    project_name: Optional[str] = None,
 ) -> Dict[str, str]:
     """Dispatch tasks to routed agents and collect their outputs."""
     project_id = project_id or _slugify(idea)
+    project_name = project_name or project_id
     answers: Dict[str, str] = {}
     evidence = EvidenceSet(project_id=project_id) if save_evidence else None
     role_to_findings: Dict[str, dict] = {}
@@ -147,6 +149,37 @@ def execute_plan(
             st.session_state["poc_report"] = report
         except Exception:
             pass
+    enable_build = os.environ.get("DRRD_ENABLE_BUILD_SPEC", "false").lower() == "true"
+    if enable_build:
+        from orchestrators.spec_builder import assemble_from_agent_payloads
+        from utils.reportgen import render, write_csv
+
+        sdd, impl = assemble_from_agent_payloads(project_name, idea, answers)
+        out_dir = f"audits/{project_id}/build"
+        os.makedirs(out_dir, exist_ok=True)
+        sdd_md = render("build/SDD.md.j2", {"sdd": sdd})
+        impl_md = render("build/ImplementationPlan.md.j2", {"impl": impl})
+        open(f"{out_dir}/SDD.md", "w", encoding="utf-8").write(sdd_md)
+        open(f"{out_dir}/ImplementationPlan.md", "w", encoding="utf-8").write(impl_md)
+        write_csv(
+            f"{out_dir}/bom.csv",
+            [b.model_dump() for b in impl.bom],
+            headers=["part_no", "desc", "qty", "unit_cost", "vendor"],
+        )
+        write_csv(
+            f"{out_dir}/budget.csv",
+            [b.model_dump() for b in impl.budget],
+            headers=["phase", "cost_usd"],
+        )
+        os.makedirs(f"{out_dir}/interface_contracts", exist_ok=True)
+        for i in sdd.interfaces:
+            open(
+                f"{out_dir}/interface_contracts/{i.name}.md",
+                "w",
+                encoding="utf-8",
+            ).write(
+                f"# {i.name}\n\nProducer: {i.producer}\nConsumer: {i.consumer}\n\nContract:\n{i.contract}\n"
+            )
 
     return answers
 
