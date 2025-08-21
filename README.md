@@ -1,5 +1,8 @@
 # AI R&D Center (Streamlit)
 
+[![tests](https://github.com/clcriswell/DR-RD/actions/workflows/test.yml/badge.svg)](https://github.com/clcriswell/DR-RD/actions/workflows/test.yml)
+[![secret-scan](https://github.com/clcriswell/DR-RD/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/clcriswell/DR-RD/actions/workflows/secret-scan.yml)
+
 A public Streamlit application that masks a user’s idea, decomposes it into
 multi-disciplinary research tasks, and orchestrates AI agents to synthesize a
 prototype or development plan.
@@ -64,3 +67,11 @@ Images are disabled by default for the Test mode. Deep mode lets users toggle im
 Set `ENABLE_LIVE_SEARCH=true` and provide a `SERPAPI_KEY` to allow the Research Scientist, IP Analyst, and Regulatory agents to query the live web when local RAG hits are missing or too short. When web results are used, these agents add a `sources` array with short titles or URLs to their JSON output.
 
 The application always runs with the full Pro profile. Use the Developer toggle to activate Test mode for quick low-cost checks.
+
+### Dry-run for CI
+
+Set `DRRD_DRY_RUN=true` to bypass external model calls with a deterministic stub. This is useful for testing or continuous integration environments.
+
+### Coverage
+
+Continuous integration enforces a minimum coverage of 80%.

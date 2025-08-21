@@ -1,14 +1,15 @@
+import json
 import logging
+import os
+import random
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from openai import OpenAI
-from openai import APIStatusError
-import os
-import json
-from pathlib import Path
-import random
-
+from openai import APIStatusError, OpenAI
 from utils.config import load_config
+import streamlit as st
+from core.budget import BudgetManager, CostTracker
+from core.token_meter import TokenMeter
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,10 @@ if seed_env:
         pass
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "test"))
+
+
+def _dry_stub(prompt: str) -> dict:
+    return {"text": "[DRY_RUN] " + (prompt[:200] if isinstance(prompt, str) else "ok")}
 
 
 def _to_responses_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -54,7 +59,9 @@ def extract_text(resp: Any) -> Optional[str]:
         choice = resp.choices[0]
     except Exception:
         return None
-    return getattr(getattr(choice, "message", None), "content", None) or getattr(choice, "text", None)
+    return getattr(getattr(choice, "message", None), "content", None) or getattr(
+        choice, "text", None
+    )
 
 
 def call_openai(
@@ -66,6 +73,13 @@ def call_openai(
     **kwargs,
 ) -> Dict[str, Any]:
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
+    compiled_prompt = " \n".join(
+        m.get("content", "") if isinstance(m.get("content", ""), str) else "" for m in messages
+    )
+    if os.getenv("DRRD_DRY_RUN", "").lower() in ("1", "true", "yes"):
+        stub = _dry_stub(compiled_prompt)
+        return {"raw": {}, "text": stub["text"]}
+
     cfg = load_config()
     if cfg.get("dry_run", {}).get("enabled", False):
         fixtures_dir = Path(cfg.get("dry_run", {}).get("fixtures_dir", "tests/fixtures"))
@@ -103,9 +117,7 @@ def call_openai(
             )
         except TypeError:
             if "response_format" in response_params:
-                cleaned = {
-                    k: v for k, v in response_params.items() if k != "response_format"
-                }
+                cleaned = {k: v for k, v in response_params.items() if k != "response_format"}
                 resp = client.responses.create(
                     model=model,
                     input=_to_responses_input(messages),
@@ -132,9 +144,7 @@ def call_openai(
     resp = client.chat.completions.create(model=model, messages=messages, **params)
     text = extract_text(resp)
     return {"raw": resp, "text": text}
-from core.token_meter import TokenMeter
-from core.budget import BudgetManager, CostTracker
-import streamlit as st
+
 
 METER = TokenMeter()
 BUDGET: BudgetManager | CostTracker | None = None
