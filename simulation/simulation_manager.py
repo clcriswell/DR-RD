@@ -1,3 +1,6 @@
+from .registry import register
+
+
 class SimulationManager:
     """Manages different types of simulations (structural, thermal, electronics, chemical)."""
     def __init__(self):
@@ -133,3 +136,15 @@ class SimulationManager:
     def _simulate_chemical(self, design_spec: str) -> dict:
         # Stub: simulate chemical process (e.g., yield, purity)
         return {"Yield": "78%", "Purity": "95%"}
+
+
+@register("thermal_mock")
+def thermal_mock(inputs: dict):
+    """Simple deterministic thermal simulation."""
+    power = float(inputs.get("power_w", 0.0))
+    ambient = float(inputs.get("ambient_c", 25.0))
+    delta_c = power * 0.1
+    safety_margin = max(0.0, 1 - delta_c / 50.0)
+    obs = {"delta_c": delta_c, "safety_margin": safety_margin}
+    meta = {"cost_estimate_usd": 0.05, "seconds": 0.1, "backend": "mock"}
+    return obs, meta

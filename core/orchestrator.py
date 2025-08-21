@@ -132,6 +132,22 @@ def execute_plan(
         if save_decision_log:
             log_decision(project_id, "coverage_built", {"rows": len(rows)})
 
+    # Optional PoC stage
+    try:
+        import streamlit as st  # type: ignore
+
+        enable_poc = st.session_state.get("enable_poc", False)
+        test_plan = st.session_state.get("test_plan")
+    except Exception:
+        enable_poc = False
+        test_plan = None
+    if enable_poc and test_plan:
+        report = run_poc(project_id, test_plan)
+        try:
+            st.session_state["poc_report"] = report
+        except Exception:
+            pass
+
     return answers
 
 
@@ -141,6 +157,84 @@ def compile_proposal(idea: str, answers: Dict[str, str]) -> str:
     prompt = SYNTHESIZER_TEMPLATE.format(idea=idea, findings_md=findings_md)
     result = complete("You are an expert R&D writer.", prompt)
     return (result.content or "").strip()
+
+
+def run_poc(project_id: str, test_plan):
+    """Execute Proof-of-Concept tests defined in ``test_plan``."""
+    from core.poc import gates
+    from core.poc.testplan import TestPlan, TestCase, Metric
+    from core.poc.results import TestResult, PoCReport
+    from simulation import runner
+    from simulation import simulation_manager  # ensure registry hooks
+    from memory.memory_manager import MemoryManager
+    from pathlib import Path
+    import json
+    import csv
+
+    if not isinstance(test_plan, TestPlan):
+        test_plan = TestPlan.parse_obj(test_plan)
+    results = []
+    total_cost = 0.0
+    total_seconds = 0.0
+    for test in test_plan.tests:
+        gates.assert_safe(test)
+        sim_name = test.inputs.get("_sim", "thermal_mock")
+        obs, meta = runner.run_sim(sim_name, test.inputs)
+        total_cost += float(meta.get("cost_estimate_usd", 0.0))
+        total_seconds += float(meta.get("seconds", 0.0))
+        metrics_passfail = {}
+        for m in test.metrics:
+            val = obs.get(m.name)
+            passed = False
+            if val is not None:
+                if m.operator == ">=":
+                    passed = val >= m.target
+                elif m.operator == "<=":
+                    passed = val <= m.target
+                elif m.operator == ">":
+                    passed = val > m.target
+                elif m.operator == "<":
+                    passed = val < m.target
+                else:
+                    passed = val == m.target
+            metrics_passfail[m.name] = passed
+        passed = all(metrics_passfail.values())
+        results.append(
+            TestResult(
+                test_id=test.id,
+                passed=passed,
+                metrics_observed=obs,
+                metrics_passfail=metrics_passfail,
+                notes="",
+            )
+        )
+        if test_plan.stop_on_fail and not passed:
+            break
+    summary = f"total_cost_usd={total_cost:.2f}, total_seconds={total_seconds:.2f}"
+    report = PoCReport(
+        project_id=test_plan.project_id,
+        hypothesis=test_plan.hypothesis,
+        results=results,
+        summary=summary,
+    )
+
+    mm = MemoryManager()
+    mm.attach_poc(project_id, test_plan.dict(), report.dict())
+
+    out_dir = Path("audits") / project_id / "poc"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with open(out_dir / "testplan.json", "w", encoding="utf-8") as f:
+        json.dump(test_plan.dict(), f, indent=2)
+    with open(out_dir / "results.json", "w", encoding="utf-8") as f:
+        json.dump(report.dict(), f, indent=2)
+    with open(out_dir / "results.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f, fieldnames=["test_id", "passed", "metrics_observed", "metrics_passfail", "notes"]
+        )
+        writer.writeheader()
+        for r in report.results:
+            writer.writerow(r.dict())
+    return report
 
 
 def orchestrate(user_idea: str) -> str:

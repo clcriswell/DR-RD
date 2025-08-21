@@ -171,3 +171,16 @@ class MemoryManager:
                     summaries.append(f"**Idea:** {idea_text}\n**Summary:** {summary_text}")
                     break
         return "\n\n".join(summaries)
+
+
+    # --- PoC helpers ---
+    def attach_poc(self, project_id: str, test_plan: dict, poc_report: dict) -> None:
+        """Attach PoC artefacts to the project record."""
+        entry = next((e for e in self.data if e.get("name") == project_id), None)
+        if entry is None:
+            entry = {"name": project_id}
+            self.data.append(entry)
+        entry["test_plan"] = test_plan
+        entry["poc_report"] = poc_report
+        with open(self.file_path, "w", encoding="utf-8") as f:
+            json.dump(self.data, f, indent=2)
