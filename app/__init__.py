@@ -4,8 +4,8 @@ from typing import Optional, List, Dict
 import json
 import logging
 import openai
-from core.roles import normalize_role
 import streamlit as st
+from core.role_normalizer import normalize_tasks as normalize_roles_tasks, group_by_role
 from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
@@ -840,7 +840,16 @@ def main():
                 tasks = tasks.get("tasks", [])
             st.session_state["plan"] = tasks
             st.session_state["plan_tasks"] = tasks
+            allowed_roles = set(get_agents().keys())
+            normalized = normalize_roles_tasks(tasks, allowed_roles=allowed_roles, max_roles=None)
+            st.session_state["plan_normalized_tasks"] = normalized
+            st.session_state["allowed_roles"] = allowed_roles
             logger.info("Planner tasks: %d", len(tasks))
+            logger.info(
+                "Planner tasks total=%d canonical_roles=%d",
+                len(tasks),
+                len({t['normalized_role'] for t in normalized}),
+            )
             safe_log_step(
                 get_project_id(),
                 "Planner",
@@ -883,15 +892,49 @@ def main():
     if "plan" in st.session_state:
         st.subheader("Project Plan (Role → Task)")
         raw_tasks = st.session_state["plan"]
-        tasks = raw_tasks.get("tasks", []) if isinstance(raw_tasks, dict) else raw_tasks
-        if not tasks:
+        raw_tasks = raw_tasks.get("tasks", []) if isinstance(raw_tasks, dict) else raw_tasks
+        if not raw_tasks:
             getattr(st, "error", lambda *a, **k: None)("Planner returned no valid tasks. Check logs.")
         else:
-            for t in tasks:
-                st.write("role:", t.get("role", ""))
-                st.write("title:", t.get("title", ""))
-                st.write("description:", t.get("description", ""))
-                st.write("")
+            allowed_roles = st.session_state.get("allowed_roles", set())
+            view = st.radio(
+                "Role view",
+                ["Canonical (unified)", "Original (all roles)"],
+                index=0,
+                horizontal=True,
+            )
+            max_roles = None
+            if view.startswith("Canonical"):
+                max_roles = st.slider(
+                    "Max canonical roles",
+                    3,
+                    len(allowed_roles),
+                    min(9, len(allowed_roles)),
+                )
+                normalized_tasks = normalize_roles_tasks(
+                    raw_tasks,
+                    allowed_roles=allowed_roles,
+                    max_roles=max_roles,
+                )
+                grouped = group_by_role(normalized_tasks, key="normalized_role")
+            else:
+                grouped = group_by_role(
+                    [{**t, "normalized_role": t.get("role", "")} for t in raw_tasks],
+                    key="normalized_role",
+                )
+
+            for role, items in grouped.items():
+                st.subheader(role)
+                for t in items:
+                    title = t.get("title", "")
+                    if view.startswith("Canonical") and t.get("role") != t.get("normalized_role"):
+                        title = f"[{t['role']}] {title}"
+                    st.markdown(f"- **{title}**")
+                    st.caption(t.get("description", ""))
+
+            logger.info(
+                f"Planner view={view} max_roles={max_roles if view.startswith('Canonical') else 'NA'}"
+            )
 
         refinement_rounds = ui_preset["refinement_rounds"]
         simulate_enabled = st.session_state.get("simulate_enabled", True)
