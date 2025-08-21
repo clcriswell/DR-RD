@@ -871,6 +871,13 @@ def main():
             "Save evidence & coverage",
             value=st.session_state.get("save_evidence_coverage", False),
         )
+    with st.expander("Build Spec", expanded=False):
+        enable_build_spec = st.checkbox(
+            "Generate Build Spec & Work Plan",
+            value=st.session_state.get("enable_build_spec", False),
+        )
+        st.session_state["enable_build_spec"] = enable_build_spec
+        os.environ["DRRD_ENABLE_BUILD_SPEC"] = "true" if enable_build_spec else "false"
     idea_input = idea
     submitted_idea_text = idea
     if not idea:
@@ -1041,6 +1048,7 @@ def main():
                         project_id=get_project_id(),
                         save_decision_log=st.session_state.get("save_decision_log", False),
                         save_evidence=st.session_state.get("save_evidence_coverage", False),
+                        project_name=st.session_state.get("project_name"),
                     )
                     st.session_state["answers"] = results
                     if use_firestore:
@@ -1261,6 +1269,29 @@ def main():
                 file_name="R&D_Report.pdf",
                 mime="application/pdf",
             )
+
+        slug = get_project_id()
+        build_dir = os.path.join("audits", slug, "build") if slug else None
+        if build_dir and os.path.exists(build_dir):
+            st.subheader("📦 Build Spec")
+            files = [
+                "SDD.md",
+                "ImplementationPlan.md",
+                "bom.csv",
+                "budget.csv",
+            ]
+            for fname in files:
+                path = os.path.join(build_dir, fname)
+                if os.path.exists(path) and hasattr(st, "download_button"):
+                    mode = "rb" if fname.endswith(".csv") else "r"
+                    with open(path, mode) as f:
+                        data = f.read()
+                    st.download_button(
+                        f"Download {fname}",
+                        data,
+                        file_name=fname,
+                        mime="text/csv" if fname.endswith(".csv") else "text/markdown",
+                    )
 
         report = st.session_state.get("poc_report")
         if report:

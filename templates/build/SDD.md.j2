@@ -1,0 +1,20 @@
+# {{ sdd.title }}
+## Overview
+{{ sdd.overview }}
+## Requirements
+{% for r in sdd.requirements %}- {{ r.id }}: {{ r.text }} ({{ r.priority }})
+{% endfor %}
+## Architecture
+{{ sdd.architecture }}
+## Interfaces
+{% for i in sdd.interfaces %}- {{ i.name }}: {{ i.contract }} ({{ i.producer }} → {{ i.consumer }})
+{% endfor %}
+## Data Flows
+{% for d in sdd.data_flows %}- {{ d.source }} → {{ d.sink }}: {{ d.data }} {{ d.frequency }}
+{% endfor %}
+## Security
+{% for s in sdd.security %}- {{ s.id }}: {{ s.control }} — {{ s.rationale }}
+{% endfor %}
+## Risks
+{% for k in sdd.risks %}- {{ k.id }}: {{ k.text }} ({{ k.severity }}) Mitigation: {{ k.mitigation }}
+{% endfor %}
