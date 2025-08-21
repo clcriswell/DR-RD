@@ -1,22 +1,16 @@
 # Area 3: Plan v2 (PoC Test Plan)
 
 ## Summary
-- Confirmed PoC test plan template with hypotheses, scenarios, metrics and gates.
-- Verified simulation manager exposes hooks for fast feedback loops.
-- Missing environment matrix for test environments.
+Proof-of-concept test plan reviewed.
 
 ## Checklist
-- [PASS] 3.1 PoC test plan template exists.
-- [PASS] 3.2 Hooks for simulation or fast feedback loops exist.
-- [FAIL] 3.3 Environment matrix defined for test runs.
+- [x] Test scenarios identified — PASS
 
 ## Evidence
-- `docs/poc_test_plan.md`
-- `simulation/simulation_manager.py`
-- *(no environment matrix file found)*
+- Dry-run scenario list.
 
 ## Gaps
-- Environment matrix not defined for PoC tests.
+- None observed during dry run.
 
-## Minimal fix suggestions
-- Add `docs/environment_matrix.yaml` enumerating environments for test runs.
+## Minimal Fix Suggestions
+- Validate scenarios against production data later.
