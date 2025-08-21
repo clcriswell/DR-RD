@@ -37,6 +37,8 @@ Model selections and **budget caps** for different modes live in `config/modes.y
 Each mode specifies a `target_cost_usd`, default models for the planning/execution/synthesis stages,
 and limits such as `k_search` and `max_loops`.
 
+Schemas live in `core/schemas.py`; segmentation utility in `planning/segmenter.py`.
+
 Token pricing lives in `config/prices.yaml` (override via `PRICES_PATH`).
 
 Set the mode via the `DRRD_MODE` environment variable. By default the app runs in Deep mode, but a developer-only Test mode can be enabled from the sidebar. The Streamlit interface includes an **Agent Trace** expander showing which agent handled each task, token counts and a brief finding.
