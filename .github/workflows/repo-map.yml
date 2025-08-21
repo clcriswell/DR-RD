@@ -1,0 +1,28 @@
+name: Repo Map
+
+on:
+  pull_request:
+
+jobs:
+  repo-map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get changed files
+        id: diff
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git diff --name-only origin/${{ github.base_ref }}... > changed_files.txt
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: pip install pyyaml jinja2 rich
+      - name: Generate repo map
+        run: make repo-map
+      - name: Ensure map committed
+        run: |
+          git diff --exit-code repo_map.yaml docs/REPO_MAP.md || (echo 'Repo map not up to date. Run make repo-map and commit changes.' && exit 1)
+      - name: Validate repo map
+        run: |
+          CHANGED_FILES="$(tr '\n' ' ' < changed_files.txt)" make repo-validate
