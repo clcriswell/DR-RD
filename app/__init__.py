@@ -909,11 +909,12 @@ def main():
                 logging.error(f"Init project failed: {e}")
         try:
             with st.spinner("📝 Planning..."):
+                ui_model = st.session_state.get("model")
                 tasks = generate_plan(
                     idea,
                     st.session_state.get("constraints"),
                     st.session_state.get("risk_posture"),
-                    st.session_state.get("model"),
+                    ui_model,
                 )
                 update_cost()
             if isinstance(tasks, dict):
@@ -1029,6 +1030,7 @@ def main():
             with st.spinner("🤖 Running domain experts..."):
                 try:
                     tasks = st.session_state.get("plan", [])
+                    ui_model = st.session_state.get("model")
                     results = execute_plan(
                         idea,
                         tasks,
@@ -1036,6 +1038,7 @@ def main():
                         save_decision_log=st.session_state.get("save_decision_log", False),
                         save_evidence=st.session_state.get("save_evidence_coverage", False),
                         project_name=st.session_state.get("project_name"),
+                        ui_model=ui_model,
                     )
                     st.session_state["answers"] = results
                     if use_firestore:

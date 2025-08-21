@@ -47,7 +47,7 @@ def get_agent_class(role: str) -> Optional[Type[BaseAgent]]:
 # Factory utilities for creating commonly used agent instances
 # ---------------------------------------------------------------------------
 
-DEFAULT_EXEC_MODEL = AGENT_MODEL_MAP.get("Research Scientist", "gpt-5")
+DEFAULT_EXEC_MODEL = AGENT_MODEL_MAP.get("Research Scientist", "gpt-4.1-mini")
 AGENT_MODEL_MAP.setdefault(
     "Marketing Analyst", AGENT_MODEL_MAP.get("Research Scientist", DEFAULT_EXEC_MODEL)
 )
@@ -193,8 +193,8 @@ def load_mode_models(mode: str | None = None) -> dict:
     AGENTS = build_agents(mode, models=m)
     # Map planner/synth plus sensible defaults for exec/default
     return {
-        "Planner": m.get("plan", "gpt-5"),
-        "exec": m.get("exec", m.get("plan", "gpt-5")),
-        "synth": m.get("synth", m.get("exec", "gpt-5")),
-        "default": m.get("exec", m.get("plan", "gpt-5")),
+        "Planner": m.get("plan", "gpt-4.1-mini"),
+        "exec": m.get("exec", m.get("plan", "gpt-4.1-mini")),
+        "synth": m.get("synth", m.get("exec", "gpt-4.1-mini")),
+        "default": m.get("exec", m.get("plan", "gpt-4.1-mini")),
     }

@@ -19,11 +19,11 @@ logger = logging.getLogger("unified_registry")
 def resolve_model(role: str, purpose: str = "exec") -> str:
     """
     purpose: 'exec' | 'plan' | 'synth'
-    Uses environment overrides to decide model. Defaults to ``gpt-5`` for most
+    Uses environment overrides to decide model. Defaults to ``gpt-4.1-mini`` for most
     profiles and ``gpt-4-turbo`` for ``test`` unless overridden.
     """
     profile = os.getenv("DRRD_PROFILE", "deep").lower()
-    default_model = os.getenv("OPENAI_MODEL", "gpt-5")
+    default_model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 
     if purpose == "plan":
         return os.getenv("DRRD_MODEL_PLAN") or default_model

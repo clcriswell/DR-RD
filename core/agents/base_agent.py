@@ -40,11 +40,19 @@ class LLMRoleAgent:
             self.name = name_or_model
             self.model = model
 
-    def act(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
+    def act(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        model: str | None = None,
+        **kwargs,
+    ) -> str:
         """Call the model with a system and user prompt."""
         user_prompt = coerce_user_content(user_prompt)
         system_prompt = coerce_user_content(system_prompt)
-        result = complete(system_prompt, user_prompt, model=self.model, **kwargs)
+        chosen = model or self.model
+        result = complete(system_prompt, user_prompt, model=chosen, **kwargs)
         return (result.content or "").strip()
 
 
@@ -132,7 +140,14 @@ class BaseAgent:
         except Exception:
             return
 
-    def run(self, idea: str, task, design_depth: str = "Medium") -> str:
+    def run(
+        self,
+        idea: str,
+        task,
+        design_depth: str = "Medium",
+        *,
+        model: str | None = None,
+    ) -> str:
         """Construct the prompt and call the OpenAI API. Returns assistant text."""
         if isinstance(task, dict):
             task = f"{task.get('title', '')}: {task.get('description', '')}"
@@ -160,11 +175,7 @@ class BaseAgent:
             )
 
         # Call OpenAI via llm_client
-        from core.agents.unified_registry import (
-            resolve_model,  # local import to avoid circular
-        )
-
-        model_id = self.model or resolve_model(self.name)
+        model_id = model or self.model
         logger.info(f"Model[exec]={model_id} params={{}}")
         result = call_openai(
             model=model_id,
