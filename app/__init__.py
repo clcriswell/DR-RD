@@ -822,6 +822,16 @@ def main():
         index=1,
         key="risk_posture",
     )
+
+    with st.expander("Observability", expanded=False):
+        st.session_state["save_decision_log"] = st.checkbox(
+            "Save decision log",
+            value=st.session_state.get("save_decision_log", False),
+        )
+        st.session_state["save_evidence_coverage"] = st.checkbox(
+            "Save evidence & coverage",
+            value=st.session_state.get("save_evidence_coverage", False),
+        )
     idea_input = idea
     submitted_idea_text = idea
     if not idea:
@@ -986,7 +996,13 @@ def main():
             with st.spinner("🤖 Running domain experts..."):
                 try:
                     tasks = st.session_state.get("plan", [])
-                    results = execute_plan(idea, tasks)
+                    results = execute_plan(
+                        idea,
+                        tasks,
+                        project_id=get_project_id(),
+                        save_decision_log=st.session_state.get("save_decision_log", False),
+                        save_evidence=st.session_state.get("save_evidence_coverage", False),
+                    )
                     st.session_state["answers"] = results
                     if use_firestore:
                         try:
