@@ -1,7 +1,7 @@
 import json
 import re
 import logging
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 from pathlib import Path
 
 from config.agent_models import AGENT_MODEL_MAP
@@ -13,6 +13,12 @@ from prompts.prompts import (
     PLANNER_USER_PROMPT_TEMPLATE,
     SYNTHESIZER_TEMPLATE,
 )
+from core.observability import EvidenceSet, build_coverage
+from utils.agent_json import extract_json_block
+from memory.decision_log import log_decision
+import csv
+import os
+import re
 
 from core.agents_registry import agents_dict
 import streamlit as st
@@ -61,14 +67,32 @@ def generate_plan(
     return tasks
 
 
-def execute_plan(idea: str, tasks: List[Dict[str, str]]) -> Dict[str, str]:
+def _slugify(name: str) -> str:
+    s = name.strip().lower()
+    s = re.sub(r"[^a-z0-9\s-]", "", s)
+    s = re.sub(r"\s+", "-", s)
+    return s[:64] or "project"
+
+
+def execute_plan(
+    idea: str,
+    tasks: List[Dict[str, str]],
+    project_id: Optional[str] = None,
+    save_decision_log: bool = True,
+    save_evidence: bool = True,
+) -> Dict[str, str]:
     """Dispatch tasks to routed agents and collect their outputs."""
+    project_id = project_id or _slugify(idea)
     answers: Dict[str, str] = {}
+    evidence = EvidenceSet(project_id=project_id) if save_evidence else None
+    role_to_findings: Dict[str, dict] = {}
     for t in normalize_tasks(tasks):
         planned_role = t.get("role")
         title = t.get("title", "")
         description = t.get("description", "")
         role, AgentCls = choose_agent_for_task(planned_role, title, description)
+        if save_decision_log:
+            log_decision(project_id, "route", {"planned_role": planned_role, "title": title})
         model = AGENT_MODEL_MAP.get(role, AGENT_MODEL_MAP.get("Research Scientist", "gpt-5"))
         agent = AgentCls(model)
         try:
@@ -77,6 +101,37 @@ def execute_plan(idea: str, tasks: List[Dict[str, str]]) -> Dict[str, str]:
             out = f"ERROR: {e}"
         text = out if isinstance(out, str) else json.dumps(out)
         answers[role] = (answers.get(role, "") + ("\n\n" if role in answers else "") + text)
+        payload = extract_json_block(text) or {}
+        role_to_findings[role] = payload
+        if evidence is not None:
+            evidence.add(
+                role=role,
+                task_title=title,
+                claim=payload.get("summary") or payload.get("findings", ""),
+                sources=payload.get("sources", []),
+                quotes=payload.get("quotes", []),
+                tokens_in=payload.get("tokens_in", 0),
+                tokens_out=payload.get("tokens_out", 0),
+                cost_usd=payload.get("cost", 0.0),
+            )
+        if save_decision_log:
+            log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})
+
+    if save_evidence and evidence is not None:
+        rows = build_coverage(project_id, role_to_findings)
+        out_dir = os.path.join("audits", project_id)
+        os.makedirs(out_dir, exist_ok=True)
+        if rows:
+            fieldnames = ["project_id", "role"] + [k for k in rows[0].keys() if k not in ("project_id", "role")]
+            with open(os.path.join(out_dir, "coverage.csv"), "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+        with open(os.path.join(out_dir, "evidence.json"), "w", encoding="utf-8") as f:
+            json.dump(evidence.as_dicts(), f, ensure_ascii=False, indent=2)
+        if save_decision_log:
+            log_decision(project_id, "coverage_built", {"rows": len(rows)})
+
     return answers
 
 
