@@ -7,8 +7,24 @@ from utils.logging import logger, safe_exc
 
 from core.llm_client import call_openai
 from core.prompt_utils import coerce_user_content
+from core.privacy import redact_for_logging
 
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5").strip()
+
+def select_model(purpose: str, ui_model: str | None) -> str:
+    """Resolve the model to use based on UI and environment settings."""
+    force = os.getenv("DRRD_FORCE_MODEL")
+    if force:
+        logger.warning("select_model: forced override %s", force)
+        return force.strip()
+    if ui_model:
+        return ui_model.strip()
+    env_purpose = os.getenv(f"DRRD_MODEL_{purpose.upper()}")
+    if env_purpose:
+        return env_purpose.strip()
+    env_global = os.getenv("DRRD_OPENAI_MODEL")
+    if env_global:
+        return env_global.strip()
+    return "gpt-4.1-mini"
 
 
 @dataclass
@@ -19,15 +35,9 @@ class ChatResult:
 
 def _log_request(model: str, messages: list, extra: dict):
     try:
-        preview = {
-            "model": model,
-            "num_messages": len(messages),
-            "roles": [m.get("role") for m in messages],
-            "has_system": any(m.get("role") == "system" for m in messages),
-            "has_user": any(m.get("role") == "user" for m in messages),
-            "extra_keys": list(extra.keys()),
-        }
-        logger.info("[LLM] Request preview: %s", json.dumps(preview)[:1000])
+        redacted = redact_for_logging(messages)
+        preview = {"model": model, "messages": redacted, "extra_keys": list(extra.keys())}
+        logger.info("Input preview (redacted): %s", json.dumps(preview)[:1000])
     except Exception as e:
         safe_exc(logger, "", "[LLM] Could not log request preview", e)
 
@@ -64,7 +74,7 @@ def _validate_messages(messages: list):
 def complete(
     system_prompt: t.Any, user_prompt: t.Any, *, model: t.Optional[str] = None, **kwargs
 ) -> ChatResult:
-    mdl = (model or DEFAULT_MODEL).strip()
+    mdl = select_model("general", model)
     messages = [
         {"role": "system", "content": coerce_user_content(system_prompt)},
         {"role": "user", "content": coerce_user_content(user_prompt)},

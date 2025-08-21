@@ -1,17 +1,21 @@
-import importlib, sys
+import importlib
+import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 
 def load_app():
-    st = SimpleNamespace(session_state={}, secrets={"gcp_service_account": {}}, cache_resource=lambda f: f)
-    sys.modules['streamlit'] = st
-    sys.modules['openai'] = MagicMock()
-    if 'app' in sys.modules:
-        importlib.reload(sys.modules['app'])
+    st = SimpleNamespace(
+        session_state={}, secrets={"gcp_service_account": {}}, cache_resource=lambda f: f
+    )
+    sys.modules["streamlit"] = st
+    sys.modules["openai"] = MagicMock()
+    sys.modules["filelock"] = MagicMock()
+    if "app" in sys.modules:
+        importlib.reload(sys.modules["app"])
     else:
-        importlib.import_module('app')
-    return sys.modules['app']
+        importlib.import_module("app")
+    return sys.modules["app"]
 
 
 def test_normalize_plan_formats():
@@ -23,9 +27,9 @@ def test_normalize_plan_formats():
 
 def test_role_alias_normalization():
     app = load_app()
-    tasks = app.normalize_tasks([
-        {"role": "Regulatory & Compliance Lead", "title": "t", "description": "d"}
-    ])
+    tasks = app.normalize_tasks(
+        [{"role": "Regulatory & Compliance Lead", "title": "t", "description": "d"}]
+    )
     assert tasks[0]["role"] == "Regulatory"
 
 

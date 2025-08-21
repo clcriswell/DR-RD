@@ -20,12 +20,14 @@ from core.agents.planner_agent import PlannerAgent
 from core.agents.registry import build_agents, load_mode_models
 from core.agents_registry import agents_dict
 from core.dossier import Dossier, Finding
-from core.llm import complete
+from core.llm import complete, select_model
 from core.observability import EvidenceSet, build_coverage
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from core.router import choose_agent_for_task
 from core.synthesizer import synthesize
 from core.schemas import Plan, ScopeNote
+from core.privacy import pseudonymize_for_model, rehydrate_output
+from core.llm_client import responses_json_schema_for
 from planning.segmenter import load_redaction_policy, redact_text
 from memory.decision_log import log_decision
 from prompts.prompts import (
@@ -52,10 +54,26 @@ def _invoke_agent(agent, idea: str, task: Dict[str, str]) -> str:
     raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
 
 
+def _normalize_plan_payload(data: dict) -> dict:
+    """Inject sequential task IDs and map summary -> description."""
+    if isinstance(data, dict) and isinstance(data.get("tasks"), list):
+        missing = 0
+        for i, t in enumerate(data["tasks"], 1):
+            if not t.get("id"):
+                t["id"] = f"T{i:02d}"
+                missing += 1
+            if "summary" in t and "description" not in t:
+                t["description"] = t.get("summary")
+        if missing:
+            logger.info("Planner normalizer injected %d task IDs", missing)
+    return data
+
+
 def generate_plan(
     idea: str,
     constraints: str | None = None,
     risk_posture: str | None = None,
+    ui_model: str | None = None,
 ) -> List[Dict[str, str]]:
     """Use the Planner to create and normalize a task list.
 
@@ -68,6 +86,16 @@ def generate_plan(
     constraint_list = [c.strip() for c in (constraints or "").splitlines() if c.strip()]
     redacted_idea = redact_text(policy, idea)
     redacted_constraints = [redact_text(policy, c) for c in constraint_list]
+
+    pseudo_flag = os.getenv("DRRD_PSEUDONYMIZE_TO_MODEL", "").lower() in ("1", "true", "yes")
+    alias_map: dict[str, str] = {}
+    if pseudo_flag:
+        pseudo_payload, alias_map = pseudonymize_for_model(
+            {"idea": redacted_idea, "constraints": redacted_constraints}
+        )
+        redacted_idea = pseudo_payload["idea"]
+        redacted_constraints = pseudo_payload["constraints"]
+
     sn = ScopeNote(
         idea=redacted_idea,
         constraints=redacted_constraints,
@@ -84,12 +112,38 @@ def generate_plan(
     )
     risk_section = f"\nRisk posture: {sn.risk_posture}" if risk_posture else ""
 
+    model = select_model("planner", ui_model)
+
+    response_format = responses_json_schema_for(Plan, "Plan")
+
     def _call(extra: str = "") -> List[Dict[str, str]]:
-        result = complete(PLANNER_SYSTEM_PROMPT, user_prompt + extra)
+        result = complete(
+            system_prompt,
+            user_prompt + extra,
+            model=model,
+            response_format=response_format,
+        )
         raw = result.content or "{}"
         data = extract_json_strict(raw)
-        Plan.model_validate(data)
+        if alias_map:
+            data = rehydrate_output(data, alias_map)
+        data = _normalize_plan_payload(data)
+        try:
+            Plan.model_validate(data)
+        except Exception as e:
+            from pydantic import ValidationError
+
+            if isinstance(e, ValidationError):
+                fields = [".".join(map(str, err.get("loc", []))) for err in e.errors()[:3]]
+                raise ValueError(
+                    "Planner JSON validation failed: missing " + ", ".join(fields)
+                ) from e
+            raise
         return normalize_tasks(normalize_plan_to_tasks(data["tasks"]))
+
+    system_prompt = PLANNER_SYSTEM_PROMPT
+    if pseudo_flag:
+        system_prompt += "\nPlaceholders like [PERSON_1], [ORG_1] are entity aliases. Use them verbatim. Do not invent values."
 
     user_prompt = PLANNER_USER_PROMPT_TEMPLATE.format(
         idea=sn.idea,
@@ -135,7 +189,12 @@ def execute_plan(
         role, AgentCls = choose_agent_for_task(planned_role, title, description)
         if save_decision_log:
             log_decision(project_id, "route", {"planned_role": planned_role, "title": title})
-        model = AGENT_MODEL_MAP.get(role, AGENT_MODEL_MAP.get("Research Scientist", "gpt-5"))
+        model = AGENT_MODEL_MAP.get(
+            role,
+            AGENT_MODEL_MAP.get(
+                "Research Scientist", os.getenv("DRRD_OPENAI_MODEL", "gpt-4.1-mini")
+            ),
+        )
         agent = AgentCls(model)
         try:
             out = _invoke_agent(agent, idea, {"title": title, "description": description})
@@ -624,7 +683,9 @@ def run_pipeline(
     dossier = Dossier(policy=policy)
 
     models = load_mode_models(mode)
-    planner_model = models.get("Planner", models.get("default", "gpt-5"))
+    planner_model = models.get(
+        "Planner", models.get("default", os.getenv("DRRD_OPENAI_MODEL", "gpt-4.1-mini"))
+    )
     planner = PlannerAgent(planner_model)
     agents = build_agents(mode, models=models)
 
@@ -658,7 +719,7 @@ def run_pipeline(
             agent = agents.get(routed_role)
             if agent is None:
                 base = agents.get("Research Scientist")
-                model = getattr(base, "model", "gpt-5")
+                model = getattr(base, "model", os.getenv("DRRD_OPENAI_MODEL", "gpt-4.1-mini"))
                 agent = AgentCls(model)
                 agents[routed_role] = agent
             logger.info(

@@ -22,7 +22,8 @@ class Task(BaseModel):
     id: str
     role: str
     title: str
-    description: str
+    summary: str
+    description: Optional[str] = None
     inputs: Optional[Dict[str, Any]] = None
     dependencies: List[str] = Field(default_factory=list)
     stop_rules: List[str] = Field(default_factory=list)
