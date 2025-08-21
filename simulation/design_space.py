@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from itertools import product
 from typing import Dict, Iterable, List, Sequence, Tuple, Union, Any
 import random
+from .registry import register
 
 ValueOptions = Union[Sequence[Any], Tuple[float, float]]
 
@@ -55,3 +56,13 @@ class DesignSpace:
                 if len(parts) >= limit:
                     break
         return ", ".join(parts)
+
+
+@register("sum_mock")
+def sum_mock(inputs: Dict[str, Any]):
+    """Deterministic mock that sums ``a`` and ``b``."""
+    a = float(inputs.get("a", 0))
+    b = float(inputs.get("b", 0))
+    obs = {"total": a + b}
+    meta = {"cost_estimate_usd": 0.0, "seconds": 0.0, "backend": "mock"}
+    return obs, meta

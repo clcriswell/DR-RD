@@ -6,6 +6,7 @@ import logging
 import openai
 import streamlit as st
 from core.role_normalizer import normalize_tasks as normalize_roles_tasks, group_by_role
+import pandas as pd
 from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
@@ -26,7 +27,8 @@ from app.ui_cost_meter import render_cost_summary
 from app.config_loader import load_mode
 from core.agents.unified_registry import build_agents_unified
 from config.agent_models import AGENT_MODEL_MAP, TEST_ROLE_MODELS
-from core.orchestrator import generate_plan, execute_plan, compile_proposal
+from core.orchestrator import generate_plan, execute_plan, compile_proposal, run_poc
+from core.poc.testplan import TestPlan
 
 logger = logging.getLogger(__name__)
 
@@ -823,6 +825,43 @@ def main():
         key="risk_posture",
     )
 
+    with st.expander("PoC", expanded=False):
+        enable_poc = st.checkbox(
+            "Enable PoC stage", value=st.session_state.get("enable_poc", False)
+        )
+        st.session_state["enable_poc"] = enable_poc
+        sample = {
+            "project_id": "demo-1",
+            "hypothesis": "Cooling fin improves thermal performance by 15%.",
+            "stop_on_fail": True,
+            "tests": [
+                {
+                    "id": "T1",
+                    "title": "Thermal drop at 50W",
+                    "inputs": {"power_w": 50, "ambient_c": 25, "_sim": "thermal_mock"},
+                    "metrics": [
+                        {"name": "delta_c", "operator": "<=", "target": 10.0, "unit": "C"},
+                        {"name": "safety_margin", "operator": ">=", "target": 0.2},
+                    ],
+                    "safety_notes": "no external calls",
+                }
+            ],
+        }
+        example = json.dumps(sample, indent=2)
+        tp_text = st.text_area(
+            "Test Plan (JSON)",
+            value=st.session_state.get("test_plan_json", example),
+            disabled=not enable_poc,
+        )
+        st.session_state["test_plan_json"] = tp_text
+        if enable_poc:
+            try:
+                tp_obj = TestPlan.parse_raw(tp_text)
+                st.session_state["test_plan"] = tp_obj
+            except Exception as e:
+                st.error(f"Invalid TestPlan: {e}")
+                st.session_state.pop("test_plan", None)
+
     with st.expander("Observability", expanded=False):
         st.session_state["save_decision_log"] = st.checkbox(
             "Save decision log",
@@ -1222,6 +1261,31 @@ def main():
                 file_name="R&D_Report.pdf",
                 mime="application/pdf",
             )
+
+        report = st.session_state.get("poc_report")
+        if report:
+            st.subheader("🔬 PoC Results")
+            rows = [{"test_id": r.test_id, "passed": r.passed} for r in report.results]
+            st.table(pd.DataFrame(rows))
+            if hasattr(st, "download_button"):
+                st.download_button(
+                    "Download poc_report.json",
+                    json.dumps(report.dict(), indent=2),
+                    file_name="poc_report.json",
+                    mime="application/json",
+                )
+                import io, csv as _csv
+                buf = io.StringIO()
+                writer = _csv.writer(buf)
+                writer.writerow(["test_id", "passed", "metrics_observed", "metrics_passfail", "notes"])
+                for r in report.results:
+                    writer.writerow([r.test_id, r.passed, r.metrics_observed, r.metrics_passfail, r.notes])
+                st.download_button(
+                    "Download poc_results.csv",
+                    buf.getvalue(),
+                    file_name="poc_results.csv",
+                    mime="text/csv",
+                )
 
         # --- App Builder (inline) ---
         if build_app_from_idea:

@@ -4,6 +4,7 @@ import logging
 import os
 import random
 from typing import Callable, Dict, Tuple, Any, Optional
+from .registry import register
 
 from config.feature_flags import EVALUATORS_ENABLED
 from .design_space import DesignSpace
@@ -88,3 +89,13 @@ def optimize(
         )
 
     return best_design, best_metrics
+
+
+@register("product_mock")
+def product_mock(inputs: Dict[str, Any]):
+    """Deterministic mock that multiplies ``a`` and ``b``."""
+    a = float(inputs.get("a", 1))
+    b = float(inputs.get("b", 1))
+    obs = {"product": a * b}
+    meta = {"cost_estimate_usd": 0.0, "seconds": 0.0, "backend": "mock"}
+    return obs, meta
