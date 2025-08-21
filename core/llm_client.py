@@ -1,15 +1,17 @@
+import inspect
 import json
 import logging
 import os
 import random
+import time
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
-import time
-import uuid
+import streamlit as st
 from openai import APIStatusError, OpenAI
 from utils.config import load_config
-import streamlit as st
+
 from core.budget import BudgetManager, CostTracker
 from core.token_meter import TokenMeter
 
@@ -23,6 +25,12 @@ if seed_env:
         pass
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "test"))
+# Some SDK versions lack support for the ``response_format`` parameter on the
+# Responses API.  Capture support status at import time so we can gracefully
+# omit the argument if unavailable.
+_SUPPORTS_RESPONSE_FORMAT = (
+    "response_format" in inspect.signature(client.responses.create).parameters
+)
 
 
 def _dry_stub(prompt: str) -> dict:
@@ -120,8 +128,10 @@ def call_openai(
             return {"raw": {}, "text": ""}
 
     params = dict(kwargs)
-    if response_format is not None:
+    if response_format is not None and _SUPPORTS_RESPONSE_FORMAT:
         params["response_format"] = response_format
+    elif response_format is not None and not _SUPPORTS_RESPONSE_FORMAT:
+        logger.warning("response_format not supported by OpenAI SDK; ignoring")
     mode = None
     try:
         import streamlit as st  # type: ignore
