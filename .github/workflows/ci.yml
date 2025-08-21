@@ -1,0 +1,64 @@
+name: CI
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 12 * * 1"   # weekly Mon 12:00 UTC
+jobs:
+  lint-type-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov mypy black isort flake8 bandit
+      - name: Lint
+        run: |
+          black --check .
+          isort --check-only .
+          flake8 .
+          bandit -q -r core utils app orchestrators planning plugins
+      - name: Typecheck
+        run: mypy --ignore-missing-imports core app utils orchestrators planning || true
+      - name: Tests with coverage
+        run: |
+          pytest -q --cov=core --cov=app --cov=utils --cov-report=term-missing --cov-report=xml
+      - name: Enforce coverage ≥80%
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          rate=float(ET.parse('coverage.xml').getroot().attrib['line-rate'])
+          assert rate>=0.80, f"Coverage {rate*100:.1f}% < 80%"
+          PY
+      - name: Upload audits/final artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audits-and-final
+          path: |
+            audits/**/*
+            **/final_bundle.zip
+          if-no-files-found: ignore
+  # Optional quick smoke on 3.11 only
+  smoke:
+    runs-on: ubuntu-latest
+    needs: lint-type-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Install minimal deps
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Smoke test
+        run: pytest -q tests/test_smoke.py
