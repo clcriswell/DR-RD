@@ -1,0 +1,11 @@
+python:
+  - '3.10'
+  - '3.11'
+os:
+  - ubuntu-latest
+  - macos-latest
+hardware:
+  - cpu
+  - gpu
+cuda:
+  - optional

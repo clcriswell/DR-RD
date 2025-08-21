@@ -1,0 +1,5 @@
+roles: {}
+tasks: []
+inputs: {}
+outputs: {}
+redaction_policy: config/redaction.yaml

@@ -2,6 +2,7 @@ import json
 import re
 import logging
 from typing import Dict, List, Tuple, Any
+from pathlib import Path
 
 from config.agent_models import AGENT_MODEL_MAP
 from core.llm import complete
@@ -18,6 +19,10 @@ import streamlit as st
 from core.agents.planner_agent import PlannerAgent
 from core.agents.registry import build_agents, load_mode_models
 from core.synthesizer import synthesize
+from utils.config import load_config
+from utils.paths import new_run_dir
+from utils.redaction import load_policy, redact_text
+from core.dossier import Dossier, Finding
 
 
 def _invoke_agent(agent, idea: str, task: Dict[str, str]) -> str:
@@ -299,9 +304,21 @@ def orchestrate(user_idea: str) -> str:
 
 
 def run_pipeline(
-    idea: str, mode: str = "test",
+    idea: str,
+    mode: str = "test",
+    *,
+    session_id: str = "default",
+    runs_dir: Path | None = None,
 ) -> Tuple[str, Dict[str, List[dict]], List[dict]]:
     """Run iterative planner → specialists → synthesis pipeline."""
+    cfg = load_config()
+    base_dir = runs_dir or Path(cfg.get("logging", {}).get("runs_dir", "runs"))
+    run_dir = new_run_dir(base_dir)
+    policy = {}
+    if cfg.get("redaction", {}).get("enabled", True):
+        policy = load_policy(cfg.get("redaction", {}).get("policy_file", "config/redaction.yaml"))
+    dossier = Dossier(policy=policy)
+
     models = load_mode_models(mode)
     planner_model = models.get("Planner", models.get("default", "gpt-5"))
     planner = PlannerAgent(planner_model)
@@ -351,6 +368,15 @@ def run_pipeline(
             results_by_role.setdefault(routed_role, []).append(result)
             summary_line = result.get("findings", [""])[0] if result.get("findings") else ""
             context["summaries"].append(summary_line)
+            dossier.record_finding(
+                Finding(
+                    id=f"{cycle}-{routed_role}",
+                    title=task.get("title", ""),
+                    body=summary_line,
+                    evidences=[],
+                    tags=[routed_role],
+                )
+            )
             usage = result.get("usage", {})
             tokens = usage.get("total_tokens") or (
                 usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
@@ -363,4 +389,5 @@ def run_pipeline(
             break
 
     final = synthesize(idea, results_by_role, model_id=models.get("synth", planner_model))
+    dossier.save(run_dir / "dossier.json")
     return final, results_by_role, trace

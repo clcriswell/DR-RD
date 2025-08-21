@@ -1,0 +1,12 @@
+memory:
+  ttl_seconds: 86400
+redaction:
+  enabled: true
+  policy_file: config/redaction.yaml
+logging:
+  runs_dir: runs
+dry_run:
+  enabled: false
+  fixtures_dir: tests/fixtures
+qa_routing:
+  enabled: true

@@ -1,3 +1,7 @@
 __pycache__/
 memory/audit_log/
 memory/project_memory.json
+runs/
+outputs/
+qa_queue.json
+*.cache
