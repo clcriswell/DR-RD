@@ -1,0 +1,12 @@
+roles:
+  planner:
+    tasks: ["plan"]
+tasks:
+  - id: plan
+    inputs: ["idea"]
+    outputs: ["tasks"]
+inputs:
+  idea: str
+outputs:
+  tasks: list
+redaction_policy: config/redaction.yaml

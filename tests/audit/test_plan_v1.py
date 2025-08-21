@@ -1,10 +1,9 @@
 
 """Dry-run checks for Plan v1 planning artifacts."""
 
-=======
-
 import os
 import glob
+import yaml
 
 
 def test_concept_brief_template_exists():
@@ -16,24 +15,15 @@ def test_role_cards_exist():
 
 
 def test_task_segmentation_plan_structure():
-    candidates = glob.glob("planning/*.yaml") + glob.glob("planning/*.yml") + glob.glob("planning/*.json")
-    assert candidates, "Task segmentation plan file missing"
-    path = candidates[0]
-    if path.endswith((".yaml", ".yml")):
-        import yaml
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-    else:
-        import json
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    assert isinstance(data, dict) and data, "Task plan not structured as dict"
-    any_role = next(iter(data.values()))
-    assert "tasks" in any_role, "Task plan lacks role->tasks mapping"
+    path = "planning/task_plan.yaml"
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    for key in ["roles", "tasks", "inputs", "outputs", "redaction_policy"]:
+        assert key in data, f"Missing key {key} in task plan"
 
 
 def test_redaction_policy_bound_in_planning_prompts():
-    prompt_files = glob.glob("prompts/*.py") + glob.glob("prompts/**/*.py", recursive=True) + glob.glob("core/agents/*planner*.py")
+    prompt_files = glob.glob("prompts/*.md") + glob.glob("prompts/**/*.md", recursive=True)
     found = False
     for path in prompt_files:
         with open(path, "r", encoding="utf-8") as f:

@@ -9,11 +9,32 @@ class SimulationManager:
             "thermal": self._simulate_thermal,
         }
 
-    def simulate(self, sim_type: str, design_spec: str) -> dict:
+    def simulate(
+        self,
+        sim_type: str,
+        design_spec: str,
+        *,
+        hooks: list | None = None,
+        outputs_dir=None,
+        qa_router=None,
+    ) -> dict:
         """
         Run the specified type of simulation on the given design specification.
+        Hooks can be provided to observe iteration, completion and failure events.
         Returns a dictionary of performance metrics, including a boolean pass/fail and list of failed criteria.
         """
+        from pathlib import Path
+
+        hooks = hooks or []
+        outputs_path = Path(outputs_dir) if outputs_dir else None
+
+        state = {"sim_type": sim_type, "design_spec": design_spec}
+        for h in hooks:
+            try:
+                h.on_iteration(state)
+            except Exception:
+                pass
+
         sim_type = sim_type.lower()
         if sim_type in self.sim_functions:
             metrics = self.sim_functions[sim_type](design_spec)
@@ -69,6 +90,32 @@ class SimulationManager:
         # Include pass and failed criteria in the result
         metrics["pass"] = pass_status
         metrics["failed"] = failed_criteria
+
+        if outputs_path:
+            outputs_path.mkdir(parents=True, exist_ok=True)
+            import json
+
+            with open(outputs_path / f"{sim_type}_metrics.json", "w", encoding="utf-8") as fh:
+                json.dump(metrics, fh, indent=2)
+
+        if pass_status:
+            for h in hooks:
+                try:
+                    h.on_complete(metrics, outputs_path)
+                except Exception:
+                    pass
+        else:
+            for h in hooks:
+                try:
+                    h.on_failure(metrics, outputs_path)
+                except Exception:
+                    pass
+            if qa_router is not None:
+                try:
+                    qa_router.route_failure(metrics, outputs_path, context=state)
+                except Exception:
+                    pass
+
         return metrics
 
     def _simulate_structural(self, design_spec: str) -> dict:

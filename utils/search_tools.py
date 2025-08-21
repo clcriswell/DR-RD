@@ -8,6 +8,8 @@ import requests
 from html import unescape
 
 from core.llm_client import call_openai
+from utils.config import load_config
+from utils.redaction import load_policy, redact_text
 
 
 def _strip_html(text: str) -> str:
@@ -62,10 +64,15 @@ def summarize_search(snippets: List[str], model: str | None = None) -> str:
         return ""
 
 
+_CFG = load_config()
+_POLICY = {}
+if _CFG.get("redaction", {}).get("enabled", True):
+    _POLICY = load_policy(_CFG.get("redaction", {}).get("policy_file", "config/redaction.yaml"))
+
+
 def obfuscate_query(role: str, idea: str, task: str) -> str:
-    """Lightly redact identifying details from the query."""
+    """Redact identifying details from the query using the configured policy."""
     text = f"{role}: {idea}. {task}"
-    text = re.sub(r'".*?"', "[REDACTED]", text)
-    text = re.sub(r"\b[A-Z][a-zA-Z0-9]+\b", "[REDACTED]", text)
-    text = re.sub(r"\d+", "[REDACTED]", text)
-    return text
+    if not _POLICY:
+        return text
+    return redact_text(text, policy=_POLICY)
