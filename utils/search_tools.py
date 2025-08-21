@@ -1,15 +1,12 @@
 import os
 import re
-import os
-import re
+import logging
 from typing import List, Dict
 
 import requests
 from html import unescape
 
 from core.llm_client import call_openai
-from utils.config import load_config
-from utils.redaction import load_policy, redact_text
 
 
 def _strip_html(text: str) -> str:
@@ -17,30 +14,56 @@ def _strip_html(text: str) -> str:
     return unescape(clean)
 
 
-def search_google(query: str, k: int = 5) -> List[Dict]:
-    """Query SerpAPI for Google results.
+EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+URL_RE = re.compile(r"\bhttps?://\S+\b")
+NUM_RE = re.compile(r"\b\d[\d,.-]*\b")
 
-    Returns a list of dicts with snippet, link and title fields. On any
-    failure or if the API key is missing, an empty list is returned.
-    """
+
+def _idea_token_set(idea: str) -> set[str]:
+    if not idea:
+        return set()
+    toks = re.findall(r"[A-Za-z0-9]{5,}", idea)
+    return {t.lower() for t in toks}
+
+
+def obfuscate_query(role: str, idea: str, q: str) -> str:
+    if not q and not idea:
+        return q
+    red = f"{idea} {q}".strip()
+    red = EMAIL_RE.sub("[REDACTED_EMAIL]", red)
+    red = URL_RE.sub("[REDACTED_URL]", red)
+    red = NUM_RE.sub("[REDACTED_NUM]", red)
+    red = re.sub(r"\b[A-Z][a-zA-Z]{2,}\b", "[REDACTED]", red)
+    toks = _idea_token_set(idea)
+    if toks:
+        pattern = re.compile(
+            r"\b(" + "|".join(re.escape(t) for t in sorted(toks, key=len, reverse=True)) + r")\b",
+            re.IGNORECASE,
+        )
+        red = pattern.sub("[REDACTED]", red)
+    if EMAIL_RE.search(idea):
+        red += " [REDACTED_EMAIL]"
+    return red
+
+
+def search_google(role: str, idea: str, q: str, k: int = 5) -> List[Dict]:
+    """Query SerpAPI for Google results using a redacted query."""
+
     key = os.getenv("SERPAPI_KEY")
     if not key:
         return []
+
+    q_red = obfuscate_query(role, idea, q)
     try:
-        params = {"engine": "google", "q": query, "api_key": key}
+        params = {"engine": "google", "q": q_red, "api_key": key}
+        logging.info("search_google[%s]: %s", role, q_red)
         resp = requests.get("https://serpapi.com/search.json", params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         out: List[Dict] = []
         for item in data.get("organic_results", [])[:k]:
             snippet = _strip_html(item.get("snippet") or item.get("summary") or "")
-            out.append(
-                {
-                    "snippet": snippet,
-                    "link": item.get("link", ""),
-                    "title": item.get("title", ""),
-                }
-            )
+            out.append({"snippet": snippet, "link": item.get("link", ""), "title": item.get("title", "")})
         return out
     except Exception:
         return []
@@ -63,16 +86,3 @@ def summarize_search(snippets: List[str], model: str | None = None) -> str:
     except Exception:
         return ""
 
-
-_CFG = load_config()
-_POLICY = {}
-if _CFG.get("redaction", {}).get("enabled", True):
-    _POLICY = load_policy(_CFG.get("redaction", {}).get("policy_file", "config/redaction.yaml"))
-
-
-def obfuscate_query(role: str, idea: str, task: str) -> str:
-    """Redact identifying details from the query using the configured policy."""
-    text = f"{role}: {idea}. {task}"
-    if not _POLICY:
-        return text
-    return redact_text(text, policy=_POLICY)

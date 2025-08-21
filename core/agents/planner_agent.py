@@ -61,12 +61,25 @@ USER_TMPL = PLANNER_USER_PROMPT_TEMPLATE
 # Planner call ----------------------------------------------------------------------
 
 
-def run_planner(idea: str, model: str, utility_model: Optional[str] = None):
+def run_planner(
+    idea: str,
+    model: str,
+    utility_model: Optional[str] = None,
+    constraints: str | None = None,
+    risk_posture: str | None = None,
+):
     """Run the planner model and ensure a valid :class:`Plan` is returned."""
 
+    constraints_section = f"\nConstraints: {constraints}" if constraints else ""
+    risk_section = f"\nRisk posture: {risk_posture}" if risk_posture else ""
+    user_prompt = USER_TMPL.format(
+        idea=idea,
+        constraints_section=constraints_section,
+        risk_section=risk_section,
+    )
     messages = [
         {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": USER_TMPL.format(idea=idea)},
+        {"role": "user", "content": user_prompt},
     ]
 
     params = {
@@ -123,8 +136,22 @@ class PlannerAgent:
         self.system_message = SYSTEM
         self.name = "Planner"
 
-    def run(self, idea: str, task: str, difficulty: str = "normal", roles: List[str] | None = None):
-        data, _meta = run_planner(idea, self.model, self.repair_model)
+    def run(
+        self,
+        idea: str,
+        task: str,
+        difficulty: str = "normal",
+        roles: List[str] | None = None,
+        constraints: str | None = None,
+        risk_posture: str | None = None,
+    ):
+        data, _meta = run_planner(
+            idea,
+            self.model,
+            self.repair_model,
+            constraints=constraints,
+            risk_posture=risk_posture,
+        )
         return data
 
     def revise_plan(self, workspace: dict) -> List[dict]:

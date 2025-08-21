@@ -2,6 +2,13 @@ import json
 import os
 from datetime import datetime
 
+from utils.search_tools import obfuscate_query
+
+try:  # pragma: no cover - streamlit not always present
+    import streamlit as st
+except Exception:  # pragma: no cover
+    st = None
+
 # Ensure the audit log directory exists
 AUDIT_DIR = "memory/audit_log"
 os.makedirs(AUDIT_DIR, exist_ok=True)
@@ -12,6 +19,11 @@ def log_step(project_id: str, role: str, step_type: str, content: str, success: 
     Append a log entry for the given project_id. Each entry includes timestamp, role, step_type, content, and success.
     The log is stored in memory/audit_log/{project_id}.json as a list of entries.
     """
+    idea = ""
+    if st is not None:
+        idea = st.session_state.get("idea", "")
+    content = obfuscate_query(role, idea, content)
+
     log_entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "role": role,

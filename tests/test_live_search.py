@@ -17,19 +17,22 @@ def test_live_search_triggered(monkeypatch):
     importlib.reload(ba)
     importlib.reload(ip_agent)
 
-    def fake_search(q, k=5):
+    def fake_search(role, idea, q, k=5):
         return [{"snippet": "alpha beta", "title": "T1", "link": "u1"}]
 
     monkeypatch.setattr("utils.search_tools.search_google", fake_search)
-    monkeypatch.setattr("utils.search_tools.llm_call", lambda *a, **k: DummyResp("summary"))
+    monkeypatch.setattr("utils.search_tools.call_openai", lambda *a, **k: {"text": "summary"})
 
     captured = {}
 
-    def fake_agent_llm(client, model, stage, messages, **params):
+    def fake_agent_llm(model, messages, **params):
         captured["prompt"] = messages[1]["content"]
-        return DummyResp('{"role":"IP Analyst","task":"x","findings":[],"risks":[],"next_steps":[]}')
+        return {
+            "text": '{"role":"IP Analyst","task":"x","findings":[],"risks":[],"next_steps":[]}',
+            "raw": DummyResp(""),
+        }
 
-    monkeypatch.setattr(ip_agent, "llm_call", fake_agent_llm)
+    monkeypatch.setattr(ip_agent, "call_openai", fake_agent_llm)
     agent = ip_agent.IPAnalystAgent(model="gpt-5", retriever=None)
     out = agent.act("idea", "task")
     assert "# Web Search Results" in captured["prompt"]
@@ -44,20 +47,23 @@ def test_no_live_search_with_rag(monkeypatch):
     importlib.reload(ip_agent)
     called = {"search": False}
 
-    def fake_search(q, k=5):
+    def fake_search(role, idea, q, k=5):
         called["search"] = True
         return []
 
     monkeypatch.setattr("utils.search_tools.search_google", fake_search)
-    monkeypatch.setattr("utils.search_tools.llm_call", lambda *a, **k: DummyResp("summary"))
+    monkeypatch.setattr("utils.search_tools.call_openai", lambda *a, **k: {"text": "summary"})
 
     captured = {}
 
-    def fake_agent_llm(client, model, stage, messages, **params):
+    def fake_agent_llm(model, messages, **params):
         captured["prompt"] = messages[1]["content"]
-        return DummyResp('{"role":"IP Analyst","task":"x","findings":[],"risks":[],"next_steps":[]}')
+        return {
+            "text": '{"role":"IP Analyst","task":"x","findings":[],"risks":[],"next_steps":[]}',
+            "raw": DummyResp(""),
+        }
 
-    monkeypatch.setattr(ip_agent, "llm_call", fake_agent_llm)
+    monkeypatch.setattr(ip_agent, "call_openai", fake_agent_llm)
 
     class DummyRetriever:
         def query(self, q, k):
@@ -76,20 +82,23 @@ def test_live_search_disabled(monkeypatch):
     importlib.reload(ip_agent)
     called = {"search": False}
 
-    def fake_search(q, k=5):
+    def fake_search(role, idea, q, k=5):
         called["search"] = True
         return []
 
     monkeypatch.setattr("utils.search_tools.search_google", fake_search)
-    monkeypatch.setattr("utils.search_tools.llm_call", lambda *a, **k: DummyResp("summary"))
+    monkeypatch.setattr("utils.search_tools.call_openai", lambda *a, **k: {"text": "summary"})
 
     captured = {}
 
-    def fake_agent_llm(client, model, stage, messages, **params):
+    def fake_agent_llm(model, messages, **params):
         captured["prompt"] = messages[1]["content"]
-        return DummyResp('{"role":"IP Analyst","task":"x","findings":[],"risks":[],"next_steps":[]}')
+        return {
+            "text": '{"role":"IP Analyst","task":"x","findings":[],"risks":[],"next_steps":[]}',
+            "raw": DummyResp(""),
+        }
 
-    monkeypatch.setattr(ip_agent, "llm_call", fake_agent_llm)
+    monkeypatch.setattr(ip_agent, "call_openai", fake_agent_llm)
     agent = ip_agent.IPAnalystAgent(model="gpt-5", retriever=None)
     agent.act("idea", "task")
     assert "# Web Search Results" not in captured.get("prompt", "")

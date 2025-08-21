@@ -13,3 +13,11 @@ The system operates in two modes:
 - **test** – routes every stage to a cheap model for dry runs.
 
 Token usage is logged via a CostTracker. Costs are tracked for telemetry only; caps are not enforced.
+
+## Sanitization
+
+External queries follow a strict order: **redact → route → log → network**. Queries are obfuscated before any logging or network transmission.
+
+## Intake Fields
+
+The intake UI accepts optional **Constraints** and a **Risk posture** selection (Low/Medium/High). These values are threaded into planning prompts and persisted with each project.
