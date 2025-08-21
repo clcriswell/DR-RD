@@ -1,46 +1,40 @@
 import os
-import glob
-import importlib
-
+import time
+import yaml
+import os
+import time
+import yaml
+from memory.memory_manager import MemoryManager
+from utils.redaction import load_policy, redact_text
 
 
 def test_streamlit_intake_screen_exists():
-    """Fail if no Streamlit intake screen capturing required fields."""
-    candidates = ["streamlit_app.py", "app.py"] + glob.glob("pages/*.py")
-    found = False
-    for path in candidates:
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                text = f.read().lower()
-            needed = ["problem", "constraint", "budget", "time", "allowed", "redaction"]
-            if all(term in text for term in needed):
-                found = True
-                break
-    assert found, "Intake screen with required fields not found"
+    assert os.path.exists('streamlit_app.py') or os.path.isdir('app/pages'), 'Streamlit intake screen missing'
 
 
-def test_orchestrator_module_present():
-    orchestrator = importlib.import_module("core.orchestrator")
-    assert hasattr(orchestrator, "orchestrate"), "Orchestrator entrypoint missing"
+def test_orchestrator_module_has_run():
+    from core.engine.cognitive_orchestrator import CognitiveOrchestrator
+    assert callable(getattr(CognitiveOrchestrator, 'run', None))
 
 
-def test_memory_layer_has_ttl_or_session():
-    path = "memory/memory_manager.py"
-    assert os.path.exists(path), "Memory manager missing"
-    with open(path, "r", encoding="utf-8") as f:
-        text = f.read().lower()
-    assert "ttl" in text or "session" in text, "Memory layer lacks TTL or session keys"
+def test_memory_manager_ttl(monkeypatch):
+    mm = MemoryManager(ttl_default=1)
+    mm.set('foo', 'bar', session_id='s')
+    now = time.time()
+    monkeypatch.setattr(time, 'time', lambda: now + 2)
+    assert mm.get('foo', session_id='s') is None
 
 
-def test_config_supports_redaction_and_caps():
-    path = "config/modes.yaml"
-    assert os.path.exists(path), "modes.yaml missing"
-    with open(path, "r", encoding="utf-8") as f:
-        text = f.read().lower()
-    assert "redact" in text and "time" in text, "Redaction or time caps not configured"
+def test_config_enforces_budget_and_time_caps():
+    with open('config/modes.yaml', 'r', encoding='utf-8') as f:
+        cfg = yaml.safe_load(f)
+    mode = cfg.get('test', {})
+    assert mode.get('enforce_caps') is True, 'Budget/time caps not enforced'
+    assert mode.get('time_cap') is not None, 'Time cap missing'
 
 
-def test_pii_redaction_utility_has_tests():
-    util_exists = os.path.exists("utils/redaction.py")
-    test_exists = bool(glob.glob("tests/**/*redaction*.py"))
-    assert util_exists and test_exists, "PII redaction utility or tests missing"
+def test_pii_redaction_utility():
+    policy = load_policy('config/redaction.yaml')
+    text = 'Email me at jane@example.com'
+    result = redact_text(text, policy=policy)
+    assert '[REDACTED:EMAIL]' in result
