@@ -6,10 +6,18 @@ from openai import APIStatusError
 import os
 import json
 from pathlib import Path
+import random
 
 from utils.config import load_config
 
 logger = logging.getLogger(__name__)
+
+seed_env = os.getenv("DRRD_SEED")
+if seed_env:
+    try:
+        random.seed(int(seed_env))
+    except ValueError:
+        pass
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "test"))
 
@@ -49,7 +57,14 @@ def extract_text(resp: Any) -> Optional[str]:
     return getattr(getattr(choice, "message", None), "content", None) or getattr(choice, "text", None)
 
 
-def call_openai(model: str, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
+def call_openai(
+    model: str,
+    messages: List[Dict[str, Any]],
+    *,
+    seed: int | None = None,
+    temperature: float | None = None,
+    **kwargs,
+) -> Dict[str, Any]:
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
     cfg = load_config()
     if cfg.get("dry_run", {}).get("enabled", False):
@@ -63,6 +78,19 @@ def call_openai(model: str, messages: List[Dict[str, Any]], **kwargs) -> Dict[st
             return {"raw": {}, "text": ""}
 
     params = dict(kwargs)
+    mode = None
+    try:
+        import streamlit as st  # type: ignore
+
+        mode = st.session_state.get("MODE")
+    except Exception:
+        mode = os.getenv("MODE")
+    if temperature is None and mode == "test":
+        params["temperature"] = 0.0
+    elif temperature is not None:
+        params["temperature"] = temperature
+    if seed is not None:
+        params["seed"] = seed
     if "max_tokens" in params and "max_output_tokens" not in params:
         params["max_output_tokens"] = params.pop("max_tokens")
     try:
@@ -133,11 +161,25 @@ def log_usage(stage, model, pt, ct, cost=0.0):
     )
 
 
-def llm_call(client, model_id: str, stage: str, messages: list, **params):
+def llm_call(
+    client,
+    model_id: str,
+    stage: str,
+    messages: list,
+    seed: int | None = None,
+    temperature: float | None = None,
+    **params,
+):
     """Backward-compatible wrapper around :func:`call_openai`."""
     safe = {k: v for k, v in params.items() if k in ALLOWED_PARAMS}
     chosen_model = model_id
-    result = call_openai(model=chosen_model, messages=messages, **safe)
+    result = call_openai(
+        model=chosen_model,
+        messages=messages,
+        seed=seed,
+        temperature=temperature,
+        **safe,
+    )
     resp = result["raw"]
 
     usage_obj = getattr(resp, "usage", None)
