@@ -1,7 +1,7 @@
 test:
   target_cost_usd: 2.50
   enforce_caps: false
-  models: { plan: gpt-5, exec: gpt-5, synth: gpt-5 }
+  models: { plan: gpt-4-turbo, exec: gpt-4-turbo, synth: gpt-4-turbo }
   k_search: 6
   max_loops: 5
   stage_weights: { plan: 0.20, exec: 0.50, synth: 0.30 }
