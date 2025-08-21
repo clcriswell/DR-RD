@@ -3,6 +3,7 @@ from __future__ import annotations
 import streamlit as st
 from config.mode_profiles import UI_PRESETS
 from app.price_loader import cost_usd, load_prices
+from core.llm import select_model
 
 
 def _estimate_remaining(plan: dict | list | None, stage_counts: dict[str, int], mode: str) -> float:
@@ -25,7 +26,10 @@ def _estimate_remaining(plan: dict | list | None, stage_counts: dict[str, int], 
         remaining = calls - stage_counts.get(stage, 0)
         if remaining <= 0:
             continue
-        model = models.get(stage, models.get("exec", models.get("plan", "gpt-5")))
+        model = models.get(
+            stage,
+            models.get("exec", models.get("plan", select_model("agent"))),
+        )
         weight = weights.get(stage, 0.0)
         stage_budget = target * weight
         per_call_budget = stage_budget / calls if calls else 0.0

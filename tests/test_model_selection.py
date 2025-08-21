@@ -3,23 +3,24 @@ import pytest
 from core.llm import select_model
 
 
-@pytest.mark.parametrize(
-    "ui,purpose_env,global_env,expected",
-    [
-        ("ui-choice", None, None, "ui-choice"),
-        (None, "purpose-model", None, "purpose-model"),
-        (None, None, "global-model", "global-model"),
-    ],
-)
-def test_select_model_precedence(monkeypatch, ui, purpose_env, global_env, expected):
+def test_select_model_precedence(monkeypatch):
     monkeypatch.delenv("DRRD_FORCE_MODEL", raising=False)
+    monkeypatch.delenv("DRRD_MODEL_AGENT_SYNTHESIZER", raising=False)
     monkeypatch.delenv("DRRD_MODEL_PLANNER", raising=False)
     monkeypatch.delenv("DRRD_OPENAI_MODEL", raising=False)
-    if purpose_env:
-        monkeypatch.setenv("DRRD_MODEL_PLANNER", purpose_env)
-    if global_env:
-        monkeypatch.setenv("DRRD_OPENAI_MODEL", global_env)
-    assert select_model("planner", ui) == expected
+    # UI wins
+    assert select_model("planner", "ui", agent_name="Synthesizer") == "ui"
+    # Per-agent env
+    monkeypatch.setenv("DRRD_MODEL_AGENT_SYNTHESIZER", "agent-env")
+    assert select_model("agent", None, agent_name="Synthesizer") == "agent-env"
+    monkeypatch.delenv("DRRD_MODEL_AGENT_SYNTHESIZER", raising=False)
+    # Purpose env
+    monkeypatch.setenv("DRRD_MODEL_AGENT", "purpose-env")
+    assert select_model("agent", None) == "purpose-env"
+    monkeypatch.delenv("DRRD_MODEL_AGENT", raising=False)
+    # Global env
+    monkeypatch.setenv("DRRD_OPENAI_MODEL", "global-env")
+    assert select_model("agent", None) == "global-env"
 
 
 def test_select_model_forced_override(monkeypatch):

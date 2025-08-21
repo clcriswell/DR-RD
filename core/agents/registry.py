@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-"""Central registry for all concrete agent classes.
-
-This module exposes a mapping from canonical role names to their implementing
-classes. Other parts of the system can look up agent classes here instead of
-maintaining ad-hoc registries.
-"""
+"""Central registry for concrete agent classes."""
 
 from typing import Dict, Tuple, Type, Optional
+import logging
 
 from .base_agent import LLMRoleAgent as BaseAgent
 
@@ -20,12 +16,15 @@ from .ip_analyst_agent import IPAnalystAgent
 from .planner_agent import PlannerAgent
 from .synthesizer_agent import SynthesizerAgent
 from config.agent_models import AGENT_MODEL_MAP
+from core.llm import select_model
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Canonical registry
 # ---------------------------------------------------------------------------
 
-AGENT_REGISTRY: Dict[str, Type[BaseAgent]] = {
+AGENTS: Dict[str, Type[BaseAgent]] = {
     "CTO": CTOAgent,
     "Research Scientist": ResearchScientistAgent,
     "Regulatory": RegulatoryAgent,
@@ -36,11 +35,22 @@ AGENT_REGISTRY: Dict[str, Type[BaseAgent]] = {
     "Synthesizer": SynthesizerAgent,
 }
 
+# Backwards compatibility alias
+AGENT_REGISTRY = AGENTS
+
+
+def get_agent(name: str) -> BaseAgent:
+    cls = AGENTS.get(name)
+    if cls is None:
+        logger.info("Unknown agent %r; using Synthesizer", name)
+        cls = AGENTS["Synthesizer"]
+    return cls(select_model("agent"))
+
 
 def get_agent_class(role: str) -> Optional[Type[BaseAgent]]:
     """Return the agent class for ``role`` if registered."""
 
-    return AGENT_REGISTRY.get(role)
+    return AGENTS.get(role)
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +104,7 @@ def build_agents(mode: str | None = None, models: Dict | None = None) -> Dict[st
     return agents
 
 
-AGENTS = build_agents()
+AGENT_INSTANCES = build_agents()
 
 KEYWORDS = {
     "Marketing Analyst": [
@@ -162,7 +172,7 @@ def choose_agent_for_task(
 
 
 def get_agent_for_task(task: str, agents: Dict[str, BaseAgent] | None = None) -> BaseAgent:
-    _, agent = choose_agent_for_task(None, task, agents or AGENTS)
+    _, agent = choose_agent_for_task(None, task, agents or AGENT_INSTANCES)
     return agent
 
 # --- Added: mode-aware model loader that also installs the BudgetManager ---
@@ -189,8 +199,8 @@ def load_mode_models(mode: str | None = None) -> dict:
     set_budget_manager(budget)
     m = (mode_cfg or {}).get("models", {}) or {}
     # Rebuild global agents using mode-specific exec model
-    global AGENTS
-    AGENTS = build_agents(mode, models=m)
+    global AGENT_INSTANCES
+    AGENT_INSTANCES = build_agents(mode, models=m)
     # Map planner/synth plus sensible defaults for exec/default
     return {
         "Planner": m.get("plan", "gpt-4.1-mini"),
