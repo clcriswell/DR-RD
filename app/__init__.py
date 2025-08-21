@@ -30,8 +30,25 @@ from core.agents.unified_registry import build_agents_unified
 from config.agent_models import AGENT_MODEL_MAP, TEST_ROLE_MODELS
 from core.orchestrator import generate_plan, execute_plan, compile_proposal, run_poc
 from core.poc.testplan import TestPlan
+from core.agents.registry import validate_registry
 
 logger = logging.getLogger(__name__)
+
+# Validate and log agent registry once at startup
+_reg = validate_registry(strict=False)
+details = []
+if _reg["skipped"]:
+    details.append("skipped=" + ",".join(_reg["skipped"]))
+if _reg["errors"]:
+    err_names = ",".join(n for n, _ in _reg["errors"])
+    details.append("errors=" + err_names)
+logger.info(
+    "Agent registry ok=%d skipped=%d errors=%d%s",
+    len(_reg["ok"]),
+    len(_reg["skipped"]),
+    len(_reg["errors"]),
+    f" ({' '.join(details)})" if details else "",
+)
 
 try:
     from orchestrators.app_builder import build_app_from_idea

@@ -19,5 +19,6 @@ def test_missing_interface():
 
 
 def test_run_invocation():
-    inv = resolve_invoker(Runs())
+    name, inv = resolve_invoker(Runs())
+    assert name == "run"
     assert inv(task={"x": 1}, model="m") == 1
