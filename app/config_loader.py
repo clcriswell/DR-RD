@@ -34,8 +34,13 @@ def load_mode(mode: str) -> tuple[dict, CostTracker]:
         prices = yaml.safe_load(fh) or {}
 
     if mode == "test":
-        cheap = TEST_MODEL_ID or _cheap_default(prices.get("models", {}))
-        mode_cfg["models"] = {s: cheap for s in ["plan", "exec", "synth"]}
+        models = mode_cfg.get("models")
+        if not (
+            isinstance(models, dict)
+            and all(stage in models for stage in ["plan", "exec", "synth"])
+        ):
+            cheap = TEST_MODEL_ID or _cheap_default(prices.get("models", {}))
+            mode_cfg["models"] = {s: cheap for s in ["plan", "exec", "synth"]}
 
     budget = CostTracker(mode_cfg, prices)
     return mode_cfg, budget
