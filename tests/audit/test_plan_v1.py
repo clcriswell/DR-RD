@@ -1,91 +1,34 @@
-
-"""Dry-run checks for Plan v1 planning artifacts.
-
-Criteria covered:
-1.1 concept brief template
-1.2 role cards
-1.3 task segmentation plan
-1.4 redaction policy binding
-"""
-
 from pathlib import Path
-
-
-def test_concept_brief_template_exists():
-    """1.1 Concept brief template exists."""
-    path = Path("docs/concept_brief.md")
-    assert path.is_file(), "Concept brief template missing"
-
-
-def test_role_cards_exist():
-    """1.2 Role cards exist for Planner/PM and other agents."""
-    roles_dir = Path("docs/roles")
-    assert roles_dir.is_dir() and any(roles_dir.glob("*.md")), "Role cards missing"
-
-
-def test_task_segmentation_plan_structure():
-    """1.3 Task segmentation plan exists as structured data."""
-    plan_dir = Path("planning")
-    candidates = list(plan_dir.glob("*.yaml")) + list(plan_dir.glob("*.yml")) + list(plan_dir.glob("*.json"))
-    assert candidates, "Task segmentation plan file missing"
-    path = candidates[0]
-    if path.suffix in {".yaml", ".yml"}:
-        import yaml
-        with path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-    else:
-        import json
-        with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-    assert isinstance(data, dict) and data, "Task plan not structured as dict"
-    first_role = next(iter(data.values()))
-    assert "tasks" in first_role and isinstance(first_role["tasks"], list) and first_role["tasks"], (
-        "Task plan lacks role->tasks list"
-    )
-    first_task = first_role["tasks"][0]
-    assert "inputs" in first_task and "outputs" in first_task, "Task missing inputs/outputs"
-
-
-def test_redaction_policy_bound_in_planning_prompts():
-    """1.4 Redaction policy bound into planning prompts."""
-    prompt_paths = list(Path("prompts").rglob("*.py")) + list(Path("core/agents").glob("*planner*.py"))
-    found = False
-    for path in prompt_paths:
-        with path.open("r", encoding="utf-8") as f:
-=======
-
-"""Dry-run checks for Plan v1 planning artifacts."""
-
-import os
-import glob
 import yaml
 
 
 def test_concept_brief_template_exists():
-    assert os.path.exists("docs/concept_brief.md"), "Concept brief template missing"
+    assert Path('docs/concept_brief.md').exists()
 
 
 def test_role_cards_exist():
-    assert glob.glob("docs/roles/*.md"), "Role cards missing"
+    roles_dir = Path('docs/roles')
+    required = {
+        'role_planner.md',
+        'role_researcher.md',
+        'role_orchestrator.md',
+        'role_evaluator.md',
+    }
+    existing = {p.name for p in roles_dir.glob('*.md')}
+    assert required.issubset(existing)
 
 
-def test_task_segmentation_plan_structure():
-    path = "planning/task_plan.yaml"
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-    for key in ["roles", "tasks", "inputs", "outputs", "redaction_policy"]:
-        assert key in data, f"Missing key {key} in task plan"
+def test_task_segmentation_plan_schema():
+    plan = yaml.safe_load(Path('planning/task_plan.yaml').read_text())
+    assert {'roles', 'tasks', 'inputs', 'outputs', 'redaction_policy'} <= plan.keys()
+    assert isinstance(plan['roles'], dict)
+    assert isinstance(plan['tasks'], list)
+    for task in plan['tasks']:
+        assert {'id', 'inputs', 'outputs'} <= task.keys()
 
 
-def test_redaction_policy_bound_in_planning_prompts():
-    prompt_files = glob.glob("prompts/*.md") + glob.glob("prompts/**/*.md", recursive=True)
-    found = False
-    for path in prompt_files:
-        with open(path, "r", encoding="utf-8") as f:
-
-            text = f.read().lower()
-        if "redact" in text or "redaction" in text:
-            found = True
-            break
-    assert found, "Redaction policy missing from planning prompts"
-
+def test_planning_prompts_include_redaction():
+    prompt_dir = Path('prompts/planning')
+    for prompt_file in prompt_dir.glob('*.md'):
+        text = prompt_file.read_text().lower()
+        assert 'redaction' in text

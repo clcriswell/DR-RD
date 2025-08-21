@@ -1,22 +1,27 @@
-
 import importlib
 import inspect
+import json
 from pathlib import Path
 
 from tests.audit.fixtures import research_execution as fixtures
 
 
-def test_agent_loop_controller_runs(monkeypatch):
-    """Pass if run_pipeline executes one loop with stubbed agents."""
+def test_agent_loop_controller_runs(monkeypatch, tmp_path):
+    """Pass if run_pipeline executes one loop with stubbed agents and saves dossier."""
     orch = importlib.import_module("core.orchestrator")
     monkeypatch.setattr(orch, "PlannerAgent", fixtures.DummyPlanner)
     monkeypatch.setattr(orch, "build_agents", fixtures.dummy_build_agents)
     monkeypatch.setattr(orch, "synthesize", fixtures.dummy_synthesize)
     monkeypatch.setattr(orch, "load_mode_models", lambda mode: {"default": "gpt-5"})
-    final, results, trace = orch.run_pipeline("idea")
+    final, results, trace = orch.run_pipeline("idea", runs_dir=tmp_path)
     assert final == "stub dossier"
     assert results["Research Scientist"][0]["findings"] == ["stub"]
     assert trace[0]["agent"] == "Research Scientist"
+    dossier_files = list(tmp_path.rglob("dossier.json"))
+    assert dossier_files, "dossier not saved"
+    with open(dossier_files[0], "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    assert data["findings"][0]["body"] == "stub"
 
 
 def test_api_adapter_has_budget_tracking():
@@ -27,8 +32,11 @@ def test_api_adapter_has_budget_tracking():
 
 
 def test_dossier_builder_present():
-    """Fail if dossier builder module is missing."""
-    assert Path("src/dossier_builder.py").exists(), "dossier builder missing"
+    """Pass if dossier builder records findings with evidences."""
+    dossier_module = importlib.import_module("core.dossier")
+    assert hasattr(dossier_module, "Dossier")
+    assert hasattr(dossier_module, "Finding")
+    assert inspect.getsource(dossier_module.Dossier).count("record_finding")
 
 
 def test_gap_check_present():
@@ -38,37 +46,6 @@ def test_gap_check_present():
     assert "revise_plan" in src
 
 
-def test_dry_run_runbook_exists():
-    """Fail if no dry-run runbook or config found."""
-    runbook_paths = list(Path("docs").glob("*dry-run*")) + list(Path("config").glob("*dry*") )
-    assert runbook_paths, "dry-run runbook missing"
-
-import os
-import glob
-
-
-def test_agent_loop_controller_exists():
-    with open("core/orchestrator.py", "r", encoding="utf-8") as f:
-        text = f.read()
-    assert "run_pipeline" in text and "while True" in text, "Agent loop controller missing"
-
-
-def test_external_api_adapter_with_budget():
-    with open("core/llm_client.py", "r", encoding="utf-8") as f:
-        text = f.read()
-    assert "call_openai" in text and "BudgetManager" in text, "LLM adapter or budget tracking missing"
-
-
-def test_dossier_builder_with_sources():
-    assert glob.glob("core/*dossier*.py"), "Dossier builder missing"
-
-
-def test_gap_check_followups():
-    with open("core/orchestrator.py", "r", encoding="utf-8") as f:
-        text = f.read()
-    assert "revise_plan" in text, "Gap check or follow-up tasks missing"
-
-
-def test_dry_run_runbook_or_config():
-    assert os.path.exists("RUNBOOK.md"), "Dry-run runbook/config missing"
-
+def test_dry_run_config_exists():
+    """Pass if dry-run configuration exists."""
+    assert Path("config/dry_run.yaml").exists()

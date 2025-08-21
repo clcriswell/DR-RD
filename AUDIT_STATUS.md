@@ -1,14 +1,11 @@
-
 # Audit Status
 
 | Area | Criteria Passed | Criteria Failed | Risk | Next Action |
 |------|-----------------|-----------------|------|-------------|
-| 0 | 1 | 4 | High | Address missing intake, memory TTL, redaction, and config caps |
-| 1 | 0 | 4 | High | Add concept brief, role cards, task plan, and redaction policy |
-| 2 | 3 | 2 | Medium | Add dossier builder and dry-run runbook |
-| 3 | 0 | 3 | High | Add PoC test plan template, simulation hooks, environment matrix |
-| 4 | 1 | 2 | High | Add QA routing and persist run artifacts |
-| 3 | 0 | 3 | High | Add PoC test plan template, simulation hooks, environment matrix |
-| 4 | 1 | 2 | High | Add QA routing and persist run artifacts |
-
-
+| 0 | 3 | 2 | High | Add intake screen and enforce budget/time caps |
+| 1 | 4 | 0 | Low | Maintain planning templates |
+| 2 | 5 | 0 | Low | Maintain agent loop and dry-run config |
+| 3 | 2 | 1 | Medium | Define environment matrix for test runs |
+| 4 | 2 | 1 | Medium | Persist simulation artifacts with timestamped runs |
+| 5 | 0 | 3 | High | Add system design doc, build spec, and work plan |
+| 6 | 0 | 3 | High | Add build guide, appendices, and reproducibility script |
