@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Dict, Tuple, Type
 
-from core.agents.registry import AGENT_REGISTRY
+from core.agents.registry import AGENT_REGISTRY, get_agent
+from core.agents.invoke import invoke_agent
 from core.llm import select_model
 
 logger = logging.getLogger(__name__)
@@ -106,5 +107,41 @@ def route_task(
     return role, cls, model, out
 
 
-__all__ = ["choose_agent_for_task", "KEYWORDS", "ALIASES", "ROLE_SYNONYMS", "route_task"]
+def dispatch(task: Dict[str, str], ui_model: str | None = None):
+    """Dispatch ``task`` to the appropriate agent instance.
+
+    The task's ``role`` is normalised via ``ALIASES`` and ``ROLE_SYNONYMS``
+    before lookup.  Unknown roles fall back to ``Synthesizer``.  If the resolved
+    agent lacks a callable interface, a single warning is logged and the task is
+    rerouted to ``Synthesizer``.
+    """
+
+    role = _alias(task.get("role"))
+    if role:
+        role = ROLE_SYNONYMS.get(role, role)
+    canonical = role if role in AGENT_REGISTRY else "Synthesizer"
+
+    model = select_model("agent", ui_model, agent_name=canonical)
+    meta = {"purpose": "agent", "agent": canonical, "role": task.get("role")}
+    agent = get_agent(canonical)
+    try:
+        return invoke_agent(agent, task=task, model=model, meta=meta)
+    except TypeError as e:
+        if "has no callable interface" in str(e) and canonical != "Synthesizer":
+            logger.warning("Uncallable agent %s; falling back to Synthesizer", canonical)
+            synth = get_agent("Synthesizer")
+            synth_model = select_model("agent", ui_model, agent_name="Synthesizer")
+            meta["agent"] = "Synthesizer"
+            return invoke_agent(synth, task=task, model=synth_model, meta=meta)
+        raise
+
+
+__all__ = [
+    "choose_agent_for_task",
+    "KEYWORDS",
+    "ALIASES",
+    "ROLE_SYNONYMS",
+    "route_task",
+    "dispatch",
+]
 

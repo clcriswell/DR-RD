@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, Tuple, Type, Optional
 import logging
+import os
 
 from .base_agent import LLMRoleAgent as BaseAgent
 
@@ -15,6 +16,7 @@ from .marketing_agent import MarketingAgent
 from .ip_analyst_agent import IPAnalystAgent
 from .planner_agent import PlannerAgent
 from .synthesizer_agent import SynthesizerAgent
+from .invoke import resolve_invoker
 from config.agent_models import AGENT_MODEL_MAP
 from core.llm import select_model
 
@@ -38,13 +40,66 @@ AGENTS: Dict[str, Type[BaseAgent]] = {
 # Backwards compatibility alias
 AGENT_REGISTRY = AGENTS
 
+CACHE: Dict[str, object] = {}
 
-def get_agent(name: str) -> BaseAgent:
+
+def get_agent(name: str) -> object:
+    """Return a cached agent instance by canonical ``name``.
+
+    Unknown names fall back to ``Synthesizer``.
+    """
+
+    if name in CACHE:
+        return CACHE[name]
+
     cls = AGENTS.get(name)
     if cls is None:
         logger.info("Unknown agent %r; using Synthesizer", name)
         cls = AGENTS["Synthesizer"]
-    return cls(select_model("agent"))
+        name = "Synthesizer"
+
+    inst = cls(select_model("agent", agent_name=name))
+    CACHE[name] = inst
+    return inst
+
+
+def validate_registry(strict: bool | None = None) -> dict:
+    """Instantiate and verify all registered agents.
+
+    Returns a dict containing lists of ``ok``, ``skipped`` (missing callable),
+    and ``errors`` (instantiation failures).  If ``strict`` or the environment
+    variable ``DRRD_STRICT_AGENT_REGISTRY`` is true, a ``RuntimeError`` is raised
+    when any agents are skipped or fail.
+    """
+
+    ok: list[str] = []
+    skipped: list[str] = []
+    errors: list[tuple[str, str]] = []
+
+    for name, cls in AGENTS.items():
+        try:
+            inst = cls(select_model("agent", agent_name=name))
+            CACHE.setdefault(name, inst)
+            try:
+                resolve_invoker(inst)
+                ok.append(name)
+            except TypeError:
+                skipped.append(name)
+        except Exception as e:  # pragma: no cover - best effort
+            errors.append((name, str(e)))
+
+    logger.info(
+        "agent registry validation: ok=%d skipped=%d errors=%d",
+        len(ok),
+        len(skipped),
+        len(errors),
+    )
+
+    env_strict = os.getenv("DRRD_STRICT_AGENT_REGISTRY", "").lower() == "true"
+    if (strict or env_strict) and (skipped or errors):
+        raise RuntimeError("Agent registry validation failed")
+
+    return {"ok": ok, "skipped": skipped, "errors": errors}
 
 
 def get_agent_class(role: str) -> Optional[Type[BaseAgent]]:
