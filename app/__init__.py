@@ -12,6 +12,7 @@ from memory.memory_manager import MemoryManager
 from collaboration import agent_chat
 from utils.refinement import refine_agent_output
 import core
+from core.plan_utils import normalize_plan_to_tasks, normalize_tasks  # noqa: F401
 from core.agents.simulation_agent import SimulationAgent
 from core.agents.planner_agent import PlannerAgent
 from core.agents.synthesizer_agent import SynthesizerAgent
@@ -39,7 +40,11 @@ except Exception:
 
 try:
     from core.agents.qa_agent import qa_all
-    from core.agents.publisher_agent import make_zip_bytes, write_publishing_md, try_create_github_repo
+    from core.agents.publisher_agent import (
+        make_zip_bytes,
+        write_publishing_md,
+        try_create_github_repo,
+    )
 except Exception:
     qa_all = None
     make_zip_bytes = write_publishing_md = try_create_github_repo = None
@@ -56,6 +61,7 @@ def update_cost(price_per_1k: float = 0.005):
     t = METER.total()
     live_tokens.metric("Tokens used", f"{t:,}")
     live_cost.metric("Cost so far", f"${t/1000*price_per_1k:,.4f}")
+
 
 WRAP_CSS = """
 pre, code {
@@ -81,12 +87,7 @@ def get_agents():
     """Create and return the initialized agents using the core registry."""
     use_test = st.session_state.get("MODE") == "test"
     mapping = TEST_ROLE_MODELS if use_test else AGENT_MODEL_MAP
-    default_model = (
-        mapping.get("DEFAULT")
-        or os.getenv("OPENAI_MODEL")
-        or os.getenv("OPENAI_DEFAULT_MODEL")
-        or "gpt-5"
-    )
+    default_model = mapping.get("DEFAULT") or os.getenv("DRRD_OPENAI_MODEL") or "gpt-4.1-mini"
     agents = build_agents_unified(mapping, default_model)
     agents["Planner"] = PlannerAgent(mapping.get("Planner") or default_model)
     agents["Synthesizer"] = SynthesizerAgent(mapping.get("Synthesizer") or default_model)
@@ -98,6 +99,23 @@ def get_agents():
 def get_memory_manager():
     """Return a cached instance of the memory manager."""
     return MemoryManager()
+
+
+def route_tasks(tasks_any, agents):
+    """Normalize ``tasks_any`` and map each task to an agent.
+
+    Unknown roles fall back to the first agent provided.
+    """
+    tasks = normalize_tasks(normalize_plan_to_tasks(tasks_any))
+    if not agents:
+        return []
+    default_rr, default_agent = next(iter(agents.items()))
+    routed = []
+    for t in tasks:
+        agent = agents.get(t["role"], default_agent)
+        rr = t["role"] if t["role"] in agents else default_rr
+        routed.append((rr, agent, t))
+    return routed
 
 
 def generate_pdf(markdown_text):
@@ -236,9 +254,7 @@ def run_manual_pipeline(
         with st.spinner(f"🤖 {role} working..."):
             try:
                 memory_context = (
-                    memory_manager.get_project_summaries(similar_ideas)
-                    if similar_ideas
-                    else ""
+                    memory_manager.get_project_summaries(similar_ideas) if similar_ideas else ""
                 )
                 prompt_base = agent.user_prompt_template.format(idea=idea, task=task)
                 depth = design_depth.capitalize()
@@ -312,9 +328,7 @@ def run_manual_pipeline(
                     success=False,
                 )
                 # Attempt up to 2 refinements based on failed criteria
-                for attempt in range(
-                    1, 3
-                ):  # attempt = 1 for first retry, 2 for second retry
+                for attempt in range(1, 3):  # attempt = 1 for first retry, 2 for second retry
                     # Prepare feedback context with failed criteria
                     feedback = ""
                     if failed_list:
@@ -322,9 +336,7 @@ def run_manual_pipeline(
                     # Construct messages to re-run agent with feedback
                     try:
                         sel = pick_model(CallHints(stage="exec", difficulty="hard"))
-                        logging.info(
-                            f"Model[exec]={sel['model']} params={sel['params']}"
-                        )
+                        logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
                         new_result = call_openai(
                             model=sel["model"],
                             messages=[
@@ -352,9 +364,7 @@ def run_manual_pipeline(
                     except Exception as e:
                         new_result = result  # if the re-run fails, keep the last result
                     # Run simulation again on the revised output
-                    new_metrics = simulation_agent.sim_manager.simulate(
-                        sim_type, new_result
-                    )
+                    new_metrics = simulation_agent.sim_manager.simulate(sim_type, new_result)
                     if new_metrics.get("pass", True):
                         # Success on retry
                         result = new_result
@@ -375,10 +385,10 @@ def run_manual_pipeline(
                     else:
                         # Still failing after this attempt
                         failed_list = new_metrics.get("failed", [])
-                        fail_desc = (
-                            ", ".join(failed_list) if failed_list else "criteria"
+                        fail_desc = ", ".join(failed_list) if failed_list else "criteria"
+                        result = (
+                            new_result  # update result to the latest attempt for potential display
                         )
-                        result = new_result  # update result to the latest attempt for potential display
                         # Log the failed retry attempt
                         safe_log_step(
                             get_project_id(),
@@ -407,9 +417,7 @@ def run_manual_pipeline(
                             st.stop()
             else:
                 # Simulation passed on first try
-                safe_log_step(
-                    get_project_id(), role, "Output", "Passed Simulation", success=True
-                )
+                safe_log_step(get_project_id(), role, "Output", "Passed Simulation", success=True)
                 # Append simulation metrics to the output if no further refinement rounds
                 if refinement_rounds == 1:
                     sim_text = simulation_agent.run_simulation(role, result)
@@ -419,9 +427,7 @@ def run_manual_pipeline(
             # Simulations not enabled or result is an error
             # Log the output as completed (success=True by default if no simulation)
             if not result.startswith("❌"):
-                safe_log_step(
-                    get_project_id(), role, "Output", "Completed", success=True
-                )
+                safe_log_step(get_project_id(), role, "Output", "Completed", success=True)
             else:
                 safe_log_step(
                     get_project_id(),
@@ -468,9 +474,7 @@ def run_manual_pipeline(
                     st.markdown("---")
                     st.markdown("### Research Scientist (Revised after collaboration)")
                     if simulate_enabled:
-                        sim_rs = simulation_agent.run_simulation(
-                            "Research Scientist", updated_rs
-                        )
+                        sim_rs = simulation_agent.run_simulation("Research Scientist", updated_rs)
                         if sim_rs:
                             updated_rs = f"{updated_rs}\n\n{sim_rs}"
                             answers["Research Scientist"] = updated_rs
@@ -608,8 +612,6 @@ def main():
     else:
         st.markdown("## Configuration")
 
-
-
     import os as _os
 
     developer_expander = getattr(sidebar, "expander", None)
@@ -667,6 +669,7 @@ def main():
     final_flags = apply_profile(env_defaults, selected_mode, overrides=None)
     st.session_state["final_flags"] = final_flags
     import config.feature_flags as ff
+
     for k, v in final_flags.items():
         setattr(ff, k, v)
     if selected_mode == "deep":
@@ -684,7 +687,9 @@ def main():
             + f"Simulations={'on' if ui_preset['simulate_enabled'] else 'off'}"
         )
     if selected_mode == "deep":
-        image_toggle_fn = getattr(sidebar, "toggle", getattr(sidebar, "checkbox", lambda *a, **k: False))
+        image_toggle_fn = getattr(
+            sidebar, "toggle", getattr(sidebar, "checkbox", lambda *a, **k: False)
+        )
         default_images_on = not ff.DISABLE_IMAGES_BY_DEFAULT.get(selected_mode, True)
         st.session_state["disable_images"] = not image_toggle_fn(
             "Generate images",
@@ -704,19 +709,14 @@ def main():
         except Exception as e:  # pragma: no cover - external service
             logging.error(f"Could not fetch projects from Firestore: {e}")
     else:
-        project_names = [
-            entry.get("name", "(unnamed)") for entry in memory_manager.data
-        ]
+        project_names = [entry.get("name", "(unnamed)") for entry in memory_manager.data]
 
     current_project = st.session_state.get("project_name")
     if current_project and current_project not in project_names:
         project_names.append(current_project)
 
     selected_index = 0
-    if (
-        "project_name" in st.session_state
-        and st.session_state["project_name"] in project_names
-    ):
+    if "project_name" in st.session_state and st.session_state["project_name"] in project_names:
         selected_index = project_names.index(st.session_state["project_name"]) + 1
     selectbox_container = sidebar if hasattr(sidebar, "selectbox") else st
     selected_project = selectbox_container.selectbox(
@@ -735,12 +735,8 @@ def main():
                     if doc.exists:
                         data = doc.to_dict() or {}
                         st.session_state["idea"] = data.get("idea", "")
-                        st.session_state["constraints"] = data.get(
-                            "constraints", ""
-                        )
-                        st.session_state["risk_posture"] = data.get(
-                            "risk_posture", "Medium"
-                        )
+                        st.session_state["constraints"] = data.get("constraints", "")
+                        st.session_state["risk_posture"] = data.get("risk_posture", "Medium")
                         plan_data = data.get("plan", [])
                         st.session_state["plan_tasks"] = plan_data
                         st.session_state["plan"] = [
@@ -751,14 +747,10 @@ def main():
                             }
                             for t in plan_data
                         ]
-                        st.session_state["answers"] = data.get(
-                            "results", data.get("outputs", {})
-                        )
+                        st.session_state["answers"] = data.get("results", data.get("outputs", {}))
                         st.session_state["final_doc"] = data.get("proposal", "")
                         st.session_state["images"] = data.get("images", [])
-                        st.session_state["project_name"] = data.get(
-                            "name", selected_project
-                        )
+                        st.session_state["project_name"] = data.get("name", selected_project)
                         st.session_state["project_saved"] = True
                         st.session_state["project_id"] = doc_id
                 except Exception as e:  # pragma: no cover - external service
@@ -767,12 +759,8 @@ def main():
                 for entry in memory_manager.data:
                     if entry.get("name") == selected_project:
                         st.session_state["idea"] = entry.get("idea", "")
-                        st.session_state["constraints"] = entry.get(
-                            "constraints", ""
-                        )
-                        st.session_state["risk_posture"] = entry.get(
-                            "risk_posture", "Medium"
-                        )
+                        st.session_state["constraints"] = entry.get("constraints", "")
+                        st.session_state["risk_posture"] = entry.get("risk_posture", "Medium")
                         plan_data = entry.get("plan", [])
                         st.session_state["plan_tasks"] = plan_data
                         st.session_state["plan"] = [
@@ -783,14 +771,10 @@ def main():
                             }
                             for t in plan_data
                         ]
-                        st.session_state["answers"] = entry.get(
-                            "results", entry.get("outputs", {})
-                        )
+                        st.session_state["answers"] = entry.get("results", entry.get("outputs", {}))
                         st.session_state["final_doc"] = entry.get("proposal", "")
                         st.session_state["images"] = entry.get("images", [])
-                        st.session_state["project_name"] = entry.get(
-                            "name", selected_project
-                        )
+                        st.session_state["project_name"] = entry.get("name", selected_project)
                         st.session_state["project_saved"] = True
                         break
         else:
@@ -812,12 +796,8 @@ def main():
         if hasattr(st, "experimental_rerun"):
             st.experimental_rerun()
 
-    project_name = st.text_input(
-        "🏷️ Project Name:", value=st.session_state.get("project_name", "")
-    )
-    idea = st.text_input(
-        "🧠 Enter your project idea:", value=st.session_state.get("idea", "")
-    )
+    project_name = st.text_input("🏷️ Project Name:", value=st.session_state.get("project_name", ""))
+    idea = st.text_input("🧠 Enter your project idea:", value=st.session_state.get("idea", ""))
     constraints = st.text_area(
         "Constraints (optional)",
         key="constraints",
@@ -901,7 +881,6 @@ def main():
     if similar_ideas:
         st.info("Found similar past projects: " + ", ".join(similar_ideas))
 
-
     disable_btn = not project_name or duplicate
     try:
         clicked = st.button("1⃣ Generate Research Plan", disabled=disable_btn)
@@ -934,6 +913,7 @@ def main():
                     idea,
                     st.session_state.get("constraints"),
                     st.session_state.get("risk_posture"),
+                    st.session_state.get("model"),
                 )
                 update_cost()
             if isinstance(tasks, dict):
@@ -948,7 +928,7 @@ def main():
             logger.info(
                 "Planner tasks total=%d canonical_roles=%d",
                 len(tasks),
-                len({t['normalized_role'] for t in normalized}),
+                len({t["normalized_role"] for t in normalized}),
             )
             safe_log_step(
                 get_project_id(),
@@ -996,7 +976,9 @@ def main():
         raw_tasks = st.session_state["plan"]
         raw_tasks = raw_tasks.get("tasks", []) if isinstance(raw_tasks, dict) else raw_tasks
         if not raw_tasks:
-            getattr(st, "error", lambda *a, **k: None)("Planner returned no valid tasks. Check logs.")
+            getattr(st, "error", lambda *a, **k: None)(
+                "Planner returned no valid tasks. Check logs."
+            )
         else:
             allowed_roles = st.session_state.get("allowed_roles", set())
             view = st.radio(
@@ -1120,9 +1102,7 @@ def main():
                             "Respond with Yes or No and a brief reason."
                         )
                         sel = pick_model(CallHints(stage="plan"))
-                        logging.info(
-                            f"Model[plan]={sel['model']} params={sel['params']}"
-                        )
+                        logging.info(f"Model[plan]={sel['model']} params={sel['params']}")
                         planner_text = call_openai(
                             model=sel["model"],
                             messages=[
@@ -1155,9 +1135,7 @@ def main():
                                 "Explain to the user why this suggestion won't be adopted."
                             )
                         sel = pick_model(CallHints(stage="exec"))
-                        logging.info(
-                            f"Model[exec]={sel['model']} params={sel['params']}"
-                        )
+                        logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
                         revised_output = call_openai(
                             model=sel["model"],
                             messages=[
@@ -1201,9 +1179,7 @@ def main():
                                     parts[0] if len(parts) >= 1 else revised_output
                                 )
                                 st.session_state["answers"][role] = updated_output_text
-                                getattr(
-                                    st, "success", lambda *a, **k: None
-                                )(
+                                getattr(st, "success", lambda *a, **k: None)(
                                     f"Accepted revision for {role}. The output has been updated."
                                 )
                             if continue_discussion:
@@ -1211,16 +1187,18 @@ def main():
                                     f"You can refine your suggestion for {role} and submit again."
                                 )
                     except Exception as e:  # pylint: disable=broad-except
-                        getattr(
-                            st, "error", lambda *a, **k: None
-                        )(f"Failed to process suggestion for {role}: {e}")
+                        getattr(st, "error", lambda *a, **k: None)(
+                            f"Failed to process suggestion for {role}: {e}"
+                        )
 
         if st.session_state.get("agent_trace"):
             expander = getattr(st, "expander", None)
             if expander:
                 with expander("Agent Trace"):
                     for item in st.session_state["agent_trace"]:
-                        st.write(f"{item['agent']} ({item.get('tokens',0)} tokens): {item['finding']}")
+                        st.write(
+                            f"{item['agent']} ({item.get('tokens',0)} tokens): {item['finding']}"
+                        )
         if st.button("3⃣ Compile Final Proposal"):
             logging.info("User compiled final proposal")
             with st.spinner("🚀 Synthesizing final R&D proposal..."):
@@ -1241,9 +1219,9 @@ def main():
                         risk_posture=st.session_state.get("risk_posture", "Medium"),
                     )
                 except Exception as e:  # pylint: disable=broad-except
-                    getattr(
-                        st, "error", lambda *a, **k: None
-                    )(f"Final proposal synthesis failed: {e}")
+                    getattr(st, "error", lambda *a, **k: None)(
+                        f"Final proposal synthesis failed: {e}"
+                    )
                     logging.exception("Error during final proposal synthesis: %s", e)
                     st.stop()
             st.session_state["final_doc"] = final_report_text
@@ -1311,11 +1289,16 @@ def main():
                     mime="application/json",
                 )
                 import io, csv as _csv
+
                 buf = io.StringIO()
                 writer = _csv.writer(buf)
-                writer.writerow(["test_id", "passed", "metrics_observed", "metrics_passfail", "notes"])
+                writer.writerow(
+                    ["test_id", "passed", "metrics_observed", "metrics_passfail", "notes"]
+                )
                 for r in report.results:
-                    writer.writerow([r.test_id, r.passed, r.metrics_observed, r.metrics_passfail, r.notes])
+                    writer.writerow(
+                        [r.test_id, r.passed, r.metrics_observed, r.metrics_passfail, r.notes]
+                    )
                 st.download_button(
                     "Download poc_results.csv",
                     buf.getvalue(),
@@ -1344,13 +1327,16 @@ def main():
         # --- App Builder (inline) ---
         if build_app_from_idea:
             st.subheader("🔧 Generate a Streamlit App from this idea")
-            st.caption("This will plan a small Streamlit project and write files under `generated_apps/<slug>/`.")
+            st.caption(
+                "This will plan a small Streamlit project and write files under `generated_apps/<slug>/`."
+            )
             try:
                 gen = st.button("Generate Streamlit app", type="primary")
             except TypeError:  # fallback for older Streamlit versions
                 gen = st.button("Generate Streamlit app")
             if gen:
                 import io, zipfile
+
                 with st.spinner("Planning and generating app files..."):
                     spec, files = build_app_from_idea(idea)
                 st.success(f"App scaffold created → generated_apps/{spec.slug}")
@@ -1358,7 +1344,9 @@ def main():
                     for p in sorted(files):
                         st.write(f"**{p}**")
                         if p.endswith(".py") or p.endswith(".md") or p.endswith(".txt"):
-                            st.code(files[p][:1000], language="python" if p.endswith(".py") else None)
+                            st.code(
+                                files[p][:1000], language="python" if p.endswith(".py") else None
+                            )
                         else:
                             st.text(f"(binary or long content; {len(files[p])} bytes)")
 
@@ -1367,10 +1355,12 @@ def main():
                     for path, content in files.items():
                         z.writestr(path, content)
                 buf.seek(0)
-                st.download_button("Download app as ZIP", data=buf.read(), file_name=f"{spec.slug}.zip")
+                st.download_button(
+                    "Download app as ZIP", data=buf.read(), file_name=f"{spec.slug}.zip"
+                )
 
                 # --- QA & Publish controls ---
-                if qa_all and 'spec' in locals():
+                if qa_all and "spec" in locals():
                     st.subheader("✅ Optional: QA checks")
                     if st.button("Run QA checks"):
                         app_root = f"generated_apps/{spec.slug}"
@@ -1386,7 +1376,7 @@ def main():
                         else:
                             st.warning(f"Pytest exit code: {report['pytest_exit']}")
 
-                if make_zip_bytes and 'spec' in locals():
+                if make_zip_bytes and "spec" in locals():
                     st.subheader("🚀 Optional: Publish")
                     repo_name = st.text_input("New GitHub repo name", value=spec.slug)
                     col1, col2 = st.columns(2)
@@ -1395,14 +1385,21 @@ def main():
                             app_root = f"generated_apps/{spec.slug}"
                             write_publishing_md(app_root, repo_name)
                             z = make_zip_bytes(app_root)
-                            st.download_button(f"Download {repo_name}.zip", data=z, file_name=f"{repo_name}.zip")
+                            st.download_button(
+                                f"Download {repo_name}.zip", data=z, file_name=f"{repo_name}.zip"
+                            )
                     with col2:
                         if st.button("Create GitHub repo via API (uses GH_PAT)"):
                             token = st.secrets.get("GH_PAT", "")
                             if not token:
                                 st.error("GH_PAT secret not found. Add it in Streamlit secrets.")
                             else:
-                                ok, info = try_create_github_repo(repo_name, f"Generated by DR-RD App Builder: {spec.name}", token, private=False)
+                                ok, info = try_create_github_repo(
+                                    repo_name,
+                                    f"Generated by DR-RD App Builder: {spec.name}",
+                                    token,
+                                    private=False,
+                                )
                                 if ok:
                                     st.success(f"Repo created: {info.get('html_url')}")
                                 else:
@@ -1420,12 +1417,8 @@ def main():
         )
         if not df.empty:
             df = df.sort_values("tokens", ascending=False)
-            getattr(st, "caption", lambda *a, **k: None)(
-                "Token breakdown by stage"
-            )
-            getattr(st, "dataframe", lambda *a, **k: None)(
-                df, use_container_width=True
-            )
+            getattr(st, "caption", lambda *a, **k: None)("Token breakdown by stage")
+            getattr(st, "dataframe", lambda *a, **k: None)(df, use_container_width=True)
 
     st.subheader("💬 Project Chat")
     doc_id = get_project_id()
@@ -1450,9 +1443,7 @@ def main():
         if st.session_state.get("idea"):
             context_bits.append(f"IDEA: {st.session_state['idea']}")
         if st.session_state.get("plan"):
-            context_bits.append(
-                f"PLAN ROLES: {', '.join(st.session_state['plan'].keys())}"
-            )
+            context_bits.append(f"PLAN ROLES: {', '.join(st.session_state['plan'].keys())}")
         if st.session_state.get("answers"):
             sums = [
                 f"{r}: {len((st.session_state['answers'].get(r) or ''))} chars"

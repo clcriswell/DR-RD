@@ -1,4 +1,4 @@
-from core.schemas import ConceptBrief, RoleCard, ScopeNote, TaskSpec
+from core.schemas import ConceptBrief, Plan, RoleCard, ScopeNote, Task, TaskSpec
 
 
 def test_scope_note_instantiation():
@@ -38,3 +38,8 @@ def test_role_card_instantiation():
 def test_task_spec_instantiation():
     task = TaskSpec(role="R", task="Do")
     assert task.task == "Do"
+
+
+def test_plan_requires_id_and_summary():
+    plan = Plan(tasks=[Task(id="T1", role="R", title="T", summary="S")])
+    assert plan.tasks[0].id == "T1"

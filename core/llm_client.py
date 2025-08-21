@@ -3,7 +3,7 @@ import logging
 import os
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 import time
 from openai import APIStatusError, OpenAI
@@ -65,6 +65,14 @@ def extract_text(resp: Any) -> Optional[str]:
     )
 
 
+def responses_json_schema_for(model_cls: Type[Any], name: str) -> dict:
+    return {
+        "type": "json_schema",
+        "json_schema": {"name": name, "schema": model_cls.model_json_schema()},
+        "strict": True,
+    }
+
+
 def call_openai(
     model: str,
     messages: List[Dict[str, Any]],
@@ -113,6 +121,7 @@ def call_openai(
         try:
             response_params = {k: v for k, v in params.items() if k != "temperature"}
             try:
+                logger.info("call_openai: model=%s, api=Responses", model)
                 resp = client.responses.create(
                     model=model,
                     input=_to_responses_input(messages),
@@ -121,6 +130,7 @@ def call_openai(
             except TypeError:
                 if "response_format" in response_params:
                     cleaned = {k: v for k, v in response_params.items() if k != "response_format"}
+                    logger.info("call_openai: model=%s, api=Responses", model)
                     resp = client.responses.create(
                         model=model,
                         input=_to_responses_input(messages),
@@ -129,13 +139,12 @@ def call_openai(
                 else:
                     raise
             text = extract_text(resp)
-            logger.info("call_openai: used Responses API for %s", model)
             return {"raw": resp, "text": text}
         except APIStatusError as e:
             if e.status_code not in (404, 429, 500, 502, 503, 504):
                 raise
             if e.status_code == 404:
-                logger.info("call_openai: falling back to Chat Completions for %s", model)
+                logger.info("call_openai: falling back to Chat Completions")
                 break
             if attempt == 3:
                 logger.error("call_openai: failed after retries for %s", model)
@@ -151,12 +160,13 @@ def call_openai(
                 time.sleep(backoff + random.uniform(0, backoff))
                 backoff *= 2
                 continue
-            logger.info("call_openai: falling back to Chat Completions for %s", model)
+            logger.info("call_openai: falling back to Chat Completions")
             break
 
     params = dict(kwargs)
     if "max_output_tokens" in params and "max_tokens" not in params:
         params["max_tokens"] = params.pop("max_output_tokens")
+    logger.info("call_openai: model=%s, api=ChatCompletions", model)
     resp = client.chat.completions.create(model=model, messages=messages, **params)
     text = extract_text(resp)
     return {"raw": resp, "text": text}
