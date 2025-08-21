@@ -9,10 +9,10 @@ Concept planning artifacts are largely absent. The repository lacks templates, r
 - [FAIL] 1.4 Redaction policy bound into planning prompts
 
 ## Evidence
-- No `docs/concept_brief.md`
-- No `docs/roles/` directory
+- `docs/concept_brief.md` not found
+- `docs/roles/` directory missing
 - No task plan YAML or JSON under `planning/`
-- No mentions of redaction in planning prompts
+- Planning prompts lack redaction mentions
 - Failing tests:
   - `tests/audit/test_plan_v1.py::test_concept_brief_template_exists`
   - `tests/audit/test_plan_v1.py::test_role_cards_exist`

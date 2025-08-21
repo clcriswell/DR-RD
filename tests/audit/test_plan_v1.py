@@ -4,15 +4,18 @@ from pathlib import Path
 
 
 def test_concept_brief_template_exists():
-    assert Path("docs/concept_brief.md").exists(), "Concept brief template missing"
+    path = Path("docs/concept_brief.md")
+    assert path.is_file(), "Concept brief template missing"
 
 
 def test_role_cards_exist():
-    assert list(Path("docs/roles").glob("*.md")), "Role cards missing"
+    roles_dir = Path("docs/roles")
+    assert roles_dir.is_dir() and any(roles_dir.glob("*.md")), "Role cards missing"
 
 
 def test_task_segmentation_plan_structure():
-    candidates = list(Path("planning").glob("*.yaml")) + list(Path("planning").glob("*.yml")) + list(Path("planning").glob("*.json"))
+    plan_dir = Path("planning")
+    candidates = list(plan_dir.glob("*.yaml")) + list(plan_dir.glob("*.yml")) + list(plan_dir.glob("*.json"))
     assert candidates, "Task segmentation plan file missing"
     path = candidates[0]
     if path.suffix in {".yaml", ".yml"}:
