@@ -93,7 +93,7 @@ def call_openai(
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
 
     request_id = uuid.uuid4().hex
-    start = time.monotonic()
+    t0 = time.monotonic()
     meta = meta or {}
     logger.info(
         "LLM start req=%s model=%s purpose=%s agent=%s",
@@ -103,102 +103,102 @@ def call_openai(
         meta.get("agent"),
     )
 
-    compiled_prompt = " \n".join(
-        m.get("content", "") if isinstance(m.get("content", ""), str) else "" for m in messages
-    )
-    if os.getenv("DRRD_DRY_RUN", "").lower() in ("1", "true", "yes"):
-        stub = _dry_stub(compiled_prompt)
-        duration = int((time.monotonic() - start) * 1000)
-        logger.info("LLM end   req=%s status=%s duration_ms=%d", request_id, 0, duration)
-        return {"raw": {}, "text": stub["text"]}
-
-    cfg = load_config()
-    if cfg.get("dry_run", {}).get("enabled", False):
-        fixtures_dir = Path(cfg.get("dry_run", {}).get("fixtures_dir", "tests/fixtures"))
-        path = fixtures_dir / "llm" / "plan_seed.json"
-        try:
-            with open(path, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            duration = int((time.monotonic() - start) * 1000)
-            logger.info("LLM end   req=%s status=%s duration_ms=%d", request_id, 0, duration)
-            return {"raw": data, "text": data.get("text", "")}
-        except Exception:
-            duration = int((time.monotonic() - start) * 1000)
-            logger.info("LLM end   req=%s status=%s duration_ms=%d", request_id, 0, duration)
-            return {"raw": {}, "text": ""}
-
-    params = dict(kwargs)
-    if response_format is not None and _SUPPORTS_RESPONSE_FORMAT:
-        params["response_format"] = response_format
-    elif response_format is not None and not _SUPPORTS_RESPONSE_FORMAT:
-        logger.warning("response_format not supported by OpenAI SDK; ignoring")
-    mode = None
+    http_status_or_exc: int | str = "EXC"
+    exc: Exception | None = None
     try:
-        import streamlit as st  # type: ignore
+        compiled_prompt = " \n".join(
+            m.get("content", "") if isinstance(m.get("content", ""), str) else ""
+            for m in messages
+        )
+        if os.getenv("DRRD_DRY_RUN", "").lower() in ("1", "true", "yes"):
+            stub = _dry_stub(compiled_prompt)
+            http_status_or_exc = 0
+            return {"raw": {}, "text": stub["text"]}
 
-        mode = st.session_state.get("MODE")
-    except Exception:
-        mode = os.getenv("MODE")
-    if params.get("temperature") is None and mode == "test":
-        params["temperature"] = 0.0
-    if "max_tokens" in params and "max_output_tokens" not in params:
-        params["max_output_tokens"] = params.pop("max_tokens")
-    backoff = 0.1
-    http_status: int | str = "error"
-    for attempt in range(4):
+        cfg = load_config()
+        if cfg.get("dry_run", {}).get("enabled", False):
+            fixtures_dir = Path(cfg.get("dry_run", {}).get("fixtures_dir", "tests/fixtures"))
+            path = fixtures_dir / "llm" / "plan_seed.json"
+            try:
+                with open(path, "r", encoding="utf-8") as fh:
+                    data = json.load(fh)
+                http_status_or_exc = 0
+                return {"raw": data, "text": data.get("text", "")}
+            except Exception:
+                http_status_or_exc = 0
+                return {"raw": {}, "text": ""}
+
+        params = dict(kwargs)
+        if response_format is not None and _SUPPORTS_RESPONSE_FORMAT:
+            params["response_format"] = response_format
+        elif response_format is not None and not _SUPPORTS_RESPONSE_FORMAT:
+            logger.warning("response_format not supported by OpenAI SDK; ignoring")
+        mode = None
         try:
-            response_params = {k: v for k, v in params.items() if k != "temperature"}
-            resp = client.responses.create(
-                model=model,
-                input=_to_responses_input(messages),
-                **response_params,
-            )
-            http_status = getattr(resp, "http_status", 200)
-            text = extract_text(resp)
-            duration = int((time.monotonic() - start) * 1000)
-            logger.info(
-                "LLM end   req=%s status=%s duration_ms=%d",
-                request_id,
-                http_status,
-                duration,
-            )
-            return {"raw": resp, "text": text}
-        except APIStatusError as e:
-            http_status = e.status_code
-            if e.status_code not in (404, 429, 500, 502, 503, 504):
-                raise
-            if e.status_code == 404:
-                break
-            if attempt == 3:
-                raise
-            time.sleep(backoff + random.uniform(0, backoff))
-            backoff *= 2
-        except Exception as e:
-            msg = str(e).lower()
-            if "404" not in msg:
+            import streamlit as st  # type: ignore
+
+            mode = st.session_state.get("MODE")
+        except Exception:
+            mode = os.getenv("MODE")
+        if params.get("temperature") is None and mode == "test":
+            params["temperature"] = 0.0
+        if "max_tokens" in params and "max_output_tokens" not in params:
+            params["max_output_tokens"] = params.pop("max_tokens")
+
+        response_params = {k: v for k, v in params.items() if k != "temperature"}
+        logger.info("call_openai: model=%s api=Responses", model)
+        backoff = 0.1
+        for attempt in range(4):
+            try:
+                resp = client.responses.create(
+                    model=model,
+                    input=_to_responses_input(messages),
+                    **response_params,
+                )
+                http_status_or_exc = getattr(resp, "http_status", 200)
+                text = extract_text(resp)
+                return {"raw": resp, "text": text}
+            except APIStatusError as e:
+                http_status_or_exc = e.status_code
+                if e.status_code not in (404, 429, 500, 502, 503, 504):
+                    raise
+                if e.status_code == 404:
+                    break
                 if attempt == 3:
                     raise
                 time.sleep(backoff + random.uniform(0, backoff))
                 backoff *= 2
-                continue
-            break
+            except Exception as e:
+                msg = str(e).lower()
+                if "404" not in msg:
+                    if attempt == 3:
+                        raise
+                    time.sleep(backoff + random.uniform(0, backoff))
+                    backoff *= 2
+                    continue
+                break
 
-    params = dict(kwargs)
-    if response_format is not None:
-        params["response_format"] = response_format
-    if "max_output_tokens" in params and "max_tokens" not in params:
-        params["max_tokens"] = params.pop("max_output_tokens")
-    resp = client.chat.completions.create(model=model, messages=messages, **params)
-    http_status = getattr(resp, "http_status", 200)
-    text = extract_text(resp)
-    duration = int((time.monotonic() - start) * 1000)
-    logger.info(
-        "LLM end   req=%s status=%s duration_ms=%d",
-        request_id,
-        http_status,
-        duration,
-    )
-    return {"raw": resp, "text": text}
+        params = dict(kwargs)
+        if response_format is not None:
+            params["response_format"] = response_format
+        if "max_output_tokens" in params and "max_tokens" not in params:
+            params["max_tokens"] = params.pop("max_output_tokens")
+        logger.info("call_openai: model=%s api=Chat", model)
+        resp = client.chat.completions.create(model=model, messages=messages, **params)
+        http_status_or_exc = getattr(resp, "http_status", 200)
+        text = extract_text(resp)
+        return {"raw": resp, "text": text}
+    except Exception as e:
+        exc = e
+        raise
+    finally:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "LLM end   req=%s status=%s duration_ms=%d",
+            request_id,
+            http_status_or_exc,
+            duration_ms,
+        )
 
 
 METER = TokenMeter()
