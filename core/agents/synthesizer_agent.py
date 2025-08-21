@@ -11,6 +11,7 @@ Call:
 """
 from typing import Dict
 import logging
+import os
 import streamlit as st
 
 from core.llm import complete, select_model

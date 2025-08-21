@@ -38,12 +38,19 @@ def select_model(
     if not model:
         model = "gpt-4.1-mini"
 
-    force = os.getenv("DRRD_FORCE_MODEL")
-    if force:
-        logger.warning("select_model: forced override %s", force)
-        model = force.strip()
+    resolved = model
+    forced = os.getenv("DRRD_FORCE_MODEL")
+    if forced and forced.strip() != resolved:
+        logger.warning(
+            "FORCING model override: %s -> %s [purpose=%s agent=%s]",
+            resolved,
+            forced.strip(),
+            purpose,
+            agent_name,
+        )
+        return forced.strip()
 
-    return model
+    return resolved
 
 
 @dataclass

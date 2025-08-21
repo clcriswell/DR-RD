@@ -9,7 +9,10 @@ h.setFormatter(fmt)
 logger.addHandler(h)
 
 
-def safe_exc(log, idea, msg, exc):
+def safe_exc(log, idea, msg, exc, request_id: str | None = None):
     from utils.search_tools import obfuscate_query
 
-    (log or logger).error(obfuscate_query("error", idea or "", f"{msg}: {exc}"))
+    base = f"{msg}: {exc}"
+    if request_id:
+        base = f"{base} [req={request_id}]"
+    (log or logger).error(obfuscate_query("error", idea or "", base))
