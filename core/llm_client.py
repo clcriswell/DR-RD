@@ -4,6 +4,10 @@ from typing import Any, Dict, List, Optional
 from openai import OpenAI
 from openai import APIStatusError
 import os
+import json
+from pathlib import Path
+
+from utils.config import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +51,17 @@ def extract_text(resp: Any) -> Optional[str]:
 
 def call_openai(model: str, messages: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
+    cfg = load_config()
+    if cfg.get("dry_run", {}).get("enabled", False):
+        fixtures_dir = Path(cfg.get("dry_run", {}).get("fixtures_dir", "tests/fixtures"))
+        path = fixtures_dir / "llm" / "plan_seed.json"
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            return {"raw": data, "text": data.get("text", "")}
+        except Exception:
+            return {"raw": {}, "text": ""}
+
     params = dict(kwargs)
     if "max_tokens" in params and "max_output_tokens" not in params:
         params["max_output_tokens"] = params.pop("max_tokens")

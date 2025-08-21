@@ -3,7 +3,7 @@ from unittest.mock import patch, Mock
 import core.orchestrator as orch
 
 
-def test_orchestrator_iterative_loop_executes_all_roles():
+def test_orchestrator_iterative_loop_executes_all_roles(tmp_path):
     class DummyPlanner:
         def __init__(self, *args, **kwargs):
             self.called = False
@@ -41,7 +41,7 @@ def test_orchestrator_iterative_loop_executes_all_roles():
          patch.object(orch, "build_agents", fake_build_agents), \
          patch.object(orch, "synthesize", return_value="final"), \
          patch.object(orch, "load_mode_models", return_value={"Planner": "x", "synth": "x", "default": "x"}):
-        final, results, trace = orch.run_pipeline("idea", mode="test")
+        final, results, trace = orch.run_pipeline("idea", mode="test", session_id="s", runs_dir=tmp_path)
 
     assert set(results.keys()) >= {"Marketing Analyst", "IP Analyst", "Finance", "Research Scientist"}
     assert len(results["Research Scientist"]) == 2  # initial + follow-up

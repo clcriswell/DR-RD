@@ -1,9 +1,14 @@
+from __future__ import annotations
+from typing import Any, Optional, Dict
+import time
 import json
-import logging
 import os
+import logging
 import uuid
 import re
 from difflib import SequenceMatcher
+
+from utils.config import load_config
 
 
 def _slugify(name: str) -> str:
@@ -12,24 +17,70 @@ def _slugify(name: str) -> str:
     s = re.sub(r"\s+", "-", s)
     return s[:64] or "project"
 
+
 class MemoryManager:
-    def __init__(self, file_path="memory/project_memory.json"):
+    """Session-scoped in-process memory with TTL support and project persistence."""
+
+    def __init__(self, file_path: str = "memory/project_memory.json", ttl_default: Optional[int] = None):
         self.file_path = file_path
-        # Ensure the memory directory exists
         os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
-        # Load existing memory data if file exists, otherwise initialize empty list
         try:
-            with open(self.file_path, 'r') as f:
+            with open(self.file_path, "r", encoding="utf-8") as f:
                 self.data = json.load(f)
-        except FileNotFoundError:
-            self.data = []
-        except json.JSONDecodeError:
+        except (FileNotFoundError, json.JSONDecodeError):
             self.data = []
         if not isinstance(self.data, list):
             self.data = []
 
+        cfg = load_config()
+        ttl_cfg = cfg.get("memory", {}).get("ttl_seconds", 86400)
+        self.ttl_default = ttl_default if ttl_default is not None else ttl_cfg
+        self.store: Dict[str, Dict[str, tuple[Any, Optional[float]]]] = {}
+
+    def set(self, key: str, value: Any, *, session_id: str, ttl_seconds: Optional[int] = None) -> None:
+        ttl = ttl_seconds if ttl_seconds is not None else self.ttl_default
+        expires = time.time() + ttl if ttl else None
+        self.store.setdefault(session_id, {})[key] = (value, expires)
+
+    def get(self, key: str, *, session_id: str) -> Optional[Any]:
+        sess = self.store.get(session_id, {})
+        val = sess.get(key)
+        if not val:
+            return None
+        value, expires = val
+        if expires is not None and expires < time.time():
+            del sess[key]
+            if not sess:
+                self.store.pop(session_id, None)
+            return None
+        return value
+
+    def delete(self, key: str, *, session_id: str) -> None:
+        sess = self.store.get(session_id)
+        if sess and key in sess:
+            del sess[key]
+            if not sess:
+                self.store.pop(session_id, None)
+
+    def clear_session(self, session_id: str) -> None:
+        self.store.pop(session_id, None)
+
+    def prune(self) -> int:
+        now = time.time()
+        removed = 0
+        for session_id in list(self.store.keys()):
+            sess = self.store[session_id]
+            for key in list(sess.keys()):
+                _, exp = sess[key]
+                if exp is not None and exp < now:
+                    del sess[key]
+                    removed += 1
+            if not sess:
+                del self.store[session_id]
+        return removed
+
+    # Legacy project persistence helpers
     def store_project(self, name, idea, plan, results, proposal, images=None):
-        """Save a completed project to memory (and Firestore if available)."""
         entry = {
             "name": name,
             "idea": idea,
@@ -38,8 +89,7 @@ class MemoryManager:
             "proposal": proposal,
             "images": images or [],
         }
-
-        try:  # pragma: no cover - depends on external Firestore service
+        try:  # pragma: no cover - optional Firestore
             if name:
                 import streamlit as st
                 from google.cloud import firestore
@@ -64,11 +114,10 @@ class MemoryManager:
             )
 
         self.data.append(entry)
-        with open(self.file_path, "w") as f:
+        with open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, indent=2)
 
     def find_similar_ideas(self, idea, top_n=3):
-        """Return a list of past project idea strings similar to the given idea."""
         idea_lower = idea.lower()
         similarities = []
         for entry in self.data:
@@ -78,12 +127,10 @@ class MemoryManager:
             ratio = SequenceMatcher(None, idea_lower, past_idea.lower()).ratio()
             if ratio > 0.3:
                 similarities.append((ratio, past_idea))
-        # Sort by similarity score descending and return top N idea strings
         similarities.sort(reverse=True, key=lambda x: x[0])
         return [idea for _, idea in similarities[:top_n]]
 
     def get_project_summaries(self, similar_ideas_list):
-        """Return a combined summary text for a list of idea strings from memory."""
         summaries = []
         for idea_text in similar_ideas_list:
             for entry in self.data:
@@ -94,7 +141,6 @@ class MemoryManager:
                         text_lower = proposal.lower()
                         idx = text_lower.find("summary")
                         if idx != -1:
-                            # Find end of summary section (next heading or about 200 chars)
                             next_heading_idx = text_lower.find("##", idx + 1)
                             if next_heading_idx != -1:
                                 summary_text = proposal[idx:next_heading_idx].strip()
@@ -108,5 +154,4 @@ class MemoryManager:
                         summary_text = "(No proposal available)"
                     summaries.append(f"**Idea:** {idea_text}\n**Summary:** {summary_text}")
                     break
-        # Join summaries with a blank line between each
         return "\n\n".join(summaries)

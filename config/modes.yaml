@@ -12,3 +12,4 @@ deep:
   k_search: 6
   max_loops: 5
   stage_weights: { plan: 0.20, exec: 0.50, synth: 0.30 }
+# redaction time
