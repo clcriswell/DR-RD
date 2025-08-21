@@ -114,8 +114,13 @@ def generate_pdf(markdown_text):
         pdf.out_file.seek(0)
         doc = fitz.open(stream=pdf.out_file, filetype="pdf")
     doc.set_metadata(pdf.meta)
-    if pdf.toc_level > 0:
-        doc.set_toc(pdf.toc)
+    if pdf.toc_level > 0 and pdf.toc:
+        try:
+            min_level = min(item[0] for item in pdf.toc)
+            normalized_toc = [[item[0] - min_level + 1, *item[1:]] for item in pdf.toc]
+            doc.set_toc(normalized_toc)
+        except Exception as e:
+            logging.warning(f"Failed to set PDF ToC: {e}")
     buffer = io.BytesIO()
     if pdf.optimize:
         doc.ez_save(buffer)
