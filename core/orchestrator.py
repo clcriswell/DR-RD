@@ -189,7 +189,42 @@ def compile_proposal(idea: str, answers: Dict[str, str]) -> str:
     findings_md = "\n".join(f"### {r}\n{a}" for r, a in answers.items())
     prompt = SYNTHESIZER_TEMPLATE.format(idea=idea, findings_md=findings_md)
     result = complete("You are an expert R&D writer.", prompt)
-    return (result.content or "").strip()
+    final_markdown = (result.content or "").strip()
+    try:
+        from core.final.composer import write_final_bundle
+        from core.final.traceability import build_rows
+
+        slug = st.session_state.get("project_slug", _slugify(idea))
+        project_id = slug
+        tasks = (
+            st.session_state.get("plan_tasks")
+            or st.session_state.get("plan")
+            or []
+        )
+        artifacts = {
+            "evidence": f"audits/{slug}/evidence.json",
+            "coverage": f"audits/{slug}/coverage.csv",
+            "decision_log": f"memory/decision_log/{slug}.jsonl",
+            "poc_report": f"audits/{slug}/poc/results.json",
+            "sdd": f"audits/{slug}/build/SDD.md",
+            "impl_plan": f"audits/{slug}/build/ImplementationPlan.md",
+            "bom": f"audits/{slug}/build/bom.csv",
+            "budget": f"audits/{slug}/build/budget.csv",
+        }
+        appendices = {k: v for k, v in artifacts.items() if v and os.path.exists(v)}
+        trace_rows = build_rows(
+            project_id,
+            st.session_state.get("intake", {}),
+            tasks,
+            st.session_state.get("routing_report", []),
+            answers,
+            appendices,
+        )
+        out_paths = write_final_bundle(slug, final_markdown, appendices, trace_rows)
+        st.session_state["final_paths"] = out_paths
+    except Exception as e:  # pragma: no cover - best effort
+        logging.warning("Failed to build final bundle: %s", e)
+    return final_markdown
 
 
 def run_poc(project_id: str, test_plan):

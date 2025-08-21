@@ -1318,6 +1318,24 @@ def main():
                     mime="text/csv",
                 )
 
+        paths = st.session_state.get("final_paths")
+        if paths:
+            with st.expander("Final Deliverables", expanded=False):
+                st.download_button(
+                    "Download final report (MD)",
+                    data=open(paths["report"], "rb"),
+                    file_name="final_report.md",
+                )
+                st.download_button(
+                    "Download bundle (ZIP)",
+                    data=open(paths["bundle"], "rb"),
+                    file_name="final_bundle.zip",
+                )
+                if paths.get("appendices_map"):
+                    st.markdown(f"[appendices_map.json]({paths['appendices_map']})")
+                if paths.get("traceability"):
+                    st.markdown(f"[traceability_matrix.csv]({paths['traceability']})")
+
         # --- App Builder (inline) ---
         if build_app_from_idea:
             st.subheader("🔧 Generate a Streamlit App from this idea")
