@@ -27,8 +27,12 @@ def test_task_segmentation_plan_structure():
         with path.open("r", encoding="utf-8") as f:
             data = json.load(f)
     assert isinstance(data, dict) and data, "Task plan not structured as dict"
-    any_role = next(iter(data.values()))
-    assert "tasks" in any_role, "Task plan lacks role->tasks mapping"
+    first_role = next(iter(data.values()))
+    assert "tasks" in first_role and isinstance(first_role["tasks"], list) and first_role["tasks"], (
+        "Task plan lacks role->tasks list"
+    )
+    first_task = first_role["tasks"][0]
+    assert "inputs" in first_task and "outputs" in first_task, "Task missing inputs/outputs"
 
 
 def test_redaction_policy_bound_in_planning_prompts():

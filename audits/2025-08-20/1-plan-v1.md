@@ -1,7 +1,7 @@
 # Plan v1 Audit
 
 ## Summary
-Concept planning artifacts are largely absent. The repository lacks templates, role definitions, structured task plans, and redaction guidance.
+Concept planning artifacts are largely absent. The repository lacks templates, role definitions, structured task plans with inputs/outputs, and redaction guidance.
 ## Checklist
 - [FAIL] 1.1 Concept brief template exists
 - [FAIL] 1.2 Role cards exist for Planner/PM and other agents
@@ -11,7 +11,7 @@ Concept planning artifacts are largely absent. The repository lacks templates, r
 ## Evidence
 - `docs/concept_brief.md` not found
 - `docs/roles/` directory missing
-- No task plan YAML or JSON under `planning/`
+- No task plan YAML or JSON under `planning/`; structure for inputs/outputs cannot be verified
 - Planning prompts lack redaction mentions
 - Failing tests:
   - `tests/audit/test_plan_v1.py::test_concept_brief_template_exists`
