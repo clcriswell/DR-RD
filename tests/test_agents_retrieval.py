@@ -1,4 +1,5 @@
 import json
+import logging
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -8,16 +9,18 @@ from dr_rd.retrieval.pipeline import ContextBundle
 from dr_rd.retrieval.live_search import Source
 
 
-def test_agent_populates_sources():
+def test_agent_populates_sources(caplog):
     bundle = ContextBundle(rag_text="snippet", web_summary="web", sources=["doc1", "url1"])
     fake_resp = {"raw": SimpleNamespace(choices=[SimpleNamespace(usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0))]), "text": '{"x":1}'}
-    with patch("core.agents.base_agent.collect_context", return_value=bundle), patch(
-        "core.agents.base_agent.call_openai", return_value=fake_resp
-    ):
-        agent = BaseAgent("Test", "gpt", "sys", "Task: {task}")
-        out = agent.run("idea", "do")
-        data = json.loads(out)
-        assert data["sources"] == ["doc1", "url1"]
+    with caplog.at_level(logging.INFO):
+        with patch("core.agents.base_agent.collect_context", return_value=bundle), patch(
+            "core.agents.base_agent.call_openai", return_value=fake_resp
+        ):
+            agent = BaseAgent("Test", "gpt", "sys", "Task: {task}")
+            out = agent.run("idea", {"id": "T1", "title": "t", "description": "d"})
+            data = json.loads(out)
+            assert data["sources"] == ["doc1", "url1"]
+    assert any("RetrievalTrace" in r.message for r in caplog.records)
 
 
 def test_pipeline_respects_budget(monkeypatch):
