@@ -179,6 +179,31 @@ def _slugify(name: str) -> str:
     return s[:64] or "project"
 
 
+def _normalize_evidence_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    # Shallow copy to avoid mutating input
+    p = dict(payload or {})
+    claim = p.get("claim", "")
+    evidence_txt = p.get("evidence", "")
+    sources = p.get("sources", [])
+    cost = p.get("cost", p.get("cost_usd", 0.0))
+    meta = p.get("meta")
+
+    if isinstance(claim, (dict, list)):
+        meta = dict(meta or {})
+        meta.setdefault("claim_structured", claim)
+    if isinstance(evidence_txt, (dict, list)):
+        meta = dict(meta or {})
+        meta.setdefault("evidence_structured", evidence_txt)
+
+    return {
+        "claim": claim,
+        "evidence": evidence_txt,
+        "sources": sources,
+        "cost_usd": cost,
+        "meta": meta,
+    }
+
+
 def execute_plan(
     idea: str,
     tasks: List[Dict[str, str]],
@@ -213,15 +238,24 @@ def execute_plan(
         payload = extract_json_block(text) or {}
         role_to_findings[role] = payload
         if evidence is not None:
+            norm = _normalize_evidence_payload(payload)
+            if isinstance(payload.get("claim"), (dict, list)) or isinstance(
+                payload.get("evidence"), (dict, list)
+            ):
+                logger.info(
+                    "Evidence normalization: structured fields coerced for role=%s", role
+                )
             evidence.add(
                 role=role,
                 task_title=routed.get("title", ""),
-                claim=payload.get("summary") or payload.get("findings", ""),
-                sources=payload.get("sources", []),
+                claim=norm["claim"],
+                evidence=norm["evidence"],
+                sources=norm["sources"],
                 quotes=payload.get("quotes", []),
                 tokens_in=payload.get("tokens_in", 0),
                 tokens_out=payload.get("tokens_out", 0),
-                cost_usd=payload.get("cost", 0.0),
+                cost_usd=norm["cost_usd"],
+                meta=norm["meta"],
             )
         if save_decision_log:
             log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})
