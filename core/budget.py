@@ -26,6 +26,10 @@ class BudgetManager:
     def reset_run(self) -> None:
         self.spend: float = 0.0
         self.stage_spend: Dict[str, float] = {s: 0.0 for s in self.stage_weights}
+        self.retrieval_calls = 0
+        self.web_search_calls = 0
+        self.retrieval_tokens = 0
+        self.skipped_due_to_budget = 0
 
     # ------------------------------------------------------------------
     def _price(self, model_id: str) -> Dict[str, float]:
@@ -106,6 +110,10 @@ class CostTracker:
     def reset_run(self) -> None:
         self.spend = 0.0
         self.stage_spend = {s: 0.0 for s in self.stage_weights}
+        self.retrieval_calls = 0
+        self.web_search_calls = 0
+        self.retrieval_tokens = 0
+        self.skipped_due_to_budget = 0
 
     def _price(self, model_id: str) -> Dict[str, float]:
         models = self.price_table.get("models", {})

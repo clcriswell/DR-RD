@@ -1,8 +1,7 @@
 from core.agents.base_agent import BaseAgent
-from config.feature_flags import RAG_ENABLED, RAG_TOPK
 from core.model_router import pick_model, CallHints
 from core.llm_client import log_usage, call_openai
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any
 import json
 import re
 from prompts.prompts import (
@@ -10,18 +9,11 @@ from prompts.prompts import (
     IP_ANALYST_USER_PROMPT_TEMPLATE,
 )
 
-try:
-    from knowledge.retriever import Retriever  # type: ignore
-    from knowledge.faiss_store import build_default_retriever  # type: ignore
-except Exception:  # pragma: no cover
-    Retriever = None  # type: ignore
-    build_default_retriever = lambda: None  # type: ignore
-
 
 class IPAnalystAgent(BaseAgent):
     """Agent for prior art scans, novelty checks and IP strategy."""
 
-    def __init__(self, model: str, retriever: Optional[Retriever] = None):
+    def __init__(self, model: str, retriever: Optional[Any] = None):
         super().__init__(
             name="IP Analyst",
             model=model,
@@ -32,33 +24,7 @@ class IPAnalystAgent(BaseAgent):
 
     def act(self, idea: str, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         prompt = self.user_prompt_template.format(idea=idea, task=task)
-        sources: List[str] = []
-        hits: List[Tuple[str, str]] = []
-        if RAG_ENABLED and self.retriever:
-            try:
-                hits = self.retriever.query(f"{idea}\n{task}", RAG_TOPK)
-                if hits:
-                    bundle_lines = []
-                    for i, (text, src) in enumerate(hits, 1):
-                        raw = text.replace("\n", " ")
-                        bundle_lines.append(f"[{i}] {raw} ({src})")
-                        sources.append(src)
-                    bundle = "\n".join(bundle_lines)
-                    prompt += "\n\n# RAG Knowledge\n" + bundle
-            except Exception:
-                hits = []
-        self.retrieval_hits = len(hits)
-        self.rag_text_len = sum(len(t.split()) for t, _ in hits)
-        self._web_summary = None
-        self._web_sources = []
-        self.maybe_live_search(idea, task)
-        if self._web_summary:
-            prompt += "\n\n# Web Search Results\n" + self._web_summary
-            prompt += (
-                "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
-            )
-            sources = self._web_sources or sources
-        
+        prompt = self._augment_prompt(prompt, idea, task)
         sel = pick_model(CallHints(stage="exec"))
         result = call_openai(
             model=sel["model"],
@@ -109,8 +75,6 @@ class IPAnalystAgent(BaseAgent):
         data.setdefault("findings", [])
         data.setdefault("risks", [])
         data.setdefault("next_steps", [])
-        if self._web_sources:
-            data["sources"] = self._web_sources
-        else:
-            data.setdefault("sources", sources)
+        if self._sources:
+            data.setdefault("sources", self._sources)
         return data

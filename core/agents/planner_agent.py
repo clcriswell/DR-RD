@@ -6,6 +6,15 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, ValidationError
 import json
 from core.llm_client import call_openai, extract_text, llm_call
+from dr_rd.retrieval.pipeline import collect_context
+from config.feature_flags import (
+    RAG_ENABLED,
+    RAG_TOPK,
+    ENABLE_LIVE_SEARCH,
+    LIVE_SEARCH_BACKEND,
+    LIVE_SEARCH_MAX_CALLS,
+    LIVE_SEARCH_SUMMARY_TOKENS,
+)
 from prompts.prompts import (
     PLANNER_SYSTEM_PROMPT,
     PLANNER_USER_PROMPT_TEMPLATE,
@@ -77,6 +86,19 @@ def run_planner(
         constraints_section=constraints_section,
         risk_section=risk_section,
     )
+    cfg = {
+        "rag_enabled": RAG_ENABLED,
+        "rag_top_k": RAG_TOPK,
+        "live_search_enabled": ENABLE_LIVE_SEARCH,
+        "live_search_backend": LIVE_SEARCH_BACKEND,
+        "live_search_max_calls": LIVE_SEARCH_MAX_CALLS,
+        "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
+    }
+    bundle = collect_context(idea, idea, cfg)
+    if bundle.rag_text:
+        user_prompt += "\n\nReference Knowledge\n" + bundle.rag_text
+    if bundle.web_summary:
+        user_prompt += "\n\nWeb Search Results\n" + bundle.web_summary
     messages = [
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": user_prompt},
@@ -153,6 +175,24 @@ class PlannerAgent:
             risk_posture=risk_posture,
         )
         return data
+
+    def act(
+        self,
+        idea: str,
+        task: str,
+        difficulty: str = "normal",
+        roles: List[str] | None = None,
+        constraints: str | None = None,
+        risk_posture: str | None = None,
+    ):
+        return self.run(
+            idea,
+            task,
+            difficulty=difficulty,
+            roles=roles,
+            constraints=constraints,
+            risk_posture=risk_posture,
+        )
 
     def revise_plan(self, workspace: dict) -> List[dict]:
         from config.feature_flags import EVALUATOR_MIN_OVERALL

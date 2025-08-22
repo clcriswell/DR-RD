@@ -6,6 +6,7 @@ import yaml
 import logging
 from core.budget import CostTracker
 from config.model_routing import _cheap_default, TEST_MODEL_ID
+from config.feature_flags import apply_mode_overrides
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
@@ -43,4 +44,5 @@ def load_mode(mode: str) -> tuple[dict, CostTracker]:
             mode_cfg["models"] = {s: cheap for s in ["plan", "exec", "synth"]}
 
     budget = CostTracker(mode_cfg, prices)
+    apply_mode_overrides(mode_cfg)
     return mode_cfg, budget

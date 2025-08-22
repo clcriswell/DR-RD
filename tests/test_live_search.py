@@ -1,9 +1,12 @@
 import types
 import importlib
+import types
 
 import config.feature_flags as ff
 import core.agents.base_agent as ba
 import core.agents.ip_analyst_agent as ip_agent
+from dr_rd.retrieval.vector_store import Snippet
+from dr_rd.retrieval.live_search import OpenAIWebSearchClient, Source
 
 
 class DummyResp:
@@ -17,11 +20,12 @@ def test_live_search_triggered(monkeypatch):
     importlib.reload(ba)
     importlib.reload(ip_agent)
 
-    def fake_search(role, idea, q, k=5):
-        return [{"snippet": "alpha beta", "title": "T1", "link": "u1"}]
+    def fake_search_and_summarize(query, k, max_tokens):
+        return "summary", [Source(title="T1", url="u1")]
 
-    monkeypatch.setattr("utils.search_tools.search_google", fake_search)
-    monkeypatch.setattr("utils.search_tools.call_openai", lambda *a, **k: {"text": "summary"})
+    monkeypatch.setattr(
+        OpenAIWebSearchClient, "search_and_summarize", staticmethod(fake_search_and_summarize)
+    )
 
     captured = {}
 
@@ -47,12 +51,13 @@ def test_no_live_search_with_rag(monkeypatch):
     importlib.reload(ip_agent)
     called = {"search": False}
 
-    def fake_search(role, idea, q, k=5):
+    def fake_search_and_summarize(query, k, max_tokens):
         called["search"] = True
-        return []
+        return "", []
 
-    monkeypatch.setattr("utils.search_tools.search_google", fake_search)
-    monkeypatch.setattr("utils.search_tools.call_openai", lambda *a, **k: {"text": "summary"})
+    monkeypatch.setattr(
+        OpenAIWebSearchClient, "search_and_summarize", staticmethod(fake_search_and_summarize)
+    )
 
     captured = {}
 
@@ -67,7 +72,7 @@ def test_no_live_search_with_rag(monkeypatch):
 
     class DummyRetriever:
         def query(self, q, k):
-            return [("word " * 60, "Doc1")]
+            return [Snippet(text="word " * 60, source="Doc1")]
 
     agent = ip_agent.IPAnalystAgent(model="gpt-5", retriever=DummyRetriever())
     agent.act("idea", "task")
@@ -82,12 +87,13 @@ def test_live_search_disabled(monkeypatch):
     importlib.reload(ip_agent)
     called = {"search": False}
 
-    def fake_search(role, idea, q, k=5):
+    def fake_search_and_summarize(query, k, max_tokens):
         called["search"] = True
-        return []
+        return "", []
 
-    monkeypatch.setattr("utils.search_tools.search_google", fake_search)
-    monkeypatch.setattr("utils.search_tools.call_openai", lambda *a, **k: {"text": "summary"})
+    monkeypatch.setattr(
+        OpenAIWebSearchClient, "search_and_summarize", staticmethod(fake_search_and_summarize)
+    )
 
     captured = {}
 

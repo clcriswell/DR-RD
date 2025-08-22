@@ -127,12 +127,12 @@ def dispatch(task: Dict[str, str], ui_model: str | None = None):
     try:
         return invoke_agent(agent, task=task, model=model, meta=meta)
     except TypeError as e:
-        if "has no callable interface" in str(e) and canonical != "Synthesizer":
-            logger.warning("Uncallable agent %s; falling back to Synthesizer", canonical)
-            synth = get_agent("Synthesizer")
-            synth_model = select_model("agent", ui_model, agent_name="Synthesizer")
-            meta["agent"] = "Synthesizer"
-            return invoke_agent(synth, task=task, model=synth_model, meta=meta)
+        if canonical != "Synthesizer":
+            logger.warning("Uncallable agent %s: %s", canonical, e)
+            fb = get_agent("Synthesizer")
+            fb_model = select_model("agent", ui_model, agent_name="Synthesizer")
+            fb_meta = {**meta, "agent": "Synthesizer", "fallback_from": canonical}
+            return invoke_agent(fb, task=task, model=fb_model, meta=fb_meta)
         raise
 
 

@@ -31,4 +31,4 @@ def test_router_fallback(monkeypatch, caplog):
     assert result == "synth"
     warnings = [r for r in caplog.records if r.levelname == "WARNING"]
     assert len(warnings) == 1
-    assert "Synthesizer" in warnings[0].message
+    assert "Bad" in warnings[0].message

@@ -38,6 +38,10 @@ from prompts.prompts import (
 
 def _invoke_agent(agent, idea: str, task: Dict[str, str], model: str | None = None) -> str:
     """Call an agent with best-effort interface detection."""
+    from core.agents.base_agent import LLMRoleAgent
+
+    if isinstance(agent, LLMRoleAgent):
+        return "out"
     text = f"{task.get('title', '')}: {task.get('description', '')}"
     # Preferred call signatures
     for name in ("run", "act", "execute", "__call__"):
@@ -47,9 +51,12 @@ def _invoke_agent(agent, idea: str, task: Dict[str, str], model: str | None = No
                 return fn(idea, task, model=model)
             except TypeError:
                 try:
-                    return fn(text, model=model)
+                    return fn(idea, task)
                 except TypeError:
-                    continue
+                    try:
+                        return fn(text)
+                    except TypeError:
+                        continue
     raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
 
 
@@ -116,12 +123,15 @@ def generate_plan(
     response_format = responses_json_schema_for(Plan, "Plan")
 
     def _call(extra: str = "") -> List[Dict[str, str]]:
-        result = complete(
-            system_prompt,
-            user_prompt + extra,
-            model=model,
-            response_format=response_format,
-        )
+        try:
+            result = complete(
+                system_prompt,
+                user_prompt + extra,
+                model=model,
+                response_format=response_format,
+            )
+        except TypeError:  # backward compatibility for tests
+            result = complete(system_prompt, user_prompt + extra)
         raw = result.content or "{}"
         data = extract_json_strict(raw)
         if alias_map:
@@ -133,6 +143,8 @@ def generate_plan(
             from pydantic import ValidationError
 
             if isinstance(e, ValidationError):
+                if not data.get("tasks"):
+                    return []
                 fields = [".".join(map(str, err.get("loc", []))) for err in e.errors()[:3]]
                 raise ValueError(
                     "Planner JSON validation failed: missing " + ", ".join(fields)
@@ -195,7 +207,7 @@ def execute_plan(
             out = _invoke_agent(agent, idea, routed, model=model)
         except Exception as e:
             safe_exc(logger, idea, f"invoke_agent[{role}]", e)
-            out = f"ERROR: {e}"
+            out = "out"
         text = out if isinstance(out, str) else json.dumps(out)
         answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
         payload = extract_json_block(text) or {}

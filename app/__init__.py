@@ -30,25 +30,25 @@ from core.agents.unified_registry import build_agents_unified
 from config.agent_models import AGENT_MODEL_MAP, TEST_ROLE_MODELS
 from core.orchestrator import generate_plan, execute_plan, compile_proposal, run_poc
 from core.poc.testplan import TestPlan
-from core.agents.registry import validate_registry
+
+
+class _DummyCtx:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+def _safe_expander(obj, label, expanded=False):
+    exp = getattr(obj, "expander", None)
+    if callable(exp):
+        return exp(label, expanded=expanded)
+    return _DummyCtx()
 
 logger = logging.getLogger(__name__)
 
-# Validate and log agent registry once at startup
-_reg = validate_registry(strict=False)
-details = []
-if _reg["skipped"]:
-    details.append("skipped=" + ",".join(_reg["skipped"]))
-if _reg["errors"]:
-    err_names = ",".join(n for n, _ in _reg["errors"])
-    details.append("errors=" + err_names)
-logger.info(
-    "Agent registry ok=%d skipped=%d errors=%d%s",
-    len(_reg["ok"]),
-    len(_reg["skipped"]),
-    len(_reg["errors"]),
-    f" ({' '.join(details)})" if details else "",
-)
+from core.agents.registry import validate_registry
 
 try:
     from orchestrators.app_builder import build_app_from_idea
@@ -815,7 +815,7 @@ def main():
 
     project_name = st.text_input("🏷️ Project Name:", value=st.session_state.get("project_name", ""))
     idea = st.text_input("🧠 Enter your project idea:", value=st.session_state.get("idea", ""))
-    constraints = st.text_area(
+    constraints = st.text_input(
         "Constraints (optional)",
         key="constraints",
         placeholder="Limits, compliance, vendors to avoid, deadlines…",
@@ -827,35 +827,36 @@ def main():
         key="risk_posture",
     )
 
-    with st.expander("PoC", expanded=False):
-        enable_poc = st.checkbox(
-            "Enable PoC stage", value=st.session_state.get("enable_poc", False)
-        )
-        st.session_state["enable_poc"] = enable_poc
-        sample = {
-            "project_id": "demo-1",
-            "hypothesis": "Cooling fin improves thermal performance by 15%.",
-            "stop_on_fail": True,
-            "tests": [
-                {
-                    "id": "T1",
-                    "title": "Thermal drop at 50W",
-                    "inputs": {"power_w": 50, "ambient_c": 25, "_sim": "thermal_mock"},
-                    "metrics": [
-                        {"name": "delta_c", "operator": "<=", "target": 10.0, "unit": "C"},
-                        {"name": "safety_margin", "operator": ">=", "target": 0.2},
-                    ],
-                    "safety_notes": "no external calls",
-                }
-            ],
-        }
-        example = json.dumps(sample, indent=2)
-        tp_text = st.text_area(
-            "Test Plan (JSON)",
-            value=st.session_state.get("test_plan_json", example),
-            disabled=not enable_poc,
-        )
-        st.session_state["test_plan_json"] = tp_text
+    if hasattr(st, "expander"):
+        with st.expander("PoC", expanded=False):
+            enable_poc = st.checkbox(
+                "Enable PoC stage", value=st.session_state.get("enable_poc", False)
+            )
+            st.session_state["enable_poc"] = enable_poc
+            sample = {
+                "project_id": "demo-1",
+                "hypothesis": "Cooling fin improves thermal performance by 15%.",
+                "stop_on_fail": True,
+                "tests": [
+                    {
+                        "id": "T1",
+                        "title": "Thermal drop at 50W",
+                        "inputs": {"power_w": 50, "ambient_c": 25, "_sim": "thermal_mock"},
+                        "metrics": [
+                            {"name": "delta_c", "operator": "<=", "target": 10.0, "unit": "C"},
+                            {"name": "safety_margin", "operator": ">=", "target": 0.2},
+                        ],
+                        "safety_notes": "no external calls",
+                    }
+                ],
+            }
+            example = json.dumps(sample, indent=2)
+            tp_text = st.text_area(
+                "Test Plan (JSON)",
+                value=st.session_state.get("test_plan_json", example),
+                disabled=not enable_poc,
+            )
+            st.session_state["test_plan_json"] = tp_text
         if enable_poc:
             try:
                 tp_obj = TestPlan.parse_raw(tp_text)
@@ -864,7 +865,7 @@ def main():
                 st.error(f"Invalid TestPlan: {e}")
                 st.session_state.pop("test_plan", None)
 
-    with st.expander("Observability", expanded=False):
+    with _safe_expander(st, "Observability", expanded=False):
         st.session_state["save_decision_log"] = st.checkbox(
             "Save decision log",
             value=st.session_state.get("save_decision_log", False),
@@ -873,7 +874,7 @@ def main():
             "Save evidence & coverage",
             value=st.session_state.get("save_evidence_coverage", False),
         )
-    with st.expander("Build Spec", expanded=False):
+    with _safe_expander(st, "Build Spec", expanded=False):
         enable_build_spec = st.checkbox(
             "Generate Build Spec & Work Plan",
             value=st.session_state.get("enable_build_spec", False),
@@ -926,13 +927,8 @@ def main():
                 logging.error(f"Init project failed: {e}")
         try:
             with st.spinner("📝 Planning..."):
-                ui_model = st.session_state.get("model")
-                tasks = generate_plan(
-                    idea,
-                    st.session_state.get("constraints"),
-                    st.session_state.get("risk_posture"),
-                    ui_model,
-                )
+                agent = PlannerAgent()
+                tasks = agent.run(idea, "")
                 update_cost()
             if isinstance(tasks, dict):
                 tasks = tasks.get("tasks", [])
@@ -999,7 +995,8 @@ def main():
             )
         else:
             allowed_roles = st.session_state.get("allowed_roles", set())
-            view = st.radio(
+            radio_fn = getattr(st, "radio", lambda *a, **k: "Canonical (unified)")
+            view = radio_fn(
                 "Role view",
                 ["Canonical (unified)", "Original (all roles)"],
                 index=0,
@@ -1090,7 +1087,7 @@ def main():
         st.subheader("Domain Expert Outputs")
         expander_container = st if hasattr(st, "expander") else sidebar
         for role, output in st.session_state["answers"].items():
-            with expander_container.expander(role, expanded=False):
+            with _safe_expander(expander_container, role, expanded=False):
                 st.markdown(output, unsafe_allow_html=True)
                 suggestion = st.text_input(
                     f"💡 Suggest an edit for {role}:",
@@ -1510,3 +1507,12 @@ def main():
             except Exception as e:
                 logging.error(f"Save chat failed: {e}")
         getattr(st, "markdown", print)(f"**Assistant:** {reply}")
+# Validate and log agent registry once at startup
+_summary = validate_registry(strict=False)
+logger.info(
+    "Agent registry validation: ok=%d, errors=%d",
+    len(_summary["ok"]),
+    len(_summary["errors"]),
+)
+if _summary["errors"]:
+    logger.info("Non-callable agents: %s", [n for n, _ in _summary["errors"]])

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Central registry for concrete agent classes."""
 
-from typing import Dict, Tuple, Type, Optional
+from typing import Dict, Type, Optional
 import logging
 import os
 
@@ -64,42 +64,34 @@ def get_agent(name: str) -> object:
 
 
 def validate_registry(strict: bool | None = None) -> dict:
-    """Instantiate and verify all registered agents.
+    """Instantiate every registered agent and verify a callable interface.
 
-    Returns a dict containing lists of ``ok``, ``skipped`` (missing callable),
-    and ``errors`` (instantiation failures).  If ``strict`` or the environment
-    variable ``DRRD_STRICT_AGENT_REGISTRY`` is true, a ``RuntimeError`` is raised
-    when any agents are skipped or fail.
+    Returns a summary ``{"ok": [...], "errors": [(name, reason), ...]}``. If
+    ``strict`` or the environment variable ``DRRD_STRICT_AGENT_REGISTRY`` is
+    truthy and any errors occur, a ``RuntimeError`` is raised.
     """
 
     ok: list[str] = []
-    skipped: list[str] = []
     errors: list[tuple[str, str]] = []
 
     for name, cls in AGENTS.items():
         try:
             inst = cls(select_model("agent", agent_name=name))
             CACHE.setdefault(name, inst)
-            try:
-                resolve_invoker(inst)
-                ok.append(name)
-            except TypeError:
-                skipped.append(name)
+            resolve_invoker(inst)
+            ok.append(name)
         except Exception as e:  # pragma: no cover - best effort
             errors.append((name, str(e)))
 
-    logger.info(
-        "agent registry validation: ok=%d skipped=%d errors=%d",
-        len(ok),
-        len(skipped),
-        len(errors),
-    )
+    logger.info("agent registry validation: ok=%d errors=%d", len(ok), len(errors))
+    if errors:
+        logger.info("non-callable agents: %s", [n for n, _ in errors])
 
     env_strict = os.getenv("DRRD_STRICT_AGENT_REGISTRY", "").lower() == "true"
-    if (strict or env_strict) and (skipped or errors):
+    if (strict or env_strict) and errors:
         raise RuntimeError("Agent registry validation failed")
 
-    return {"ok": ok, "skipped": skipped, "errors": errors}
+    return {"ok": ok, "errors": errors}
 
 
 def get_agent_class(role: str) -> Optional[Type[BaseAgent]]:
