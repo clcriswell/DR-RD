@@ -97,6 +97,53 @@ def extract_text(resp: Any) -> Optional[str]:
     )
 
 
+def _strip_code_fences(s: str) -> str:
+    """Remove leading and trailing triple-backtick fences from *s*."""
+    s = s.strip()
+    if s.startswith("```"):
+        s = s[3:]
+        if "\n" in s:
+            s = s.split("\n", 1)[1]
+    if s.endswith("```"):
+        s = s[: -3]
+    return s.strip()
+
+
+def extract_planner_payload(resp: Any) -> dict:
+    """Extract planner JSON payload from various OpenAI response shapes."""
+    # Prefer parsed content from the Responses API if present
+    for item in getattr(resp, "output", []) or []:
+        if getattr(item, "type", "") != "message":
+            continue
+        for c in getattr(item, "content", []) or []:
+            parsed = getattr(c, "parsed", None) or getattr(c, "json", None)
+            if isinstance(parsed, dict):
+                return parsed
+            text = getattr(c, "text", None) or getattr(c, "output_text", None)
+            if text:
+                try:
+                    return json.loads(_strip_code_fences(text))
+                except Exception:
+                    continue
+    # Fallback to raw output_text on Responses objects
+    raw = getattr(resp, "output_text", "") or ""
+    if raw:
+        try:
+            return json.loads(_strip_code_fences(raw))
+        except Exception:
+            pass
+    # Chat Completions fallback
+    if getattr(resp, "choices", None):
+        try:
+            content = getattr(resp.choices[0].message, "content", None)
+            if content and content.strip():
+                return json.loads(_strip_code_fences(content))
+        except Exception:
+            pass
+    preview = (raw or "")[:200]
+    raise ValueError(f"Planner response contained no JSON. preview={preview}")
+
+
 def responses_json_schema_for(model_cls: Type[Any], name: str) -> dict:
     return {
         "type": "json_schema",

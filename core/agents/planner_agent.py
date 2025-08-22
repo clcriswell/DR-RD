@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from typing import List, Optional
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 import json
-from core.llm_client import call_openai, extract_text, llm_call
+from core.llm_client import (
+    call_openai,
+    llm_call,
+    extract_planner_payload,
+    _strip_code_fences,
+)
 import logging
 import os
 from dr_rd.retrieval.pipeline import collect_context
@@ -38,7 +43,9 @@ class Plan(BaseModel):
 
 
 def _try_parse_plan(txt: str) -> dict:
-    return json.loads(txt)
+    if not txt or not txt.strip():
+        raise ValueError("Empty planner payload text")
+    return json.loads(_strip_code_fences(txt))
 
 
 def _repair_to_json(raw_txt: str, model: str) -> str:
@@ -62,6 +69,13 @@ def _repair_to_json(raw_txt: str, model: str) -> str:
         response_format={"type": "json_object"},
     )
     return result["text"] or "{}"
+
+
+def _json_repair_safe(raw_txt: str, model: str) -> str:
+    try:
+        return _repair_to_json(raw_txt, model)
+    except Exception:
+        return ""
 
 
 # Prompts ---------------------------------------------------------------------------
@@ -131,13 +145,6 @@ def run_planner(
             )
 
     resp = llm_call(None, model, "plan", messages, **params)
-    raw = extract_text(resp)
-    if not isinstance(raw, str):
-        try:
-            raw = getattr(resp.choices[0].message, "content", raw)
-        except Exception:
-            raw = "{}"
-    raw = raw or "{}"
     finish = None
     if getattr(resp, "choices", None):
         finish = getattr(resp.choices[0], "finish_reason", None)
@@ -153,14 +160,14 @@ def run_planner(
     }
 
     try:
-        data = _try_parse_plan(raw)
+        data = extract_planner_payload(resp)
     except Exception:
-        fixed = raw.rsplit(",", 1)[0] + "}"
-        try:
-            data = _try_parse_plan(fixed)
-        except Exception:
-            repaired = _repair_to_json(raw, utility_model or model)
-            data = _try_parse_plan(repaired)
+        raw = getattr(resp, "output_text", "") or ""
+        repaired = _json_repair_safe(raw, utility_model or model)
+        if repaired and repaired.strip():
+            data = json.loads(repaired)
+        else:
+            raise
 
     return data, {"finish_reason": finish, "usage": usage}
 
