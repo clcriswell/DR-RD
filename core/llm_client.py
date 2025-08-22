@@ -49,6 +49,29 @@ def _to_responses_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return converted
 
 
+def _to_chat_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    converted: List[Dict[str, Any]] = []
+    for m in messages:
+        content = m.get("content", "")
+        if isinstance(content, str):
+            converted_content = content
+        else:
+            converted_content = ""
+            for c in content:
+                if isinstance(c, dict) and c.get("type") == "input_text":
+                    converted_content += c.get("text", "")
+        converted.append({"role": m.get("role", "user"), "content": converted_content})
+    return converted
+
+
+def _sanitize_responses_params(params: dict | None) -> dict:
+    p = dict(params or {})
+    if "seed" in p:
+        p.pop("seed", None)
+        logger.info("Ignoring unsupported Responses param: seed")
+    return p
+
+
 def extract_text(resp: Any) -> Optional[str]:
     """Return the main text content from either Responses or Chat responses."""
     if resp is None:
@@ -88,6 +111,7 @@ def call_openai(
     messages: List[Dict[str, Any]],
     response_format: Dict[str, Any] | None = None,
     meta: Dict[str, Any] | None = None,
+    response_params: Dict[str, Any] | None = None,
     **kwargs,
 ) -> Dict[str, Any]:
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
@@ -128,7 +152,31 @@ def call_openai(
                 http_status_or_exc = 0
                 return {"raw": {}, "text": ""}
 
-        params = dict(kwargs)
+        params = {**(response_params or {}), **kwargs}
+        use_chat_for_seed = os.getenv("DRRD_USE_CHAT_FOR_SEEDED", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        seed = params.get("seed")
+        if (
+            seed is not None
+            and use_chat_for_seed
+            and response_format is None
+        ):
+            chat_params = {k: v for k, v in params.items() if k != "seed"}
+            logger.info("Using chat.completions for seeded request")
+            resp = client.chat.completions.create(
+                model=model,
+                messages=_to_chat_messages(messages),
+                seed=seed,
+                **chat_params,
+            )
+            http_status_or_exc = getattr(resp, "http_status", 200)
+            text = extract_text(resp)
+            return {"raw": resp, "text": text}
+
+        params = _sanitize_responses_params(params)
         if response_format is not None and _SUPPORTS_RESPONSE_FORMAT:
             params["response_format"] = response_format
         elif response_format is not None and not _SUPPORTS_RESPONSE_FORMAT:
@@ -145,7 +193,7 @@ def call_openai(
         if "max_tokens" in params and "max_output_tokens" not in params:
             params["max_output_tokens"] = params.pop("max_tokens")
 
-        response_params = {k: v for k, v in params.items() if k != "temperature"}
+        resp_params = {k: v for k, v in params.items() if k != "temperature"}
         logger.info("call_openai: model=%s api=Responses", model)
         backoff = 0.1
         for attempt in range(4):
@@ -153,7 +201,7 @@ def call_openai(
                 resp = client.responses.create(
                     model=model,
                     input=_to_responses_input(messages),
-                    **response_params,
+                    **resp_params,
                 )
                 http_status_or_exc = getattr(resp, "http_status", 200)
                 text = extract_text(resp)
@@ -178,13 +226,15 @@ def call_openai(
                     continue
                 break
 
-        params = dict(kwargs)
+        chat_params = {k: v for k, v in params.items()}
         if response_format is not None:
-            params["response_format"] = response_format
-        if "max_output_tokens" in params and "max_tokens" not in params:
-            params["max_tokens"] = params.pop("max_output_tokens")
+            chat_params["response_format"] = response_format
+        if "max_output_tokens" in chat_params and "max_tokens" not in chat_params:
+            chat_params["max_tokens"] = chat_params.pop("max_output_tokens")
         logger.info("call_openai: model=%s api=Chat", model)
-        resp = client.chat.completions.create(model=model, messages=messages, **params)
+        resp = client.chat.completions.create(
+            model=model, messages=_to_chat_messages(messages), **chat_params
+        )
         http_status_or_exc = getattr(resp, "http_status", 200)
         text = extract_text(resp)
         return {"raw": resp, "text": text}
@@ -237,13 +287,17 @@ def llm_call(
 ):
     """Backward-compatible wrapper around :func:`call_openai`."""
     safe = {k: v for k, v in params.items() if k in ALLOWED_PARAMS}
+    if temperature is not None:
+        safe["temperature"] = temperature
+    if seed is not None:
+        safe["seed"] = seed
+    response_format = safe.pop("response_format", None)
     chosen_model = model_id
     result = call_openai(
         model=chosen_model,
         messages=messages,
-        seed=seed,
-        temperature=temperature,
-        **safe,
+        response_format=response_format,
+        response_params=safe,
     )
     resp = result["raw"]
 

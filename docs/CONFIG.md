@@ -19,6 +19,11 @@ LIVE_SEARCH_BACKEND=openai|serpapi
 SERPAPI_KEY=your_key
 ```
 
+## Seeding behavior
+
+- `DRRD_USE_CHAT_FOR_SEEDED`: when true, and a seed is supplied and no `response_format` is requested, the client uses Chat Completions so seed works; otherwise Responses is used and seed is ignored.
+- `DRRD_PLANNER_SEED`: optional. If set, the planner may pass a seed. This is effective only when `DRRD_USE_CHAT_FOR_SEEDED=true` and the planner does not require a Responses JSON schema.
+
 Budget tracking now exposes counters: `retrieval_calls`, `web_search_calls`,
 `retrieval_tokens`, and increments `skipped_due_to_budget` when live search is
 skipped because the call cap is reached.

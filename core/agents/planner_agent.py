@@ -6,6 +6,8 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, ValidationError
 import json
 from core.llm_client import call_openai, extract_text, llm_call
+import logging
+import os
 from dr_rd.retrieval.pipeline import collect_context
 from config.feature_flags import (
     RAG_ENABLED,
@@ -19,6 +21,8 @@ from prompts.prompts import (
     PLANNER_SYSTEM_PROMPT,
     PLANNER_USER_PROMPT_TEMPLATE,
 )
+
+logger = logging.getLogger(__name__)
 
 # Pydantic schema for planner output -------------------------------------------------
 
@@ -110,6 +114,21 @@ def run_planner(
         "frequency_penalty": 0,
         "response_format": {"type": "json_object"},
     }
+    planner_seed = os.getenv("DRRD_PLANNER_SEED")
+    if planner_seed:
+        try:
+            params["seed"] = int(planner_seed)
+        except ValueError:
+            pass
+        use_chat = os.getenv("DRRD_USE_CHAT_FOR_SEEDED", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if not use_chat:
+            logger.info(
+                "Planner seed provided but Responses API is in use; seed will be ignored."
+            )
 
     resp = llm_call(None, model, "plan", messages, **params)
     raw = extract_text(resp)
