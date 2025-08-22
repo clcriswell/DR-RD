@@ -113,6 +113,14 @@ def run_planner(
         "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
     }
     bundle = collect_context(idea, idea, cfg)
+    logger.info(
+        "RetrievalTrace agent=Planner task_id=plan rag_hits=%d web_used=%s backend=%s sources=%d reason=%s",
+        bundle.rag_hits,
+        str(bundle.web_used).lower(),
+        bundle.backend or "none",
+        len(bundle.sources or []),
+        bundle.reason or "n/a",
+    )
     if bundle.rag_text:
         user_prompt += "\n\nReference Knowledge\n" + bundle.rag_text
     if bundle.web_summary:

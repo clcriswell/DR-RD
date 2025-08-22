@@ -96,7 +96,7 @@ class BaseAgent:
                 self.retriever = None
         self._sources: list[str] = []
 
-    def _augment_prompt(self, prompt: str, idea: str, task: str) -> str:
+    def _augment_prompt(self, prompt: str, idea: str, task: str, task_id: str = "") -> str:
         """Attach retrieved snippets and optionally web summary."""
         cfg = {
             "rag_enabled": RAG_ENABLED,
@@ -108,6 +108,16 @@ class BaseAgent:
         }
         bundle = collect_context(idea, task, cfg, retriever=self.retriever)
         self._sources = bundle.sources or []
+        logger.info(
+            "RetrievalTrace agent=%s task_id=%s rag_hits=%d web_used=%s backend=%s sources=%d reason=%s",
+            self.name,
+            task_id,
+            bundle.rag_hits,
+            str(bundle.web_used).lower(),
+            bundle.backend or "none",
+            len(bundle.sources or []),
+            bundle.reason or "n/a",
+        )
         if bundle.rag_text:
             prompt += "\n\n# RAG Knowledge\n" + bundle.rag_text
         if bundle.web_summary:
@@ -124,12 +134,17 @@ class BaseAgent:
         model: str | None = None,
     ) -> str:
         """Construct the prompt and call the OpenAI API. Returns assistant text."""
+        task_id = ""
+        task_text = task
         if isinstance(task, dict):
-            task = f"{task.get('title', '')}: {task.get('description', '')}"
+            task_id = task.get("id", "")
+            task_text = f"{task.get('title', '')}: {task.get('description', '')}"
+        else:
+            task_text = str(task)
         # Base prompt from template
-        prompt = self.user_prompt_template.format(idea=idea, task=task)
+        prompt = self.user_prompt_template.format(idea=idea, task=task_text)
 
-        prompt = self._augment_prompt(prompt, idea, task)
+        prompt = self._augment_prompt(prompt, idea, task_text, task_id)
 
         # Adjust prompt detail based on design_depth
         design_depth = design_depth.capitalize()  # normalize casing (Low/Medium/High)

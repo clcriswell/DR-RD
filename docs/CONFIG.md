@@ -27,3 +27,10 @@ SERPAPI_KEY=your_key
 Budget tracking now exposes counters: `retrieval_calls`, `web_search_calls`,
 `retrieval_tokens`, and increments `skipped_due_to_budget` when live search is
 skipped because the call cap is reached.
+
+## Telemetry
+
+The application emits structured logs for easier monitoring:
+
+- `ResolvedConfig {..}` appears once per run after mode, environment flags, and defaults are merged. Filter on `ResolvedConfig` in Google Cloud Logs to view the snapshot. Fields include the active models, RAG and live search settings, optional budget caps, and whether a vector index is present. No secrets are logged.
+- `RetrievalTrace agent=… task_id=… rag_hits=… web_used=… backend=… sources=… reason=…` is logged once per task. Filter on `RetrievalTrace` to inspect retrieval behavior and verify that live search and vector hits are working as expected.

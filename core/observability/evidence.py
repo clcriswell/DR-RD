@@ -70,6 +70,12 @@ class EvidenceSet(BaseModel):
     items: List[EvidenceItem] = Field(default_factory=list)
 
     def add(self, **kwargs) -> None:
+        claim = kwargs.get("claim")
+        if not isinstance(claim, str):
+            try:
+                kwargs["claim"] = json.dumps(claim, ensure_ascii=False)[:2000]
+            except Exception:
+                kwargs["claim"] = str(claim)
         self.items.append(EvidenceItem(project_id=self.project_id, **kwargs))
 
     def as_dicts(self) -> List[Dict]:

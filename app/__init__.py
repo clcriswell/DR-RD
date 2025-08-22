@@ -26,6 +26,7 @@ from core.model_router import pick_model, difficulty_from_signals, CallHints
 from core.llm_client import call_openai, METER, set_budget_manager
 from app.ui_cost_meter import render_cost_summary
 from app.config_loader import load_mode
+from dr_rd.core.config_snapshot import build_resolved_config_snapshot
 from core.agents.unified_registry import build_agents_unified
 from config.agent_models import AGENT_MODEL_MAP, TEST_ROLE_MODELS
 from core.orchestrator import generate_plan, execute_plan, compile_proposal, run_poc
@@ -685,6 +686,16 @@ def main():
     env_defaults = get_env_defaults()
     final_flags = apply_profile(env_defaults, selected_mode, overrides=None)
     st.session_state["final_flags"] = final_flags
+    snapshot_cfg = dict(_mode_cfg)
+    snapshot_cfg.update(final_flags)
+    snapshot_cfg["mode"] = selected_mode
+    budget_caps = {}
+    if _mode_cfg.get("target_cost_usd") is not None:
+        budget_caps["target_cost_usd"] = _mode_cfg.get("target_cost_usd")
+    if budget_caps:
+        snapshot_cfg["budget"] = budget_caps
+    snapshot = build_resolved_config_snapshot(snapshot_cfg)
+    logger.info("ResolvedConfig %s", json.dumps(snapshot, separators=(",", ":")))
     import config.feature_flags as ff
 
     for k, v in final_flags.items():

@@ -24,7 +24,7 @@ class IPAnalystAgent(BaseAgent):
 
     def act(self, idea: str, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         prompt = self.user_prompt_template.format(idea=idea, task=task)
-        prompt = self._augment_prompt(prompt, idea, task)
+        prompt = self._augment_prompt(prompt, idea, task, "")
         sel = pick_model(CallHints(stage="exec"))
         result = call_openai(
             model=sel["model"],
