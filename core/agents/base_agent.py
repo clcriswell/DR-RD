@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import json
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -11,9 +12,13 @@ from config.feature_flags import (
     ENABLE_LIVE_SEARCH,
     RAG_ENABLED,
     RAG_TOPK,
+    LIVE_SEARCH_BACKEND,
+    LIVE_SEARCH_MAX_CALLS,
+    LIVE_SEARCH_SUMMARY_TOKENS,
 )
 from core.llm import complete
 from core.llm_client import call_openai, log_usage
+from dr_rd.retrieval.pipeline import collect_context
 from core.prompt_utils import coerce_user_content
 
 
@@ -59,12 +64,12 @@ class LLMRoleAgent:
 # Backwards compatibility: legacy code imports `Agent` as the minimal LLM agent.
 Agent = LLMRoleAgent
 
-try:  # avoid import errors when knowledge package is absent
-    from knowledge.faiss_store import build_default_retriever
-    from knowledge.retriever import Retriever
-except Exception:  # pragma: no cover - fallback when module missing
-    Retriever = None  # type: ignore
-    build_default_retriever = lambda: None  # type: ignore
+try:
+    from dr_rd.retrieval.vector_store import build_retriever as build_default_retriever, Retriever
+except Exception:  # pragma: no cover
+    from dr_rd.retrieval.vector_store import Retriever  # type: ignore
+    def build_default_retriever():  # type: ignore
+        return None
 
 
 class BaseAgent:
@@ -82,63 +87,33 @@ class BaseAgent:
         self.model = model
         self.system_message = system_message
         self.user_prompt_template = user_prompt_template
-        if RAG_ENABLED and retriever is None:
-            try:
-                self.retriever: Optional[Retriever] = build_default_retriever()
-            except Exception:  # pragma: no cover - best effort
-                self.retriever = None
-        else:
+        if retriever is not None:
             self.retriever = retriever
-        self.retrieval_hits = 0
-        self.rag_text_len = 0
-        self._web_summary: str | None = None
-        self._web_sources: list[str] = []
+        else:
+            try:
+                self.retriever = build_default_retriever() if RAG_ENABLED else None
+            except Exception:
+                self.retriever = None
+        self._sources: list[str] = []
 
     def _augment_prompt(self, prompt: str, idea: str, task: str) -> str:
         """Attach retrieved snippets and optionally web summary."""
-        context = f"{idea}\n{task}"
-        hits: List[Tuple[str, str]] = []
-        if RAG_ENABLED and self.retriever:
-            try:
-                hits = self.retriever.query(context, RAG_TOPK)
-            except Exception:
-                hits = []
-        self.retrieval_hits = len(hits)
-        self.rag_text_len = sum(len(t.split()) for t, _ in hits)
-        if hits:
-            bundle_lines = []
-            for i, (text, src) in enumerate(hits, 1):
-                raw = text.replace("\n", " ")
-                bundle_lines.append(f"[{i}] {raw} ({src})")
-            bundle = "\n".join(bundle_lines)
-            logger.info("[RAG] %s retrieved %d snippet(s)", self.name, len(hits))
-            prompt += "\n\n# RAG Knowledge\n" + bundle
-
-        self._web_summary = None
-        self._web_sources = []
-        self.maybe_live_search(idea, task)
-        if self._web_summary:
-            prompt += "\n\n# Web Search Results\n" + self._web_summary
+        cfg = {
+            "rag_enabled": RAG_ENABLED,
+            "rag_top_k": RAG_TOPK,
+            "live_search_enabled": ENABLE_LIVE_SEARCH,
+            "live_search_backend": LIVE_SEARCH_BACKEND,
+            "live_search_max_calls": LIVE_SEARCH_MAX_CALLS,
+            "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
+        }
+        bundle = collect_context(idea, task, cfg, retriever=self.retriever)
+        self._sources = bundle.sources or []
+        if bundle.rag_text:
+            prompt += "\n\n# RAG Knowledge\n" + bundle.rag_text
+        if bundle.web_summary:
+            prompt += "\n\n# Web Search Results\n" + bundle.web_summary
             prompt += "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
         return prompt
-
-    def maybe_live_search(self, idea: str, task: str) -> None:
-        if not ENABLE_LIVE_SEARCH:
-            return
-        if not (self.retrieval_hits == 0 or self.rag_text_len < 50):
-            return
-        try:
-            from utils.search_tools import search_google, summarize_search
-
-            results = search_google(self.name, idea, task, k=5)
-            if not results:
-                return
-            summary = summarize_search([r.get("snippet", "") for r in results])
-            if summary:
-                self._web_summary = summary
-                self._web_sources = [r.get("title") or r.get("link") or "" for r in results][:5]
-        except Exception:
-            return
 
     def run(
         self,
@@ -201,4 +176,11 @@ class BaseAgent:
             max_chars = int(flags.get("MAX_OUTPUT_CHARS", 900))
             if isinstance(answer, str) and len(answer) > max_chars:
                 answer = answer[:max_chars] + " …[truncated test]"
+        if self._sources:
+            try:
+                data = json.loads(answer)
+                data.setdefault("sources", self._sources)
+                answer = json.dumps(data)
+            except Exception:
+                pass
         return answer

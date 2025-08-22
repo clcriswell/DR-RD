@@ -18,6 +18,10 @@ SIM_OPTIMIZER_MAX_EVALS: int = int(os.getenv("SIM_OPTIMIZER_MAX_EVALS", "50"))
 RAG_ENABLED = _flag("RAG_ENABLED")
 RAG_TOPK: int = int(os.getenv("RAG_TOPK", "5"))
 ENABLE_LIVE_SEARCH = _flag("ENABLE_LIVE_SEARCH")
+LIVE_SEARCH_BACKEND: str = os.getenv("LIVE_SEARCH_BACKEND", "openai")
+LIVE_SEARCH_MAX_CALLS: int = 0
+LIVE_SEARCH_SUMMARY_TOKENS: int = 256
+SERPAPI_KEY: str = os.getenv("SERPAPI_KEY", "")
 DISABLE_IMAGES_BY_DEFAULT = {"test": False, "deep": False}
 
 # Default evaluator weights and threshold. ``EVALUATOR_WEIGHTS`` can be
@@ -57,7 +61,28 @@ def get_env_defaults() -> dict:
         "RAG_ENABLED": RAG_ENABLED,
         "RAG_TOPK": RAG_TOPK,
         "ENABLE_LIVE_SEARCH": ENABLE_LIVE_SEARCH,
+        "LIVE_SEARCH_BACKEND": LIVE_SEARCH_BACKEND,
+        "LIVE_SEARCH_MAX_CALLS": LIVE_SEARCH_MAX_CALLS,
+        "LIVE_SEARCH_SUMMARY_TOKENS": LIVE_SEARCH_SUMMARY_TOKENS,
         "SIM_OPTIMIZER_ENABLED": SIM_OPTIMIZER_ENABLED,
         "SIM_OPTIMIZER_STRATEGY": SIM_OPTIMIZER_STRATEGY,
         "SIM_OPTIMIZER_MAX_EVALS": SIM_OPTIMIZER_MAX_EVALS,
     }
+
+
+def apply_mode_overrides(cfg: dict) -> None:
+    """Override feature flags using mode configuration."""
+    global RAG_ENABLED, RAG_TOPK, ENABLE_LIVE_SEARCH
+    global LIVE_SEARCH_BACKEND, LIVE_SEARCH_MAX_CALLS, LIVE_SEARCH_SUMMARY_TOKENS
+    if "rag_enabled" in cfg:
+        RAG_ENABLED = bool(cfg.get("rag_enabled"))
+    if "rag_top_k" in cfg:
+        RAG_TOPK = int(cfg.get("rag_top_k", RAG_TOPK))
+    if "live_search_enabled" in cfg:
+        ENABLE_LIVE_SEARCH = bool(cfg.get("live_search_enabled"))
+    if "live_search_backend" in cfg:
+        LIVE_SEARCH_BACKEND = str(cfg.get("live_search_backend") or LIVE_SEARCH_BACKEND)
+    if "live_search_max_calls" in cfg:
+        LIVE_SEARCH_MAX_CALLS = int(cfg.get("live_search_max_calls", LIVE_SEARCH_MAX_CALLS))
+    if "live_search_summary_tokens" in cfg:
+        LIVE_SEARCH_SUMMARY_TOKENS = int(cfg.get("live_search_summary_tokens", LIVE_SEARCH_SUMMARY_TOKENS))

@@ -28,21 +28,23 @@ def resolve_invoker(agent) -> Tuple[str, Callable]:
     )
 
 
-def invoke_agent(
-    agent, *, task: dict, model: str | None = None, meta: dict | None = None
-):
-    """Invoke ``agent`` with ``task``/``model``/``meta`` keywords.
+def invoke_agent(agent, *, task: dict, model: str | None = None, meta: dict | None = None):
+    """Invoke ``agent`` with standard keyword arguments.
 
-    Any parameters not accepted by the agent's callable are dropped before
-    invocation.  Errors from the agent are re-raised with contextual details.
+    The callable is resolved via :func:`resolve_invoker`.  A first attempt is
+    made to call the method with ``task``, ``model``, and ``meta`` keywords.  If
+    the agent has a stricter signature a second attempt is made with only the
+    accepted parameters.
     """
 
-    meta = meta or {}
-    method_name, method = resolve_invoker(agent)
-    logger.info("invoke agent=%s via=%s", meta.get("agent"), method_name)
+    name = (meta or {}).get("agent") or type(agent).__name__
+    method_name, fn = resolve_invoker(agent)
+    logger.info("invoke agent=%s via=%s", name, method_name)
 
     try:
-        sig = inspect.signature(method)
+        return fn(task=task, model=model, meta=meta)
+    except TypeError:
+        sig = inspect.signature(fn)
         kwargs = {}
         if "task" in sig.parameters:
             kwargs["task"] = task
@@ -50,12 +52,7 @@ def invoke_agent(
             kwargs["model"] = model
         if "meta" in sig.parameters:
             kwargs["meta"] = meta
-        return method(**kwargs)
-    except Exception as e:  # pragma: no cover - message enrichment
-        agent_name = meta.get("agent")
-        raise type(e)(
-            f"{agent_name} ({type(agent).__name__}.{method_name}) failed: {e}"
-        ) from e
+        return fn(**kwargs)
 
 
 __all__ = ["CALL_ATTRS", "resolve_invoker", "invoke_agent"]

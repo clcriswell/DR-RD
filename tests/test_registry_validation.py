@@ -26,7 +26,7 @@ def test_validation_skipped(monkeypatch):
     monkeypatch.setattr(registry, "AGENTS", _patched_agents())
     registry.CACHE.clear()
     res = registry.validate_registry(strict=False)
-    assert "Dummy" in res["skipped"]
+    assert res["errors"][0][0] == "Dummy"
 
 
 def test_validation_strict(monkeypatch):

@@ -25,7 +25,7 @@ def _coerce(value: str) -> Any:
             return value
 
 def load_config(overrides_path: str | None = None) -> Dict[str, Any]:
-    base_path = Path("config/defaults.yaml")
+    base_path = Path(__file__).resolve().parent.parent / "config" / "defaults.yaml"
     with open(base_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or {}
     override_file = overrides_path or (Path("config/local.yaml") if Path("config/local.yaml").exists() else None)
