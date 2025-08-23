@@ -20,6 +20,15 @@ ENABLE_IMAGES=true|false
 SERPAPI_KEY=your_key
 ```
 
+### Budget cap normalization
+
+`web_search_max_calls` is derived from the first available value among
+`WEB_SEARCH_MAX_CALLS` or `LIVE_SEARCH_MAX_CALLS` (environment), then
+`web_search_max_calls` or `live_search_max_calls` in the mode config. When
+running in web‑only mode (FAISS skipped), the cap defaults to `3` if unset.
+`ResolvedConfig` will show `vector_index_present=false` when the FAISS index is
+skipped.
+
 ### FAISS bootstrap
 
 Vector search uses a FAISS bundle that can be downloaded on startup. Modes may specify `faiss_index_uri`, `faiss_index_local_dir` (default `.faiss_index`), and `faiss_bootstrap_mode` (`download` or `skip`). Because container file systems are ephemeral, the bundle is fetched from GCS on each cold start when `faiss_bootstrap_mode` is `download`. If the index is unavailable, live web search still runs independently.

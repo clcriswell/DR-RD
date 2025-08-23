@@ -19,7 +19,6 @@ from config.feature_flags import (
     RAG_TOPK,
     ENABLE_LIVE_SEARCH,
     LIVE_SEARCH_BACKEND,
-    LIVE_SEARCH_MAX_CALLS,
     LIVE_SEARCH_SUMMARY_TOKENS,
     VECTOR_INDEX_PRESENT,
 )
@@ -111,14 +110,11 @@ def run_planner(
         "rag_top_k": RAG_TOPK,
         "live_search_enabled": ENABLE_LIVE_SEARCH,
         "live_search_backend": LIVE_SEARCH_BACKEND,
-        "live_search_max_calls": LIVE_SEARCH_MAX_CALLS,
         "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
+        "vector_index_present": vector_available,
     }
     bundle = collect_context(idea, idea, cfg)
     meta = bundle.meta
-    if not vector_available:
-        meta["rag_hits"] = 0
-        meta["reason"] = "no_vector_index"
     logger.info(
         "RetrievalTrace agent=Planner task_id=plan rag_hits=%d web_used=%s backend=%s sources=%d reason=%s",
         meta.get("rag_hits", 0),

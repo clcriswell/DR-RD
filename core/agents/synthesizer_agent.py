@@ -19,7 +19,7 @@ from config.feature_flags import ENABLE_IMAGES
 from core.llm import complete, select_model
 from core.llm_client import BUDGET, log_usage
 from utils.image_visuals import make_visuals_for_project
-from config.feature_flags import LIVE_SEARCH_MAX_CALLS
+from core.retrieval.budget import RETRIEVAL_BUDGET
 from prompts.prompts import (
     SYNTHESIZER_TEMPLATE,
     SYNTHESIZER_BUILD_GUIDE_TEMPLATE,
@@ -138,11 +138,12 @@ def compose_final_proposal(
 
     result_payload = {"document": final_document, "images": images, "test": bool(flags.get("TEST_MODE"))}
     if not getattr(compose_final_proposal, "_budget_logged", False):
-        used = BUDGET.web_search_calls if BUDGET else 0
+        used = RETRIEVAL_BUDGET.used if RETRIEVAL_BUDGET else 0
+        cap = RETRIEVAL_BUDGET.max_calls if RETRIEVAL_BUDGET else 0
         logging.info(
             "RetrievalBudget web_search_calls=%d/%d",
             used,
-            LIVE_SEARCH_MAX_CALLS,
+            cap,
         )
         compose_final_proposal._budget_logged = True
     return result_payload

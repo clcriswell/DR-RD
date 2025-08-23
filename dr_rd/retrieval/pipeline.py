@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from core.llm_client import BUDGET
+from core.retrieval import budget as retrieval_budget
 
 from .live_search import Source, get_live_client
 from .vector_store import Retriever, Snippet
@@ -47,18 +48,23 @@ def collect_context(
             else:
                 reason = "rag_empty"
         else:
-            reason = "no_retriever"
+            reason = "no_vector_index"
     else:
-        reason = "disabled_in_mode"
+        reason = "no_vector_index" if not cfg.get("vector_index_present") else "disabled_in_mode"
 
     web_summary: str | None = None
     web_used = False
     backend = None
     if cfg.get("live_search_enabled") and (rag_hits == 0 or retriever is None):
         backend = cfg.get("live_search_backend", "openai")
-        max_calls = int(cfg.get("live_search_max_calls", 0))
-        if BUDGET and BUDGET.web_search_calls >= max_calls > 0:
-            BUDGET.skipped_due_to_budget = getattr(BUDGET, "skipped_due_to_budget", 0) + 1
+        max_calls = (
+            retrieval_budget.RETRIEVAL_BUDGET.max_calls
+            if retrieval_budget.RETRIEVAL_BUDGET
+            else 0
+        )
+        if retrieval_budget.RETRIEVAL_BUDGET and not retrieval_budget.RETRIEVAL_BUDGET.allow():
+            if BUDGET:
+                BUDGET.skipped_due_to_budget = getattr(BUDGET, "skipped_due_to_budget", 0) + 1
             reason = "budget_skip"
         else:
             try:
@@ -71,6 +77,8 @@ def collect_context(
                 web_summary = summary
                 sources.extend(srcs)
                 web_used = True
+                if retrieval_budget.RETRIEVAL_BUDGET:
+                    retrieval_budget.RETRIEVAL_BUDGET.consume()
                 if BUDGET:
                     BUDGET.web_search_calls += 1
             except Exception:
