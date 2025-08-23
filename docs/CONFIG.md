@@ -28,25 +28,25 @@ Vector search uses a FAISS bundle that can be downloaded on startup. Modes may s
 
 Budget tracking exposes counters: `retrieval_calls`, `web_search_calls`, `retrieval_tokens`, and increments `skipped_due_to_budget` when live search is skipped because the call cap is reached.
 
-### Nightly FAISS Build & Publish (GCS)
+### Nightly FAISS Build & Publish
 
 A nightly workflow builds and validates a FAISS index bundle and pushes it to Google Cloud Storage:
 
-- `gs://$GCS_BUCKET/$GCS_PREFIX/nightly/<run>-<sha>` — immutable snapshot for each run.
-- `gs://$GCS_BUCKET/$GCS_PREFIX/nightly/latest` — rolling pointer updated every run.
-- `gs://$GCS_BUCKET/prod/v1` — manually promoted via `workflow_dispatch` with `release_to_prod=true`.
+- `gs://drrdfaiss/Projects/nightly/<run>-<sha>` — immutable snapshot for each run.
+- `gs://drrdfaiss/Projects/nightly/latest` — rolling pointer updated every run.
+- `gs://drrdfaiss/Projects/prod/v1` — manually promoted via `workflow_dispatch` with `release_to_prod=true`.
 
 To consume the bundle in the app, set:
 
 ```bash
 # For testing
-FAISS_INDEX_URI="gs://$GCS_BUCKET/$GCS_PREFIX/nightly/latest"
+FAISS_INDEX_URI="gs://drrdfaiss/Projects/nightly/latest"
 
 # For production
-FAISS_INDEX_URI="gs://$GCS_BUCKET/prod/v1"
+FAISS_INDEX_URI="gs://drrdfaiss/Projects/prod/v1"
 ```
 
-Always configure `FAISS_BOOTSTRAP_MODE=download` and `FAISS_INDEX_DIR` to a writable path (e.g., `/tmp/faiss_index`).
+Always set `FAISS_BOOTSTRAP_MODE="download"` and `FAISS_INDEX_DIR` to a writable path (e.g., `/tmp/faiss_index` or `.faiss_index`).
 Each run emits a `manifest.json` with `doc_count` and `dims` fields and writes a summary to the GitHub Actions run page.
 
 ## Telemetry

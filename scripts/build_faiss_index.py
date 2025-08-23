@@ -51,10 +51,11 @@ def main():
 
     os.makedirs(args.out, exist_ok=True)
     faiss.write_index(index, os.path.join(args.out, "index.faiss"))
-    with open(os.path.join(args.out, "texts.json"), "w", encoding="utf-8") as fh:
-        json.dump({"texts": texts, "sources": sources}, fh)
+    docs = [{"text": t, "source": s} for t, s in zip(texts, sources)]
+    with open(os.path.join(args.out, "docs.json"), "w", encoding="utf-8") as fh:
+        json.dump(docs, fh)
 
-    print(f"Wrote {len(texts)} docs to {args.out}/index.faiss and {args.out}/texts.json")
+    print(f"Wrote {len(docs)} docs to {args.out}/index.faiss and {args.out}/docs.json")
 
 if __name__ == "__main__":
     main()
