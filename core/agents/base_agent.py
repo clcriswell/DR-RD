@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import re
 import json
+import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
@@ -10,16 +10,18 @@ from utils.logging import logger
 
 from config.feature_flags import (
     ENABLE_LIVE_SEARCH,
-    RAG_ENABLED,
-    RAG_TOPK,
     LIVE_SEARCH_BACKEND,
     LIVE_SEARCH_MAX_CALLS,
     LIVE_SEARCH_SUMMARY_TOKENS,
+    RAG_ENABLED,
+    RAG_TOPK,
+    VECTOR_INDEX_PATH,
 )
 from core.llm import complete
 from core.llm_client import call_openai, log_usage
-from dr_rd.retrieval.pipeline import collect_context
 from core.prompt_utils import coerce_user_content
+from dr_rd.retrieval.pipeline import collect_context
+from dr_rd.retrieval.vector_store import Retriever, build_retriever
 
 
 @dataclass(init=False)
@@ -65,9 +67,11 @@ class LLMRoleAgent:
 Agent = LLMRoleAgent
 
 try:
-    from dr_rd.retrieval.vector_store import build_retriever as build_default_retriever, Retriever
+    from dr_rd.retrieval.vector_store import Retriever
+    from dr_rd.retrieval.vector_store import build_retriever as build_default_retriever
 except Exception:  # pragma: no cover
     from dr_rd.retrieval.vector_store import Retriever  # type: ignore
+
     def build_default_retriever():  # type: ignore
         return None
 
@@ -90,10 +94,7 @@ class BaseAgent:
         if retriever is not None:
             self.retriever = retriever
         else:
-            try:
-                self.retriever = build_default_retriever() if RAG_ENABLED else None
-            except Exception:
-                self.retriever = None
+            self.retriever = build_retriever(VECTOR_INDEX_PATH) if RAG_ENABLED else None
         self._sources: list[str] = []
 
     def _augment_prompt(self, prompt: str, idea: str, task: str, task_id: str = "") -> str:

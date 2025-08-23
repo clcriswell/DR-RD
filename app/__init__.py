@@ -1,36 +1,41 @@
-from app.logging_setup import init_gcp_logging
-import os, re
-from typing import Optional, List, Dict
+import io
 import json
 import logging
+import os
+import re
+from typing import Dict, List, Optional
+
+import fitz
 import openai
-import streamlit as st
-from core.role_normalizer import normalize_tasks as normalize_roles_tasks, group_by_role
 import pandas as pd
+import streamlit as st
+from markdown_pdf import MarkdownPdf, Section
+from utils.firestore_workspace import FirestoreWorkspace as WS
+from utils.refinement import refine_agent_output
+
+import core
+from app.config_loader import load_mode
+from app.logging_setup import init_gcp_logging
+from app.ui_cost_meter import render_cost_summary
+from collaboration import agent_chat
+from config.agent_models import AGENT_MODEL_MAP, TEST_ROLE_MODELS
+from config.feature_flags import get_env_defaults
+from config.mode_profiles import UI_PRESETS, apply_profile
+from core.agents.planner_agent import PlannerAgent
+from core.agents.simulation_agent import SimulationAgent
+from core.agents.synthesizer_agent import SynthesizerAgent
+from core.agents.unified_registry import build_agents_unified
+from core.llm_client import METER, call_openai, set_budget_manager
+from core.model_router import CallHints, difficulty_from_signals, pick_model
+from core.orchestrator import compile_proposal, execute_plan, generate_plan, run_poc
+from core.plan_utils import normalize_plan_to_tasks, normalize_tasks  # noqa: F401
+from core.poc.testplan import TestPlan
+from core.role_normalizer import group_by_role
+from core.role_normalizer import normalize_tasks as normalize_roles_tasks
+from dr_rd.core.config_snapshot import build_resolved_config_snapshot
+from dr_rd.knowledge.bootstrap import ensure_local_faiss_bundle
 from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
-from collaboration import agent_chat
-from utils.refinement import refine_agent_output
-import core
-from core.plan_utils import normalize_plan_to_tasks, normalize_tasks  # noqa: F401
-from core.agents.simulation_agent import SimulationAgent
-from core.agents.planner_agent import PlannerAgent
-from core.agents.synthesizer_agent import SynthesizerAgent
-import io
-import fitz
-from markdown_pdf import MarkdownPdf, Section
-from config.feature_flags import get_env_defaults
-from config.mode_profiles import apply_profile, UI_PRESETS
-from utils.firestore_workspace import FirestoreWorkspace as WS
-from core.model_router import pick_model, difficulty_from_signals, CallHints
-from core.llm_client import call_openai, METER, set_budget_manager
-from app.ui_cost_meter import render_cost_summary
-from app.config_loader import load_mode
-from dr_rd.core.config_snapshot import build_resolved_config_snapshot
-from core.agents.unified_registry import build_agents_unified
-from config.agent_models import AGENT_MODEL_MAP, TEST_ROLE_MODELS
-from core.orchestrator import generate_plan, execute_plan, compile_proposal, run_poc
-from core.poc.testplan import TestPlan
 
 
 class _DummyCtx:
@@ -47,6 +52,7 @@ def _safe_expander(obj, label, expanded=False):
         return exp(label, expanded=expanded)
     return _DummyCtx()
 
+
 logger = logging.getLogger(__name__)
 
 from core.agents.registry import validate_registry
@@ -57,12 +63,12 @@ except Exception:
     build_app_from_idea = None  # optional feature
 
 try:
-    from core.agents.qa_agent import qa_all
     from core.agents.publisher_agent import (
         make_zip_bytes,
-        write_publishing_md,
         try_create_github_repo,
+        write_publishing_md,
     )
+    from core.agents.qa_agent import qa_all
 except Exception:
     qa_all = None
     make_zip_bytes = write_publishing_md = try_create_github_repo = None
@@ -650,6 +656,7 @@ def main():
             st.session_state["dev_mode"] = _get_qs_flag("dev")
 
     from pathlib import Path
+
     import yaml
 
     env_mode = _os.getenv("DRRD_MODE")
@@ -686,6 +693,11 @@ def main():
     env_defaults = get_env_defaults()
     final_flags = apply_profile(env_defaults, selected_mode, overrides=None)
     st.session_state["final_flags"] = final_flags
+    bootstrap = ensure_local_faiss_bundle(_mode_cfg, logger)
+    _mode_cfg["vector_index_present"] = bool(bootstrap.get("present"))
+    _mode_cfg["vector_index_path"] = bootstrap.get("path")
+    _mode_cfg["vector_index_source"] = bootstrap.get("source")
+    _mode_cfg["vector_index_reason"] = bootstrap.get("reason")
     snapshot_cfg = dict(_mode_cfg)
     snapshot_cfg.update(final_flags)
     snapshot_cfg["mode"] = selected_mode
@@ -698,6 +710,11 @@ def main():
     logger.info("ResolvedConfig %s", json.dumps(snapshot, separators=(",", ":")))
     import config.feature_flags as ff
 
+    ff.VECTOR_INDEX_PRESENT = bool(bootstrap.get("present"))
+    ff.VECTOR_INDEX_PATH = bootstrap.get("path") or ""
+    ff.VECTOR_INDEX_SOURCE = bootstrap.get("source") or "none"
+    ff.VECTOR_INDEX_REASON = bootstrap.get("reason") or ""
+    ff.FAISS_BOOTSTRAP_MODE = _mode_cfg.get("faiss_bootstrap_mode", ff.FAISS_BOOTSTRAP_MODE)
     for k, v in final_flags.items():
         setattr(ff, k, v)
     if selected_mode == "deep":
@@ -1316,7 +1333,8 @@ def main():
                     file_name="poc_report.json",
                     mime="application/json",
                 )
-                import io, csv as _csv
+                import csv as _csv
+                import io
 
                 buf = io.StringIO()
                 writer = _csv.writer(buf)
@@ -1363,7 +1381,8 @@ def main():
             except TypeError:  # fallback for older Streamlit versions
                 gen = st.button("Generate Streamlit app")
             if gen:
-                import io, zipfile
+                import io
+                import zipfile
 
                 with st.spinner("Planning and generating app files..."):
                     spec, files = build_app_from_idea(idea)
@@ -1481,7 +1500,7 @@ def main():
         if st.session_state.get("final_doc"):
             context_bits.append("PROPOSAL: present")
 
-        from core.model_router import pick_model, CallHints
+        from core.model_router import CallHints, pick_model
 
         sel = pick_model(CallHints(stage="exec", deep_reasoning=(selected_mode == "deep")))
         msg = "\n\n".join(context_bits) + f"\n\nUser: {user_msg}"
@@ -1518,6 +1537,8 @@ def main():
             except Exception as e:
                 logging.error(f"Save chat failed: {e}")
         getattr(st, "markdown", print)(f"**Assistant:** {reply}")
+
+
 # Validate and log agent registry once at startup
 _summary = validate_registry(strict=False)
 logger.info(

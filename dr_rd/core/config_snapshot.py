@@ -29,12 +29,20 @@ def build_resolved_config_snapshot(cfg: Dict[str, Any]) -> Dict[str, Any]:
         snapshot["live_search_max_calls"] = cfg.get("live_search_max_calls")
     # Budget caps
     budget = cfg.get("budget") if isinstance(cfg.get("budget"), dict) else {}
-    caps = {k: budget.get(k) for k in ["max_tokens", "max_cost_usd", "target_cost_usd"] if k in budget}
+    caps = {
+        k: budget.get(k) for k in ["max_tokens", "max_cost_usd", "target_cost_usd"] if k in budget
+    }
     if caps:
         snapshot["budget_caps"] = caps
     # Vector index
     vpath = _maybe(cfg, "vector_index_path") or _maybe(cfg, "vector_index")
     snapshot["vector_index_present"] = bool(vpath)
     if vpath:
-        snapshot["vector_index_path"] = str(vpath)
+        from pathlib import Path
+
+        snapshot["vector_index_path"] = Path(str(vpath)).name
+    if "vector_index_source" in cfg:
+        snapshot["vector_index_source"] = cfg.get("vector_index_source")
+    if "faiss_bootstrap_mode" in cfg:
+        snapshot["faiss_bootstrap_mode"] = cfg.get("faiss_bootstrap_mode")
     return {k: v for k, v in snapshot.items() if v is not None}

@@ -19,6 +19,23 @@ LIVE_SEARCH_BACKEND=openai|serpapi
 SERPAPI_KEY=your_key
 ```
 
+### FAISS bootstrap
+
+Vector search uses a FAISS bundle that can be downloaded on startup. Modes may
+specify `faiss_index_uri`, `faiss_index_local_dir` (default `.faiss_index`), and
+`faiss_bootstrap_mode` (`download` or `skip`). Environment variables override
+mode values:
+
+```
+FAISS_INDEX_URI=gs://bucket/prefix
+FAISS_INDEX_DIR=.faiss_index
+FAISS_BOOTSTRAP_MODE=download|skip
+```
+
+Because container file systems are ephemeral, the bundle is fetched from GCS on
+each cold start when `faiss_bootstrap_mode` is `download`. If the index is
+unavailable, live web search still runs independently.
+
 ## Seeding behavior
 
 - `DRRD_USE_CHAT_FOR_SEEDED`: when true, and a seed is supplied and no `response_format` is requested, the client uses Chat Completions so seed works; otherwise Responses is used and seed is ignored.
