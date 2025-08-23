@@ -1,11 +1,15 @@
-from simulation.registry import register
-from core.poc.testplan import Metric, TestCase, TestPlan
 from core.orchestrator import run_poc
+from core.poc.testplan import Metric, TestCase, TestPlan
+from simulation.registry import register
 
 
 @register("dummy_sim")
 def _dummy(inputs):
-    return {"val": inputs.get("x", 0)}, {"cost_estimate_usd": 0.0, "seconds": 0.0, "backend": "dummy"}
+    return {"val": inputs.get("x", 0)}, {
+        "cost_estimate_usd": 0.0,
+        "seconds": 0.0,
+        "backend": "dummy",
+    }
 
 
 def test_poc_runner():

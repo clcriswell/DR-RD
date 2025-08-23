@@ -3,11 +3,12 @@ from __future__ import annotations
 import logging
 import os
 import random
-from typing import Callable, Dict, Tuple, Any, Optional
-from .registry import register
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from config.feature_flags import EVALUATORS_ENABLED
+
 from .design_space import DesignSpace
+from .registry import register
 
 
 def optimize(
@@ -66,7 +67,12 @@ def optimize(
             score,
         )
         if score > best_score:
-            best_design, best_metrics, best_score, best_idx = candidate, metrics, score, trial
+            best_design, best_metrics, best_score, best_idx = (
+                candidate,
+                metrics,
+                score,
+                trial,
+            )
 
     if design:
         evaluate(design)

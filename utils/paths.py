@@ -1,6 +1,8 @@
 from __future__ import annotations
-from pathlib import Path
+
 from datetime import datetime
+from pathlib import Path
+
 
 def new_run_dir(base: Path) -> Path:
     base = Path(base)

@@ -1,8 +1,10 @@
 import importlib.util
 import json
 import os
+
 import fitz
 import pytest
+
 from app import generate_pdf
 
 md_spec = importlib.util.find_spec("markdown_pdf")
@@ -15,10 +17,12 @@ if md_spec:
 def test_generate_pdf_smoke(monkeypatch, tmp_path):
     if md_spec:
         if not hasattr(MarkdownPdf, "export"):
+
             def fake_export(self):
                 path = tmp_path / "tmp.pdf"
                 self.save(path)
                 return path.read_bytes()
+
             monkeypatch.setattr(MarkdownPdf, "export", fake_export, raising=False)
     md = "# Title\n\n- Item 1\n- Item 2\n\n![alt](https://example.com/image.png)"
     pdf_bytes = generate_pdf(md)

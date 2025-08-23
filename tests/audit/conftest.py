@@ -1,7 +1,9 @@
 from pathlib import Path
+
 import pytest
 
 AUDIT_DATE = "2025-08-21"
+
 
 @pytest.fixture
 def audit_dir():

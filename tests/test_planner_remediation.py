@@ -1,8 +1,8 @@
-from unittest.mock import Mock, patch
 import os
+from unittest.mock import Mock, patch
 
-from core.agents.planner_agent import PlannerAgent
 from config.feature_flags import EVALUATOR_MIN_OVERALL
+from core.agents.planner_agent import PlannerAgent
 
 
 def make_openai_response(text: str):
@@ -12,10 +12,13 @@ def make_openai_response(text: str):
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch('core.agents.planner_agent.call_openai')
+@patch("core.agents.planner_agent.call_openai")
 def test_planner_adds_remediation_task(mock_llm):
     mock_llm.return_value = {"text": '{"updated_tasks": []}'}
     agent = PlannerAgent("gpt-5")
-    workspace = {"tasks": [], "scorecard": {"overall": EVALUATOR_MIN_OVERALL - 0.1, "metrics": {}}}
+    workspace = {
+        "tasks": [],
+        "scorecard": {"overall": EVALUATOR_MIN_OVERALL - 0.1, "metrics": {}},
+    }
     tasks = agent.revise_plan(workspace)
     assert any("Improve" in t["task"] or "Address" in t["task"] for t in tasks)

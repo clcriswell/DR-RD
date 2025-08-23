@@ -8,8 +8,9 @@ interface for running them by name.
 from __future__ import annotations
 
 import importlib
-import os
 import inspect
+import os
+
 from plugins.plugin_base import Plugin
 
 
@@ -34,7 +35,11 @@ class PluginManager:
         self.plugins = {}
         plugins_dir = os.path.dirname(__file__)
         for filename in os.listdir(plugins_dir):
-            if filename.endswith(".py") and filename not in ["__init__.py", "plugin_base.py", "plugin_manager.py"]:
+            if filename.endswith(".py") and filename not in [
+                "__init__.py",
+                "plugin_base.py",
+                "plugin_manager.py",
+            ]:
                 module_name = f"plugins.{filename[:-3]}"
                 module = importlib.import_module(module_name)
                 # Find Plugin subclasses in the module
@@ -77,6 +82,7 @@ class PluginManager:
             raise ValueError(f"Plugin '{name}' not found.")
         # Log plugin invocation and increment call count
         import streamlit as st
+
         st.session_state["plugin_calls"] = st.session_state.get("plugin_calls", 0) + 1
         plugin = self.plugins[name]
         return plugin.run(task, context)

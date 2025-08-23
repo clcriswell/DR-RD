@@ -28,7 +28,9 @@ def run_sequential(tasks):
     pending = list(tasks)
     while pending:
         t = pending.pop(0)
-        if any(dep not in state.ws.read()["results"] for dep in t.get("depends_on", [])):
+        if any(
+            dep not in state.ws.read()["results"] for dep in t.get("depends_on", [])
+        ):
             pending.append(t)
             continue
         state.ws.save_result(t["id"], *state._execute(t))

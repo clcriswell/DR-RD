@@ -105,7 +105,7 @@ def _strip_code_fences(s: str) -> str:
         if "\n" in s:
             s = s.split("\n", 1)[1]
     if s.endswith("```"):
-        s = s[: -3]
+        s = s[:-3]
     return s.strip()
 
 
@@ -188,7 +188,9 @@ def call_openai(
 
         cfg = load_config()
         if cfg.get("dry_run", {}).get("enabled", False):
-            fixtures_dir = Path(cfg.get("dry_run", {}).get("fixtures_dir", "tests/fixtures"))
+            fixtures_dir = Path(
+                cfg.get("dry_run", {}).get("fixtures_dir", "tests/fixtures")
+            )
             path = fixtures_dir / "llm" / "plan_seed.json"
             try:
                 with open(path, "r", encoding="utf-8") as fh:
@@ -206,11 +208,7 @@ def call_openai(
             "yes",
         )
         seed = params.get("seed")
-        if (
-            seed is not None
-            and use_chat_for_seed
-            and response_format is None
-        ):
+        if seed is not None and use_chat_for_seed and response_format is None:
             chat_params = {k: v for k, v in params.items() if k != "seed"}
             logger.info("Using chat.completions for seeded request")
             resp = client.chat.completions.create(
@@ -368,10 +366,15 @@ def llm_call(
     METER.add_usage(chosen_model, stage, usage)
     if BUDGET:
         cost = BUDGET.consume(
-            usage["prompt_tokens"], usage["completion_tokens"], chosen_model, stage=stage
+            usage["prompt_tokens"],
+            usage["completion_tokens"],
+            chosen_model,
+            stage=stage,
         )
 
-    log_usage(stage, chosen_model, usage["prompt_tokens"], usage["completion_tokens"], cost)
+    log_usage(
+        stage, chosen_model, usage["prompt_tokens"], usage["completion_tokens"], cost
+    )
     try:
         setattr(resp, "tokens_in", usage["prompt_tokens"])
         setattr(resp, "tokens_out", usage["completion_tokens"])

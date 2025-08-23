@@ -6,7 +6,13 @@ def _client():
     return storage.Client()
 
 
-def upload_bytes_to_gcs(data: bytes, filename: str, content_type: str, bucket_name: str, prefix: str = "rd_results/") -> str:
+def upload_bytes_to_gcs(
+    data: bytes,
+    filename: str,
+    content_type: str,
+    bucket_name: str,
+    prefix: str = "rd_results/",
+) -> str:
     """Upload data to a GCS bucket and return the public URL."""
     bkt = _client().bucket(bucket_name)
     blob = bkt.blob(prefix + filename)

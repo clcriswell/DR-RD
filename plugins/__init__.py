@@ -17,6 +17,10 @@ import os
 # Auto-discover and import all plugin modules in this package
 plugins_dir = os.path.dirname(__file__)
 for filename in os.listdir(plugins_dir):
-    if filename.endswith(".py") and filename not in ["__init__.py", "plugin_base.py", "plugin_manager.py"]:
+    if filename.endswith(".py") and filename not in [
+        "__init__.py",
+        "plugin_base.py",
+        "plugin_manager.py",
+    ]:
         module_name = f"plugins.{filename[:-3]}"
         importlib.import_module(module_name)

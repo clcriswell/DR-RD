@@ -1,6 +1,8 @@
 """Safety gates for PoC simulations."""
-from .testplan import TestCase
+
 from simulation.registry import REGISTRY
+
+from .testplan import TestCase
 
 
 def assert_safe(test: TestCase) -> None:

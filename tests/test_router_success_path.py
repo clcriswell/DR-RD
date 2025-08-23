@@ -7,7 +7,9 @@ class EchoAgent:
 
 
 def test_router_success(monkeypatch):
-    monkeypatch.setattr(router, "AGENT_REGISTRY", {"Echo": object, "Synthesizer": object})
+    monkeypatch.setattr(
+        router, "AGENT_REGISTRY", {"Echo": object, "Synthesizer": object}
+    )
     monkeypatch.setattr(router, "get_agent", lambda name: EchoAgent())
     monkeypatch.setattr(
         router,

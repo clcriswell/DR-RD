@@ -1,6 +1,7 @@
 import logging
-from core.model_router import pick_model, CallHints
+
 from core.llm_client import call_openai
+from core.model_router import CallHints, pick_model
 
 
 def refine_agent_output(agent, idea, task, prev_output, other_outputs):
@@ -26,7 +27,7 @@ def refine_agent_output(agent, idea, task, prev_output, other_outputs):
         model=sel["model"],
         messages=[
             {"role": "system", "content": agent.system_message},
-            {"role": "user", "content": user_prompt}
+            {"role": "user", "content": user_prompt},
         ],
         **sel["params"],
     )

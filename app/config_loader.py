@@ -26,7 +26,9 @@ def load_mode(mode: str) -> tuple[dict, CostTracker]:
     if isinstance(weights, dict):
         total = sum(weights.values())
         if abs(total - 1.0) > 0.05 and total > 0:
-            logging.warning("stage_weights for mode %s sum to %.3f; normalizing", mode, total)
+            logging.warning(
+                "stage_weights for mode %s sum to %.3f; normalizing", mode, total
+            )
             mode_cfg["stage_weights"] = {k: v / total for k, v in weights.items()}
 
     with open(prices_path) as fh:
@@ -35,7 +37,8 @@ def load_mode(mode: str) -> tuple[dict, CostTracker]:
     if mode == "test":
         models = mode_cfg.get("models")
         if not (
-            isinstance(models, dict) and all(stage in models for stage in ["plan", "exec", "synth"])
+            isinstance(models, dict)
+            and all(stage in models for stage in ["plan", "exec", "synth"])
         ):
             cheap = TEST_MODEL_ID or _cheap_default(prices.get("models", {}))
             mode_cfg["models"] = {s: cheap for s in ["plan", "exec", "synth"]}

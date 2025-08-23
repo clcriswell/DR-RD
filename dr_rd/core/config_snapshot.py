@@ -30,7 +30,9 @@ def build_resolved_config_snapshot(cfg: Dict[str, Any]) -> Dict[str, Any]:
     # Budget caps
     budget = cfg.get("budget") if isinstance(cfg.get("budget"), dict) else {}
     caps = {
-        k: budget.get(k) for k in ["max_tokens", "max_cost_usd", "target_cost_usd"] if k in budget
+        k: budget.get(k)
+        for k in ["max_tokens", "max_cost_usd", "target_cost_usd"]
+        if k in budget
     }
     if caps:
         snapshot["budget_caps"] = caps

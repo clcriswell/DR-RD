@@ -7,6 +7,7 @@ provide a :meth:`run` method that performs the plugin's action.
 
 from __future__ import annotations
 
+
 class Plugin:
     """Base class for extendable plugins in the system.
 

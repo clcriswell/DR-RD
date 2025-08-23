@@ -6,7 +6,6 @@ import inspect
 import logging
 from typing import Callable, Tuple
 
-
 logger = logging.getLogger(__name__)
 
 CALL_ATTRS = ("run", "invoke", "__call__")
@@ -28,7 +27,9 @@ def resolve_invoker(agent) -> Tuple[str, Callable]:
     )
 
 
-def invoke_agent(agent, *, task: dict, model: str | None = None, meta: dict | None = None):
+def invoke_agent(
+    agent, *, task: dict, model: str | None = None, meta: dict | None = None
+):
     """Invoke ``agent`` with standard keyword arguments.
 
     The callable is resolved via :func:`resolve_invoker`.  A first attempt is
@@ -56,4 +57,3 @@ def invoke_agent(agent, *, task: dict, model: str | None = None, meta: dict | No
 
 
 __all__ = ["CALL_ATTRS", "resolve_invoker", "invoke_agent"]
-

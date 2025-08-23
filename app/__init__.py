@@ -111,10 +111,14 @@ def get_agents():
     """Create and return the initialized agents using the core registry."""
     use_test = st.session_state.get("MODE") == "test"
     mapping = TEST_ROLE_MODELS if use_test else AGENT_MODEL_MAP
-    default_model = mapping.get("DEFAULT") or os.getenv("DRRD_OPENAI_MODEL") or "gpt-4.1-mini"
+    default_model = (
+        mapping.get("DEFAULT") or os.getenv("DRRD_OPENAI_MODEL") or "gpt-4.1-mini"
+    )
     agents = build_agents_unified(mapping, default_model)
     agents["Planner"] = PlannerAgent(mapping.get("Planner") or default_model)
-    agents["Synthesizer"] = SynthesizerAgent(mapping.get("Synthesizer") or default_model)
+    agents["Synthesizer"] = SynthesizerAgent(
+        mapping.get("Synthesizer") or default_model
+    )
     logger.info("Registered agents (unified): %s", sorted(agents.keys()))
     return agents
 
@@ -190,7 +194,11 @@ def strip_json_block(md: str) -> str:
 
 def _get_qs_flag(name: str) -> bool:
     try:
-        qs = st.query_params if hasattr(st, "query_params") else st.experimental_get_query_params()
+        qs = (
+            st.query_params
+            if hasattr(st, "query_params")
+            else st.experimental_get_query_params()
+        )
         v = qs.get(name, ["0"])
         return (v if isinstance(v, list) else [v])[0] in ("1", "true", "True")
     except Exception:
@@ -278,7 +286,9 @@ def run_manual_pipeline(
         with st.spinner(f"🤖 {role} working..."):
             try:
                 memory_context = (
-                    memory_manager.get_project_summaries(similar_ideas) if similar_ideas else ""
+                    memory_manager.get_project_summaries(similar_ideas)
+                    if similar_ideas
+                    else ""
                 )
                 prompt_base = agent.user_prompt_template.format(idea=idea, task=task)
                 depth = design_depth.capitalize()
@@ -352,7 +362,9 @@ def run_manual_pipeline(
                     success=False,
                 )
                 # Attempt up to 2 refinements based on failed criteria
-                for attempt in range(1, 3):  # attempt = 1 for first retry, 2 for second retry
+                for attempt in range(
+                    1, 3
+                ):  # attempt = 1 for first retry, 2 for second retry
                     # Prepare feedback context with failed criteria
                     feedback = ""
                     if failed_list:
@@ -360,7 +372,9 @@ def run_manual_pipeline(
                     # Construct messages to re-run agent with feedback
                     try:
                         sel = pick_model(CallHints(stage="exec", difficulty="hard"))
-                        logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+                        logging.info(
+                            f"Model[exec]={sel['model']} params={sel['params']}"
+                        )
                         new_result = call_openai(
                             model=sel["model"],
                             messages=[
@@ -388,7 +402,9 @@ def run_manual_pipeline(
                     except Exception as e:
                         new_result = result  # if the re-run fails, keep the last result
                     # Run simulation again on the revised output
-                    new_metrics = simulation_agent.sim_manager.simulate(sim_type, new_result)
+                    new_metrics = simulation_agent.sim_manager.simulate(
+                        sim_type, new_result
+                    )
                     if new_metrics.get("pass", True):
                         # Success on retry
                         result = new_result
@@ -409,10 +425,10 @@ def run_manual_pipeline(
                     else:
                         # Still failing after this attempt
                         failed_list = new_metrics.get("failed", [])
-                        fail_desc = ", ".join(failed_list) if failed_list else "criteria"
-                        result = (
-                            new_result  # update result to the latest attempt for potential display
+                        fail_desc = (
+                            ", ".join(failed_list) if failed_list else "criteria"
                         )
+                        result = new_result  # update result to the latest attempt for potential display
                         # Log the failed retry attempt
                         safe_log_step(
                             get_project_id(),
@@ -441,7 +457,9 @@ def run_manual_pipeline(
                             st.stop()
             else:
                 # Simulation passed on first try
-                safe_log_step(get_project_id(), role, "Output", "Passed Simulation", success=True)
+                safe_log_step(
+                    get_project_id(), role, "Output", "Passed Simulation", success=True
+                )
                 # Append simulation metrics to the output if no further refinement rounds
                 if refinement_rounds == 1:
                     sim_text = simulation_agent.run_simulation(role, result)
@@ -451,7 +469,9 @@ def run_manual_pipeline(
             # Simulations not enabled or result is an error
             # Log the output as completed (success=True by default if no simulation)
             if not result.startswith("❌"):
-                safe_log_step(get_project_id(), role, "Output", "Completed", success=True)
+                safe_log_step(
+                    get_project_id(), role, "Output", "Completed", success=True
+                )
             else:
                 safe_log_step(
                     get_project_id(),
@@ -498,7 +518,9 @@ def run_manual_pipeline(
                     st.markdown("---")
                     st.markdown("### Research Scientist (Revised after collaboration)")
                     if simulate_enabled:
-                        sim_rs = simulation_agent.run_simulation("Research Scientist", updated_rs)
+                        sim_rs = simulation_agent.run_simulation(
+                            "Research Scientist", updated_rs
+                        )
                         if sim_rs:
                             updated_rs = f"{updated_rs}\n\n{sim_rs}"
                             answers["Research Scientist"] = updated_rs
@@ -527,7 +549,9 @@ def run_manual_pipeline(
         for r in range(2, refinement_rounds + 1):
             st.info(f"Refinement round {r-1} of {refinement_rounds-1}...")
             new_answers = {}
-            plan_source = st.session_state.get("plan_tasks") or st.session_state.get("plan", [])
+            plan_source = st.session_state.get("plan_tasks") or st.session_state.get(
+                "plan", []
+            )
             for rr, agent, t in route_tasks(plan_source, agents):
                 role = rr
                 task = f"{t['title']}: {t['description']}"
@@ -643,7 +667,9 @@ def main():
         with developer_expander("Developer", expanded=False):
             if "dev_mode" not in st.session_state:
                 st.session_state["dev_mode"] = _get_qs_flag("dev")
-            toggle_fn = getattr(st, "toggle", getattr(st, "checkbox", lambda *a, **k: False))
+            toggle_fn = getattr(
+                st, "toggle", getattr(st, "checkbox", lambda *a, **k: False)
+            )
             dev_on = toggle_fn(
                 "Enable Test (dev) mode",
                 value=bool(st.session_state.get("dev_mode")),
@@ -662,7 +688,9 @@ def main():
     env_mode = _os.getenv("DRRD_MODE")
     if env_mode:
         try:
-            modes_path = Path(__file__).resolve().parent.parent / "config" / "modes.yaml"
+            modes_path = (
+                Path(__file__).resolve().parent.parent / "config" / "modes.yaml"
+            )
             with open(modes_path) as fh:
                 modes_yaml = yaml.safe_load(fh) or {}
             env_mode_key = env_mode.lower()
@@ -714,7 +742,9 @@ def main():
     ff.VECTOR_INDEX_PATH = bootstrap.get("path") or ""
     ff.VECTOR_INDEX_SOURCE = bootstrap.get("source") or "none"
     ff.VECTOR_INDEX_REASON = bootstrap.get("reason") or ""
-    ff.FAISS_BOOTSTRAP_MODE = _mode_cfg.get("faiss_bootstrap_mode", ff.FAISS_BOOTSTRAP_MODE)
+    ff.FAISS_BOOTSTRAP_MODE = _mode_cfg.get(
+        "faiss_bootstrap_mode", ff.FAISS_BOOTSTRAP_MODE
+    )
     for k, v in final_flags.items():
         setattr(ff, k, v)
     if selected_mode == "deep":
@@ -722,7 +752,9 @@ def main():
     ui_preset = UI_PRESETS[selected_mode]
     st.session_state["simulate_enabled"] = ui_preset["simulate_enabled"]
     st.session_state["design_depth"] = ui_preset["design_depth"]
-    st.session_state["test_marker"] = {"test": True} if final_flags.get("TEST_MODE") else {}
+    st.session_state["test_marker"] = (
+        {"test": True} if final_flags.get("TEST_MODE") else {}
+    )
     st.session_state["MODE"] = selected_mode
     if hasattr(st, "caption"):
         st.caption(
@@ -754,14 +786,19 @@ def main():
         except Exception as e:  # pragma: no cover - external service
             logging.error(f"Could not fetch projects from Firestore: {e}")
     else:
-        project_names = [entry.get("name", "(unnamed)") for entry in memory_manager.data]
+        project_names = [
+            entry.get("name", "(unnamed)") for entry in memory_manager.data
+        ]
 
     current_project = st.session_state.get("project_name")
     if current_project and current_project not in project_names:
         project_names.append(current_project)
 
     selected_index = 0
-    if "project_name" in st.session_state and st.session_state["project_name"] in project_names:
+    if (
+        "project_name" in st.session_state
+        and st.session_state["project_name"] in project_names
+    ):
         selected_index = project_names.index(st.session_state["project_name"]) + 1
     selectbox_container = sidebar if hasattr(sidebar, "selectbox") else st
     selected_project = selectbox_container.selectbox(
@@ -781,7 +818,9 @@ def main():
                         data = doc.to_dict() or {}
                         st.session_state["idea"] = data.get("idea", "")
                         st.session_state["constraints"] = data.get("constraints", "")
-                        st.session_state["risk_posture"] = data.get("risk_posture", "Medium")
+                        st.session_state["risk_posture"] = data.get(
+                            "risk_posture", "Medium"
+                        )
                         plan_data = data.get("plan", [])
                         st.session_state["plan_tasks"] = plan_data
                         st.session_state["plan"] = [
@@ -792,10 +831,14 @@ def main():
                             }
                             for t in plan_data
                         ]
-                        st.session_state["answers"] = data.get("results", data.get("outputs", {}))
+                        st.session_state["answers"] = data.get(
+                            "results", data.get("outputs", {})
+                        )
                         st.session_state["final_doc"] = data.get("proposal", "")
                         st.session_state["images"] = data.get("images", [])
-                        st.session_state["project_name"] = data.get("name", selected_project)
+                        st.session_state["project_name"] = data.get(
+                            "name", selected_project
+                        )
                         st.session_state["project_saved"] = True
                         st.session_state["project_id"] = doc_id
                 except Exception as e:  # pragma: no cover - external service
@@ -805,7 +848,9 @@ def main():
                     if entry.get("name") == selected_project:
                         st.session_state["idea"] = entry.get("idea", "")
                         st.session_state["constraints"] = entry.get("constraints", "")
-                        st.session_state["risk_posture"] = entry.get("risk_posture", "Medium")
+                        st.session_state["risk_posture"] = entry.get(
+                            "risk_posture", "Medium"
+                        )
                         plan_data = entry.get("plan", [])
                         st.session_state["plan_tasks"] = plan_data
                         st.session_state["plan"] = [
@@ -816,10 +861,14 @@ def main():
                             }
                             for t in plan_data
                         ]
-                        st.session_state["answers"] = entry.get("results", entry.get("outputs", {}))
+                        st.session_state["answers"] = entry.get(
+                            "results", entry.get("outputs", {})
+                        )
                         st.session_state["final_doc"] = entry.get("proposal", "")
                         st.session_state["images"] = entry.get("images", [])
-                        st.session_state["project_name"] = entry.get("name", selected_project)
+                        st.session_state["project_name"] = entry.get(
+                            "name", selected_project
+                        )
                         st.session_state["project_saved"] = True
                         break
         else:
@@ -841,8 +890,12 @@ def main():
         if hasattr(st, "experimental_rerun"):
             st.experimental_rerun()
 
-    project_name = st.text_input("🏷️ Project Name:", value=st.session_state.get("project_name", ""))
-    idea = st.text_input("🧠 Enter your project idea:", value=st.session_state.get("idea", ""))
+    project_name = st.text_input(
+        "🏷️ Project Name:", value=st.session_state.get("project_name", "")
+    )
+    idea = st.text_input(
+        "🧠 Enter your project idea:", value=st.session_state.get("idea", "")
+    )
     constraints = st.text_input(
         "Constraints (optional)",
         key="constraints",
@@ -869,9 +922,18 @@ def main():
                     {
                         "id": "T1",
                         "title": "Thermal drop at 50W",
-                        "inputs": {"power_w": 50, "ambient_c": 25, "_sim": "thermal_mock"},
+                        "inputs": {
+                            "power_w": 50,
+                            "ambient_c": 25,
+                            "_sim": "thermal_mock",
+                        },
                         "metrics": [
-                            {"name": "delta_c", "operator": "<=", "target": 10.0, "unit": "C"},
+                            {
+                                "name": "delta_c",
+                                "operator": "<=",
+                                "target": 10.0,
+                                "unit": "C",
+                            },
                             {"name": "safety_margin", "operator": ">=", "target": 0.2},
                         ],
                         "safety_notes": "no external calls",
@@ -963,7 +1025,9 @@ def main():
             st.session_state["plan"] = tasks
             st.session_state["plan_tasks"] = tasks
             allowed_roles = set(get_agents().keys())
-            normalized = normalize_roles_tasks(tasks, allowed_roles=allowed_roles, max_roles=None)
+            normalized = normalize_roles_tasks(
+                tasks, allowed_roles=allowed_roles, max_roles=None
+            )
             st.session_state["plan_normalized_tasks"] = normalized
             st.session_state["allowed_roles"] = allowed_roles
             logger.info("Planner tasks: %d", len(tasks))
@@ -987,7 +1051,9 @@ def main():
                             "name": st.session_state.get("project_name", ""),
                             "idea": submitted_idea_text or idea_input or "",
                             "constraints": st.session_state.get("constraints", ""),
-                            "risk_posture": st.session_state.get("risk_posture", "Medium"),
+                            "risk_posture": st.session_state.get(
+                                "risk_posture", "Medium"
+                            ),
                             "plan": tasks,
                             **st.session_state.get("test_marker", {}),
                         },
@@ -1016,7 +1082,9 @@ def main():
     if "plan" in st.session_state:
         st.subheader("Project Plan (Role → Task)")
         raw_tasks = st.session_state["plan"]
-        raw_tasks = raw_tasks.get("tasks", []) if isinstance(raw_tasks, dict) else raw_tasks
+        raw_tasks = (
+            raw_tasks.get("tasks", []) if isinstance(raw_tasks, dict) else raw_tasks
+        )
         if not raw_tasks:
             getattr(st, "error", lambda *a, **k: None)(
                 "Planner returned no valid tasks. Check logs."
@@ -1054,7 +1122,9 @@ def main():
                 st.subheader(role)
                 for t in items:
                     title = t.get("title", "")
-                    if view.startswith("Canonical") and t.get("role") != t.get("normalized_role"):
+                    if view.startswith("Canonical") and t.get("role") != t.get(
+                        "normalized_role"
+                    ):
                         title = f"[{t['role']}] {title}"
                     st.markdown(f"- **{title}**")
                     st.caption(t.get("description", ""))
@@ -1077,8 +1147,12 @@ def main():
                         idea,
                         tasks,
                         project_id=get_project_id(),
-                        save_decision_log=st.session_state.get("save_decision_log", False),
-                        save_evidence=st.session_state.get("save_evidence_coverage", False),
+                        save_decision_log=st.session_state.get(
+                            "save_decision_log", False
+                        ),
+                        save_evidence=st.session_state.get(
+                            "save_evidence_coverage", False
+                        ),
                         project_name=st.session_state.get("project_name"),
                         ui_model=ui_model,
                     )
@@ -1089,8 +1163,12 @@ def main():
                             db.collection("rd_projects").document(doc_id).set(
                                 {
                                     "results": results,
-                                    "constraints": st.session_state.get("constraints", ""),
-                                    "risk_posture": st.session_state.get("risk_posture", "Medium"),
+                                    "constraints": st.session_state.get(
+                                        "constraints", ""
+                                    ),
+                                    "risk_posture": st.session_state.get(
+                                        "risk_posture", "Medium"
+                                    ),
                                     **st.session_state.get("test_marker", {}),
                                 },
                                 merge=True,
@@ -1109,7 +1187,9 @@ def main():
                         "Execution failed: An unexpected error occurred."
                     )
                 else:
-                    getattr(st, "success", lambda *a, **k: None)("✅ Domain experts complete!")
+                    getattr(st, "success", lambda *a, **k: None)(
+                        "✅ Domain experts complete!"
+                    )
 
     if "answers" in st.session_state:
         st.subheader("Domain Expert Outputs")
@@ -1147,7 +1227,9 @@ def main():
                             "Respond with Yes or No and a brief reason."
                         )
                         sel = pick_model(CallHints(stage="plan"))
-                        logging.info(f"Model[plan]={sel['model']} params={sel['params']}")
+                        logging.info(
+                            f"Model[plan]={sel['model']} params={sel['params']}"
+                        )
                         planner_text = call_openai(
                             model=sel["model"],
                             messages=[
@@ -1180,7 +1262,9 @@ def main():
                                 "Explain to the user why this suggestion won't be adopted."
                             )
                         sel = pick_model(CallHints(stage="exec"))
-                        logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
+                        logging.info(
+                            f"Model[exec]={sel['model']} params={sel['params']}"
+                        )
                         revised_output = call_openai(
                             model=sel["model"],
                             messages=[
@@ -1256,7 +1340,9 @@ def main():
                     memory_manager.store_project(
                         st.session_state.get("project_name", ""),
                         idea,
-                        st.session_state.get("plan_tasks", st.session_state.get("plan", {})),
+                        st.session_state.get(
+                            "plan_tasks", st.session_state.get("plan", {})
+                        ),
                         st.session_state["answers"],
                         final_report_text,
                         [],
@@ -1277,7 +1363,9 @@ def main():
                         {
                             "proposal": final_report_text,
                             "constraints": st.session_state.get("constraints", ""),
-                            "risk_posture": st.session_state.get("risk_posture", "Medium"),
+                            "risk_posture": st.session_state.get(
+                                "risk_posture", "Medium"
+                            ),
                             **st.session_state.get("test_marker", {}),
                         },
                         merge=True,
@@ -1339,11 +1427,23 @@ def main():
                 buf = io.StringIO()
                 writer = _csv.writer(buf)
                 writer.writerow(
-                    ["test_id", "passed", "metrics_observed", "metrics_passfail", "notes"]
+                    [
+                        "test_id",
+                        "passed",
+                        "metrics_observed",
+                        "metrics_passfail",
+                        "notes",
+                    ]
                 )
                 for r in report.results:
                     writer.writerow(
-                        [r.test_id, r.passed, r.metrics_observed, r.metrics_passfail, r.notes]
+                        [
+                            r.test_id,
+                            r.passed,
+                            r.metrics_observed,
+                            r.metrics_passfail,
+                            r.notes,
+                        ]
                     )
                 st.download_button(
                     "Download poc_results.csv",
@@ -1392,7 +1492,8 @@ def main():
                         st.write(f"**{p}**")
                         if p.endswith(".py") or p.endswith(".md") or p.endswith(".txt"):
                             st.code(
-                                files[p][:1000], language="python" if p.endswith(".py") else None
+                                files[p][:1000],
+                                language="python" if p.endswith(".py") else None,
                             )
                         else:
                             st.text(f"(binary or long content; {len(files[p])} bytes)")
@@ -1433,13 +1534,17 @@ def main():
                             write_publishing_md(app_root, repo_name)
                             z = make_zip_bytes(app_root)
                             st.download_button(
-                                f"Download {repo_name}.zip", data=z, file_name=f"{repo_name}.zip"
+                                f"Download {repo_name}.zip",
+                                data=z,
+                                file_name=f"{repo_name}.zip",
                             )
                     with col2:
                         if st.button("Create GitHub repo via API (uses GH_PAT)"):
                             token = st.secrets.get("GH_PAT", "")
                             if not token:
-                                st.error("GH_PAT secret not found. Add it in Streamlit secrets.")
+                                st.error(
+                                    "GH_PAT secret not found. Add it in Streamlit secrets."
+                                )
                             else:
                                 ok, info = try_create_github_repo(
                                     repo_name,
@@ -1490,7 +1595,9 @@ def main():
         if st.session_state.get("idea"):
             context_bits.append(f"IDEA: {st.session_state['idea']}")
         if st.session_state.get("plan"):
-            context_bits.append(f"PLAN ROLES: {', '.join(st.session_state['plan'].keys())}")
+            context_bits.append(
+                f"PLAN ROLES: {', '.join(st.session_state['plan'].keys())}"
+            )
         if st.session_state.get("answers"):
             sums = [
                 f"{r}: {len((st.session_state['answers'].get(r) or ''))} chars"
@@ -1502,7 +1609,9 @@ def main():
 
         from core.model_router import CallHints, pick_model
 
-        sel = pick_model(CallHints(stage="exec", deep_reasoning=(selected_mode == "deep")))
+        sel = pick_model(
+            CallHints(stage="exec", deep_reasoning=(selected_mode == "deep"))
+        )
         msg = "\n\n".join(context_bits) + f"\n\nUser: {user_msg}"
         try:
             reply = call_openai(

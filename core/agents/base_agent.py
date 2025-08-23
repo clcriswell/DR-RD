@@ -97,7 +97,9 @@ class BaseAgent:
             self.retriever = build_retriever(VECTOR_INDEX_PATH) if RAG_ENABLED else None
         self._sources: list[str] = []
 
-    def _augment_prompt(self, prompt: str, idea: str, task: str, task_id: str = "") -> str:
+    def _augment_prompt(
+        self, prompt: str, idea: str, task: str, task_id: str = ""
+    ) -> str:
         """Attach retrieved snippets and optionally web summary."""
         cfg = {
             "rag_enabled": RAG_ENABLED,

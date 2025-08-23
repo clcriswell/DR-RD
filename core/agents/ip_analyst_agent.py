@@ -1,13 +1,11 @@
-from core.agents.base_agent import BaseAgent
-from core.model_router import pick_model, CallHints
-from core.llm_client import log_usage, call_openai
-from typing import Optional, Dict, Any
 import json
 import re
-from prompts.prompts import (
-    IP_ANALYST_SYSTEM_PROMPT,
-    IP_ANALYST_USER_PROMPT_TEMPLATE,
-)
+from typing import Any, Dict, Optional
+
+from core.agents.base_agent import BaseAgent
+from core.llm_client import call_openai, log_usage
+from core.model_router import CallHints, pick_model
+from prompts.prompts import IP_ANALYST_SYSTEM_PROMPT, IP_ANALYST_USER_PROMPT_TEMPLATE
 
 
 class IPAnalystAgent(BaseAgent):
@@ -22,7 +20,9 @@ class IPAnalystAgent(BaseAgent):
             retriever=retriever,
         )
 
-    def act(self, idea: str, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def act(
+        self, idea: str, task: str, context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         prompt = self.user_prompt_template.format(idea=idea, task=task)
         prompt = self._augment_prompt(prompt, idea, task, "")
         sel = pick_model(CallHints(stage="exec"))

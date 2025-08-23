@@ -1,11 +1,12 @@
+import streamlit as st
+
 from config.model_routing import (
     DEFAULTS,
-    CallHints,
-    TEST_MODEL_ID,
     PRICE_TABLE,
+    TEST_MODEL_ID,
+    CallHints,
     _cheap_default,
 )
-import streamlit as st
 from core.llm import select_model
 
 
@@ -54,9 +55,7 @@ def pick_model(h: CallHints) -> dict:
             sel["model"] = override
         else:
             default_model = (
-                st.session_state.get("MODE_CFG", {})
-                .get("models", {})
-                .get(h.stage)
+                st.session_state.get("MODE_CFG", {}).get("models", {}).get(h.stage)
                 or TEST_MODEL_ID
                 or _cheap_default(PRICE_TABLE)
             )

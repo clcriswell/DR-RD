@@ -1,5 +1,5 @@
-from core.router import choose_agent_for_task
 from core.agents.registry import AGENT_REGISTRY
+from core.router import choose_agent_for_task
 
 
 def test_agent_mapping_cto():
@@ -24,9 +24,7 @@ def test_agent_mapping_regulatory():
 
 
 def test_agent_mapping_finance_keyword():
-    role, cls, _ = choose_agent_for_task(
-        None, "Estimate BOM cost and budget", ""
-    )
+    role, cls, _ = choose_agent_for_task(None, "Estimate BOM cost and budget", "")
     assert role == "Finance" and cls is AGENT_REGISTRY["Finance"]
 
 

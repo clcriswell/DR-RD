@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Dict, Tuple, Type
 
-from core.agents.registry import AGENT_REGISTRY, get_agent
 from core.agents.invoke import invoke_agent
+from core.agents.registry import AGENT_REGISTRY, get_agent
 from core.llm import select_model
 
 logger = logging.getLogger(__name__)
@@ -144,4 +144,3 @@ __all__ = [
     "route_task",
     "dispatch",
 ]
-

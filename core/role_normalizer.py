@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from difflib import get_close_matches
 from collections import Counter
+from difflib import get_close_matches
 from typing import Dict, List, Set
 
 # Map canonical role names to sets of specialist synonyms
@@ -131,4 +131,3 @@ def group_by_role(tasks: List[Dict], *, key: str) -> Dict[str, List[Dict]]:
         role = t.get(key, "Synthesizer")
         grouped.setdefault(role, []).append(t)
     return grouped
-

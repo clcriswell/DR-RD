@@ -14,7 +14,9 @@ AUDIT_DIR = "memory/audit_log"
 os.makedirs(AUDIT_DIR, exist_ok=True)
 
 
-def log_step(project_id: str, role: str, step_type: str, content: str, success: bool = True):
+def log_step(
+    project_id: str, role: str, step_type: str, content: str, success: bool = True
+):
     """
     Append a log entry for the given project_id. Each entry includes timestamp, role, step_type, content, and success.
     The log is stored in memory/audit_log/{project_id}.json as a list of entries.
@@ -29,13 +31,13 @@ def log_step(project_id: str, role: str, step_type: str, content: str, success: 
         "role": role,
         "step_type": step_type,
         "content": content,
-        "success": success
+        "success": success,
     }
     file_path = os.path.join(AUDIT_DIR, f"{project_id}.json")
     try:
         # Load existing log file if present
         if os.path.exists(file_path):
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 log_data = json.load(f)
         else:
             log_data = []
@@ -44,7 +46,7 @@ def log_step(project_id: str, role: str, step_type: str, content: str, success: 
 
     # Append new entry and save back to file
     log_data.append(log_entry)
-    with open(file_path, 'w') as f:
+    with open(file_path, "w") as f:
         json.dump(log_data, f, indent=2)
 
 
@@ -57,7 +59,7 @@ def get_logs(project_id: str):
     if not os.path.exists(file_path):
         return []
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             log_data = json.load(f)
     except json.JSONDecodeError:
         return []
@@ -67,4 +69,3 @@ def get_logs(project_id: str):
     except Exception:
         pass  # If timestamp format issues, skip sorting
     return log_data
-

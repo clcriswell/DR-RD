@@ -91,13 +91,17 @@ def apply_mode_overrides(cfg: dict) -> None:
     if "live_search_backend" in cfg:
         LIVE_SEARCH_BACKEND = str(cfg.get("live_search_backend") or LIVE_SEARCH_BACKEND)
     if "live_search_max_calls" in cfg:
-        LIVE_SEARCH_MAX_CALLS = int(cfg.get("live_search_max_calls", LIVE_SEARCH_MAX_CALLS))
+        LIVE_SEARCH_MAX_CALLS = int(
+            cfg.get("live_search_max_calls", LIVE_SEARCH_MAX_CALLS)
+        )
     if "live_search_summary_tokens" in cfg:
         LIVE_SEARCH_SUMMARY_TOKENS = int(
             cfg.get("live_search_summary_tokens", LIVE_SEARCH_SUMMARY_TOKENS)
         )
     if "faiss_bootstrap_mode" in cfg:
-        FAISS_BOOTSTRAP_MODE = str(cfg.get("faiss_bootstrap_mode") or FAISS_BOOTSTRAP_MODE)
+        FAISS_BOOTSTRAP_MODE = str(
+            cfg.get("faiss_bootstrap_mode") or FAISS_BOOTSTRAP_MODE
+        )
     if "faiss_index_local_dir" in cfg:
         VECTOR_INDEX_PATH = str(cfg.get("faiss_index_local_dir") or VECTOR_INDEX_PATH)
     if "faiss_index_uri" in cfg:

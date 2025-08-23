@@ -2,7 +2,10 @@ class DummyAgent:
     name = "Research Scientist"
 
     def act(self, idea, task, context):
-        return {"findings": ["stub"], "usage": {"prompt_tokens": 1, "completion_tokens": 1}}
+        return {
+            "findings": ["stub"],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+        }
 
 
 class DummyPlanner:
@@ -10,7 +13,13 @@ class DummyPlanner:
         pass
 
     def run(self, idea, prompt):
-        return [{"role": "Research Scientist", "title": "Stub task", "description": "do something"}]
+        return [
+            {
+                "role": "Research Scientist",
+                "title": "Stub task",
+                "description": "do something",
+            }
+        ]
 
     def revise_plan(self, context):
         return []

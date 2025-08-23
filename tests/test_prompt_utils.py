@@ -6,11 +6,11 @@ def test_string_passthrough():
 
 
 def test_dict_to_json():
-    out = coerce_user_content({"a":1})
+    out = coerce_user_content({"a": 1})
     assert isinstance(out, str)
     assert '"a":1' in out
 
 
 def test_list_of_dicts_allowed():
-    content = [{"type":"text","text":"hello"}]
+    content = [{"type": "text", "text": "hello"}]
     assert coerce_user_content(content) == content

@@ -1,6 +1,7 @@
 """
 Build rows linking intake → plan tasks → routed agent → artifact paths → final sections.
 """
+
 from typing import Dict, List
 
 

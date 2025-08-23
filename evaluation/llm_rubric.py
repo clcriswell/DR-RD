@@ -63,11 +63,7 @@ def score_with_rubric(text: str, rubric: str) -> float:
     try:  # pragma: no cover - network not exercised in tests
         from core.llm_client import call_openai
 
-        model = (
-            os.getenv("DRRD_LLM_MODEL")
-            or os.getenv("OPENAI_MODEL")
-            or "gpt-5"
-        )
+        model = os.getenv("DRRD_LLM_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-5"
 
         result = call_openai(
             model=model,
@@ -87,4 +83,3 @@ def score_with_rubric(text: str, rubric: str) -> float:
 
 
 __all__ = ["score_with_rubric", "workspace_to_text"]
-

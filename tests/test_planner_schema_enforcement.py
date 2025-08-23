@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from core.llm import ChatResult
 from core import orchestrator
+from core.llm import ChatResult
 from core.orchestrator import generate_plan
 
 
@@ -23,7 +23,14 @@ def test_normalizer_injects_ids(monkeypatch, caplog):
 
     def fake_complete(system, user, *, model, response_format):
         payload = {
-            "tasks": [{"role": "Role", "title": "Task", "summary": "Done", "description": "Desc"}]
+            "tasks": [
+                {
+                    "role": "Role",
+                    "title": "Task",
+                    "summary": "Done",
+                    "description": "Desc",
+                }
+            ]
         }
         return ChatResult(content=json.dumps(payload), raw=payload)
 

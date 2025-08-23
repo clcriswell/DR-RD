@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from core.llm import ChatResult
 from core import orchestrator
+from core.llm import ChatResult
 from core.orchestrator import generate_plan
 
 
@@ -71,7 +71,9 @@ def test_description_field_rejected(monkeypatch):
     _patch_redaction(monkeypatch)
 
     def bad_complete(system, user, *, model, response_format):
-        payload = {"tasks": [{"id": "T01", "role": "R", "title": "T", "description": "D"}]}
+        payload = {
+            "tasks": [{"id": "T01", "role": "R", "title": "T", "description": "D"}]
+        }
         return ChatResult(content=json.dumps(payload), raw=payload)
 
     monkeypatch.setattr(orchestrator, "complete", bad_complete)

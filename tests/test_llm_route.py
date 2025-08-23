@@ -1,6 +1,8 @@
 import os
+
 os.environ.setdefault("OPENAI_API_KEY", "test")
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import core.llm as llm
 import core.llm_client as lc
 
@@ -39,9 +41,7 @@ def test_responses_drops_temperature():
     fake = MagicMock()
     fake.responses.create.return_value = make_resp_resp()
     with patch.object(lc, "client", fake):
-        res = llm.complete(
-            "You are a test.", "Say OK.", model="gpt-5", temperature=0.9
-        )
+        res = llm.complete("You are a test.", "Say OK.", model="gpt-5", temperature=0.9)
     assert isinstance(res.content, str)
     fake.responses.create.assert_called_once()
     assert "temperature" not in fake.responses.create.call_args.kwargs

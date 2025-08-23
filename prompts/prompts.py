@@ -44,7 +44,9 @@ SYNTHESIZER_BUILD_GUIDE_TEMPLATE = (
 CTO_SYSTEM_PROMPT = "You are the CTO. Assess feasibility, architecture, and risks. Return clear, structured guidance."
 
 CTO_USER_PROMPT_TEMPLATE = (
-    "Project Idea:\n{idea}\n\n" "Task Title:\n{title}\n\n" "Task Description:\n{description}"
+    "Project Idea:\n{idea}\n\n"
+    "Task Title:\n{title}\n\n"
+    "Task Description:\n{description}"
 )
 
 REGULATORY_SYSTEM_PROMPT = (
@@ -68,7 +70,9 @@ MARKETING_USER_PROMPT_TEMPLATE = (
 
 FINANCE_SYSTEM_PROMPT = "You evaluate budgets, BOM costs and financial risks."
 
-FINANCE_USER_PROMPT_TEMPLATE = "Project Idea: {idea}\n" "As the Finance lead, your task is {task}."
+FINANCE_USER_PROMPT_TEMPLATE = (
+    "Project Idea: {idea}\n" "As the Finance lead, your task is {task}."
+)
 
 IP_ANALYST_SYSTEM_PROMPT = "You are an intellectual-property analyst skilled at prior-art searches, novelty assessment, patentability, and freedom-to-operate risk."
 

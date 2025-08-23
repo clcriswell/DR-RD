@@ -11,7 +11,6 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
-
 Task = Dict[str, Any]
 TaskResult = Tuple[Task, Any, float]  # (task, result, score)
 
@@ -31,7 +30,13 @@ def _sort_key(item: TaskResult) -> Tuple[int, float, str]:
     return (-int(t.get("priority", 0)), float(t.get("created_at", 0)), t.get("id", ""))
 
 
-def merge_results(state: Any, task: Task, result: Any, score: float, log: Callable[[str], None] | None = None) -> None:
+def merge_results(
+    state: Any,
+    task: Task,
+    result: Any,
+    score: float,
+    log: Callable[[str], None] | None = None,
+) -> None:
     """Merge ``result`` for ``task`` into ``state`` with basic conflict resolution."""
     existing = state.ws.read().get("results", {})
     if task["id"] in existing and log:

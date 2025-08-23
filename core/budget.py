@@ -34,9 +34,13 @@ class BudgetManager:
     # ------------------------------------------------------------------
     def _price(self, model_id: str) -> Dict[str, float]:
         models = self.price_table.get("models", {})
-        return models.get(model_id, models.get("default", {"in_per_1k": 0.0, "out_per_1k": 0.0}))
+        return models.get(
+            model_id, models.get("default", {"in_per_1k": 0.0, "out_per_1k": 0.0})
+        )
 
-    def cost_of(self, model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
+    def cost_of(
+        self, model_id: str, prompt_tokens: int, completion_tokens: int
+    ) -> float:
         p = self._price(model_id)
         return (prompt_tokens / 1000.0) * p.get("in_per_1k", 0.0) + (
             completion_tokens / 1000.0
@@ -69,7 +73,9 @@ class BudgetManager:
         est_completion_tokens: int,
     ) -> bool:
         cost = self.cost_of(model_id, est_prompt_tokens, est_completion_tokens)
-        return cost <= self.remaining_usd() and cost <= self._remaining_stage_usd(next_stage_name)
+        return cost <= self.remaining_usd() and cost <= self._remaining_stage_usd(
+            next_stage_name
+        )
 
     def reserve(
         self,
@@ -79,9 +85,13 @@ class BudgetManager:
         est_completion_tokens: int,
     ) -> Reservation:
         cost = self.cost_of(model_id, est_prompt_tokens, est_completion_tokens)
-        self.stage_spend[next_stage_name] = self.stage_spend.get(next_stage_name, 0.0) + cost
+        self.stage_spend[next_stage_name] = (
+            self.stage_spend.get(next_stage_name, 0.0) + cost
+        )
         self.spend += cost
-        return Reservation(next_stage_name, model_id, est_prompt_tokens, est_completion_tokens, cost)
+        return Reservation(
+            next_stage_name, model_id, est_prompt_tokens, est_completion_tokens, cost
+        )
 
     def consume(
         self,
@@ -117,9 +127,13 @@ class CostTracker:
 
     def _price(self, model_id: str) -> Dict[str, float]:
         models = self.price_table.get("models", {})
-        return models.get(model_id, models.get("default", {"in_per_1k": 0.0, "out_per_1k": 0.0}))
+        return models.get(
+            model_id, models.get("default", {"in_per_1k": 0.0, "out_per_1k": 0.0})
+        )
 
-    def cost_of(self, model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
+    def cost_of(
+        self, model_id: str, prompt_tokens: int, completion_tokens: int
+    ) -> float:
         p = self._price(model_id)
         return (prompt_tokens / 1000.0) * p.get("in_per_1k", 0.0) + (
             completion_tokens / 1000.0

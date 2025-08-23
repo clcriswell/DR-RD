@@ -20,7 +20,9 @@ def test_local_present(tmp_path):
     (local / "index.faiss").write_text("x")
     (local / "texts.json").write_text("{}")
     cfg = {"faiss_index_local_dir": str(local)}
-    logger = types.SimpleNamespace(info=lambda *a, **k: None, warning=lambda *a, **k: None)
+    logger = types.SimpleNamespace(
+        info=lambda *a, **k: None, warning=lambda *a, **k: None
+    )
     res = ensure_local_faiss_bundle(cfg, logger)
     assert res["present"] and res["source"] == "local"
 
@@ -46,7 +48,9 @@ def test_download_success(tmp_path):
         "faiss_index_local_dir": str(tmp_path / "idx"),
         "faiss_index_uri": "gs://bkt/prefix",
     }
-    logger = types.SimpleNamespace(info=lambda *a, **k: None, warning=lambda *a, **k: None)
+    logger = types.SimpleNamespace(
+        info=lambda *a, **k: None, warning=lambda *a, **k: None
+    )
     res = ensure_local_faiss_bundle(cfg, logger)
     assert res["present"] and res["source"] == "gcs"
 

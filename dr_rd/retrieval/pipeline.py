@@ -54,7 +54,9 @@ def collect_context(
         backend = cfg.get("live_search_backend", "openai")
         max_calls = int(cfg.get("live_search_max_calls", 0))
         if BUDGET and BUDGET.web_search_calls >= max_calls > 0:
-            BUDGET.skipped_due_to_budget = getattr(BUDGET, "skipped_due_to_budget", 0) + 1
+            BUDGET.skipped_due_to_budget = (
+                getattr(BUDGET, "skipped_due_to_budget", 0) + 1
+            )
             reason = "budget_skip"
         else:
             client = get_live_client(backend)

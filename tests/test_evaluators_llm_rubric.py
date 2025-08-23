@@ -3,10 +3,10 @@ import math
 import pytest
 
 import evaluation.llm_rubric as lr
-from evaluators.feasibility import FeasibilityEvaluator
-from evaluators.novelty import NoveltyEvaluator
 from evaluators.compliance import ComplianceEvaluator
 from evaluators.cost import CostEvaluator
+from evaluators.feasibility import FeasibilityEvaluator
+from evaluators.novelty import NoveltyEvaluator
 
 
 class FakeWorkspace:
@@ -62,4 +62,3 @@ def test_cost_tbd_falls_back_to_llm(monkeypatch):
     monkeypatch.setattr(lr, "score_with_rubric", lambda text, rubric: 0.4)
     s = CostEvaluator().evaluate(FakeWorkspace("Costs TBD; scope under refinement."))
     assert math.isclose(s, 0.4, rel_tol=1e-9)
-

@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -62,14 +62,29 @@ def build_coverage(project_id: str, role_to_findings: Dict[str, dict]) -> List[D
         if any(isinstance(x, (list, tuple, dict)) for x in [findings_raw, task_raw]):
             logger.info("coverage: coerced structured fields for role=%s", role)
         t = txt.lower()
-        dims["Feasibility"] = any(k in t for k in ["feasible", "feasibility", "risk", "resource"])
+        dims["Feasibility"] = any(
+            k in t for k in ["feasible", "feasibility", "risk", "resource"]
+        )
         dims["Novelty"] = any(k in t for k in ["novel", "original", "prior art", "new"])
-        dims["Compliance"] = any(k in t for k in ["regulatory", "compliance", "fda", "iso", "safety"])
+        dims["Compliance"] = any(
+            k in t for k in ["regulatory", "compliance", "fda", "iso", "safety"]
+        )
         dims["Cost"] = any(k in t for k in ["cost", "budget", "capex", "opex", "bom"])
-        dims["IP"] = any(k in t for k in ["patent", "prior art", "claims", "freedom to operate", "ip"])
-        dims["Market"] = any(k in t for k in ["market", "customer", "adoption", "pricing", "competitor"])
-        dims["Architecture"] = any(k in t for k in ["architecture", "interface", "security", "scalability", "system"])
-        dims["Materials"] = any(k in t for k in ["material", "alloy", "polymer", "composite", "fatigue", "tensile"])
+        dims["IP"] = any(
+            k in t
+            for k in ["patent", "prior art", "claims", "freedom to operate", "ip"]
+        )
+        dims["Market"] = any(
+            k in t for k in ["market", "customer", "adoption", "pricing", "competitor"]
+        )
+        dims["Architecture"] = any(
+            k in t
+            for k in ["architecture", "interface", "security", "scalability", "system"]
+        )
+        dims["Materials"] = any(
+            k in t
+            for k in ["material", "alloy", "polymer", "composite", "fatigue", "tensile"]
+        )
         row = {"project_id": project_id, "role": role}
         row.update(dims)
         rows.append(row)

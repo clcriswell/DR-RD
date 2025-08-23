@@ -1,4 +1,7 @@
-import json, os, logging
+import json
+import logging
+import os
+
 from core.agents.base_agent import BaseAgent
 from core.llm import complete
 
@@ -21,15 +24,26 @@ HRM_USER_FMT = """Project Idea:
 Output strictly as JSON: {{"roles": [...]}}
 """
 
+
 class HRMRoleAgent(BaseAgent):
     def __init__(self, **kwargs):
         model = kwargs.pop("model", os.getenv("DRRD_PLAN_MODEL", "gpt-4.1-mini"))
-        super().__init__(name="HRM Role Agent", model=model, system_message="", user_prompt_template="", **kwargs)
+        super().__init__(
+            name="HRM Role Agent",
+            model=model,
+            system_message="",
+            user_prompt_template="",
+            **kwargs
+        )
 
     def discover_roles(self, idea: str) -> list[str]:
         user_prompt = HRM_USER_FMT.format(idea=idea)
         try:
-            out = complete(HRM_SYSTEM, user_prompt, model=os.getenv("DRRD_PLAN_MODEL", "gpt-4.1-mini"))
+            out = complete(
+                HRM_SYSTEM,
+                user_prompt,
+                model=os.getenv("DRRD_PLAN_MODEL", "gpt-4.1-mini"),
+            )
         except TypeError:
             out = complete(HRM_SYSTEM, user_prompt)
         text = out if isinstance(out, str) else getattr(out, "content", str(out))
@@ -38,7 +52,11 @@ class HRMRoleAgent(BaseAgent):
         except Exception:
             start = text.find("{")
             end = text.rfind("}")
-            data = json.loads(text[start:end+1]) if start != -1 and end != -1 else {"roles": []}
+            data = (
+                json.loads(text[start : end + 1])
+                if start != -1 and end != -1
+                else {"roles": []}
+            )
         roles = data.get("roles", [])
         clean = []
         seen = set()

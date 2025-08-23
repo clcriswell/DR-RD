@@ -1,11 +1,12 @@
 """Firestore-backed result cache for DR-RD."""
+
 from __future__ import annotations
 
 from typing import Optional
 
+import streamlit as st
 from google.cloud import firestore
 from google.oauth2 import service_account
-import streamlit as st
 
 _client: Optional[firestore.Client] = None
 

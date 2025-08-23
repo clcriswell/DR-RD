@@ -16,7 +16,7 @@ class EvidenceItem(BaseModel):
     evidence: str = ""
     sources: List[str] = Field(default_factory=list)
     quotes: List[str] = Field(default_factory=list)
-    confidence: float = 0.0   # 0..1
+    confidence: float = 0.0  # 0..1
     tokens_in: int = 0
     tokens_out: int = 0
     cost_usd: float = 0.0
@@ -48,7 +48,9 @@ class EvidenceItem(BaseModel):
             out: List[str] = []
             for item in v:
                 if isinstance(item, (dict, list)):
-                    out.append(json.dumps(item, ensure_ascii=False, separators=(",", ":")))
+                    out.append(
+                        json.dumps(item, ensure_ascii=False, separators=(",", ":"))
+                    )
                 else:
                     out.append(str(item))
             return out

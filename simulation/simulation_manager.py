@@ -3,6 +3,7 @@ from .registry import register
 
 class SimulationManager:
     """Manages different types of simulations (structural, thermal, electronics, chemical)."""
+
     def __init__(self):
         # Register simulation handler stubs for each simulation type
         self.sim_functions = {
@@ -64,7 +65,11 @@ class SimulationManager:
                 except ValueError:
                     num = None
                 if num is not None and num > 80.0:
-                    failed_criteria.append("Cooling Load" if "Max Temperature" in metrics else "Thermal Limit")
+                    failed_criteria.append(
+                        "Cooling Load"
+                        if "Max Temperature" in metrics
+                        else "Thermal Limit"
+                    )
             # (We use "Cooling Load" as a named criterion for failing temperature)
         if sim_type == "electronics":
             # Example: require Power Consumption <= 100 W
@@ -88,7 +93,7 @@ class SimulationManager:
                     failed_criteria.append("Yield")
 
         # Set pass status
-        pass_status = (len(failed_criteria) == 0)
+        pass_status = len(failed_criteria) == 0
 
         # Include pass and failed criteria in the result
         metrics["pass"] = pass_status
@@ -98,7 +103,9 @@ class SimulationManager:
             outputs_path.mkdir(parents=True, exist_ok=True)
             import json
 
-            with open(outputs_path / f"{sim_type}_metrics.json", "w", encoding="utf-8") as fh:
+            with open(
+                outputs_path / f"{sim_type}_metrics.json", "w", encoding="utf-8"
+            ) as fh:
                 json.dump(metrics, fh, indent=2)
 
         if pass_status:

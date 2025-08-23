@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 
-from utils.redaction import load_policy as _load_policy, redact_text as _redact
+from utils.redaction import load_policy as _load_policy
+from utils.redaction import redact_text as _redact
 
 from core.schemas import ConceptBrief, TaskSpec
 
@@ -17,7 +18,11 @@ RESPONSIBILITY_TO_ROLE = {
 
 # Fallback redaction policy if config file is missing
 DEFAULT_POLICY: Dict[str, Dict[str, str]] = {
-    "email": {"enabled": True, "pattern": r"\b[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}\b", "token": "[REDACTED:EMAIL]"},
+    "email": {
+        "enabled": True,
+        "pattern": r"\b[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}\b",
+        "token": "[REDACTED:EMAIL]",
+    },
     "ipv6": {
         "enabled": True,
         "pattern": r"\b(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\b",

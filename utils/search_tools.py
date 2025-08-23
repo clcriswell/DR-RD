@@ -37,7 +37,9 @@ def obfuscate_query(role: str, idea: str, q: str) -> str:
     toks = _idea_token_set(idea)
     if toks:
         pattern = re.compile(
-            r"\b(" + "|".join(re.escape(t) for t in sorted(toks, key=len, reverse=True)) + r")\b",
+            r"\b("
+            + "|".join(re.escape(t) for t in sorted(toks, key=len, reverse=True))
+            + r")\b",
             re.IGNORECASE,
         )
         red = pattern.sub("[REDACTED]", red)
@@ -57,14 +59,20 @@ def search_google(role: str, idea: str, q: str, k: int = 5) -> List[Dict]:
     try:
         params = {"engine": "google", "q": q_red, "api_key": key}
         logger.info("search_google[%s]: %s", role, q_red)
-        resp = requests.get("https://serpapi.com/search.json", params=params, timeout=10)
+        resp = requests.get(
+            "https://serpapi.com/search.json", params=params, timeout=10
+        )
         resp.raise_for_status()
         data = resp.json()
         out: List[Dict] = []
         for item in data.get("organic_results", [])[:k]:
             snippet = _strip_html(item.get("snippet") or item.get("summary") or "")
             out.append(
-                {"snippet": snippet, "link": item.get("link", ""), "title": item.get("title", "")}
+                {
+                    "snippet": snippet,
+                    "link": item.get("link", ""),
+                    "title": item.get("title", ""),
+                }
             )
         return out
     except Exception:
@@ -76,8 +84,9 @@ def summarize_search(snippets: List[str], model: str | None = None) -> str:
     if not snippets:
         return ""
     model_id = model or "gpt-5"
-    prompt = "Summarize the following search snippets in a single concise paragraph:\n" + "\n".join(
-        f"- {s}" for s in snippets
+    prompt = (
+        "Summarize the following search snippets in a single concise paragraph:\n"
+        + "\n".join(f"- {s}" for s in snippets)
     )
     try:
         result = call_openai(

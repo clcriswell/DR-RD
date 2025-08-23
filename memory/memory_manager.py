@@ -1,15 +1,16 @@
 from __future__ import annotations
-from typing import Any, Optional, Dict
-import time
-import json
-import os
-import logging
-import uuid
-import re
-from difflib import SequenceMatcher
 
-from utils.config import load_config
+import json
+import logging
+import os
+import re
+import time
+import uuid
+from difflib import SequenceMatcher
+from typing import Any, Dict, Optional
+
 from filelock import FileLock
+from utils.config import load_config
 
 
 def _slugify(name: str) -> str:
@@ -22,7 +23,11 @@ def _slugify(name: str) -> str:
 class MemoryManager:
     """Session-scoped in-process memory with TTL support and project persistence."""
 
-    def __init__(self, file_path: str = "memory/project_memory.json", ttl_default: Optional[int] = None):
+    def __init__(
+        self,
+        file_path: str = "memory/project_memory.json",
+        ttl_default: Optional[int] = None,
+    ):
         self.file_path = file_path
         self._lock = FileLock(f"{self.file_path}.lock")
         os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
@@ -42,7 +47,14 @@ class MemoryManager:
         self.ttl_default = ttl_default if ttl_default is not None else ttl_cfg
         self.store: Dict[str, Dict[str, tuple[Any, Optional[float]]]] = {}
 
-    def set(self, key: str, value: Any, *, session_id: str, ttl_seconds: Optional[int] = None) -> None:
+    def set(
+        self,
+        key: str,
+        value: Any,
+        *,
+        session_id: str,
+        ttl_seconds: Optional[int] = None,
+    ) -> None:
         ttl = ttl_seconds if ttl_seconds is not None else self.ttl_default
         expires = time.time() + ttl if ttl else None
         self.store.setdefault(session_id, {})[key] = (value, expires)
@@ -163,17 +175,18 @@ class MemoryManager:
                             if next_heading_idx != -1:
                                 summary_text = proposal[idx:next_heading_idx].strip()
                             else:
-                                summary_text = proposal[idx: idx + 200].strip()
+                                summary_text = proposal[idx : idx + 200].strip()
                         else:
                             summary_text = proposal[:200].strip()
                         if len(proposal) > 200:
                             summary_text += "..."
                     else:
                         summary_text = "(No proposal available)"
-                    summaries.append(f"**Idea:** {idea_text}\n**Summary:** {summary_text}")
+                    summaries.append(
+                        f"**Idea:** {idea_text}\n**Summary:** {summary_text}"
+                    )
                     break
         return "\n\n".join(summaries)
-
 
     # --- PoC helpers ---
     def attach_poc(self, project_id: str, test_plan: dict, poc_report: dict) -> None:

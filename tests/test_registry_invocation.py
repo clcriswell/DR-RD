@@ -1,8 +1,9 @@
 import logging
+
 import pytest
 
-import core.router as router
 import core.agents.registry as registry
+import core.router as router
 from core.agents.invoke import resolve_invoker
 
 
@@ -85,4 +86,3 @@ def test_dispatch_success(monkeypatch):
     monkeypatch.setattr(router, "select_model", lambda *a, **k: "m")
     result = router.dispatch({"role": "Planner", "title": "", "description": ""})
     assert result == {"ok": True}
-

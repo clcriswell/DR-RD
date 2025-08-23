@@ -13,7 +13,9 @@ class Synth:
 
 
 def test_router_fallback(monkeypatch, caplog):
-    monkeypatch.setattr(router, "AGENT_REGISTRY", {"Bad": object, "Synthesizer": object})
+    monkeypatch.setattr(
+        router, "AGENT_REGISTRY", {"Bad": object, "Synthesizer": object}
+    )
 
     def fake_get_agent(name):
         return NoCall() if name == "Bad" else Synth()

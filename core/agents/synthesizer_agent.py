@@ -9,18 +9,18 @@ Call:
     from core.agents.synthesizer_agent import synthesize
     markdown = synthesize(user_idea, answers_dict)
 """
-from typing import Dict
+
 import logging
 import os
+from typing import Dict
+
 import streamlit as st
+from utils.image_visuals import make_visuals_for_project
 
 from core.llm import complete, select_model
 from core.llm_client import log_usage
-from utils.image_visuals import make_visuals_for_project
-from prompts.prompts import (
-    SYNTHESIZER_TEMPLATE,
-    SYNTHESIZER_BUILD_GUIDE_TEMPLATE,
-)
+from prompts.prompts import SYNTHESIZER_BUILD_GUIDE_TEMPLATE, SYNTHESIZER_TEMPLATE
+
 
 def synthesize(idea: str, answers: Dict[str, str], model: str | None = None) -> str:
     findings_md = "\n".join(f"### {d}\n{answers[d]}" for d in answers)
@@ -34,7 +34,11 @@ def synthesize(idea: str, answers: Dict[str, str], model: str | None = None) -> 
         model=model_id,
         temperature=0.3,
     )
-    usage = result.raw.get("usage") if isinstance(result.raw, dict) else getattr(result.raw, "usage", None)
+    usage = (
+        result.raw.get("usage")
+        if isinstance(result.raw, dict)
+        else getattr(result.raw, "usage", None)
+    )
     if usage:
         log_usage(
             stage="synth",
@@ -54,7 +58,9 @@ def compose_final_proposal(
     """Compose a Prototype Build Guide integrating agent contributions."""
     model_id = model or select_model("agent", agent_name="Synthesizer")
     logging.info(f"Model[synth]={model_id}")
-    contributions = "\n".join(f"### {role}\n{content}" for role, content in answers.items())
+    contributions = "\n".join(
+        f"### {role}\n{content}" for role, content in answers.items()
+    )
     sections = [
         "1. Executive Summary",
         "2. Bill of Materials (as a table)",
@@ -72,7 +78,11 @@ def compose_final_proposal(
         prompt,
         model=model_id,
     )
-    usage = result.raw.get("usage") if isinstance(result.raw, dict) else getattr(result.raw, "usage", None)
+    usage = (
+        result.raw.get("usage")
+        if isinstance(result.raw, dict)
+        else getattr(result.raw, "usage", None)
+    )
     if usage:
         log_usage(
             stage="synth",
@@ -93,7 +103,10 @@ def compose_final_proposal(
         img_size = flags.get("IMAGES_SIZE", "256x256")
         img_quality = flags.get("IMAGES_QUALITY", "high")
         try:
-            from utils.image_visuals import _openai as _img_openai, _decode_to_bytes, upload_bytes_to_gcs
+            from utils.image_visuals import _decode_to_bytes
+            from utils.image_visuals import _openai as _img_openai
+            from utils.image_visuals import upload_bytes_to_gcs
+
             client = _img_openai()
             prompt = f"Schematic/appearance concept for dev test: {idea[:160]}"
             res = client.images.generate(
@@ -106,6 +119,7 @@ def compose_final_proposal(
             b64 = res.data[0].b64_json
             data = _decode_to_bytes(b64)
             from io import BytesIO
+
             bio = BytesIO(data)
             fmt = "png"
             content_type = "image/png"
@@ -113,10 +127,19 @@ def compose_final_proposal(
             if bucket:
                 filename = f"{int(__import__('time').time())}-test.{fmt}"
                 try:
-                    url = upload_bytes_to_gcs(bio.getvalue(), filename, content_type, bucket)
+                    url = upload_bytes_to_gcs(
+                        bio.getvalue(), filename, content_type, bucket
+                    )
                 except Exception:
                     url = None
-            images.append({"kind": "test", "url": url, "data": bio.getvalue(), "caption": "Test Visual"})
+            images.append(
+                {
+                    "kind": "test",
+                    "url": url,
+                    "data": bio.getvalue(),
+                    "caption": "Test Visual",
+                }
+            )
         except Exception:
             pass
     else:
@@ -129,7 +152,11 @@ def compose_final_proposal(
             if img.get("url"):
                 final_document += f"\n![]({img['url']})\n"
 
-    result_payload = {"document": final_document, "images": images, "test": bool(flags.get("TEST_MODE"))}
+    result_payload = {
+        "document": final_document,
+        "images": images,
+        "test": bool(flags.get("TEST_MODE")),
+    }
     return result_payload
 
 

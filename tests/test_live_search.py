@@ -1,17 +1,20 @@
-import types
 import importlib
 import types
 
 import config.feature_flags as ff
 import core.agents.base_agent as ba
 import core.agents.ip_analyst_agent as ip_agent
-from dr_rd.retrieval.vector_store import Snippet
 from dr_rd.retrieval.live_search import OpenAIWebSearchClient, Source
+from dr_rd.retrieval.vector_store import Snippet
 
 
 class DummyResp:
     def __init__(self, content: str):
-        self.choices = [types.SimpleNamespace(message=types.SimpleNamespace(content=content), usage=None)]
+        self.choices = [
+            types.SimpleNamespace(
+                message=types.SimpleNamespace(content=content), usage=None
+            )
+        ]
 
 
 def test_live_search_triggered(monkeypatch):
@@ -24,7 +27,9 @@ def test_live_search_triggered(monkeypatch):
         return "summary", [Source(title="T1", url="u1")]
 
     monkeypatch.setattr(
-        OpenAIWebSearchClient, "search_and_summarize", staticmethod(fake_search_and_summarize)
+        OpenAIWebSearchClient,
+        "search_and_summarize",
+        staticmethod(fake_search_and_summarize),
     )
 
     captured = {}
@@ -56,7 +61,9 @@ def test_no_live_search_with_rag(monkeypatch):
         return "", []
 
     monkeypatch.setattr(
-        OpenAIWebSearchClient, "search_and_summarize", staticmethod(fake_search_and_summarize)
+        OpenAIWebSearchClient,
+        "search_and_summarize",
+        staticmethod(fake_search_and_summarize),
     )
 
     captured = {}
@@ -92,7 +99,9 @@ def test_live_search_disabled(monkeypatch):
         return "", []
 
     monkeypatch.setattr(
-        OpenAIWebSearchClient, "search_and_summarize", staticmethod(fake_search_and_summarize)
+        OpenAIWebSearchClient,
+        "search_and_summarize",
+        staticmethod(fake_search_and_summarize),
     )
 
     captured = {}

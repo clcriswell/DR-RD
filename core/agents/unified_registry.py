@@ -30,7 +30,11 @@ def resolve_model(role: str, purpose: str = "exec") -> str:
     if purpose == "synth":
         return os.getenv("DRRD_MODEL_SYNTH") or default_model
     if profile == "test":
-        return os.getenv("DRRD_MODEL_EXEC_TEST") or os.getenv("OPENAI_MODEL") or "gpt-4-turbo"
+        return (
+            os.getenv("DRRD_MODEL_EXEC_TEST")
+            or os.getenv("OPENAI_MODEL")
+            or "gpt-4-turbo"
+        )
     if profile == "pro":
         return os.getenv("DRRD_MODEL_EXEC_PRO") or default_model
     if profile == "deep":
@@ -70,7 +74,11 @@ def build_agents_unified(
         cls = get_agent_class(role)
         if not cls:
             continue
-        purpose = "plan" if role == "Planner" else "synth" if role == "Synthesizer" else "exec"
+        purpose = (
+            "plan"
+            if role == "Planner"
+            else "synth" if role == "Synthesizer" else "exec"
+        )
         agents[role] = cls(_model(role, purpose))
 
     # Try to instantiate optional legacy specialists via the registry
@@ -82,13 +90,17 @@ def build_agents_unified(
                     MechanicalSystemsLeadAgent as cls,  # type: ignore
                 )
             except Exception as e:  # pragma: no cover - best effort
-                logger.warning("Could not instantiate legacy agent %s: %s", legacy_role, e)
+                logger.warning(
+                    "Could not instantiate legacy agent %s: %s", legacy_role, e
+                )
                 cls = None
         if cls:
             try:
                 agents[legacy_role] = cls(resolve_model(legacy_role))  # type: ignore[arg-type]
             except Exception as e:  # pragma: no cover - best effort
-                logger.warning("Failed to create legacy agent %s with error: %s", legacy_role, e)
+                logger.warning(
+                    "Failed to create legacy agent %s with error: %s", legacy_role, e
+                )
 
     return agents
 
@@ -118,7 +130,9 @@ def choose_agent_for_task(
         return planned_role, agent
 
     low = f"{title} {desc or ''}".lower()
-    if any(k in low for k in ["market", "position", "segment", "competitor", "pricing"]):
+    if any(
+        k in low for k in ["market", "position", "segment", "competitor", "pricing"]
+    ):
         a = core.agents.get("Marketing Analyst")
         if a:
             return "Marketing Analyst", a
@@ -129,6 +143,8 @@ def choose_agent_for_task(
 
     # Default
     routed_role = (
-        "Research Scientist" if "Research Scientist" in agents else next(iter(core.agents.keys()))
+        "Research Scientist"
+        if "Research Scientist" in agents
+        else next(iter(core.agents.keys()))
     )
     return routed_role, agents[routed_role]

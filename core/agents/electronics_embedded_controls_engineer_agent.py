@@ -22,8 +22,8 @@ class ElectronicsEmbeddedControlsEngineerAgent(BaseAgent):
                 "Include reasoning behind design decisions (why choose a certain microcontroller or protocol). "
                 "Conclude with a JSON list of key embedded system components (hardware modules and firmware features).\n\n"
                 "As the Electronics & Embedded Controls Engineer, provide detailed wiring and integration steps in Markdown with justifications. \n"
-                "Number each step and include a diagram placeholder (e.g., \"![Figure 2: Wiring Diagram](images/wiring_diagram.png)\").\n"
+                'Number each step and include a diagram placeholder (e.g., "![Figure 2: Wiring Diagram](images/wiring_diagram.png)").\n'
                 "Finally, output a JSON-formatted components list:\n"
-                "```json\n[{{\"name\":\"Component\",\"quantity\":1,\"specs\":\"...\"}}, ...]\n```"
+                '```json\n[{{"name":"Component","quantity":1,"specs":"..."}}, ...]\n```'
             ),
         )

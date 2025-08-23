@@ -1,8 +1,9 @@
 import json
 
-from memory.memory_manager import MemoryManager
 from utils.search_tools import obfuscate_query
+
 from core.agents import planner_agent
+from memory.memory_manager import MemoryManager
 
 
 def test_redaction_masks_pii_and_idea_tokens():
@@ -20,6 +21,7 @@ def test_planner_prompt_includes_constraints_and_risk(monkeypatch):
 
     def fake_llm_call(_logger, model, stage, messages, **kwargs):
         captured["messages"] = messages
+
         # Minimal object with JSON content
         class Resp:
             choices = [
@@ -27,9 +29,19 @@ def test_planner_prompt_includes_constraints_and_risk(monkeypatch):
                     "obj",
                     (),
                     {
-                        "message": type("obj2", (), {"content": json.dumps({"tasks": []})})(),
+                        "message": type(
+                            "obj2", (), {"content": json.dumps({"tasks": []})}
+                        )(),
                         "finish_reason": "stop",
-                        "usage": type("U", (), {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0})(),
+                        "usage": type(
+                            "U",
+                            (),
+                            {
+                                "prompt_tokens": 0,
+                                "completion_tokens": 0,
+                                "total_tokens": 0,
+                            },
+                        )(),
                     },
                 )
             ]
@@ -64,11 +76,12 @@ def test_memory_persists_new_fields(tmp_path):
 
 def test_scope_note_normalization(monkeypatch):
     import types
+
     import core.orchestrator as orch
 
     def fake_complete(system, user_prompt):
         class R:
-            content = "{\"tasks\":[]}"
+            content = '{"tasks":[]}'
 
         return R()
 
@@ -79,4 +92,3 @@ def test_scope_note_normalization(monkeypatch):
     scope = orch.st.session_state["scope_note"]
     assert scope["constraints"] == ["C1", "C2"]
     assert scope["risk_posture"] == "high"
-

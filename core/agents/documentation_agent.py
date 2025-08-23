@@ -1,8 +1,11 @@
 from core.agents.base_agent import BaseAgent
 
 """Documentation Agent for technical documentation planning."""
+
+
 class DocumentationAgent(BaseAgent):
     """Agent that outlines the documentation strategy and requirements for the project."""
+
     def __init__(self, model):
         super().__init__(
             name="Documentation",

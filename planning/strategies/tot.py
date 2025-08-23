@@ -13,15 +13,10 @@ internal heuristic.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
 import logging
+from typing import Any, Dict, List
 
-from config.feature_flags import (
-    EVALUATORS_ENABLED,
-    TOT_BEAM,
-    TOT_K,
-    TOT_MAX_DEPTH,
-)
+from config.feature_flags import EVALUATORS_ENABLED, TOT_BEAM, TOT_K, TOT_MAX_DEPTH
 from extensions.abcs import BasePlannerStrategy
 from extensions.registry import EvaluatorRegistry, PlannerStrategyRegistry
 
@@ -35,7 +30,9 @@ logger = logging.getLogger(__name__)
 class ToTPlannerStrategy(BasePlannerStrategy):
     """Simple beam-search tree-of-thoughts planner."""
 
-    def __init__(self, k: int = TOT_K, beam: int = TOT_BEAM, max_depth: int = TOT_MAX_DEPTH) -> None:
+    def __init__(
+        self, k: int = TOT_K, beam: int = TOT_BEAM, max_depth: int = TOT_MAX_DEPTH
+    ) -> None:
         self.k = k
         self.beam = beam
         self.max_depth = max_depth
@@ -53,7 +50,9 @@ class ToTPlannerStrategy(BasePlannerStrategy):
         for tasks in self._expand([], 0, state):
             score = self._score(tasks, state)
             candidates.append({"tasks": tasks, "score": score})
-        logger.info("depth 0: %s", [(i, round(c["score"], 2)) for i, c in enumerate(candidates)])
+        logger.info(
+            "depth 0: %s", [(i, round(c["score"], 2)) for i, c in enumerate(candidates)]
+        )
 
         depth = 1
         while depth <= self.max_depth and candidates:
@@ -87,9 +86,18 @@ class ToTPlannerStrategy(BasePlannerStrategy):
 
         if depth == 0:
             options = [
-                {"role": "AI R&D Coordinator", "task": "Clarify requirements with stakeholders"},
-                {"role": "AI R&D Coordinator", "task": "Assess feasibility of core technologies"},
-                {"role": "AI R&D Coordinator", "task": "Survey prior art and existing solutions"},
+                {
+                    "role": "AI R&D Coordinator",
+                    "task": "Clarify requirements with stakeholders",
+                },
+                {
+                    "role": "AI R&D Coordinator",
+                    "task": "Assess feasibility of core technologies",
+                },
+                {
+                    "role": "AI R&D Coordinator",
+                    "task": "Survey prior art and existing solutions",
+                },
             ]
         else:
             options = [
@@ -154,4 +162,3 @@ class ToTPlannerStrategy(BasePlannerStrategy):
 # Register the strategy so it can be discovered via the registry when the
 # feature flag is enabled.
 PlannerStrategyRegistry.register("tot", ToTPlannerStrategy)
-

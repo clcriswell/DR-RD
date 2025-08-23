@@ -1,8 +1,6 @@
 from core.agents.base_agent import BaseAgent
-from prompts.prompts import (
-    FINANCE_SYSTEM_PROMPT,
-    FINANCE_USER_PROMPT_TEMPLATE,
-)
+from prompts.prompts import FINANCE_SYSTEM_PROMPT, FINANCE_USER_PROMPT_TEMPLATE
+
 
 class FinanceAgent(BaseAgent):
     """Financial analyst for budgeting and cost estimates."""

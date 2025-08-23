@@ -1,6 +1,7 @@
 import importlib
 import sys
 import types
+
 import config.model_routing as mr
 
 
@@ -24,12 +25,17 @@ def test_model_router_respects_mode_cfg(monkeypatch):
     fake_st = types.ModuleType("streamlit")
     fake_st.session_state = {
         "MODE_CFG": {
-            "models": {"plan": "gpt-4-turbo", "exec": "gpt-4-turbo", "synth": "gpt-4-turbo"}
+            "models": {
+                "plan": "gpt-4-turbo",
+                "exec": "gpt-4-turbo",
+                "synth": "gpt-4-turbo",
+            }
         },
         "final_flags": {"TEST_MODE": True},
     }
     monkeypatch.setitem(sys.modules, "streamlit", fake_st)
     import core.model_router as crouter
+
     importlib.reload(crouter)
 
     assert crouter.pick_model(mr.CallHints(stage="plan"))["model"] == "gpt-4-turbo"
@@ -39,6 +45,7 @@ def test_model_router_respects_mode_cfg(monkeypatch):
     fake_st.session_state["final_flags"]["MODEL_EXEC"] = "alt-model"
     assert crouter.pick_model(mr.CallHints(stage="exec"))["model"] == "alt-model"
     assert crouter.pick_model(mr.CallHints(stage="plan"))["model"] == "gpt-4-turbo"
+
 
 def test_cheap_default_from_prices(monkeypatch):
     """_cheap_default should pick the lowest-cost model from the price table."""

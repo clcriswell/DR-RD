@@ -1,5 +1,5 @@
-from simulation.simulation_manager import SimulationManager
 from orchestrators import qa_router
+from simulation.simulation_manager import SimulationManager
 
 
 class DummyHook:
@@ -31,7 +31,9 @@ def test_hooks_and_qa_routing(tmp_path):
             qa_router.route_failure(metrics, outputs_dir, context)
 
     router = Router()
-    metrics = sm.simulate("thermal", "spec", hooks=[hook], outputs_dir=tmp_path, qa_router=router)
+    metrics = sm.simulate(
+        "thermal", "spec", hooks=[hook], outputs_dir=tmp_path, qa_router=router
+    )
     assert hook.iter_called
     assert hook.fail_called and not hook.complete_called
     assert router.called

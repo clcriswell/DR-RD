@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import json
 from pathlib import Path
 from typing import Any, Dict
 
 
-def route_failure(metrics: Dict[str, Any], outputs_dir: Path, context: Dict[str, Any] | None = None) -> None:
+def route_failure(
+    metrics: Dict[str, Any], outputs_dir: Path, context: Dict[str, Any] | None = None
+) -> None:
     """Persist a minimal triage payload for QA follow-up."""
     outputs_dir = Path(outputs_dir)
     outputs_dir.mkdir(parents=True, exist_ok=True)

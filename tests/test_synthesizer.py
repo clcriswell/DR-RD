@@ -1,16 +1,23 @@
-from unittest.mock import patch
 import os
+from unittest.mock import patch
+
 import pytest
+
 from core.agents.synthesizer_agent import compose_final_proposal
 from core.llm import ChatResult
 
 
 def make_chat_result(text: str):
-    return ChatResult(content=text, raw={"usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+    return ChatResult(
+        content=text, raw={"usage": {"prompt_tokens": 1, "completion_tokens": 1}}
+    )
 
 
 @patch.dict(os.environ, {"OPENAI_API_KEY": "x"})
-@patch("core.agents.synthesizer_agent.make_visuals_for_project", return_value=[{"kind": "schematic", "url": "u", "caption": "S"}])
+@patch(
+    "core.agents.synthesizer_agent.make_visuals_for_project",
+    return_value=[{"kind": "schematic", "url": "u", "caption": "S"}],
+)
 @patch("core.agents.synthesizer_agent.complete")
 def test_compose_final_proposal(mock_complete, _mock_vis):
     fake_response = (

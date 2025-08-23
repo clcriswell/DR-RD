@@ -1,5 +1,6 @@
-import streamlit as st
 from types import SimpleNamespace
+
+import streamlit as st
 
 import core.llm_client as lc
 from core.budget import CostTracker
@@ -15,9 +16,13 @@ def test_cost_tracking_no_enforcement(monkeypatch):
     resp = SimpleNamespace(
         usage={"prompt_tokens": 10000, "completion_tokens": 0, "total_tokens": 10000}
     )
-    monkeypatch.setattr(lc, "call_openai", lambda model, messages, **kwargs: {"raw": resp, "text": "ok"})
+    monkeypatch.setattr(
+        lc, "call_openai", lambda model, messages, **kwargs: {"raw": resp, "text": "ok"}
+    )
 
-    lc.llm_call(None, "gpt-5", stage="synth", messages=[{"role": "user", "content": "hi"}])
+    lc.llm_call(
+        None, "gpt-5", stage="synth", messages=[{"role": "user", "content": "hi"}]
+    )
     log = st.session_state["usage_log"][-1]
     assert log["pt"] == 10000
     assert tracker.spend > 0

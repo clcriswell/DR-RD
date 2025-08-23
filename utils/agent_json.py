@@ -35,7 +35,9 @@ def extract_json_strict(text: str):
         pass
 
     # Remove markdown fences if present
-    m = re.search(r"```(?:json)?\s*(\{.*\}|\[.*\])\s*```", text, re.DOTALL | re.IGNORECASE)
+    m = re.search(
+        r"```(?:json)?\s*(\{.*\}|\[.*\])\s*```", text, re.DOTALL | re.IGNORECASE
+    )
     candidate = m.group(1) if m else text
     try:
         return json.loads(candidate)

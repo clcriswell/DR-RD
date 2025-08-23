@@ -27,7 +27,9 @@ def test_seed_stripped_default(monkeypatch, caplog):
 
     monkeypatch.setattr(llm_client.client.responses, "create", fake_create)
     monkeypatch.setattr(
-        llm_client.client.chat.completions, "create", lambda **kwargs: (_ for _ in ()).throw(RuntimeError("chat called"))
+        llm_client.client.chat.completions,
+        "create",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("chat called")),
     )
     monkeypatch.setattr(llm_client, "extract_text", lambda resp: "ok")
     caplog.set_level(logging.INFO)
@@ -37,7 +39,10 @@ def test_seed_stripped_default(monkeypatch, caplog):
         response_params={"seed": 123},
     )
     assert "seed" not in called
-    assert any("Ignoring unsupported Responses param: seed" in r.message for r in caplog.records)
+    assert any(
+        "Ignoring unsupported Responses param: seed" in r.message
+        for r in caplog.records
+    )
 
 
 def test_seed_routes_to_chat(monkeypatch, caplog):
@@ -51,7 +56,9 @@ def test_seed_routes_to_chat(monkeypatch, caplog):
 
     monkeypatch.setattr(llm_client.client.chat.completions, "create", fake_chat_create)
     monkeypatch.setattr(
-        llm_client.client.responses, "create", lambda **kwargs: (_ for _ in ()).throw(RuntimeError("responses called"))
+        llm_client.client.responses,
+        "create",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("responses called")),
     )
     monkeypatch.setattr(llm_client, "extract_text", lambda resp: "ok")
     caplog.set_level(logging.INFO)
@@ -61,7 +68,9 @@ def test_seed_routes_to_chat(monkeypatch, caplog):
         response_params={"seed": 42},
     )
     assert chat_called.get("seed") == 42
-    assert any("Using chat.completions for seeded request" in r.message for r in caplog.records)
+    assert any(
+        "Using chat.completions for seeded request" in r.message for r in caplog.records
+    )
 
 
 def test_seed_stripped_when_schema(monkeypatch, caplog):
@@ -75,7 +84,9 @@ def test_seed_stripped_when_schema(monkeypatch, caplog):
 
     monkeypatch.setattr(llm_client.client.responses, "create", fake_create)
     monkeypatch.setattr(
-        llm_client.client.chat.completions, "create", lambda **kwargs: (_ for _ in ()).throw(RuntimeError("chat called"))
+        llm_client.client.chat.completions,
+        "create",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("chat called")),
     )
     monkeypatch.setattr(llm_client, "extract_text", lambda resp: "ok")
     caplog.set_level(logging.INFO)
@@ -86,4 +97,7 @@ def test_seed_stripped_when_schema(monkeypatch, caplog):
         response_params={"seed": 99},
     )
     assert "seed" not in called
-    assert any("Ignoring unsupported Responses param: seed" in r.message for r in caplog.records)
+    assert any(
+        "Ignoring unsupported Responses param: seed" in r.message
+        for r in caplog.records
+    )

@@ -22,13 +22,17 @@ class MarketingAgent(BaseAgent):
             retriever=retriever,
         )
 
-    def act(self, idea: str, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def act(
+        self, idea: str, task: str, context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         prompt = self.user_prompt_template.format(idea=idea, task=task)
         sources: List[str] = []
         # Inject RAG snippets
         if RAG_ENABLED and self.retriever:
             try:
-                hits: List[Tuple[str, str]] = self.retriever.query(f"{idea}\n{task}", RAG_TOPK)
+                hits: List[Tuple[str, str]] = self.retriever.query(
+                    f"{idea}\n{task}", RAG_TOPK
+                )
                 if hits:
                     bundle_lines = []
                     for i, (text, src) in enumerate(hits, 1):

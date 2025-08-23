@@ -1,8 +1,11 @@
 from core.agents.base_agent import BaseAgent
 
 """Engineer Agent for implementation planning and technical details."""
+
+
 class EngineerAgent(BaseAgent):
     """Agent that provides a software/hardware development plan and system design for the idea."""
+
     def __init__(self, model):
         super().__init__(
             name="Engineer",

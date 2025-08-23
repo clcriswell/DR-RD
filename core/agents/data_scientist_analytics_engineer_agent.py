@@ -2,6 +2,7 @@ from core.agents.base_agent import BaseAgent
 
 """Data Scientist / Analytics Engineer Agent."""
 
+
 class DataScientistAnalyticsEngineerAgent(BaseAgent):
     """Agent that provides data strategy and analytics modeling for the project."""
 

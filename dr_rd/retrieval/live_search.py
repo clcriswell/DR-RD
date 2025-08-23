@@ -1,22 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Protocol, Tuple, Dict, Any
+from typing import Any, Dict, List, Protocol, Tuple
+
+from utils.search_tools import search_google, summarize_search
 
 from core.llm_client import call_openai
-from utils.search_tools import search_google, summarize_search
+
 
 @dataclass
 class Source:
     title: str
     url: str | None = None
 
+
 class LiveSearchClient(Protocol):
-    def search_and_summarize(self, query: str, k: int, max_tokens: int) -> Tuple[str, List[Source]]:
-        ...
+    def search_and_summarize(
+        self, query: str, k: int, max_tokens: int
+    ) -> Tuple[str, List[Source]]: ...
+
 
 class OpenAIWebSearchClient:
-    def search_and_summarize(self, query: str, k: int, max_tokens: int) -> Tuple[str, List[Source]]:
+    def search_and_summarize(
+        self, query: str, k: int, max_tokens: int
+    ) -> Tuple[str, List[Source]]:
         messages = [{"role": "user", "content": query}]
         result = call_openai(
             model="gpt-4.1-mini",
@@ -34,18 +41,23 @@ class OpenAIWebSearchClient:
             pass
         return text, sources
 
+
 class SerpAPIClient:
-    def search_and_summarize(self, query: str, k: int, max_tokens: int) -> Tuple[str, List[Source]]:
+    def search_and_summarize(
+        self, query: str, k: int, max_tokens: int
+    ) -> Tuple[str, List[Source]]:
         results = search_google("live", "", query, k=k)
         snippets = [r.get("snippet", "") for r in results]
         summary = summarize_search(snippets, model="gpt-4.1-mini")
         sources = [Source(title=r.get("title", ""), url=r.get("link")) for r in results]
         return summary, sources
 
+
 BACKENDS = {
     "openai": OpenAIWebSearchClient,
     "serpapi": SerpAPIClient,
 }
+
 
 def get_live_client(backend: str) -> LiveSearchClient:
     cls = BACKENDS.get(backend, OpenAIWebSearchClient)

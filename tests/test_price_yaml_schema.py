@@ -1,4 +1,7 @@
-import yaml, pathlib
+import pathlib
+
+import yaml
+
 
 def test_prices_yaml_schema():
     root = pathlib.Path(__file__).resolve().parents[1]

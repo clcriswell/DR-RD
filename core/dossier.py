@@ -1,12 +1,13 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any
-from pathlib import Path
-import json
-from datetime import datetime
 
-from utils.redaction import redact_text, load_policy
+import json
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
+
 from utils.config import load_config
+from utils.redaction import load_policy, redact_text
 
 
 @dataclass
@@ -30,7 +31,9 @@ class Dossier:
         if policy is None:
             cfg = load_config()
             if cfg.get("redaction", {}).get("enabled", True):
-                policy_file = cfg.get("redaction", {}).get("policy_file", "config/redaction.yaml")
+                policy_file = cfg.get("redaction", {}).get(
+                    "policy_file", "config/redaction.yaml"
+                )
                 policy = load_policy(policy_file)
             else:
                 policy = {}

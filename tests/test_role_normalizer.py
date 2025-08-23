@@ -2,9 +2,9 @@ import pytest
 
 from core.role_normalizer import (
     SYNONYMS,
+    group_by_role,
     normalize_role,
     normalize_tasks,
-    group_by_role,
 )
 
 ALLOWED = set(SYNONYMS.keys())
@@ -15,17 +15,11 @@ def test_exact_match():
 
 
 def test_synonym_mapping():
-    assert (
-        normalize_role("Mechanical Engineer", ALLOWED)
-        == "Mechanical Systems Lead"
-    )
+    assert normalize_role("Mechanical Engineer", ALLOWED) == "Mechanical Systems Lead"
 
 
 def test_fuzzy_fallback():
-    assert (
-        normalize_role("Reserch Scientst", ALLOWED)
-        == "Research Scientist"
-    )
+    assert normalize_role("Reserch Scientst", ALLOWED) == "Research Scientist"
 
 
 def test_tail_collapse_by_frequency():

@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from utils.logging import logger, safe_exc
 
 from core.llm_client import call_openai
-from core.prompt_utils import coerce_user_content
 from core.privacy import redact_for_logging
+from core.prompt_utils import coerce_user_content
 
 
 def select_model(
@@ -62,7 +62,11 @@ class ChatResult:
 def _log_request(model: str, messages: list, extra: dict):
     try:
         redacted = redact_for_logging(messages)
-        preview = {"model": model, "messages": redacted, "extra_keys": list(extra.keys())}
+        preview = {
+            "model": model,
+            "messages": redacted,
+            "extra_keys": list(extra.keys()),
+        }
         logger.info("Input preview (redacted): %s", json.dumps(preview)[:1000])
     except Exception as e:
         safe_exc(logger, "", "[LLM] Could not log request preview", e)
@@ -81,7 +85,9 @@ def _log_400(e: Exception):
 
 def _validate_messages(messages: list):
     if not isinstance(messages, list) or not messages:
-        raise ValueError("messages must be a non-empty list of {role, content} objects.")
+        raise ValueError(
+            "messages must be a non-empty list of {role, content} objects."
+        )
     for i, m in enumerate(messages):
         if not isinstance(m, dict):
             raise ValueError(f"messages[{i}] is not a dict.")
@@ -94,7 +100,9 @@ def _validate_messages(messages: list):
             c = coerce_user_content(c)
             m["content"] = c
             if not isinstance(c, str) and not isinstance(c, list):
-                raise ValueError(f"messages[{i}].content must be str or list (for vision).")
+                raise ValueError(
+                    f"messages[{i}].content must be str or list (for vision)."
+                )
 
 
 def complete(

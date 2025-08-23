@@ -2,6 +2,7 @@ from core.agents.base_agent import BaseAgent
 
 """AI R&D Coordinator Agent."""
 
+
 class AIResearchDevelopmentCoordinatorAgent(BaseAgent):
     """Agent that integrates AI and automation to accelerate R&D projects."""
 

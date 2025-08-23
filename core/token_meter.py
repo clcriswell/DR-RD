@@ -23,7 +23,9 @@ class TokenMeter:
         return dict(self.per_stage)
 
 
-def dollars_from_usage(model_id: str, prompt_tokens: int, completion_tokens: int) -> float:
+def dollars_from_usage(
+    model_id: str, prompt_tokens: int, completion_tokens: int
+) -> float:
     from app.price_loader import cost_usd
 
     return cost_usd(model_id, prompt_tokens, completion_tokens)

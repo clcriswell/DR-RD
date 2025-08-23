@@ -1,7 +1,7 @@
-from typing import Any, Dict, List
 import json
+from typing import Any, Dict, List
 
-from core.roles import normalize_role, canonical_roles
+from core.roles import canonical_roles, normalize_role
 
 _CANON = canonical_roles()
 
@@ -12,7 +12,8 @@ def _canon_role(name: str) -> str | None:
 
 def _is_task(d: Any) -> bool:
     return isinstance(d, dict) and all(
-        isinstance(d.get(k, ""), str) and d.get(k, "").strip() for k in ("role", "title", "description")
+        isinstance(d.get(k, ""), str) and d.get(k, "").strip()
+        for k in ("role", "title", "description")
     )
 
 
@@ -31,7 +32,9 @@ def _coerce(raw: Any) -> Any:
     return []
 
 
-def normalize_plan_to_tasks(raw: Any, backfill: bool = True, dedupe: bool = True) -> List[Dict[str, str]]:
+def normalize_plan_to_tasks(
+    raw: Any, backfill: bool = True, dedupe: bool = True
+) -> List[Dict[str, str]]:
     obj = _coerce(raw)
     tasks: List[Dict[str, str]] = []
 
@@ -42,7 +45,11 @@ def normalize_plan_to_tasks(raw: Any, backfill: bool = True, dedupe: bool = True
                 role = _canon_role(it["role"])
                 if role:
                     tasks.append(
-                        {"role": role, "title": it["title"].strip(), "description": it["description"].strip()}
+                        {
+                            "role": role,
+                            "title": it["title"].strip(),
+                            "description": it["description"].strip(),
+                        }
                     )
         return _post(tasks, backfill, dedupe)
 
@@ -51,7 +58,11 @@ def normalize_plan_to_tasks(raw: Any, backfill: bool = True, dedupe: bool = True
         role = _canon_role(obj["role"])
         if role:
             tasks.append(
-                {"role": role, "title": obj["title"].strip(), "description": obj["description"].strip()}
+                {
+                    "role": role,
+                    "title": obj["title"].strip(),
+                    "description": obj["description"].strip(),
+                }
             )
         return _post(tasks, backfill, dedupe)
 
@@ -72,7 +83,9 @@ def normalize_plan_to_tasks(raw: Any, backfill: bool = True, dedupe: bool = True
     return _post(tasks, backfill, dedupe)
 
 
-def _post(tasks: List[Dict[str, str]], backfill: bool, dedupe: bool) -> List[Dict[str, str]]:
+def _post(
+    tasks: List[Dict[str, str]], backfill: bool, dedupe: bool
+) -> List[Dict[str, str]]:
     if dedupe:
         seen = set()
         uniq = []
@@ -94,4 +107,3 @@ def _post(tasks: List[Dict[str, str]], backfill: bool, dedupe: bool) -> List[Dic
                 }
             )
     return tasks
-

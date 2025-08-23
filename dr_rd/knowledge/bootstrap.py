@@ -21,7 +21,12 @@ def ensure_local_faiss_bundle(cfg: dict, logger) -> dict:
     uri = cfg.get("faiss_index_uri")
     if mode != "download" or not uri or not str(uri).startswith("gs://"):
         reason = "bootstrap_skipped" if mode != "download" else "no_uri"
-        return {"present": False, "path": str(local_dir), "source": "none", "reason": reason}
+        return {
+            "present": False,
+            "path": str(local_dir),
+            "source": "none",
+            "reason": reason,
+        }
     bucket, prefix = _parse_gs_uri(str(uri))
     files = 0
     total = 0
@@ -49,7 +54,12 @@ def ensure_local_faiss_bundle(cfg: dict, logger) -> dict:
         )
         if ok:
             return {"present": True, "path": str(local_dir), "source": "gcs"}
-        return {"present": False, "path": str(local_dir), "source": "none", "reason": "incomplete"}
+        return {
+            "present": False,
+            "path": str(local_dir),
+            "source": "none",
+            "reason": "incomplete",
+        }
     except Exception as e:  # pragma: no cover - network failures
         msg = str(e)
         logger.warning(
@@ -60,4 +70,9 @@ def ensure_local_faiss_bundle(cfg: dict, logger) -> dict:
             total,
             msg,
         )
-        return {"present": False, "path": str(local_dir), "source": "none", "reason": msg}
+        return {
+            "present": False,
+            "path": str(local_dir),
+            "source": "none",
+            "reason": msg,
+        }

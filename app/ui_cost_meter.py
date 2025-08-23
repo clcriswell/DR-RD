@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import streamlit as st
-from config.mode_profiles import UI_PRESETS
+
 from app.price_loader import cost_usd, load_prices
+from config.mode_profiles import UI_PRESETS
 from core.llm import select_model
 
 
-def _estimate_remaining(plan: dict | list | None, stage_counts: dict[str, int], mode: str) -> float:
+def _estimate_remaining(
+    plan: dict | list | None, stage_counts: dict[str, int], mode: str
+) -> float:
     cfg = st.session_state.get("MODE_CFG", {}) or {}
     models = cfg.get("models", {})
     weights = cfg.get("stage_weights", {})
@@ -71,4 +74,6 @@ def render_cost_summary(mode: str, plan: dict | list | None):
         metric("Actual so far", f"${actual:.2f}")
         metric("Projected total", f"${actual + remainder:.2f}")
         if callable(caption):
-            caption("Based on model mix and current plan; updates live. ±20% uncertainty")
+            caption(
+                "Based on model mix and current plan; updates live. ±20% uncertainty"
+            )

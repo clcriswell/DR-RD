@@ -2,30 +2,29 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
-from pydantic import BaseModel, Field
 import json
-from core.llm_client import (
-    call_openai,
-    llm_call,
-    extract_planner_payload,
-    _strip_code_fences,
-)
 import logging
 import os
-from dr_rd.retrieval.pipeline import collect_context
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
 from config.feature_flags import (
-    RAG_ENABLED,
-    RAG_TOPK,
     ENABLE_LIVE_SEARCH,
     LIVE_SEARCH_BACKEND,
     LIVE_SEARCH_MAX_CALLS,
     LIVE_SEARCH_SUMMARY_TOKENS,
+    RAG_ENABLED,
+    RAG_TOPK,
 )
-from prompts.prompts import (
-    PLANNER_SYSTEM_PROMPT,
-    PLANNER_USER_PROMPT_TEMPLATE,
+from core.llm_client import (
+    _strip_code_fences,
+    call_openai,
+    extract_planner_payload,
+    llm_call,
 )
+from dr_rd.retrieval.pipeline import collect_context
+from prompts.prompts import PLANNER_SYSTEM_PROMPT, PLANNER_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,10 @@ def _repair_to_json(raw_txt: str, model: str) -> str:
     """Attempt a one-shot JSON repair using a utility model."""
 
     repair_msgs = [
-        {"role": "system", "content": "Return ONLY valid JSON for the provided content. No prose."},
+        {
+            "role": "system",
+            "content": "Return ONLY valid JSON for the provided content. No prose.",
+        },
         {
             "role": "user",
             "content": (
@@ -263,4 +265,3 @@ class PlannerAgent:
                 }
             ]
         return tasks
-

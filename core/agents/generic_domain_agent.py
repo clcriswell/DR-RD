@@ -4,6 +4,7 @@ GENERIC_SYSTEM_FMT = """You are a world-class {role}.
 Respond ONLY with structured JSON as instructed by the task contract. 
 Bring deep domain knowledge for {role} and cite sources if available."""
 
+
 class GenericDomainAgent(LLMRoleAgent):
     def __init__(self, role: str, model: str):
         super().__init__(role, model)

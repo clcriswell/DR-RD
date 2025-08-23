@@ -1,10 +1,10 @@
-from typing import Dict, Any, List
-import re
+import csv
 import json
 import os
-import csv
-import zipfile
 import pathlib
+import re
+import zipfile
+from typing import Any, Dict, List
 
 REQUIRED_SECTIONS = [
     "Executive Summary",
@@ -19,10 +19,11 @@ REQUIRED_SECTIONS = [
     "Next Steps",
 ]
 
+
 def _ensure_sections(text: str) -> str:
     out = text
     for h in REQUIRED_SECTIONS:
-        if re.search(rf'^##\s+{re.escape(h)}\b', out, re.M) is None:
+        if re.search(rf"^##\s+{re.escape(h)}\b", out, re.M) is None:
             out += f"\n\n## {h}\n"
     return out
 

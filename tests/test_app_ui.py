@@ -3,6 +3,7 @@ import os
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
+
 import pytest
 
 
@@ -16,23 +17,28 @@ def make_streamlit(text_input, buttons, state=None, raise_on_stop=False):
     class DummySpinner:
         def __enter__(self):
             return None
+
         def __exit__(self, exc_type, exc, tb):
             return False
 
     class DummySidebar:
         def checkbox(self, *args, **kwargs):
             return False
+
         def expander(self, *args, **kwargs):
             class DummyExpander:
                 def __enter__(self_inner):
                     return None
+
                 def __exit__(self_inner, exc_type, exc, tb):
                     return False
+
             return DummyExpander()
 
     class DummyForm:
         def __enter__(self):
             return None
+
         def __exit__(self, exc_type, exc, tb):
             return False
 
@@ -71,12 +77,17 @@ def reload_app(monkeypatch, st, patches=None, expect_exit=False):
         "google.oauth2.service_account.Credentials.from_service_account_info",
         lambda info: None,
     )
+
     class DummyClient:
         def __init__(self, credentials=None):
             pass
+
         def setup_logging(self):
             pass
-    monkeypatch.setattr("google.cloud.logging.Client", lambda credentials=None: DummyClient())
+
+    monkeypatch.setattr(
+        "google.cloud.logging.Client", lambda credentials=None: DummyClient()
+    )
     if patches:
         for target, ret in patches.items():
             monkeypatch.setattr(target, ret)
@@ -158,9 +169,11 @@ def test_compile_final_proposal(monkeypatch):
     )
     patches = {
         "core.agents.synthesizer_agent.compose_final_proposal": (
-            lambda idea, answers, include_simulations=False: {"document": "final", "images": []}
+            lambda idea, answers, include_simulations=False: {
+                "document": "final",
+                "images": [],
+            }
         )
     }
     reload_app(monkeypatch, st, patches)
     st.markdown.assert_called_with("final")
-

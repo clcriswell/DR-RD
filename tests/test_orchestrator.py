@@ -1,6 +1,6 @@
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
-from core.orchestrator import generate_plan, execute_plan, compile_proposal
+from core.orchestrator import compile_proposal, execute_plan, generate_plan
 
 
 @patch("core.orchestrator.complete")
@@ -9,9 +9,7 @@ def test_generate_plan_parses_llm_output(mock_complete):
         content='{"tasks": [{"role": "CTO", "title": "Plan", "summary": "Design"}]}'
     )
     tasks = generate_plan("new idea")
-    assert tasks == [
-        {"role": "CTO", "title": "Plan", "description": "Design"}
-    ]
+    assert tasks == [{"role": "CTO", "title": "Plan", "description": "Design"}]
     mock_complete.assert_called_once()
 
 
@@ -23,8 +21,28 @@ def test_execute_plan_routes_and_invokes_agents(mock_route, mock_invoke):
             self.model = model
 
     mock_route.side_effect = [
-        ("Research Scientist", DummyAgent, "m1", {"title": "t1", "description": "d1", "role": "Research Scientist", "stop_rules": []}),
-        ("Research Scientist", DummyAgent, "m1", {"title": "t2", "description": "d2", "role": "Research Scientist", "stop_rules": []}),
+        (
+            "Research Scientist",
+            DummyAgent,
+            "m1",
+            {
+                "title": "t1",
+                "description": "d1",
+                "role": "Research Scientist",
+                "stop_rules": [],
+            },
+        ),
+        (
+            "Research Scientist",
+            DummyAgent,
+            "m1",
+            {
+                "title": "t2",
+                "description": "d2",
+                "role": "Research Scientist",
+                "stop_rules": [],
+            },
+        ),
     ]
 
     def side_effect(agent, idea, task, model=None):

@@ -17,7 +17,9 @@ TEMPLATE_PATH = ROOT / "docs" / "templates" / "repo_map.md.j2"
 
 
 def _git_sha() -> str:
-    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT).decode().strip()
+    return (
+        subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT).decode().strip()
+    )
 
 
 def _load_yaml(path: Path):

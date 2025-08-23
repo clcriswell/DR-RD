@@ -2,23 +2,23 @@ from __future__ import annotations
 
 """Central registry for concrete agent classes."""
 
-from typing import Dict, Type, Optional
 import logging
 import os
+from typing import Dict, Optional, Type
 
-from .base_agent import LLMRoleAgent as BaseAgent
-
-from .cto_agent import CTOAgent
-from .research_scientist_agent import ResearchScientistAgent
-from .regulatory_agent import RegulatoryAgent
-from .finance_agent import FinanceAgent
-from .marketing_agent import MarketingAgent
-from .ip_analyst_agent import IPAnalystAgent
-from .planner_agent import PlannerAgent
-from .synthesizer_agent import SynthesizerAgent
-from .invoke import resolve_invoker
 from config.agent_models import AGENT_MODEL_MAP
 from core.llm import select_model
+
+from .base_agent import LLMRoleAgent as BaseAgent
+from .cto_agent import CTOAgent
+from .finance_agent import FinanceAgent
+from .invoke import resolve_invoker
+from .ip_analyst_agent import IPAnalystAgent
+from .marketing_agent import MarketingAgent
+from .planner_agent import PlannerAgent
+from .regulatory_agent import RegulatoryAgent
+from .research_scientist_agent import ResearchScientistAgent
+from .synthesizer_agent import SynthesizerAgent
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,9 @@ AGENT_MODEL_MAP.setdefault(
 )
 
 
-def build_agents(mode: str | None = None, models: Dict | None = None) -> Dict[str, BaseAgent]:
+def build_agents(
+    mode: str | None = None, models: Dict | None = None
+) -> Dict[str, BaseAgent]:
     """Instantiate the standard execution-stage agents.
 
     ``models`` may supply per-role model overrides; otherwise ``AGENT_MODEL_MAP``
@@ -196,7 +198,16 @@ KEYWORDS = {
         "payback",
         "roi",
     ],
-    "Regulatory": ["regulatory", "compliance", "fda", "ce", "iso", "510(k)", "hipaa", "gdpr"],
+    "Regulatory": [
+        "regulatory",
+        "compliance",
+        "fda",
+        "ce",
+        "iso",
+        "510(k)",
+        "hipaa",
+        "gdpr",
+    ],
     "CTO": ["architecture", "system design", "tech strategy", "roadmap"],
     "Research Scientist": [],
 }
@@ -218,9 +229,12 @@ def choose_agent_for_task(
     return "Research Scientist", fallback
 
 
-def get_agent_for_task(task: str, agents: Dict[str, BaseAgent] | None = None) -> BaseAgent:
+def get_agent_for_task(
+    task: str, agents: Dict[str, BaseAgent] | None = None
+) -> BaseAgent:
     _, agent = choose_agent_for_task(None, task, agents or AGENT_INSTANCES)
     return agent
+
 
 # --- Added: mode-aware model loader that also installs the BudgetManager ---
 def load_mode_models(mode: str | None = None) -> dict:
@@ -230,6 +244,7 @@ def load_mode_models(mode: str | None = None) -> dict:
     core.orchestrator.
     """
     import streamlit as st
+
     from app.config_loader import load_mode
     from core.llm_client import set_budget_manager
 

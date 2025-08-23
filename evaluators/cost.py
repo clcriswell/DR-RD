@@ -6,7 +6,6 @@ from typing import Optional
 import evaluation.llm_rubric as lr
 from extensions.abcs import BaseEvaluator
 
-
 COST_RUBRIC = (
     "If no numeric normalized cost in [0,1] is provided, infer cost realism and affordability given scope, "
     "and return a conservative 0–1 score where higher is better (lower real cost / higher affordability). "
@@ -51,4 +50,3 @@ class CostEvaluator(BaseEvaluator):
 
 
 __all__ = ["CostEvaluator"]
-

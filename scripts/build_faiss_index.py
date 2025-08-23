@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-import argparse, os, json, re
-import numpy as np
+import argparse
+import json
+import os
+import re
+
 import faiss
+import numpy as np
+
 
 def _embed(text: str, dim: int = 128) -> np.ndarray:
     vec = np.zeros(dim, dtype="float32")
@@ -9,12 +14,14 @@ def _embed(text: str, dim: int = 128) -> np.ndarray:
         vec[i % dim] += (hash(token) % 1000) / 1000.0
     return vec
 
+
 def _read_text(path: str) -> str:
     try:
         with open(path, "r", encoding="utf-8", errors="ignore") as fh:
             return fh.read()
     except Exception:
         return ""
+
 
 def _collect_docs(root: str) -> tuple[list[str], list[str]]:
     paths: list[str] = []
@@ -33,6 +40,7 @@ def _collect_docs(root: str) -> tuple[list[str], list[str]]:
             texts.append(t)
             sources.append(os.path.relpath(p, root))
     return texts, sources
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -54,7 +62,10 @@ def main():
     with open(os.path.join(args.out, "texts.json"), "w", encoding="utf-8") as fh:
         json.dump({"texts": texts, "sources": sources}, fh)
 
-    print(f"Wrote {len(texts)} docs to {args.out}/index.faiss and {args.out}/texts.json")
+    print(
+        f"Wrote {len(texts)} docs to {args.out}/index.faiss and {args.out}/texts.json"
+    )
+
 
 if __name__ == "__main__":
     main()

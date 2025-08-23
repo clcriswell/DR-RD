@@ -42,4 +42,3 @@ def test_tot_strategy_heuristic_when_no_evaluators(monkeypatch):
     # restore module state for other tests
     monkeypatch.setenv("EVALUATORS_ENABLED", "false")
     importlib.reload(tot_module)
-

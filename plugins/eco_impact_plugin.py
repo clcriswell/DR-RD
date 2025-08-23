@@ -24,9 +24,7 @@ class EcoImpactPlugin(Plugin):
         """Initialize the plugin with identifying metadata."""
         super().__init__()
         self.name = "eco_impact"
-        self.description = (
-            "Estimates environmental impact metrics (energy use, carbon footprint, recyclability)."
-        )
+        self.description = "Estimates environmental impact metrics (energy use, carbon footprint, recyclability)."
 
     def run(self, task: str, context: str = ""):
         """Analyze the given text and return sustainability metrics.
@@ -51,7 +49,14 @@ class EcoImpactPlugin(Plugin):
         """
         text = f"{task} {context}".lower()
         # Define keyword heuristics for energy usage categories
-        high_energy_keywords = ["ai", "machine learning", "data center", "blockchain", "cloud", "mining"]
+        high_energy_keywords = [
+            "ai",
+            "machine learning",
+            "data center",
+            "blockchain",
+            "cloud",
+            "mining",
+        ]
         moderate_energy_keywords = ["device", "hardware", "robot", "manufactur"]
         low_energy_keywords = ["software", "app", "service", "platform"]
         # Default categories
@@ -79,9 +84,23 @@ class EcoImpactPlugin(Plugin):
                 carbon_level = "Moderate"
             recycle_level = "High"
         # Assign numeric values for each level (simulated)
-        energy_usage = "50 kWh/year" if energy_level == "Low" else ("200 kWh/year" if energy_level == "Moderate" else "1000 kWh/year")
-        carbon_fp = "20 kg CO2/year" if carbon_level == "Low" else ("100 kg CO2/year" if carbon_level == "Moderate" else "500 kg CO2/year")
-        recyclability = "90%" if recycle_level == "High" else ("50%" if recycle_level == "Moderate" else "20%")
+        energy_usage = (
+            "50 kWh/year"
+            if energy_level == "Low"
+            else ("200 kWh/year" if energy_level == "Moderate" else "1000 kWh/year")
+        )
+        carbon_fp = (
+            "20 kg CO2/year"
+            if carbon_level == "Low"
+            else (
+                "100 kg CO2/year" if carbon_level == "Moderate" else "500 kg CO2/year"
+            )
+        )
+        recyclability = (
+            "90%"
+            if recycle_level == "High"
+            else ("50%" if recycle_level == "Moderate" else "20%")
+        )
         # Return a dictionary of metrics
         return {
             "Energy Usage": energy_usage,

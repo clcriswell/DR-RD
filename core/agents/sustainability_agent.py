@@ -1,8 +1,11 @@
 from core.agents.base_agent import BaseAgent
 
 """Sustainability Agent for assessing environmental impact and resource efficiency."""
+
+
 class SustainabilityAgent(BaseAgent):
     """Agent that evaluates sustainability considerations for the project idea."""
+
     def __init__(self, model):
         super().__init__(
             name="Sustainability",

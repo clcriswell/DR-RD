@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict
+from typing import Dict, List
 
 
 @dataclass
@@ -20,5 +20,6 @@ class AppSpec:
     @property
     def slug(self) -> str:
         import re
-        s = re.sub(r'[^a-z0-9\\-]+', '-', self.name.lower())
-        return s.strip('-') or "streamlit-app"
+
+        s = re.sub(r"[^a-z0-9\\-]+", "-", self.name.lower())
+        return s.strip("-") or "streamlit-app"

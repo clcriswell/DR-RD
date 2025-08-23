@@ -1,13 +1,13 @@
-from typing import Dict, Callable, Optional, Any
-from simulation.simulation_manager import SimulationManager
+from typing import Any, Callable, Dict, Optional
 
 from config.feature_flags import (
     SIM_OPTIMIZER_ENABLED,
-    SIM_OPTIMIZER_STRATEGY,
     SIM_OPTIMIZER_MAX_EVALS,
+    SIM_OPTIMIZER_STRATEGY,
 )
 from simulation.design_space import DesignSpace
 from simulation.optimizer import optimize
+from simulation.simulation_manager import SimulationManager
 
 
 def determine_sim_type(role: str, design_spec: str) -> str:
@@ -54,7 +54,9 @@ class SimulationAgent:
         role: str,
         design_spec: str,
         design_space: Optional[DesignSpace] = None,
-        objective_fn: Optional[Callable[[Dict[str, Any], Dict[str, Any]], float]] = None,
+        objective_fn: Optional[
+            Callable[[Dict[str, Any], Dict[str, Any]], float]
+        ] = None,
         scorecard: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Run a simulation for a single role's design specification.
@@ -72,6 +74,7 @@ class SimulationAgent:
 
         best_design = None
         if SIM_OPTIMIZER_ENABLED and design_space and objective_fn:
+
             def simulator(d: Dict[str, Any]) -> Dict[str, Any]:
                 formatted = design_spec.format(**d)
                 return self.sim_manager.simulate(sim_type, formatted)

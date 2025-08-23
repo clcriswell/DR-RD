@@ -20,15 +20,15 @@ from core.agents.registry import build_agents, load_mode_models
 from core.agents_registry import agents_dict
 from core.dossier import Dossier, Finding
 from core.llm import complete, select_model
+from core.llm_client import responses_json_schema_for
 from core.observability import EvidenceSet, build_coverage
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
-from core.router import route_task
-from core.synthesizer import synthesize
-from core.schemas import Plan, ScopeNote
 from core.privacy import pseudonymize_for_model, rehydrate_output
-from core.llm_client import responses_json_schema_for
-from planning.segmenter import load_redaction_policy, redact_text
+from core.router import route_task
+from core.schemas import Plan, ScopeNote
+from core.synthesizer import synthesize
 from memory.decision_log import log_decision
+from planning.segmenter import load_redaction_policy, redact_text
 from prompts.prompts import (
     PLANNER_SYSTEM_PROMPT,
     PLANNER_USER_PROMPT_TEMPLATE,
@@ -36,7 +36,9 @@ from prompts.prompts import (
 )
 
 
-def _invoke_agent(agent, idea: str, task: Dict[str, str], model: str | None = None) -> str:
+def _invoke_agent(
+    agent, idea: str, task: Dict[str, str], model: str | None = None
+) -> str:
     """Call an agent with best-effort interface detection."""
     from core.agents.base_agent import LLMRoleAgent
 
@@ -93,7 +95,11 @@ def generate_plan(
     redacted_idea = redact_text(policy, idea)
     redacted_constraints = [redact_text(policy, c) for c in constraint_list]
 
-    pseudo_flag = os.getenv("DRRD_PSEUDONYMIZE_TO_MODEL", "").lower() in ("1", "true", "yes")
+    pseudo_flag = os.getenv("DRRD_PSEUDONYMIZE_TO_MODEL", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     alias_map: dict[str, str] = {}
     if pseudo_flag:
         pseudo_payload, alias_map = pseudonymize_for_model(
@@ -114,7 +120,9 @@ def generate_plan(
         pass
 
     constraints_section = (
-        f"\nConstraints: {'; '.join(redacted_constraints)}" if redacted_constraints else ""
+        f"\nConstraints: {'; '.join(redacted_constraints)}"
+        if redacted_constraints
+        else ""
     )
     risk_section = f"\nRisk posture: {sn.risk_posture}" if risk_posture else ""
 
@@ -145,7 +153,9 @@ def generate_plan(
             if isinstance(e, ValidationError):
                 if not data.get("tasks"):
                     return []
-                fields = [".".join(map(str, err.get("loc", []))) for err in e.errors()[:3]]
+                fields = [
+                    ".".join(map(str, err.get("loc", []))) for err in e.errors()[:3]
+                ]
                 raise ValueError(
                     "Planner JSON validation failed: missing " + ", ".join(fields)
                 ) from e
@@ -234,7 +244,9 @@ def execute_plan(
             safe_exc(logger, idea, f"invoke_agent[{role}]", e)
             out = "out"
         text = out if isinstance(out, str) else json.dumps(out)
-        answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
+        answers[role] = (
+            answers.get(role, "") + ("\n\n" if role in answers else "") + text
+        )
         payload = extract_json_block(text) or {}
         role_to_findings[role] = payload
         if evidence is not None:
@@ -243,7 +255,8 @@ def execute_plan(
                 payload.get("evidence"), (dict, list)
             ):
                 logger.info(
-                    "Evidence normalization: structured fields coerced for role=%s", role
+                    "Evidence normalization: structured fields coerced for role=%s",
+                    role,
                 )
             evidence.add(
                 role=role,
@@ -258,7 +271,9 @@ def execute_plan(
                 meta=norm["meta"],
             )
         if save_decision_log:
-            log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})
+            log_decision(
+                project_id, "agent_result", {"role": role, "has_json": bool(payload)}
+            )
 
     if save_evidence and evidence is not None:
         rows = build_coverage(project_id, role_to_findings)
@@ -441,7 +456,14 @@ def run_poc(project_id: str, test_plan):
         json.dump(report.dict(), f, indent=2)
     with open(out_dir / "results.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
-            f, fieldnames=["test_id", "passed", "metrics_observed", "metrics_passfail", "notes"]
+            f,
+            fieldnames=[
+                "test_id",
+                "passed",
+                "metrics_observed",
+                "metrics_passfail",
+                "notes",
+            ],
         )
         writer.writeheader()
         for r in report.results:
@@ -554,9 +576,7 @@ def orchestrate(user_idea: str) -> str:
         logger.info(
             "[Planner] No tasks were generated. Proceeding to final plan synthesis directly."
         )
-        direct_input = (
-            f"Roles: {roles_needed}. Idea: {user_idea}. Provide a comprehensive R&D plan."
-        )
+        direct_input = f"Roles: {roles_needed}. Idea: {user_idea}. Provide a comprehensive R&D plan."
         final_plan = agents_dict["ChiefScientist"].act(
             role_personas["ChiefScientist"], direct_input
         )
@@ -582,13 +602,20 @@ def orchestrate(user_idea: str) -> str:
         desc_lower = task_desc.lower()
         if any(word in desc_lower for word in ["material", "materials"]):
             return (
-                "MaterialsEngineer" if "MaterialsEngineer" in agents_dict else "MaterialsScientist"
+                "MaterialsEngineer"
+                if "MaterialsEngineer" in agents_dict
+                else "MaterialsScientist"
             )
-        if any(word in desc_lower for word in ["regulatory", "regulation", "compliance"]):
+        if any(
+            word in desc_lower for word in ["regulatory", "regulation", "compliance"]
+        ):
             return "RegulatorySpecialist"
         if any(word in desc_lower for word in ["research", "analysis", "study"]):
             return "ResearchScientist"
-        if any(word in desc_lower for word in ["technical", "architecture", "system design"]):
+        if any(
+            word in desc_lower
+            for word in ["technical", "architecture", "system design"]
+        ):
             return "CTO"
         if roles_needed:
             return roles_needed[0]
@@ -606,11 +633,17 @@ def orchestrate(user_idea: str) -> str:
                 task_desc,
             )
             continue
-        system_prompt = role_personas.get(role_assigned, f"You are a {role_assigned} expert.")
+        system_prompt = role_personas.get(
+            role_assigned, f"You are a {role_assigned} expert."
+        )
         user_prompt = task_desc
         result = agent.act(system_prompt, user_prompt)
-        all_outputs.setdefault(role_assigned, []).append({"task": task_desc, "result": result})
-        logger.info("[%s] Completed task: '%s' -> Result captured.", role_assigned, task_desc)
+        all_outputs.setdefault(role_assigned, []).append(
+            {"task": task_desc, "result": result}
+        )
+        logger.info(
+            "[%s] Completed task: '%s' -> Result captured.", role_assigned, task_desc
+        )
 
     reflection_summary = ""
     for role, outputs in all_outputs.items():
@@ -661,7 +694,9 @@ def orchestrate(user_idea: str) -> str:
         elif isinstance(reflection_output, list):
             follow_up_tasks = reflection_output
         elif isinstance(reflection_output, dict):
-            follow_up_tasks = reflection_output.get("tasks") or list(reflection_output.values())
+            follow_up_tasks = reflection_output.get("tasks") or list(
+                reflection_output.values()
+            )
 
     if follow_up_tasks:
         logger.info("[Reflection] Follow-up tasks suggested: %s", follow_up_tasks)
@@ -678,10 +713,14 @@ def orchestrate(user_idea: str) -> str:
                     ftask_desc,
                 )
                 continue
-            system_prompt = role_personas.get(role_assigned, f"You are a {role_assigned} expert.")
+            system_prompt = role_personas.get(
+                role_assigned, f"You are a {role_assigned} expert."
+            )
             user_prompt = ftask_desc
             result = agent.act(system_prompt, user_prompt)
-            all_outputs.setdefault(role_assigned, []).append({"task": ftask_desc, "result": result})
+            all_outputs.setdefault(role_assigned, []).append(
+                {"task": ftask_desc, "result": result}
+            )
             logger.info(
                 "[%s] Completed follow-up task: '%s' -> Result captured.",
                 role_assigned,
@@ -720,7 +759,9 @@ def run_pipeline(
     run_dir = new_run_dir(base_dir)
     policy = {}
     if cfg.get("redaction", {}).get("enabled", True):
-        policy = load_policy(cfg.get("redaction", {}).get("policy_file", "config/redaction.yaml"))
+        policy = load_policy(
+            cfg.get("redaction", {}).get("policy_file", "config/redaction.yaml")
+        )
     dossier = Dossier(policy=policy)
 
     models = load_mode_models(mode)
@@ -749,7 +790,9 @@ def run_pipeline(
             followups = planner.revise_plan({"idea": idea, "results": results_by_role})
             if not followups:
                 break
-            task_queue.extend({"role": t.get("role"), "title": t.get("task")} for t in followups)
+            task_queue.extend(
+                {"role": t.get("role"), "title": t.get("task")} for t in followups
+            )
         cycle += 1
         batch = list(task_queue)
         task_queue.clear()
@@ -760,7 +803,9 @@ def run_pipeline(
             agent = agents.get(routed_role)
             if agent is None:
                 base = agents.get("Research Scientist")
-                model = getattr(base, "model", os.getenv("DRRD_OPENAI_MODEL", "gpt-4.1-mini"))
+                model = getattr(
+                    base, "model", os.getenv("DRRD_OPENAI_MODEL", "gpt-4.1-mini")
+                )
                 agent = AgentCls(model)
                 agents[routed_role] = agent
             logger.info(
@@ -771,7 +816,9 @@ def run_pipeline(
             )
             result = agent.act(idea, task.get("title", ""), context)
             results_by_role.setdefault(routed_role, []).append(result)
-            summary_line = result.get("findings", [""])[0] if result.get("findings") else ""
+            summary_line = (
+                result.get("findings", [""])[0] if result.get("findings") else ""
+            )
             context["summaries"].append(summary_line)
             dossier.record_finding(
                 Finding(
@@ -786,11 +833,17 @@ def run_pipeline(
             tokens = usage.get("total_tokens") or (
                 usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
             )
-            trace.append({"agent": routed_role, "tokens": tokens, "finding": summary_line})
-        logger.info("Cycle %s — executed %s tasks; queue=%s", cycle, len(batch), len(task_queue))
+            trace.append(
+                {"agent": routed_role, "tokens": tokens, "finding": summary_line}
+            )
+        logger.info(
+            "Cycle %s — executed %s tasks; queue=%s", cycle, len(batch), len(task_queue)
+        )
         if cycle >= max_loops and not task_queue:
             break
 
-    final = synthesize(idea, results_by_role, model_id=models.get("synth", planner_model))
+    final = synthesize(
+        idea, results_by_role, model_id=models.get("synth", planner_model)
+    )
     dossier.save(run_dir / "dossier.json")
     return final, results_by_role, trace

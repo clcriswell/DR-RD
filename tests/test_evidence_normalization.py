@@ -18,12 +18,14 @@ def test_dict_claim_and_sources_dict():
 
 
 def test_orchestrator_normalization_meta_and_cost():
-    norm = _normalize_evidence_payload({
-        "claim": {"x": 1},
-        "evidence": ["a", "b"],
-        "sources": "https://one.com, https://two.com",
-        "cost": "7",
-    })
+    norm = _normalize_evidence_payload(
+        {
+            "claim": {"x": 1},
+            "evidence": ["a", "b"],
+            "sources": "https://one.com, https://two.com",
+            "cost": "7",
+        }
+    )
     assert "meta" in norm and "claim_structured" in norm["meta"]
     assert norm["cost_usd"] == "7" or norm["cost_usd"] == 7
 

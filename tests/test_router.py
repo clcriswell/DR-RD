@@ -1,7 +1,7 @@
 import logging
 
-from core.router import ALIASES, choose_agent_for_task, route_task
 from core.agents.registry import AGENT_REGISTRY
+from core.router import ALIASES, choose_agent_for_task, route_task
 
 
 def test_alias_mapping():
@@ -18,7 +18,12 @@ def test_unresolved_role_logs(caplog):
 
 
 def test_stop_rules_propagation():
-    task = {"role": "Finance", "title": "Budget", "description": "", "stop_rules": ["halt"]}
+    task = {
+        "role": "Finance",
+        "title": "Budget",
+        "description": "",
+        "stop_rules": ["halt"],
+    }
     role, cls, _, routed = route_task(task)
     assert routed["stop_rules"] == ["halt"]
     assert role == routed["role"]

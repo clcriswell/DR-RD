@@ -1,6 +1,7 @@
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
+
 import yaml
 
 DEFAULTS = {
@@ -12,8 +13,11 @@ DEFAULTS = {
     "BRAIN_MODE_LOOP": "gpt-5",
 }
 
+
 def _load_prices() -> dict:
-    path = Path(os.getenv("PRICES_PATH", Path(__file__).resolve().parent / "prices.yaml"))
+    path = Path(
+        os.getenv("PRICES_PATH", Path(__file__).resolve().parent / "prices.yaml")
+    )
     try:
         with open(path) as fh:
             data = yaml.safe_load(fh) or {}
@@ -45,7 +49,9 @@ class CallHints:
     final_pass: bool = False
 
 
-def pick_model(stage: str, role: str | None, mode: str, prices: dict | None = None) -> str:
+def pick_model(
+    stage: str, role: str | None, mode: str, prices: dict | None = None
+) -> str:
     prices = prices or PRICE_TABLE
     if mode == "test":
         return TEST_MODEL_ID or _cheap_default(prices)

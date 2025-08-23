@@ -1,10 +1,8 @@
 import json
 from unittest.mock import Mock, patch
-import json
-from unittest.mock import Mock, patch
 
-from core.agents.marketing_agent import MarketingAgent
 from core.agents.ip_analyst_agent import IPAnalystAgent
+from core.agents.marketing_agent import MarketingAgent
 from core.router import choose_agent_for_task
 
 
@@ -67,7 +65,5 @@ def test_router_dispatches_to_new_agents():
         None, "Analyze competitor pricing and market segments", ""
     )
     assert cls1.__name__ == "MarketingAgent" and role1 == "Marketing Analyst"
-    role2, cls2, _ = choose_agent_for_task(
-        None, "Review patent claims for novelty", ""
-    )
+    role2, cls2, _ = choose_agent_for_task(None, "Review patent claims for novelty", "")
     assert cls2.__name__ == "IPAnalystAgent" and role2 == "IP Analyst"

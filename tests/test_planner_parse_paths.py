@@ -10,9 +10,11 @@ def test_extract_parsed_path():
             SimpleNamespace(
                 type="message",
                 content=[
-                    SimpleNamespace(parsed={"tasks": [
-                        {"role": "a", "title": "b", "description": "c"}
-                    ]})
+                    SimpleNamespace(
+                        parsed={
+                            "tasks": [{"role": "a", "title": "b", "description": "c"}]
+                        }
+                    )
                 ],
             )
         ]
@@ -23,9 +25,9 @@ def test_extract_parsed_path():
 
 def test_extract_text_path():
     payload = {"tasks": []}
-    resp = SimpleNamespace(output=[], output_text="```json\n{}\n```".format(
-        json.dumps(payload)
-    ))
+    resp = SimpleNamespace(
+        output=[], output_text="```json\n{}\n```".format(json.dumps(payload))
+    )
     data = extract_planner_payload(resp)
     assert data == payload
 
@@ -37,4 +39,3 @@ def test_extract_chat_path():
     )
     data = extract_planner_payload(resp)
     assert data == payload
-

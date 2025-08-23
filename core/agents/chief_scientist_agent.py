@@ -5,6 +5,9 @@ ROLE_PROMPT = (
     "Integrate all contributions into a comprehensive R&D plan."
 )
 
+
 class ChiefScientistAgent(LLMRoleAgent):
-    def act(self, system_prompt: str = ROLE_PROMPT, user_prompt: str = "", **kwargs) -> str:
+    def act(
+        self, system_prompt: str = ROLE_PROMPT, user_prompt: str = "", **kwargs
+    ) -> str:
         return super().act(system_prompt, user_prompt, **kwargs)

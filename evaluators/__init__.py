@@ -1,10 +1,11 @@
 """Built-in evaluators and registration."""
+
 from extensions.registry import EvaluatorRegistry
 
+from .compliance import ComplianceEvaluator
 from .cost import CostEvaluator
 from .feasibility import FeasibilityEvaluator
 from .novelty import NoveltyEvaluator
-from .compliance import ComplianceEvaluator
 
 # Register default evaluators
 EvaluatorRegistry.register("cost", CostEvaluator)

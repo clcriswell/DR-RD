@@ -11,6 +11,7 @@ def test_optimizer_finds_best(monkeypatch):
     import config.feature_flags as ff
     import core.agents.simulation_agent as sa
     import simulation.design_space as ds
+
     importlib.reload(ff)
     importlib.reload(sa)
 
@@ -29,10 +30,11 @@ def test_optimizer_finds_best(monkeypatch):
         # best when score is closest to 5
         return -abs(5 - metrics["score"])
 
-    with patch.object(sa.SimulationManager, "simulate", side_effect=fake_simulate) as mock_sim:
+    with patch.object(
+        sa.SimulationManager, "simulate", side_effect=fake_simulate
+    ) as mock_sim:
         result = sim_agent.run_simulation(
             "Mechanical Engineer", "x={x}", design_space=space, objective_fn=objective
         )
         assert "- **score**: 5" in result
         assert mock_sim.call_count == 3
-

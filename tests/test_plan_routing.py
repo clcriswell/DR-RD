@@ -6,7 +6,9 @@ from unittest.mock import MagicMock
 
 def load_app():
     st = SimpleNamespace(
-        session_state={}, secrets={"gcp_service_account": {}}, cache_resource=lambda f: f
+        session_state={},
+        secrets={"gcp_service_account": {}},
+        cache_resource=lambda f: f,
     )
     sys.modules["streamlit"] = st
     sys.modules["openai"] = MagicMock()
@@ -36,7 +38,9 @@ def test_role_alias_normalization():
 def test_unknown_role_routes_to_default():
     app = load_app()
     agents = app.get_agents()
-    tasks = [{"role": "Wizard", "title": "Budget study", "description": "cost analysis"}]
+    tasks = [
+        {"role": "Wizard", "title": "Budget study", "description": "cost analysis"}
+    ]
     routed = app.route_tasks(tasks, agents)
     rr, agent, _ = routed[0]
     assert rr in agents

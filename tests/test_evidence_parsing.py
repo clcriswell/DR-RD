@@ -1,9 +1,10 @@
 from utils.agent_json import extract_json_block
+
 from core.observability import EvidenceSet
 
 
 def test_extract_and_store():
-    sample = "Result:\n```json\n{\"findings\": \"ok\"}\n```"
+    sample = 'Result:\n```json\n{"findings": "ok"}\n```'
     payload = extract_json_block(sample)
     assert isinstance(payload, dict)
     es = EvidenceSet(project_id="p1")

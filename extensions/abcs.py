@@ -30,7 +30,9 @@ class BaseSimulator(ABC):
     """Simulation extension point."""
 
     @abstractmethod
-    def run(self, design: Dict[str, Any], constraints: Dict[str, Any]) -> Dict[str, Any]:
+    def run(
+        self, design: Dict[str, Any], constraints: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Run a simulation and return the result."""
 
 

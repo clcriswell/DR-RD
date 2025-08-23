@@ -1,6 +1,8 @@
 import logging
-from core.model_router import pick_model, CallHints
+
 from core.llm_client import call_openai
+from core.model_router import CallHints, pick_model
+
 
 def agent_chat(agentA, agentB, idea, outputA, outputB):
     """
@@ -33,7 +35,7 @@ def agent_chat(agentA, agentB, idea, outputA, outputB):
             cto_part, rs_part = parts
             idx = cto_part.find("CTO Updated Output:")
             if idx != -1:
-                updated_cto = cto_part[idx + len("CTO Updated Output:"):].strip()
+                updated_cto = cto_part[idx + len("CTO Updated Output:") :].strip()
             else:
                 updated_cto = cto_part.strip()
             updated_rs = rs_part.strip()

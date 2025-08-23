@@ -1,12 +1,15 @@
 from __future__ import annotations
-import hashlib, time, re
+
+import hashlib
+import re
+import time
 from typing import Any, Dict, List, Optional
 
+import streamlit as st
 from google.cloud import firestore
 from google.oauth2 import service_account
-import streamlit as st
 
-_COLLECTION = "rd_projects"          # single namespace!
+_COLLECTION = "rd_projects"  # single namespace!
 
 
 def _client() -> firestore.Client:
@@ -15,7 +18,7 @@ def _client() -> firestore.Client:
         creds = service_account.Credentials.from_service_account_info(info)
         return firestore.Client(credentials=creds, project=info["project_id"])
     except Exception:
-        return firestore.Client()            # fallback to ADC
+        return firestore.Client()  # fallback to ADC
 
 
 def _slugify(name: str) -> str:
@@ -54,7 +57,7 @@ class FirestoreWorkspace:
     def read(self) -> Dict[str, Any]:
         return self.doc.get().to_dict()
 
-    def patch(self, d: Dict[str, Any]):              # generic update
+    def patch(self, d: Dict[str, Any]):  # generic update
         self.doc.update(d)
 
     def append(self, key: str, items: list):
