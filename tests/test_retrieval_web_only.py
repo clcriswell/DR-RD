@@ -29,6 +29,9 @@ def _set_web_only_flags(monkeypatch):
         monkeypatch.setattr(mod, "LIVE_SEARCH_MAX_CALLS", 3, raising=False)
         monkeypatch.setattr(mod, "LIVE_SEARCH_SUMMARY_TOKENS", 256, raising=False)
         monkeypatch.setattr(mod, "VECTOR_INDEX_PRESENT", False, raising=False)
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(3)
 
 
 def test_planner_web_only(monkeypatch, caplog):
@@ -51,7 +54,7 @@ def test_planner_web_only(monkeypatch, caplog):
         and "rag_hits=0" in r.message
         and "web_used=true" in r.message
         and "backend=openai" in r.message
-        and "reason=no_vector_index" in r.message
+        and "reason=fallback_no_vector" in r.message
         for r in caplog.records
     )
     user_content = next(m["content"] for m in captured["messages"] if m["role"] == "user")
@@ -85,7 +88,7 @@ def test_executor_web_only(monkeypatch, caplog):
         and "rag_hits=0" in r.message
         and "web_used=true" in r.message
         and "backend=openai" in r.message
-        and "reason=no_vector_index" in r.message
+        and "reason=fallback_no_vector" in r.message
         for r in caplog.records
     )
     user_content = next(m["content"] for m in captured["messages"] if m["role"] == "user")

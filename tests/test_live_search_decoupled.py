@@ -12,6 +12,9 @@ def test_live_search_without_index():
         "live_search_backend": "openai",
         "live_search_summary_tokens": 32,
     }
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(3)
     with patch(
         "dr_rd.retrieval.live_search.OpenAIWebSearchClient.search_and_summarize",
         return_value=("web", [Source("t", "u")]),
@@ -33,6 +36,9 @@ def test_live_search_when_rag_empty():
         "live_search_backend": "openai",
         "live_search_summary_tokens": 32,
     }
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(3)
     with patch(
         "dr_rd.retrieval.live_search.OpenAIWebSearchClient.search_and_summarize",
         return_value=("web", [Source("t", "u")]),
