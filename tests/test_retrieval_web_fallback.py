@@ -27,7 +27,7 @@ def test_web_fallback_no_vector(monkeypatch):
     trace = out["trace"]
     assert trace["web_used"] is True
     assert trace["backend"] == "serpapi"
-    assert trace["reason"] == "no_vector_index_fallback"
+    assert trace["reason"] == "web_only_mode"
     assert len(out["web_results"]) == 2
     assert cfg["web_search_calls_used"] == 1
     assert rbudget.RETRIEVAL_BUDGET.used == 1

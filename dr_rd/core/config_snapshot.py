@@ -25,6 +25,10 @@ def build_resolved_config_snapshot(cfg: Dict[str, Any]) -> Dict[str, Any]:
         "live_search_enabled": bool(cfg.get("live_search_enabled")),
         "live_search_backend": cfg.get("live_search_backend"),
     }
+    if "enable_images" in cfg or "ENABLE_IMAGES" in cfg:
+        snapshot["enable_images"] = bool(
+            cfg.get("enable_images") or cfg.get("ENABLE_IMAGES")
+        )
     if "web_search_max_calls" in cfg:
         snapshot["web_search_max_calls"] = cfg.get("web_search_max_calls")
         snapshot["web_search_calls_used"] = cfg.get("web_search_calls_used", 0)

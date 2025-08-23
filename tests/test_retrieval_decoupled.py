@@ -43,8 +43,8 @@ def test_no_retriever_triggers_web(monkeypatch):
     rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(5)
     bundle = pipeline.collect_context("idea", "task", cfg, retriever=None)
     assert dummy.called == 1
-    assert bundle.meta["reason"] == "no_vector_index_fallback"
-    assert bundle.web_summary == "sum"
+    assert bundle.meta["reason"] == "web_only_mode"
+    assert bundle.web_summary is None
 
 
 def test_empty_rag_triggers_web(monkeypatch):

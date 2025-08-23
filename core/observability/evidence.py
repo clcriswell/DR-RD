@@ -71,11 +71,20 @@ class EvidenceSet(BaseModel):
 
     def add(self, **kwargs) -> None:
         claim = kwargs.get("claim")
-        if claim is not None and not isinstance(claim, str):
+        if not isinstance(claim, str) or not claim:
             try:
-                kwargs["claim"] = json.dumps(claim, ensure_ascii=False)
+                kwargs["claim"] = json.dumps(kwargs, ensure_ascii=False)[:500]
             except Exception:
-                kwargs["claim"] = str(claim)
+                kwargs["claim"] = repr(kwargs)[:500]
+        else:
+            kwargs["claim"] = str(claim)
+        for k in list(kwargs.keys()):
+            if k == "claim":
+                continue
+            try:
+                json.dumps(kwargs[k])
+            except Exception:
+                kwargs[k] = repr(kwargs[k])
         self.items.append(EvidenceItem(project_id=self.project_id, **kwargs))
 
     def as_dicts(self) -> List[Dict]:

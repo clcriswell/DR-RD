@@ -10,7 +10,10 @@ def test_vector_index_skip_flag(caplog):
         "faiss_index_local_dir": ".faiss_index",
     }
     with caplog.at_level(logging.INFO):
-        bootstrap_vector_index(cfg, logging.getLogger("test"))
+        res = bootstrap_vector_index(cfg, logging.getLogger("test"))
+    cfg["vector_index_present"] = res["present"]
+    cfg["vector_index_source"] = res["source"]
+    cfg["vector_doc_count"] = res["doc_count"]
     assert cfg["vector_index_present"] is False
     assert cfg["vector_index_source"] == "none"
     assert cfg.get("vector_doc_count") == 0

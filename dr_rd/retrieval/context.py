@@ -30,7 +30,9 @@ def fetch_context(
     """Retrieve vector and/or web context for a query."""
 
     retriever: Retriever | None = cfg.get("retriever")
-    rag_enabled = bool(cfg.get("rag_enabled")) and bool(cfg.get("vector_index_present"))
+    rag_enabled = bool(cfg.get("rag_enabled")) and bool(
+        cfg.get("vector_index_present")
+    )
     rag_top_k = int(cfg.get("rag_top_k", 5))
 
     rag_snips: List[str] = []
@@ -48,12 +50,13 @@ def fetch_context(
 
     vector_present = bool(cfg.get("vector_index_present"))
     reason = "ok"
+    need_web = False
     if not vector_present:
-        reason = "no_vector_index_fallback"
+        reason = "web_only_mode"
+        need_web = True
     elif rag_hits == 0:
         reason = "rag_zero_hits"
-
-    need_web = (not vector_present) or rag_hits == 0
+        need_web = True
 
     max_calls = get_web_search_call_cap(cfg)
     cfg.setdefault("web_search_max_calls", max_calls)
@@ -93,6 +96,8 @@ def fetch_context(
                 reason = "disabled"
             elif not budget_allows:
                 reason = "budget_exhausted"
+                if BUDGET:
+                    BUDGET.skipped_due_to_budget += 1
 
     trace = {
         "rag_hits": rag_hits,

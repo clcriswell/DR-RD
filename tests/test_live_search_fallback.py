@@ -34,7 +34,7 @@ def test_live_search_fallback(monkeypatch):
     assert dummy.called == 1
     meta = bundle.meta
     assert meta["web_used"] is True
-    assert meta["reason"] in {"no_vector_index_fallback", "rag_zero_hits"}
+    assert meta["reason"] in {"web_only_mode", "rag_zero_hits"}
 
     ctx = {
         "rag_snippets": bundle.rag_snippets,

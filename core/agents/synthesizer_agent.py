@@ -94,7 +94,7 @@ def compose_final_proposal(
     images = []
     if not flags.get("ENABLE_IMAGES", ENABLE_IMAGES):
         if not getattr(compose_final_proposal, "_image_disabled_logged", False):
-            logging.info("Images disabled_in_mode=true")
+            logging.info("Images: skipped (disabled by config)")
             compose_final_proposal._image_disabled_logged = True
     elif flags.get("TEST_MODE"):
         img_size = flags.get("IMAGES_SIZE", "256x256")

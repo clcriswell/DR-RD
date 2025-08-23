@@ -180,37 +180,51 @@ def _slugify(name: str) -> str:
 
 
 def _normalize_evidence_payload(payload) -> dict:
-    """Best-effort coercion of arbitrary payloads into a dict.
+    """Normalize arbitrary evidence payloads into a dict.
 
-    The normalizer accepts loose inputs from agents and converts them into a
-    dictionary compatible with :class:`EvidenceItem`.  It never raises and will
-    JSON-serialize unknown structures so that evidence logging remains robust.
+    The function is intentionally defensive: it accepts dicts, iterables of
+    pairs or dicts, and falls back to embedding the raw payload.  The resulting
+    structure is always JSON-serializable and includes a string ``claim`` field.
     """
+
+    import json
 
     if payload is None:
         p: dict[str, object] = {}
     elif isinstance(payload, dict):
         p = dict(payload)
     elif isinstance(payload, (list, tuple)):
-        if all(isinstance(x, (list, tuple)) and len(x) == 2 for x in payload):
-            p = {str(k): v for k, v in payload}
-        elif all(isinstance(x, dict) for x in payload):
-            p = {}
+        if all(isinstance(x, dict) for x in payload):
+            merged: dict[str, object] = {}
             for d in payload:
-                p.update(d)
+                for k, v in d.items():
+                    merged[str(k)] = v
+            p = merged
+        elif all(isinstance(x, (list, tuple)) and len(x) == 2 for x in payload):
+            p = {str(k): v for k, v in payload}
         else:
-            p = {"items": list(payload)}
-    elif isinstance(payload, str):
-        p = {"text": payload}
+            p = {"raw": payload}
     else:
-        p = {"value": payload}
+        try:
+            json.dumps(payload)
+            p = {"raw": payload}
+        except Exception:
+            p = {"raw": repr(payload)}
 
     claim = p.get("claim")
-    if claim is not None and not isinstance(claim, str):
+    if not isinstance(claim, str):
         try:
-            p["claim"] = json.dumps(claim, ensure_ascii=False)
+            p["claim"] = json.dumps(payload, ensure_ascii=False)[:500]
         except Exception:
-            p["claim"] = str(claim)
+            p["claim"] = repr(payload)[:500]
+
+    for k, v in list(p.items()):
+        if k == "claim":
+            continue
+        try:
+            json.dumps(v)
+        except Exception:
+            p[k] = repr(v)
 
     return p
 
