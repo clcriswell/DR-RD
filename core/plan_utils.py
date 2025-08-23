@@ -1,6 +1,6 @@
 import json
 from typing import Any, Dict, List
-from .roles import normalize_role
+from .roles import canonicalize, normalize_role
 
 def _coerce_to_list(raw: Any) -> List[Dict[str, Any]]:
     # Accept str (JSON), dict (single task or role->list), list
@@ -44,7 +44,7 @@ def normalize_plan_to_tasks(raw: Any) -> List[Dict[str, str]]:
     items = _coerce_to_list(raw)
     out: List[Dict[str, str]] = []
     for it in items:
-        role = normalize_role((it or {}).get("role"))
+        role = canonicalize(normalize_role((it or {}).get("role")))
         title = (it or {}).get("title","") or ""
         desc = (it or {}).get("description","") or ""
         # Filter out the “exploded char stream” and junk:
@@ -60,7 +60,7 @@ def normalize_tasks(tasks: List[Dict[str, str]]) -> List[Dict[str, str]]:
     seen = set()
     deduped: List[Dict[str, str]] = []
     for t in tasks:
-        role = normalize_role((t or {}).get("role"))
+        role = canonicalize(normalize_role((t or {}).get("role")))
         title = (t or {}).get("title", "")
         desc = (t or {}).get("description", "")
         if not role:

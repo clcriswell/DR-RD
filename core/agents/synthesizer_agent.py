@@ -14,9 +14,12 @@ import logging
 import os
 import streamlit as st
 
+from config.feature_flags import ENABLE_IMAGES
+
 from core.llm import complete, select_model
-from core.llm_client import log_usage
+from core.llm_client import BUDGET, log_usage
 from utils.image_visuals import make_visuals_for_project
+from config.feature_flags import LIVE_SEARCH_MAX_CALLS
 from prompts.prompts import (
     SYNTHESIZER_TEMPLATE,
     SYNTHESIZER_BUILD_GUIDE_TEMPLATE,
@@ -89,7 +92,11 @@ def compose_final_proposal(
         plan_roles = None
     bucket = os.environ.get("GCS_BUCKET") or os.environ.get("GCS_IMAGES_BUCKET")
     images = []
-    if flags.get("TEST_MODE"):
+    if not flags.get("ENABLE_IMAGES", ENABLE_IMAGES):
+        if not getattr(compose_final_proposal, "_image_disabled_logged", False):
+            logging.info("Images disabled_in_mode=true")
+            compose_final_proposal._image_disabled_logged = True
+    elif flags.get("TEST_MODE"):
         img_size = flags.get("IMAGES_SIZE", "256x256")
         img_quality = flags.get("IMAGES_QUALITY", "high")
         try:
@@ -130,6 +137,14 @@ def compose_final_proposal(
                 final_document += f"\n![]({img['url']})\n"
 
     result_payload = {"document": final_document, "images": images, "test": bool(flags.get("TEST_MODE"))}
+    if not getattr(compose_final_proposal, "_budget_logged", False):
+        used = BUDGET.web_search_calls if BUDGET else 0
+        logging.info(
+            "RetrievalBudget web_search_calls=%d/%d",
+            used,
+            LIVE_SEARCH_MAX_CALLS,
+        )
+        compose_final_proposal._budget_logged = True
     return result_payload
 
 

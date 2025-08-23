@@ -10,7 +10,12 @@ from dr_rd.retrieval.live_search import Source
 
 
 def test_agent_populates_sources(caplog):
-    bundle = ContextBundle(rag_text="snippet", web_summary="web", sources=["doc1", "url1"])
+    bundle = ContextBundle(
+        rag_snippets=["snippet"],
+        web_summary="web",
+        sources=[Source("doc1"), Source("url1")],
+        meta={"rag_hits": 1, "web_used": True, "backend": "openai", "reason": "ok"},
+    )
     fake_resp = {"raw": SimpleNamespace(choices=[SimpleNamespace(usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0))]), "text": '{"x":1}'}
     with caplog.at_level(logging.INFO):
         with patch("core.agents.base_agent.collect_context", return_value=bundle), patch(
@@ -24,7 +29,12 @@ def test_agent_populates_sources(caplog):
 
 
 def test_pipeline_respects_budget(monkeypatch):
-    dummy_budget = SimpleNamespace(retrieval_calls=0, web_search_calls=1, retrieval_tokens=0, skipped_due_to_budget=0)
+    dummy_budget = SimpleNamespace(
+        retrieval_calls=0,
+        web_search_calls=1,
+        retrieval_tokens=0,
+        skipped_due_to_budget=0,
+    )
     monkeypatch.setattr(pipeline, "BUDGET", dummy_budget)
     cfg = {
         "rag_enabled": False,
@@ -35,5 +45,6 @@ def test_pipeline_respects_budget(monkeypatch):
     }
     with patch("dr_rd.retrieval.live_search.OpenAIWebSearchClient.search_and_summarize", return_value=("sum", [Source("t","u")])):
         bundle = pipeline.collect_context("i", "t", cfg)
-        assert bundle.web_summary == ""
+        assert bundle.web_summary is None
+        assert bundle.meta["reason"] == "budget_skip"
         assert dummy_budget.skipped_due_to_budget == 1

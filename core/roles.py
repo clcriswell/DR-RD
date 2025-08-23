@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Set
 
@@ -25,6 +26,27 @@ CANON = {
     "ip": "IP Analyst",
 }
 
+# Additional explicit role remappings to stop Synthesizer fallbacks. The keys
+# are human-facing roles that may appear in planner output; the values are the
+# canonical registry roles.  Each mapping is annotated with a comment explaining
+# the rationale for the merge.
+CANONICAL = {
+    # Mechanical work is handled by the Mechanical Systems Lead agent.
+    "Mechanical Engineer": "Mechanical Systems Lead",
+    # Electrical considerations map best to the CTO for high-level architecture.
+    "Electrical Engineer": "CTO",
+    # Software engineering tasks are covered by the Research Scientist agent.
+    "Software Engineer": "Research Scientist",
+    # UX/UI planning feeds into market analysis for the product.
+    "UX/UI Designer": "Marketing Analyst",
+    # QA work relates to compliance and regulatory oversight.
+    "Quality Assurance": "Regulatory",
+    # Materials research is handled by the Mechanical Systems Lead today.
+    "Materials Scientist": "Mechanical Systems Lead",
+}
+
+logger = logging.getLogger(__name__)
+
 
 def normalize_role(role: str | None) -> str | None:
     if not role:
@@ -35,6 +57,19 @@ def normalize_role(role: str | None) -> str | None:
     if STRICT:
         return hit
     return hit or r
+
+
+def canonicalize(role: str | None) -> str | None:
+    """Map variant roles to canonical agent registry roles."""
+
+    if not role:
+        return role
+    r = " ".join(role.split()).strip()
+    mapped = CANONICAL.get(r) or CANONICAL.get(r.lower(), None)
+    if mapped and mapped != r:
+        logger.info("RoleMap from='%s' to='%s'", r, mapped)
+        return mapped
+    return r
 
 
 def canonical_roles() -> Set[str]:

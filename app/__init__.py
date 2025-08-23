@@ -26,6 +26,7 @@ from core.agents.simulation_agent import SimulationAgent
 from core.agents.synthesizer_agent import SynthesizerAgent
 from core.agents.unified_registry import build_agents_unified
 from core.llm_client import METER, call_openai, set_budget_manager
+from core.llm import select_model
 from core.model_router import CallHints, difficulty_from_signals, pick_model
 from core.orchestrator import compile_proposal, execute_plan, generate_plan, run_poc
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks  # noqa: F401
@@ -34,6 +35,7 @@ from core.role_normalizer import group_by_role
 from core.role_normalizer import normalize_tasks as normalize_roles_tasks
 from dr_rd.core.config_snapshot import build_resolved_config_snapshot
 from dr_rd.knowledge.bootstrap import ensure_local_faiss_bundle
+from knowledge.faiss_store import FAISSLoadError, build_default_retriever
 from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
 
@@ -681,6 +683,11 @@ def main():
     # Install a BudgetManager so runs enforce a hard spend cap
     try:
         _mode_cfg, _budget = load_mode(selected_mode)
+        models_cfg = dict(_mode_cfg.get("models", {}))
+        resolved = {}
+        for stage, name in models_cfg.items():
+            resolved[stage] = select_model(stage, name)
+        _mode_cfg["models"] = resolved
         st.session_state["MODE_CFG"] = _mode_cfg
         set_budget_manager(_budget)
     except Exception as _e:
@@ -698,6 +705,26 @@ def main():
     _mode_cfg["vector_index_path"] = bootstrap.get("path")
     _mode_cfg["vector_index_source"] = bootstrap.get("source")
     _mode_cfg["vector_index_reason"] = bootstrap.get("reason")
+    _mode_cfg["web_search_calls_used"] = 0
+
+    doc_count = 0
+    dims = 0
+    vpath = _mode_cfg.get("vector_index_path")
+    try:
+        retriever, doc_count, dims = build_default_retriever(path=vpath)
+        logger.info(
+            "FAISSLoad path=%s doc_count=%d dims=%d result=ok reason=",
+            vpath,
+            doc_count,
+            dims,
+        )
+    except FAISSLoadError as e:
+        logger.info(
+            "FAISSLoad path=%s doc_count=0 dims=0 result=fail reason=%s",
+            vpath,
+            str(e),
+        )
+    _mode_cfg["vector_doc_count"] = doc_count
     snapshot_cfg = dict(_mode_cfg)
     snapshot_cfg.update(final_flags)
     snapshot_cfg["mode"] = selected_mode

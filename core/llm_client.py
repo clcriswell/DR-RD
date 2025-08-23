@@ -226,8 +226,6 @@ def call_openai(
         params = _sanitize_responses_params(params)
         if response_format is not None and _SUPPORTS_RESPONSE_FORMAT:
             params["response_format"] = response_format
-        elif response_format is not None and not _SUPPORTS_RESPONSE_FORMAT:
-            logger.warning("response_format not supported by OpenAI SDK; ignoring")
         mode = None
         try:
             import streamlit as st  # type: ignore
