@@ -36,9 +36,11 @@ def _cfg():
 def test_no_retriever_triggers_web(monkeypatch):
     dummy = DummyClient()
     monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
-    bundle = pipeline.collect_context("idea", "task", _cfg(), retriever=None)
+    cfg = _cfg()
+    cfg["vector_index_present"] = False
+    bundle = pipeline.collect_context("idea", "task", cfg, retriever=None)
     assert dummy.called == 1
-    assert bundle.meta["reason"] == "no_retriever"
+    assert bundle.meta["reason"] == "fallback_no_vector"
     assert bundle.web_summary == "sum"
 
 
@@ -46,9 +48,11 @@ def test_empty_rag_triggers_web(monkeypatch):
     dummy = DummyClient()
     monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
     retriever = DummyRetriever([])
-    bundle = pipeline.collect_context("i", "t", _cfg(), retriever=retriever)
+    cfg = _cfg()
+    cfg["vector_index_present"] = True
+    bundle = pipeline.collect_context("i", "t", cfg, retriever=retriever)
     assert dummy.called == 1
-    assert bundle.meta["reason"] == "rag_empty"
+    assert bundle.meta["reason"] == "no_results"
 
 
 def test_budget_skip(monkeypatch):
@@ -62,8 +66,11 @@ def test_budget_skip(monkeypatch):
     dummy = DummyClient()
     monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
     cfg = _cfg()
-    cfg["live_search_max_calls"] = 1
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(1)
+    rbudget.RETRIEVAL_BUDGET.used = 1
     bundle = pipeline.collect_context("i", "t", cfg, retriever=None)
     assert dummy.called == 0
-    assert bundle.meta["reason"] == "budget_skip"
+    assert bundle.meta["reason"] == "budget_exhausted"
     assert dummy_budget.skipped_due_to_budget == 1

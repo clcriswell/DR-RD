@@ -40,11 +40,17 @@ def test_pipeline_respects_budget(monkeypatch):
         "rag_enabled": False,
         "live_search_enabled": True,
         "live_search_backend": "openai",
-        "live_search_max_calls": 1,
         "live_search_summary_tokens": 10,
     }
-    with patch("dr_rd.retrieval.live_search.OpenAIWebSearchClient.search_and_summarize", return_value=("sum", [Source("t","u")])):
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(1)
+    rbudget.RETRIEVAL_BUDGET.used = 1
+    with patch(
+        "dr_rd.retrieval.live_search.OpenAIWebSearchClient.search_and_summarize",
+        return_value=("sum", [Source("t", "u")]),
+    ):
         bundle = pipeline.collect_context("i", "t", cfg)
         assert bundle.web_summary is None
-        assert bundle.meta["reason"] == "budget_skip"
+        assert bundle.meta["reason"] == "budget_exhausted"
         assert dummy_budget.skipped_due_to_budget == 1

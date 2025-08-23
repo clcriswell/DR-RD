@@ -19,9 +19,11 @@ def test_pair_sequence():
 def test_irregular_shapes():
     payload = [("a", 1, 2)]
     out = _normalize_evidence_payload(payload)
-    assert "data" in out
+    assert out["_data"] == payload
+    assert "_note" in out
 
 
 def test_scalar_value():
     payload = "hello"
-    assert _normalize_evidence_payload(payload) == {"value": "hello"}
+    out = _normalize_evidence_payload(payload)
+    assert out["_data"] == "hello"

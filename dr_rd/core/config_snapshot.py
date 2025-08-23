@@ -25,7 +25,10 @@ def build_resolved_config_snapshot(cfg: Dict[str, Any]) -> Dict[str, Any]:
         "live_search_enabled": bool(cfg.get("live_search_enabled")),
         "live_search_backend": cfg.get("live_search_backend"),
     }
-    if "live_search_max_calls" in cfg:
+    if "web_search_max_calls" in cfg:
+        snapshot["web_search_max_calls"] = cfg.get("web_search_max_calls")
+        snapshot["web_search_calls_used"] = cfg.get("web_search_calls_used", 0)
+    elif "live_search_max_calls" in cfg:
         snapshot["web_search_max_calls"] = cfg.get("live_search_max_calls")
         snapshot["web_search_calls_used"] = cfg.get("web_search_calls_used", 0)
     # Budget caps

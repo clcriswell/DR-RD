@@ -19,6 +19,9 @@ def test_live_search_triggered(monkeypatch):
     importlib.reload(ff)
     importlib.reload(ba)
     importlib.reload(ip_agent)
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(3)
 
     def fake_search_and_summarize(query, k, max_tokens):
         return "summary", [Source(title="T1", url="u1")]
@@ -49,6 +52,11 @@ def test_no_live_search_with_rag(monkeypatch):
     importlib.reload(ff)
     importlib.reload(ba)
     importlib.reload(ip_agent)
+    for mod in (ff, ba, ip_agent):
+        monkeypatch.setattr(mod, "VECTOR_INDEX_PRESENT", True, raising=False)
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(3)
     called = {"search": False}
 
     def fake_search_and_summarize(query, k, max_tokens):
@@ -85,6 +93,9 @@ def test_live_search_disabled(monkeypatch):
     importlib.reload(ff)
     importlib.reload(ba)
     importlib.reload(ip_agent)
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(3)
     called = {"search": False}
 
     def fake_search_and_summarize(query, k, max_tokens):

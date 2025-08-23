@@ -180,24 +180,34 @@ def _slugify(name: str) -> str:
 
 
 def _normalize_evidence_payload(payload):
+    """Coerce arbitrary payloads into a dictionary.
+
+    Accepts dictionaries, list-like structures, or scalars. Non-dict inputs are
+    wrapped so that we always return a dict suitable for ``EvidenceItem``.
+    """
+
     if payload is None:
         return {}
     if isinstance(payload, dict):
         return payload
-    if isinstance(payload, list) and all(isinstance(x, dict) for x in payload):
-        merged: Dict[str, Any] = {}
-        for d in payload:
-            try:
+    if isinstance(payload, (list, tuple)):
+        # Case A: list of (k, v) pairs
+        if all(isinstance(x, (list, tuple)) and len(x) == 2 for x in payload):
+            return {str(k): v for k, v in payload}
+        # Case B: list of dicts – shallow merge
+        if all(isinstance(x, dict) for x in payload):
+            merged: Dict[str, Any] = {}
+            for d in payload:
                 merged.update(d)
-            except Exception:
-                merged.setdefault("data", []).append(d)
-        return merged
-    if isinstance(payload, (list, tuple)) and all(isinstance(x, (list, tuple)) for x in payload):
-        try:
-            return dict(payload)  # works for sequence of (k, v)
-        except Exception:
-            return {"data": payload}
-    return {"value": payload}
+            return merged
+        # Fallback: preserve raw data for debugging
+        return {"_data": payload, "_note": "non-dict payload coerced"}
+    # Fallback for scalars/unknown types
+    try:
+        json.dumps(payload)
+        return {"_data": payload}
+    except Exception:
+        return {"_repr": repr(payload)}
 
 
 def execute_plan(

@@ -30,7 +30,7 @@ def collect_context(
     rag_hits = 0
     rag_snips: List[str] = []
     sources: List[Source] = []
-    reason = "rag_ok"
+    reason = "ok"
 
     if cfg.get("rag_enabled") and retriever is not None:
         try:
@@ -46,12 +46,12 @@ def collect_context(
                 BUDGET.retrieval_calls += 1
                 BUDGET.retrieval_tokens += sum(len(sn.text.split()) for sn in hits)
         else:
-            reason = "rag_empty"
+            reason = "no_results"
     else:
         if not cfg.get("vector_index_present", False):
-            reason = "no_vector_index"
+            reason = "no_vector"
         else:
-            reason = "disabled_in_mode"
+            reason = "rag_disabled"
 
     budget = retrieval_budget.RETRIEVAL_BUDGET
     budget_allows = budget.allow() if budget else True
@@ -81,23 +81,25 @@ def collect_context(
             if BUDGET:
                 BUDGET.web_search_calls += 1
             reason = (
-                "no_vector_index" if not cfg.get("vector_index_present", False) else "rag_empty"
+                "fallback_no_vector"
+                if not cfg.get("vector_index_present", False)
+                else "no_results"
             )
         except Exception:
             reason = "error"
     else:
-        if not cfg.get("vector_index_present", False):
-            reason = "no_vector_index"
-        elif rag_hits == 0:
-            if cfg.get("live_search_enabled", False) and not budget_allows:
-                reason = "budget_skip"
-            else:
-                reason = "rag_empty"
-        else:
-            reason = "rag_ok"
-        if cfg.get("live_search_enabled", False) and need_web and not budget_allows:
+        if need_web and cfg.get("live_search_enabled", False) and not budget_allows:
+            reason = "budget_exhausted"
             if BUDGET:
-                BUDGET.skipped_due_to_budget = getattr(BUDGET, "skipped_due_to_budget", 0) + 1
+                BUDGET.skipped_due_to_budget = getattr(
+                    BUDGET, "skipped_due_to_budget", 0
+                ) + 1
+        elif not cfg.get("vector_index_present", False):
+            reason = "no_vector"
+        elif rag_hits == 0:
+            reason = "no_results"
+        else:
+            reason = "ok"
 
     meta = {
         "rag_hits": rag_hits,

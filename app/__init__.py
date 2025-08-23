@@ -706,7 +706,8 @@ def main():
     from core.retrieval import budget as rbudget
     import config.feature_flags as ff
 
-    cap = rbudget.get_web_search_max_calls(_mode_cfg, _os.environ)
+    cap = rbudget.get_web_search_call_cap(_mode_cfg)
+    _mode_cfg["web_search_max_calls"] = cap
     _mode_cfg["live_search_max_calls"] = cap
     rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(cap)
     ff.LIVE_SEARCH_MAX_CALLS = cap

@@ -16,22 +16,34 @@ def first_valid_int(values: Iterable[object]) -> Optional[int]:
     return None
 
 
-def get_web_search_max_calls(resolved_cfg: dict, env: Mapping[str, str]) -> int:
-    """Resolve the web-search call cap from env and config."""
-    candidates = [
-        env.get("WEB_SEARCH_MAX_CALLS"),
-        env.get("LIVE_SEARCH_MAX_CALLS"),
-        resolved_cfg.get("web_search_max_calls"),
-        resolved_cfg.get("live_search_max_calls"),
-    ]
-    max_calls = first_valid_int(candidates)
-    web_only = (
-        resolved_cfg.get("live_search_enabled") is True
-        and not resolved_cfg.get("vector_index_present", False)
+def get_web_search_call_cap(cfg: Mapping[str, object]) -> int:
+    """Return the normalized web-search call cap.
+
+    Preference order:
+
+    1. ``cfg['web_search_max_calls']``
+    2. ``cfg['live_search_max_calls']``
+    3. Fallback to ``3``
+
+    This keeps a single source of truth for the cap and avoids subtle
+    divergence between different parts of the codebase.
+    """
+
+    candidate = first_valid_int(
+        [cfg.get("web_search_max_calls"), cfg.get("live_search_max_calls")]
     )
-    if (not max_calls or max_calls <= 0) and web_only:
+    if candidate is None:
         return 3
-    return int(max_calls or 0)
+    return int(candidate)
+
+
+# Backwards compatibility -----------------------------------------------------------------
+
+# Some tests/imports still reference the old name. Provide a thin wrapper so existing
+# callers continue to work without modification. The wrapper intentionally ignores the
+# second ``env`` argument that used to be required.
+def get_web_search_max_calls(cfg: Mapping[str, object], _env: Mapping[str, str] | None = None) -> int:
+    return get_web_search_call_cap(cfg)
 
 
 @dataclass
