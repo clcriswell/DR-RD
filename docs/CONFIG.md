@@ -28,9 +28,51 @@ Vector search uses a FAISS bundle that can be downloaded on startup. Modes may s
 
 Budget tracking exposes counters: `retrieval_calls`, `web_search_calls`, `retrieval_tokens`, and increments `skipped_due_to_budget` when live search is skipped because the call cap is reached.
 
+### Web-only (no FAISS)
+
+By default the application starts without a vector index and performs retrieval exclusively through live web search.
+
+Default mode settings:
+
+```
+rag_enabled: true
+live_search_enabled: true
+live_search_backend: openai
+live_search_max_calls: 3
+faiss_bootstrap_mode: skip
+faiss_index_uri: ""
+faiss_index_dir: .faiss_index
+```
+
+Equivalent environment variables:
+
+```
+RAG_ENABLED=true
+ENABLE_LIVE_SEARCH=true
+LIVE_SEARCH_BACKEND=openai   # or serpapi
+LIVE_SEARCH_MAX_CALLS=3
+FAISS_BOOTSTRAP_MODE=skip
+FAISS_INDEX_URI=
+FAISS_INDEX_DIR=.faiss_index
+```
+
+Expected logs:
+
+- `FAISSLoad path=.faiss_index result=skip reason=bootstrap_skip`
+- `RetrievalTrace … rag_hits=0 web_used=true backend=<openai|serpapi> reason=no_vector_index`
+
+To re-enable FAISS later set:
+
+```
+FAISS_BOOTSTRAP_MODE=download
+FAISS_INDEX_URI=gs://<bucket>/<prefix>/nightly/latest  # or prod/v1
+```
+
+Live search may remain enabled for fallback.
+
 ### Nightly FAISS Build & Publish
 
-A nightly workflow builds and validates a FAISS index bundle and pushes it to Google Cloud Storage:
+A nightly workflow builds and validates a FAISS index bundle and pushes it to Google Cloud Storage. FAISS is disabled by default; these bundles are available for future use when vector search is re-enabled:
 
 - `gs://drrdfaiss/Projects/nightly/<run>-<sha>` — immutable snapshot for each run.
 - `gs://drrdfaiss/Projects/nightly/latest` — rolling pointer updated every run.

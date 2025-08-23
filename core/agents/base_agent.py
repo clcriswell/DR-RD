@@ -16,6 +16,7 @@ from config.feature_flags import (
     RAG_ENABLED,
     RAG_TOPK,
     VECTOR_INDEX_PATH,
+    VECTOR_INDEX_PRESENT,
 )
 from core.llm import complete
 from core.llm_client import call_openai, log_usage
@@ -94,13 +95,18 @@ class BaseAgent:
         if retriever is not None:
             self.retriever = retriever
         else:
-            self.retriever = build_retriever(VECTOR_INDEX_PATH) if RAG_ENABLED else None
+            self.retriever = (
+                build_retriever(VECTOR_INDEX_PATH)
+                if RAG_ENABLED and VECTOR_INDEX_PRESENT
+                else None
+            )
         self._sources: list[str] = []
 
     def _augment_prompt(self, prompt: str, idea: str, task: str, task_id: str = "") -> str:
         """Attach retrieved snippets and optionally web summary."""
+        vector_available = VECTOR_INDEX_PRESENT
         cfg = {
-            "rag_enabled": RAG_ENABLED,
+            "rag_enabled": RAG_ENABLED and vector_available,
             "rag_top_k": RAG_TOPK,
             "live_search_enabled": ENABLE_LIVE_SEARCH,
             "live_search_backend": LIVE_SEARCH_BACKEND,
@@ -110,6 +116,9 @@ class BaseAgent:
         bundle = collect_context(idea, task, cfg, retriever=self.retriever)
         self._sources = [s.title or (s.url or "") for s in bundle.sources]
         meta = bundle.meta
+        if not vector_available:
+            meta["rag_hits"] = 0
+            meta["reason"] = "no_vector_index"
         logger.info(
             "RetrievalTrace agent=%s task_id=%s rag_hits=%d web_used=%s backend=%s sources=%d reason=%s",
             self.name,
