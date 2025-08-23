@@ -108,19 +108,20 @@ class BaseAgent:
             "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
         }
         bundle = collect_context(idea, task, cfg, retriever=self.retriever)
-        self._sources = bundle.sources or []
+        self._sources = [s.title or (s.url or "") for s in bundle.sources]
+        meta = bundle.meta
         logger.info(
             "RetrievalTrace agent=%s task_id=%s rag_hits=%d web_used=%s backend=%s sources=%d reason=%s",
             self.name,
             task_id,
-            bundle.rag_hits,
-            str(bundle.web_used).lower(),
-            bundle.backend or "none",
-            len(bundle.sources or []),
-            bundle.reason or "n/a",
+            meta.get("rag_hits", 0),
+            str(meta.get("web_used", False)).lower(),
+            meta.get("backend", "none"),
+            len(bundle.sources),
+            meta.get("reason", "ok"),
         )
-        if bundle.rag_text:
-            prompt += "\n\n# RAG Knowledge\n" + bundle.rag_text
+        if bundle.rag_snippets:
+            prompt += "\n\n# RAG Knowledge\n" + "\n".join(bundle.rag_snippets)
         if bundle.web_summary:
             prompt += "\n\n# Web Search Results\n" + bundle.web_summary
             prompt += "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."

@@ -13,6 +13,7 @@ test:
   live_search_summary_tokens: 256
   faiss_index_local_dir: .faiss_index
   faiss_bootstrap_mode: download
+  enable_images: false
 deep:
   target_cost_usd: 2.50
   enforce_caps: false
@@ -28,4 +29,5 @@ deep:
   live_search_summary_tokens: 256
   faiss_index_local_dir: .faiss_index
   faiss_bootstrap_mode: download
+  enable_images: false
 # redaction time

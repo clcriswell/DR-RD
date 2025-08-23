@@ -23,6 +23,7 @@ LIVE_SEARCH_MAX_CALLS: int = 0
 LIVE_SEARCH_SUMMARY_TOKENS: int = 256
 SERPAPI_KEY: str = os.getenv("SERPAPI_KEY", "")
 DISABLE_IMAGES_BY_DEFAULT = {"test": False, "deep": False}
+ENABLE_IMAGES = _flag("ENABLE_IMAGES")
 FAISS_INDEX_URI: str | None = os.getenv("FAISS_INDEX_URI")
 FAISS_INDEX_DIR: str = os.getenv("FAISS_INDEX_DIR", ".faiss_index")
 FAISS_BOOTSTRAP_MODE: str = os.getenv("FAISS_BOOTSTRAP_MODE", "download")
@@ -71,6 +72,7 @@ def get_env_defaults() -> dict:
         "LIVE_SEARCH_BACKEND": LIVE_SEARCH_BACKEND,
         "LIVE_SEARCH_MAX_CALLS": LIVE_SEARCH_MAX_CALLS,
         "LIVE_SEARCH_SUMMARY_TOKENS": LIVE_SEARCH_SUMMARY_TOKENS,
+        "ENABLE_IMAGES": ENABLE_IMAGES,
         "SIM_OPTIMIZER_ENABLED": SIM_OPTIMIZER_ENABLED,
         "SIM_OPTIMIZER_STRATEGY": SIM_OPTIMIZER_STRATEGY,
         "SIM_OPTIMIZER_MAX_EVALS": SIM_OPTIMIZER_MAX_EVALS,
@@ -81,7 +83,7 @@ def apply_mode_overrides(cfg: dict) -> None:
     """Override feature flags using mode configuration."""
     global RAG_ENABLED, RAG_TOPK, ENABLE_LIVE_SEARCH
     global LIVE_SEARCH_BACKEND, LIVE_SEARCH_MAX_CALLS, LIVE_SEARCH_SUMMARY_TOKENS
-    global FAISS_BOOTSTRAP_MODE, VECTOR_INDEX_PATH, FAISS_INDEX_URI
+    global FAISS_BOOTSTRAP_MODE, VECTOR_INDEX_PATH, FAISS_INDEX_URI, ENABLE_IMAGES
     if "rag_enabled" in cfg:
         RAG_ENABLED = bool(cfg.get("rag_enabled"))
     if "rag_top_k" in cfg:
@@ -102,3 +104,5 @@ def apply_mode_overrides(cfg: dict) -> None:
         VECTOR_INDEX_PATH = str(cfg.get("faiss_index_local_dir") or VECTOR_INDEX_PATH)
     if "faiss_index_uri" in cfg:
         FAISS_INDEX_URI = str(cfg.get("faiss_index_uri") or FAISS_INDEX_URI)
+    if "enable_images" in cfg:
+        ENABLE_IMAGES = bool(cfg.get("enable_images"))

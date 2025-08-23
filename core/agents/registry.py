@@ -16,6 +16,7 @@ from .marketing_agent import MarketingAgent
 from .ip_analyst_agent import IPAnalystAgent
 from .planner_agent import PlannerAgent
 from .synthesizer_agent import SynthesizerAgent
+from .mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
 from .invoke import resolve_invoker
 from config.agent_models import AGENT_MODEL_MAP
 from core.llm import select_model
@@ -35,6 +36,7 @@ AGENTS: Dict[str, Type[BaseAgent]] = {
     "IP Analyst": IPAnalystAgent,
     "Planner": PlannerAgent,
     "Synthesizer": SynthesizerAgent,
+    "Mechanical Systems Lead": MechanicalSystemsLeadAgent,
 }
 
 # Backwards compatibility alias

@@ -113,18 +113,19 @@ def run_planner(
         "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
     }
     bundle = collect_context(idea, idea, cfg)
+    meta = bundle.meta
     logger.info(
         "RetrievalTrace agent=Planner task_id=plan rag_hits=%d web_used=%s backend=%s sources=%d reason=%s",
-        bundle.rag_hits,
-        str(bundle.web_used).lower(),
-        bundle.backend or "none",
-        len(bundle.sources or []),
-        bundle.reason or "n/a",
+        meta.get("rag_hits", 0),
+        str(meta.get("web_used", False)).lower(),
+        meta.get("backend", "none"),
+        len(bundle.sources),
+        meta.get("reason", "ok"),
     )
-    if bundle.rag_text:
-        user_prompt += "\n\nReference Knowledge\n" + bundle.rag_text
+    if bundle.rag_snippets:
+        user_prompt += "\n\n# RAG Knowledge\n" + "\n".join(bundle.rag_snippets)
     if bundle.web_summary:
-        user_prompt += "\n\nWeb Search Results\n" + bundle.web_summary
+        user_prompt += "\n\n# Web Search Results\n" + bundle.web_summary
     messages = [
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": user_prompt},

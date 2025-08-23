@@ -17,7 +17,7 @@ def test_live_search_without_index():
         return_value=("web", [Source("t", "u")]),
     ) as mock:
         bundle = collect_context("idea", "task", cfg, retriever=None)
-        assert bundle.web_used
+        assert bundle.meta["web_used"]
         assert mock.called
 
 
@@ -38,5 +38,5 @@ def test_live_search_when_rag_empty():
         return_value=("web", [Source("t", "u")]),
     ) as mock:
         bundle = collect_context("idea", "task", cfg, retriever=EmptyRetriever())
-        assert bundle.web_used
+        assert bundle.meta["web_used"]
         assert mock.called

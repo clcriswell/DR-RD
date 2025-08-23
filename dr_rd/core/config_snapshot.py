@@ -26,7 +26,8 @@ def build_resolved_config_snapshot(cfg: Dict[str, Any]) -> Dict[str, Any]:
         "live_search_backend": cfg.get("live_search_backend"),
     }
     if "live_search_max_calls" in cfg:
-        snapshot["live_search_max_calls"] = cfg.get("live_search_max_calls")
+        snapshot["web_search_max_calls"] = cfg.get("live_search_max_calls")
+        snapshot["web_search_calls_used"] = cfg.get("web_search_calls_used", 0)
     # Budget caps
     budget = cfg.get("budget") if isinstance(cfg.get("budget"), dict) else {}
     caps = {
@@ -45,4 +46,6 @@ def build_resolved_config_snapshot(cfg: Dict[str, Any]) -> Dict[str, Any]:
         snapshot["vector_index_source"] = cfg.get("vector_index_source")
     if "faiss_bootstrap_mode" in cfg:
         snapshot["faiss_bootstrap_mode"] = cfg.get("faiss_bootstrap_mode")
+    if "vector_doc_count" in cfg:
+        snapshot["vector_doc_count"] = cfg.get("vector_doc_count")
     return {k: v for k, v in snapshot.items() if v is not None}

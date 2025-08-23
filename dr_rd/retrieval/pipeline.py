@@ -1,53 +1,57 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from core.llm_client import BUDGET
 
-from .live_search import get_live_client
+from .live_search import Source, get_live_client
 from .vector_store import Retriever, Snippet
 
 
 @dataclass
 class ContextBundle:
-    rag_text: str = ""
-    web_summary: str = ""
-    sources: List[str] | None = None
-    rag_hits: int = 0
-    web_used: bool = False
-    backend: str | None = None
-    reason: str | None = None
+    """Container of retrieved context for prompt augmentation."""
+
+    rag_snippets: List[str]
+    web_summary: str | None
+    sources: List[Source]
+    meta: Dict[str, object]
 
 
 def collect_context(
-    idea: str, task: str, cfg: dict, retriever: Optional[Retriever] = None
+    idea: str, task_text: str, cfg: dict, retriever: Optional[Retriever] = None
 ) -> ContextBundle:
-    sources: List[str] = []
-    text = f"{idea}\n{task}".strip()
-    rag_text = ""
-    hits: List[Snippet] = []
-    reason = None
-    if cfg.get("rag_enabled") and retriever is not None:
-        try:
-            hits = retriever.query(text, cfg.get("rag_top_k", 5))  # type: ignore[arg-type]
-        except Exception:
-            hits = []
-        if hits:
-            rag_text = "\n".join(sn.text for sn in hits)
-            sources.extend(sn.source for sn in hits)
-            if BUDGET:
-                BUDGET.retrieval_calls += 1
-                BUDGET.retrieval_tokens += sum(len(sn.text.split()) for sn in hits)
+    """Gather vector and live-search context for a task."""
+
+    text = f"{idea}\n{task_text}".strip()
+    rag_hits = 0
+    rag_snips: List[str] = []
+    sources: List[Source] = []
+    reason = "ok"
+
+    if cfg.get("rag_enabled"):
+        if retriever is not None:
+            try:
+                hits = retriever.query(text, cfg.get("rag_top_k", 5))  # type: ignore[arg-type]
+            except Exception:
+                hits = []
+                reason = "error"
+            rag_hits = len(hits)
+            if rag_hits:
+                rag_snips = [sn.text for sn in hits]
+                sources.extend(Source(title=sn.source, url=None) for sn in hits)
+                if BUDGET:
+                    BUDGET.retrieval_calls += 1
+                    BUDGET.retrieval_tokens += sum(len(sn.text.split()) for sn in hits)
+            else:
+                reason = "rag_empty"
         else:
-            reason = "rag_empty"
+            reason = "no_retriever"
     else:
-        if not cfg.get("rag_enabled"):
-            reason = "rag_disabled"
-        elif retriever is None:
-            reason = "no_index"
-    rag_hits = len(hits)
-    web_summary = ""
+        reason = "disabled_in_mode"
+
+    web_summary: str | None = None
     web_used = False
     backend = None
     if cfg.get("live_search_enabled") and (rag_hits == 0 or retriever is None):
@@ -57,28 +61,25 @@ def collect_context(
             BUDGET.skipped_due_to_budget = getattr(BUDGET, "skipped_due_to_budget", 0) + 1
             reason = "budget_skip"
         else:
-            client = get_live_client(backend)
-            summary, srcs = client.search_and_summarize(
-                text,
-                cfg.get("rag_top_k", 5),
-                cfg.get("live_search_summary_tokens", 256),
-            )
-            web_summary = summary
-            sources.extend([s.title or (s.url or "") for s in srcs])
-            web_used = True
-            if BUDGET:
-                BUDGET.web_search_calls += 1
-    else:
-        if not cfg.get("live_search_enabled"):
-            reason = reason or "web_disabled"
-        elif rag_hits > 0:
-            reason = reason or "rag_hit"
-    return ContextBundle(
-        rag_text=rag_text,
-        web_summary=web_summary,
-        sources=sources,
-        rag_hits=rag_hits,
-        web_used=web_used,
-        backend=backend,
-        reason=reason,
-    )
+            try:
+                client = get_live_client(backend)
+                summary, srcs = client.search_and_summarize(
+                    text,
+                    cfg.get("rag_top_k", 5),
+                    cfg.get("live_search_summary_tokens", 256),
+                )
+                web_summary = summary
+                sources.extend(srcs)
+                web_used = True
+                if BUDGET:
+                    BUDGET.web_search_calls += 1
+            except Exception:
+                reason = "error"
+
+    meta = {
+        "rag_hits": rag_hits,
+        "web_used": web_used,
+        "backend": backend or "none",
+        "reason": reason,
+    }
+    return ContextBundle(rag_snippets=rag_snips, web_summary=web_summary, sources=sources, meta=meta)

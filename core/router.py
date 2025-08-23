@@ -6,6 +6,7 @@ import logging
 from typing import Dict, Tuple, Type
 
 from core.agents.registry import AGENT_REGISTRY, get_agent
+from core.roles import canonicalize
 from core.agents.invoke import invoke_agent
 from core.llm import select_model
 
@@ -73,7 +74,7 @@ def choose_agent_for_task(
     """
 
     # 1) Exact match on planned_role via the central registry
-    role = _alias(planned_role)
+    role = canonicalize(_alias(planned_role))
     if role:
         role = ROLE_SYNONYMS.get(role, role)
     if role and role in AGENT_REGISTRY:
@@ -116,7 +117,7 @@ def dispatch(task: Dict[str, str], ui_model: str | None = None):
     rerouted to ``Synthesizer``.
     """
 
-    role = _alias(task.get("role"))
+    role = canonicalize(_alias(task.get("role")))
     if role:
         role = ROLE_SYNONYMS.get(role, role)
     canonical = role if role in AGENT_REGISTRY else "Synthesizer"

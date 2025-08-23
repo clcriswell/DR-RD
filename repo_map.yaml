@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-23T00:23:02.680978Z'
-git_sha: 76c5c0133b9126230aa9311bb60f3bc3b3fb537b
+generated_at: '2025-08-23T00:46:38.158792Z'
+git_sha: 2cfbe36427d8864eaef265a7cb671045aa7770c6
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -29,6 +29,7 @@ runtime_modes:
     live_search_summary_tokens: 256
     faiss_index_local_dir: .faiss_index
     faiss_bootstrap_mode: download
+    enable_images: false
   deep:
     target_cost_usd: 2.5
     enforce_caps: false
@@ -50,6 +51,7 @@ runtime_modes:
     live_search_summary_tokens: 256
     faiss_index_local_dir: .faiss_index
     faiss_bootstrap_mode: download
+    enable_images: false
 env_flags:
 - DRRD_MODE
 - RAG_ENABLED
@@ -98,14 +100,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/__init__.py
+- path: orchestrators/plan_utils.py
   role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/plan_utils.py
+- path: orchestrators/spec_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -133,7 +135,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/spec_builder.py
+- path: orchestrators/__init__.py
   role: Orchestrator
   responsibilities: []
   inputs: []
