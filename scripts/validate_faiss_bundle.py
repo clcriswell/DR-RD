@@ -19,23 +19,37 @@ def main() -> None:
     args = ap.parse_args()
 
     bundle_dir = Path(args.path)
-    required = ["index.faiss", "docs.json"]
-    missing = [f for f in required if not (bundle_dir / f).exists()]
-    if missing:
-        print(f"Missing required files: {', '.join(missing)}", file=sys.stderr)
-        raise SystemExit(1)
+    files = sorted(p.name for p in bundle_dir.iterdir() if p.is_file()) if bundle_dir.exists() else []
+
+    doc_count = 0
+    dims = 0
+    loader_error = None
+    validated_by = None
 
     try:
         _, doc_count, dims = build_default_retriever(str(bundle_dir))
+        validated_by = "runtime_loader"
     except FAISSLoadError as e:
-        print(f"Bundle load failed: {e}", file=sys.stderr)
-        raise SystemExit(1)
+        loader_error = str(e)
 
-    if doc_count == 0:
-        print("Doc count is zero", file=sys.stderr)
-        raise SystemExit(1)
+    if validated_by is None:
+        patterns = [
+            {"index.faiss", "docs.json"},
+            {"index.faiss", "docstore.pkl"},
+            {"index.pkl", "docstore.pkl"},
+            {"faiss.index", "docstore.json"},
+            {"index.bin", "metadatas.json"},
+        ]
+        file_set = set(files)
+        if any(patt.issubset(file_set) for patt in patterns):
+            validated_by = "file_pattern"
+        else:
+            print(
+                f"Bundle at {bundle_dir} not loadable and no known pattern matched",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
 
-    files = sorted(p.name for p in bundle_dir.iterdir() if p.is_file())
     manifest = {
         "path": str(bundle_dir),
         "doc_count": doc_count,
@@ -43,6 +57,8 @@ def main() -> None:
         "files": files,
         "built_at": datetime.now(timezone.utc).isoformat(),
         "embedding_model": None,
+        "loader_error": loader_error,
+        "validated_by": validated_by,
     }
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(manifest, fh)

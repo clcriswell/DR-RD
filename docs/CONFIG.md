@@ -36,6 +36,10 @@ A nightly workflow builds and validates a FAISS index bundle and pushes it to Go
 - `gs://drrdfaiss/Projects/nightly/latest` — rolling pointer updated every run.
 - `gs://drrdfaiss/Projects/prod/v1` — manually promoted via `workflow_dispatch` with `release_to_prod=true`.
 
+In CI the builder is invoked as `python scripts/build_faiss_index.py --root "." --out ".faiss_index"`. The workflow prints and
+verifies `.faiss_index/` before running validation, which uses a loader-first approach but falls back to common file layouts if
+loading fails.
+
 To consume the bundle in the app, set:
 
 ```bash

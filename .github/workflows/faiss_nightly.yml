@@ -48,8 +48,20 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python scripts/build_faiss_index.py -h || true
-          python scripts/build_faiss_index.py --root "${{ steps.src.outputs.src }}" --out "${{ env.FAISS_DST_DIR }}"
+          python scripts/build_faiss_index.py --root "." --out "$FAISS_DST_DIR"
+
+      - name: Show FAISS output
+        run: |
+          pwd
+          echo "---- .faiss_index (flat) ----"
+          ls -lah .faiss_index || true
+          echo "---- .faiss_index (recursive) ----"
+          find .faiss_index -maxdepth 2 -type f -print 2>/dev/null || true
+
+      - name: Verify output not empty
+        run: |
+          test -d .faiss_index && test "$(find .faiss_index -type f | wc -l)" -gt 0 \
+            || (echo "::error::.faiss_index is empty (builder likely wrote elsewhere or corpus empty)"; exit 1)
 
       - name: Validate bundle and emit manifest
         run: |
