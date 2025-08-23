@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List
 
 from core.llm_client import BUDGET
 from core.retrieval import budget as rbudget
 from core.retrieval.budget import get_web_search_call_cap
-from dr_rd.retrieval.live_search import get_live_client
+from dr_rd.retrieval.live_search import get_live_client, run_live_search_with_fallback
 from dr_rd.retrieval.vector_store import Retriever
 from utils.search_tools import search_google
+
+log = logging.getLogger("drrd")
 
 
 def _format_results(results: List[Dict[str, Any]]) -> List[Dict[str, str]]:
@@ -108,3 +111,84 @@ def fetch_context(
     }
 
     return {"rag_snippets": rag_snips, "web_results": web_results, "trace": trace}
+
+
+def retrieve_context(
+    idea: str,
+    config: Dict[str, Any],
+    index,
+) -> Dict[str, Any]:
+    """Simplified context retriever used by tests and lightweight callers."""
+
+    rag_enabled = bool(config.get("rag_enabled", True))
+    live_enabled = bool(config.get("live_search_enabled", True))
+    backend = (config.get("live_search_backend") or "openai").lower()
+
+    max_calls = config.get("web_search_max_calls")
+    if max_calls in (None, "", 0):
+        max_calls = config.get("live_search_max_calls")
+    try:
+        max_calls = int(max_calls) if max_calls not in (None, "") else None
+    except Exception:
+        max_calls = None
+    if max_calls is None:
+        max_calls = 3 if (not getattr(index, "present", False)) else 0
+
+    used_calls = 0
+    snippets: List[Dict[str, str]] = []
+    web_summary = None
+    web_sources: List[Dict[str, str]] = []
+
+    need_web = False
+    if rag_enabled and getattr(index, "present", False):
+        vec = index.search(idea, k=int(config.get("rag_top_k") or 5))
+        snippets.extend(vec or [])
+        need_web = not snippets
+    else:
+        need_web = True
+
+    if live_enabled and need_web and used_calls < max_calls:
+        try:
+            res = run_live_search_with_fallback(
+                query=idea,
+                llm_model=(
+                    config.get("exec_model")
+                    or config.get("synth_model")
+                    or "gpt-4.1-mini"
+                ),
+                backend_primary=backend,
+                allow_serpapi_fallback=True,
+                max_sources=5,
+            )
+            web_summary = res.get("text") or ""
+            web_sources = list(res.get("sources") or [])
+            used_calls += 1
+            log.info(
+                "RetrievalTrace agent=live_search rag_hits=%d web_used=true backend=%s sources=%d reason=%s",
+                len(snippets),
+                backend,
+                len(web_sources),
+                "forced_no_vector" if not getattr(index, "present", False) else "no_vec_hits",
+            )
+        except Exception as e:  # pragma: no cover - network failures
+            log.warning(
+                "RetrievalTrace agent=live_search rag_hits=%d web_used=false backend=%s sources=0 reason=live_search_error err=%s",
+                len(snippets),
+                backend,
+                e,
+            )
+
+    meta = {
+        "rag_enabled": rag_enabled,
+        "live_enabled": live_enabled,
+        "backend": backend,
+        "web_search_calls_used": used_calls,
+        "web_search_max_calls": int(max_calls or 0),
+        "vector_index_present": bool(getattr(index, "present", False)),
+    }
+    return {
+        "snippets": snippets,
+        "web_summary": web_summary,
+        "web_sources": web_sources,
+        "meta": meta,
+    }

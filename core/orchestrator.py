@@ -22,6 +22,9 @@ from core.dossier import Dossier, Finding
 from core.llm import complete, select_model
 from core.llm_client import responses_json_schema_for
 from core.observability import EvidenceSet, build_coverage
+
+
+evidence: EvidenceSet | None = None
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from core.privacy import pseudonymize_for_model, rehydrate_output
 from core.router import route_task
@@ -274,9 +277,9 @@ def execute_plan(
                 claim=norm.get("claim", ""),
                 evidence=norm.get("evidence", ""),
                 sources=norm.get("sources", []),
-                quotes=payload.get("quotes", []),
-                tokens_in=payload.get("tokens_in", 0),
-                tokens_out=payload.get("tokens_out", 0),
+                quotes=norm.get("quotes", []),
+                tokens_in=norm.get("tokens_in", 0),
+                tokens_out=norm.get("tokens_out", 0),
                 cost_usd=norm.get("cost_usd", norm.get("cost", 0.0)),
                 meta=norm.get("meta"),
             )

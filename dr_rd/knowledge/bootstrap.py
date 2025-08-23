@@ -78,51 +78,70 @@ def bootstrap_vector_index(cfg: dict, logger) -> dict:
     uri = cfg.get("faiss_index_uri")
     local_dir = cfg.get("faiss_index_local_dir", ".faiss_index")
     cfg["vector_index_path"] = local_dir
+
+    if bootstrap_mode == "skip":
+        logger.info("FAISSLoad path=%s result=skip reason=bootstrap_skip", local_dir)
+        return {
+            "present": False,
+            "doc_count": 0,
+            "dims": 0,
+            "reason": "bootstrap_skip",
+            "path": local_dir,
+        }
+    if not uri:
+        logger.info("FAISSLoad path=%s result=skip reason=no_uri", local_dir)
+        return {
+            "present": False,
+            "doc_count": 0,
+            "dims": 0,
+            "reason": "no_uri",
+            "path": local_dir,
+        }
+
     result: dict[str, object] = {
         "present": False,
         "doc_count": 0,
         "source": "none",
         "reason": "bootstrap_skip",
+        "path": local_dir,
+        "dims": 0,
     }
-    if bootstrap_mode == "download" and uri:
-        bootstrap = ensure_local_faiss_bundle(cfg, logger)
-        cfg["vector_index_path"] = bootstrap.get("path", local_dir)
-        vpath = bootstrap.get("path", local_dir)
-        result.update({
-            "present": bool(bootstrap.get("present")),
-            "source": bootstrap.get("source", "none"),
-            "reason": bootstrap.get("reason", "bootstrap_skip"),
-        })
-        if bootstrap.get("present"):
-            try:
-                _, doc_count, dims = build_default_retriever(path=vpath)
-                logger.info(
-                    "FAISSLoad path=%s doc_count=%d dims=%d result=ok reason=",
-                    vpath,
-                    doc_count,
-                    dims,
-                )
-                result["present"] = True
-                result["doc_count"] = doc_count
-                result["reason"] = ""
-            except FAISSLoadError as e:
-                msg = str(e)
-                logger.info(
-                    "FAISSLoad path=%s doc_count=0 dims=0 result=fail reason=%s",
-                    vpath,
-                    msg,
-                )
-                result["present"] = False
-                result["reason"] = msg
-        else:
+
+    bootstrap = ensure_local_faiss_bundle(cfg, logger)
+    cfg["vector_index_path"] = bootstrap.get("path", local_dir)
+    vpath = bootstrap.get("path", local_dir)
+    result.update({
+        "present": bool(bootstrap.get("present")),
+        "source": bootstrap.get("source", "none"),
+        "reason": bootstrap.get("reason", "bootstrap_skip"),
+        "path": vpath,
+    })
+    if bootstrap.get("present"):
+        try:
+            _, doc_count, dims = build_default_retriever(path=vpath)
             logger.info(
-                "FAISSLoad path=%s result=skip reason=%s",
-                local_dir,
-                bootstrap.get("reason") or "bootstrap_skip",
+                "FAISSLoad path=%s doc_count=%d dims=%d result=ok reason=",
+                vpath,
+                doc_count,
+                dims,
             )
+            result["present"] = True
+            result["doc_count"] = doc_count
+            result["dims"] = dims
+            result["reason"] = ""
+        except FAISSLoadError as e:
+            msg = str(e)
+            logger.info(
+                "FAISSLoad path=%s doc_count=0 dims=0 result=fail reason=%s",
+                vpath,
+                msg,
+            )
+            result["present"] = False
+            result["reason"] = msg
     else:
         logger.info(
-            "FAISSLoad path=%s result=skip reason=bootstrap_skip",
+            "FAISSLoad path=%s result=skip reason=%s",
             local_dir,
+            bootstrap.get("reason") or "bootstrap_skip",
         )
     return result
