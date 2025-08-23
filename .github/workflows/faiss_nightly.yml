@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_to_prod:
-        description: "Also sync to gs://$GCS_BUCKET/prod/v1"
+        description: "Also sync to gs://drrdfaiss/Projects/prod/v1"
         required: false
         default: "false"
 
@@ -17,10 +17,7 @@ jobs:
       id-token: write
       contents: read
     env:
-      FAISS_SRC_DIR: knowledge/source_docs
       FAISS_DST_DIR: .faiss_index
-      GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
-      GCS_PREFIX: ${{ secrets.GCS_PREFIX }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,18 +81,18 @@ jobs:
 
       - name: Publish to GCS (nightly path + latest)
         env:
-          NIGHTLY_DST: gs://${{ env.GCS_BUCKET }}/${{ env.GCS_PREFIX }}/nightly/${{ github.run_id }}-${{ github.sha }}
-          LATEST_DST: gs://${{ env.GCS_BUCKET }}/${{ env.GCS_PREFIX }}/nightly/latest
+          NIGHTLY_DST: gs://drrdfaiss/Projects/nightly/${{ github.run_id }}-${{ github.sha }}
+          LATEST_DST: gs://drrdfaiss/Projects/nightly/latest
         run: |
           gsutil -m rsync -r "${{ env.FAISS_DST_DIR }}" "$NIGHTLY_DST"
           gsutil -m rsync -d -r "${{ env.FAISS_DST_DIR }}" "$LATEST_DST"
           gsutil cp -n manifest.json "$NIGHTLY_DST/manifest.json"
-          gsutil cp -a public-read -n manifest.json "$LATEST_DST/manifest.json" || true
+          gsutil cp -n manifest.json "$LATEST_DST/manifest.json"
 
       - name: Optional promote to prod
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_to_prod == 'true' }}
         env:
-          PROD_DST: gs://${{ env.GCS_BUCKET }}/prod/v1
+          PROD_DST: gs://drrdfaiss/Projects/prod/v1
         run: |
           gsutil -m rsync -d -r "${{ env.FAISS_DST_DIR }}" "$PROD_DST"
           gsutil cp -n manifest.json "$PROD_DST/manifest.json"
@@ -109,10 +106,10 @@ jobs:
             echo "- Source: \`${{ steps.src.outputs.src }}\`"
             echo "- Doc count: **$DOC_COUNT**"
             echo "- Dims: **$DIMS**"
-            echo "- Nightly: \`gs://${{ env.GCS_BUCKET }}/${{ env.GCS_PREFIX }}/nightly/${{ github.run_id }}-${{ github.sha }}\`"
-            echo "- Latest:  \`gs://${{ env.GCS_BUCKET }}/${{ env.GCS_PREFIX }}/nightly/latest\`"
+            echo "- Nightly: \`gs://drrdfaiss/Projects/nightly/${{ github.run_id }}-${{ github.sha }}\`"
+            echo "- Latest:  \`gs://drrdfaiss/Projects/nightly/latest\`"
             if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.release_to_prod }}" = "true" ]; then
-              echo "- Promoted to: \`gs://${{ env.GCS_BUCKET }}/prod/v1\`"
+              echo "- Promoted to: \`gs://drrdfaiss/Projects/prod/v1\`"
             fi
           } >> $GITHUB_STEP_SUMMARY
 
