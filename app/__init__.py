@@ -702,11 +702,18 @@ def main():
 
     _mode_cfg["web_search_calls_used"] = 0
     bootstrap_vector_index(_mode_cfg, logger)
+    if not _mode_cfg.get("vector_index_present"):
+        _mode_cfg.setdefault("vector_doc_count", 0)
+        _mode_cfg.setdefault("vector_index_source", "none")
 
     from core.retrieval import budget as rbudget
     import config.feature_flags as ff
 
     cap = rbudget.get_web_search_call_cap(_mode_cfg)
+    if cap <= 0 and _mode_cfg.get("live_search_enabled") and not _mode_cfg.get(
+        "vector_index_present"
+    ):
+        cap = 3
     _mode_cfg["web_search_max_calls"] = cap
     _mode_cfg["live_search_max_calls"] = cap
     rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(cap)
