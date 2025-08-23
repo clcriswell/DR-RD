@@ -13,14 +13,15 @@ The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in 
 
 When `live_search_enabled` is true, the system automatically performs a live web
 search if the vector index is absent or a RAG lookup returns zero hits. The
-resulting summary is injected into prompts under `# Web Search Results`, subject
-to the web-search budget cap.
+resulting snippets are injected into prompts under `# Web Search Results`,
+subject to the web-search budget cap.
 
 `RetrievalTrace.reason` may be:
 
-- `web_only` – no vector index, web search only.
-- `rag_empty_web_fallback` – vector index queried but returned zero hits.
+- `no_vector_index_fallback` – no vector index, web search only.
+- `rag_zero_hits` – vector index queried but returned zero hits.
 - `budget_exhausted` – web search skipped due to budget.
+- `disabled` – web search disabled when needed.
 
 Evidence payloads collected during execution are normalized so that:
 
@@ -92,7 +93,7 @@ FAISS_INDEX_DIR=.faiss_index
 Expected logs:
 
 - `FAISSLoad path=.faiss_index result=skip reason=bootstrap_skip`
-- `RetrievalTrace … rag_hits=0 web_used=true backend=<openai|serpapi> reason=web_only`
+- `RetrievalTrace … rag_hits=0 web_used=true backend=<openai|serpapi> reason=no_vector_index_fallback`
 
 To re-enable FAISS later set:
 

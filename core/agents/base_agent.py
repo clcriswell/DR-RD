@@ -11,6 +11,7 @@ from utils.logging import logger
 from config.feature_flags import (
     ENABLE_LIVE_SEARCH,
     LIVE_SEARCH_BACKEND,
+    LIVE_SEARCH_MAX_CALLS,
     LIVE_SEARCH_SUMMARY_TOKENS,
     RAG_ENABLED,
     RAG_TOPK,
@@ -20,7 +21,7 @@ from config.feature_flags import (
 from core.llm import complete
 from core.llm_client import call_openai, log_usage
 from core.prompt_utils import coerce_user_content
-from dr_rd.retrieval.pipeline import collect_context
+from dr_rd.retrieval.context import fetch_context
 from dr_rd.retrieval.vector_store import Retriever, build_retriever
 
 
@@ -109,25 +110,33 @@ class BaseAgent:
             "live_search_backend": LIVE_SEARCH_BACKEND,
             "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
             "vector_index_present": vector_available,
+            "retriever": self.retriever,
+            "live_search_max_calls": LIVE_SEARCH_MAX_CALLS,
         }
-        bundle = collect_context(idea, task, cfg, retriever=self.retriever)
-        self._sources = [s.title or (s.url or "") for s in bundle.sources]
-        meta = bundle.meta
+        ctx = fetch_context(cfg, f"{idea}\n{task}".strip(), self.name, task_id)
+        trace = ctx["trace"]
+        self._sources = [r.get("title") or r.get("url", "") for r in ctx.get("web_results", [])]
         logger.info(
             "RetrievalTrace agent=%s task_id=%s rag_hits=%d web_used=%s backend=%s sources=%d reason=%s",
             self.name,
             task_id,
-            meta.get("rag_hits", 0),
-            str(meta.get("web_used", False)).lower(),
-            meta.get("backend", "none"),
-            meta.get("sources", 0),
-            meta.get("reason", "ok"),
+            trace.get("rag_hits", 0),
+            str(trace.get("web_used", False)).lower(),
+            trace.get("backend", "none"),
+            trace.get("sources", 0),
+            trace.get("reason", "ok"),
         )
-        if bundle.rag_snippets:
-            prompt += "\n\n# RAG Knowledge\n" + "\n".join(bundle.rag_snippets)
-        if bundle.web_summary:
-            prompt += "\n\n# Web Search Results\n" + bundle.web_summary
-            prompt += "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
+        if ctx.get("rag_snippets"):
+            prompt += "\n\n# RAG Knowledge\n" + "\n".join(ctx["rag_snippets"])
+        if ctx.get("web_results"):
+            prompt += "\n\n# Web Search Results\n"
+            for res in ctx["web_results"]:
+                title = res.get("title", "")
+                snippet = res.get("snippet", "")
+                url = res.get("url", "")
+                line = f"- {title}: {snippet} ({url})".strip()
+                prompt += line + "\n"
+            prompt += "\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
         return prompt
 
     def run(

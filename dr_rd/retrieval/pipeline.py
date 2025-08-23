@@ -3,11 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from core.llm_client import BUDGET
-from core.retrieval import budget as retrieval_budget
-
-from .live_search import Source, get_live_client
-from .vector_store import Retriever, Snippet
+from .live_search import Source
+from .vector_store import Retriever
+from .context import fetch_context
 
 
 @dataclass
@@ -26,85 +24,19 @@ def collect_context(
     """Gather vector and live-search context for a task."""
 
     text = f"{idea}\n{task_text}".strip()
+    cfg_local = dict(cfg)
+    cfg_local["retriever"] = retriever
+    result = fetch_context(cfg_local, text, "pipeline", None)
 
-    rag_hits = 0
-    rag_snips: List[str] = []
-    sources: List[Source] = []
-    reason = "ok"
+    rag_snips = result["rag_snippets"]
+    web_results = result["web_results"]
+    meta = result["trace"]
 
-    if cfg.get("rag_enabled") and cfg.get("vector_index_present") and retriever is not None:
-        try:
-            hits = retriever.query(text, cfg.get("rag_top_k", 5))  # type: ignore[arg-type]
-        except Exception:
-            hits = []
-            reason = "error"
-        rag_hits = len(hits)
-        if rag_hits:
-            rag_snips = [sn.text for sn in hits]
-            sources.extend(Source(title=sn.source, url=None) for sn in hits)
-            if BUDGET:
-                BUDGET.retrieval_calls += 1
-                BUDGET.retrieval_tokens += sum(len(sn.text.split()) for sn in hits)
-        else:
-            reason = "rag_empty"
+    if web_results:
+        summary = "\n".join(r.get("snippet", "") for r in web_results if r.get("snippet")) or None
+        sources = [Source(title=r.get("title", ""), url=r.get("url")) for r in web_results]
     else:
-        if not cfg.get("vector_index_present", False):
-            reason = "no_vector"
-        else:
-            reason = "rag_disabled"
+        summary = None
+        sources = []
 
-    budget = retrieval_budget.RETRIEVAL_BUDGET
-    budget_allows = budget.allow() if budget else True
-    need_web = (not cfg.get("vector_index_present", False)) or rag_hits == 0
-    should_try_web = cfg.get("live_search_enabled", False) and budget_allows and need_web
-
-    web_summary: str | None = None
-    web_used = False
-    backend = "none"
-    web_sources_count = 0
-
-    if should_try_web:
-        backend = cfg.get("live_search_backend", "openai")
-        try:
-            client = get_live_client(backend)
-            summary, srcs = client.search_and_summarize(
-                text,
-                cfg.get("rag_top_k", 5),
-                cfg.get("live_search_summary_tokens", 256),
-            )
-            web_summary = summary
-            sources.extend(srcs)
-            web_sources_count = len(srcs)
-            web_used = True
-            if budget:
-                budget.consume()
-            if BUDGET:
-                BUDGET.web_search_calls += 1
-            reason = (
-                "web_only" if not cfg.get("vector_index_present", False) else "rag_empty_web_fallback"
-            )
-        except Exception:
-            reason = "error"
-    else:
-        if need_web and cfg.get("live_search_enabled", False) and not budget_allows:
-            reason = "budget_exhausted"
-            if BUDGET:
-                BUDGET.skipped_due_to_budget = getattr(
-                    BUDGET, "skipped_due_to_budget", 0
-                ) + 1
-        # otherwise keep existing reason (no_vector, rag_empty, rag_disabled, ok)
-
-    meta = {
-        "rag_hits": rag_hits,
-        "web_used": web_used,
-        "backend": backend if web_used else "none",
-        "sources": web_sources_count if web_used else 0,
-        "reason": reason,
-    }
-
-    return ContextBundle(
-        rag_snippets=rag_snips,
-        web_summary=web_summary,
-        sources=sources,
-        meta=meta,
-    )
+    return ContextBundle(rag_snippets=rag_snips, web_summary=summary, sources=sources, meta=meta)

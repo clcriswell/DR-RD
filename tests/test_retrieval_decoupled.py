@@ -35,7 +35,7 @@ def _cfg():
 
 def test_no_retriever_triggers_web(monkeypatch):
     dummy = DummyClient()
-    monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
+    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda b: dummy)
     cfg = _cfg()
     cfg["vector_index_present"] = False
     from core.retrieval import budget as rbudget
@@ -43,13 +43,13 @@ def test_no_retriever_triggers_web(monkeypatch):
     rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(5)
     bundle = pipeline.collect_context("idea", "task", cfg, retriever=None)
     assert dummy.called == 1
-    assert bundle.meta["reason"] == "web_only"
+    assert bundle.meta["reason"] == "no_vector_index_fallback"
     assert bundle.web_summary == "sum"
 
 
 def test_empty_rag_triggers_web(monkeypatch):
     dummy = DummyClient()
-    monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
+    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda b: dummy)
     retriever = DummyRetriever([])
     cfg = _cfg()
     cfg["vector_index_present"] = True
@@ -58,7 +58,7 @@ def test_empty_rag_triggers_web(monkeypatch):
     rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(5)
     bundle = pipeline.collect_context("i", "t", cfg, retriever=retriever)
     assert dummy.called == 1
-    assert bundle.meta["reason"] == "rag_empty_web_fallback"
+    assert bundle.meta["reason"] == "rag_zero_hits"
 
 
 def test_budget_skip(monkeypatch):
@@ -68,9 +68,9 @@ def test_budget_skip(monkeypatch):
         retrieval_tokens=0,
         skipped_due_to_budget=0,
     )
-    monkeypatch.setattr(pipeline, "BUDGET", dummy_budget)
+    monkeypatch.setattr("dr_rd.retrieval.context.BUDGET", dummy_budget)
     dummy = DummyClient()
-    monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
+    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda b: dummy)
     cfg = _cfg()
     from core.retrieval import budget as rbudget
 

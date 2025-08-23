@@ -37,13 +37,21 @@ def _set_web_only_flags(monkeypatch):
 def test_planner_web_only(monkeypatch, caplog):
     _set_web_only_flags(monkeypatch)
     dummy = DummyWeb()
-    monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
+    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda b: dummy)
 
     captured = {}
 
     def fake_llm_call(_a, _b, _c, messages, **_kw):
         captured["messages"] = messages
-        return SimpleNamespace(output_text="{}", choices=[SimpleNamespace(finish_reason="stop", usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0))])
+        return SimpleNamespace(
+            output_text="{}",
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0),
+                )
+            ],
+        )
 
     with caplog.at_level(logging.INFO):
         with patch("core.agents.planner_agent.llm_call", fake_llm_call):
@@ -54,22 +62,24 @@ def test_planner_web_only(monkeypatch, caplog):
         and "rag_hits=0" in r.message
         and "web_used=true" in r.message
         and "backend=openai" in r.message
-        and "reason=web_only" in r.message
+        and "reason=no_vector_index_fallback" in r.message
         for r in caplog.records
     )
     user_content = next(m["content"] for m in captured["messages"] if m["role"] == "user")
     assert "Web Search Results" in user_content
-    assert "s1" in user_content and "s2" in user_content
+    assert "t1" in user_content and "t2" in user_content
     assert "# RAG Knowledge" not in user_content
 
 
 def test_executor_web_only(monkeypatch, caplog):
     _set_web_only_flags(monkeypatch)
     dummy = DummyWeb()
-    monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
+    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda b: dummy)
 
     fake_resp = {
-        "raw": SimpleNamespace(choices=[SimpleNamespace(usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0))]),
+        "raw": SimpleNamespace(
+            choices=[SimpleNamespace(usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0))]
+        ),
         "text": json.dumps({}),
     }
     captured = {}
@@ -88,10 +98,10 @@ def test_executor_web_only(monkeypatch, caplog):
         and "rag_hits=0" in r.message
         and "web_used=true" in r.message
         and "backend=openai" in r.message
-        and "reason=web_only" in r.message
+        and "reason=no_vector_index_fallback" in r.message
         for r in caplog.records
     )
     user_content = next(m["content"] for m in captured["messages"] if m["role"] == "user")
     assert "Web Search Results" in user_content
-    assert "s1" in user_content and "s2" in user_content
+    assert "t1" in user_content and "t2" in user_content
     assert "# RAG Knowledge" not in user_content
