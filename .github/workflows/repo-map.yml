@@ -7,12 +7,36 @@ jobs:
   repo-map:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Get changed files
-        id: diff
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # needed for merge-base with triple-dot
+      - name: Compute changed files (robust)
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          git fetch origin ${{ github.base_ref }}
-          git diff --name-only origin/${{ github.base_ref }}... > changed_files.txt
+          set -euo pipefail
+          BASE="${BASE_REF:-$DEFAULT_BRANCH}"
+
+          # Fetch the tip of the base branch
+          git fetch --no-tags --prune origin "$BASE"
+
+          echo "Resolved BASE=$BASE"
+          echo "HEAD=$(git rev-parse --short HEAD)"
+          echo "BASE_TIP=$(git rev-parse --short origin/$BASE || true)"
+
+          # Try triple-dot (merge base); if unavailable, fall back to two-dot
+          if git merge-base --is-ancestor origin/$BASE HEAD 2>/dev/null || git merge-base HEAD origin/$BASE >/dev/null 2>&1; then
+            echo "Using triple-dot diff: origin/$BASE...HEAD"
+            git diff --name-only "origin/$BASE...HEAD" > changed_files.txt
+          else
+            echo "No merge base; using two-dot diff: origin/$BASE..HEAD"
+            git diff --name-only "origin/$BASE..HEAD" > changed_files.txt
+          fi
+
+          echo "Changed files:"
+          cat changed_files.txt || true
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
