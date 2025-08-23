@@ -10,6 +10,10 @@ The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in 
 - `live_search_summary_tokens`: cap for web-summary tokens.
 - `enable_images`: allow image generation (default `false` for `test` and `deep`).
 
+When `live_search_enabled` is true, the system will automatically fall back to a
+web search if the vector index is absent or a RAG lookup returns zero hits,
+subject to the web-search budget cap.
+
 Environment variables provide defaults when a mode omits a value:
 
 ```

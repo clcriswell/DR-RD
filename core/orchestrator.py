@@ -20,15 +20,15 @@ from core.agents.registry import build_agents, load_mode_models
 from core.agents_registry import agents_dict
 from core.dossier import Dossier, Finding
 from core.llm import complete, select_model
+from core.llm_client import responses_json_schema_for
 from core.observability import EvidenceSet, build_coverage
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
-from core.router import route_task
-from core.synthesizer import synthesize
-from core.schemas import Plan, ScopeNote
 from core.privacy import pseudonymize_for_model, rehydrate_output
-from core.llm_client import responses_json_schema_for
-from planning.segmenter import load_redaction_policy, redact_text
+from core.router import route_task
+from core.schemas import Plan, ScopeNote
+from core.synthesizer import synthesize
 from memory.decision_log import log_decision
+from planning.segmenter import load_redaction_policy, redact_text
 from prompts.prompts import (
     PLANNER_SYSTEM_PROMPT,
     PLANNER_USER_PROMPT_TEMPLATE,
@@ -179,29 +179,25 @@ def _slugify(name: str) -> str:
     return s[:64] or "project"
 
 
-def _normalize_evidence_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-    # Shallow copy to avoid mutating input
-    p = dict(payload or {})
-    claim = p.get("claim", "")
-    evidence_txt = p.get("evidence", "")
-    sources = p.get("sources", [])
-    cost = p.get("cost", p.get("cost_usd", 0.0))
-    meta = p.get("meta")
-
-    if isinstance(claim, (dict, list)):
-        meta = dict(meta or {})
-        meta.setdefault("claim_structured", claim)
-    if isinstance(evidence_txt, (dict, list)):
-        meta = dict(meta or {})
-        meta.setdefault("evidence_structured", evidence_txt)
-
-    return {
-        "claim": claim,
-        "evidence": evidence_txt,
-        "sources": sources,
-        "cost_usd": cost,
-        "meta": meta,
-    }
+def _normalize_evidence_payload(payload):
+    if payload is None:
+        return {}
+    if isinstance(payload, dict):
+        return payload
+    if isinstance(payload, list) and all(isinstance(x, dict) for x in payload):
+        merged: Dict[str, Any] = {}
+        for d in payload:
+            try:
+                merged.update(d)
+            except Exception:
+                merged.setdefault("data", []).append(d)
+        return merged
+    if isinstance(payload, (list, tuple)) and all(isinstance(x, (list, tuple)) for x in payload):
+        try:
+            return dict(payload)  # works for sequence of (k, v)
+        except Exception:
+            return {"data": payload}
+    return {"value": payload}
 
 
 def execute_plan(
@@ -239,23 +235,21 @@ def execute_plan(
         role_to_findings[role] = payload
         if evidence is not None:
             norm = _normalize_evidence_payload(payload)
-            if isinstance(payload.get("claim"), (dict, list)) or isinstance(
-                payload.get("evidence"), (dict, list)
+            if isinstance(norm.get("claim"), (dict, list)) or isinstance(
+                norm.get("evidence"), (dict, list)
             ):
-                logger.info(
-                    "Evidence normalization: structured fields coerced for role=%s", role
-                )
+                logger.info("Evidence normalization: structured fields coerced for role=%s", role)
             evidence.add(
                 role=role,
                 task_title=routed.get("title", ""),
-                claim=norm["claim"],
-                evidence=norm["evidence"],
-                sources=norm["sources"],
+                claim=norm.get("claim", ""),
+                evidence=norm.get("evidence", ""),
+                sources=norm.get("sources", []),
                 quotes=payload.get("quotes", []),
                 tokens_in=payload.get("tokens_in", 0),
                 tokens_out=payload.get("tokens_out", 0),
-                cost_usd=norm["cost_usd"],
-                meta=norm["meta"],
+                cost_usd=norm.get("cost_usd", norm.get("cost", 0.0)),
+                meta=norm.get("meta"),
             )
         if save_decision_log:
             log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})

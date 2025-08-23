@@ -2,30 +2,29 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
-from pydantic import BaseModel, Field
 import json
-from core.llm_client import (
-    call_openai,
-    llm_call,
-    extract_planner_payload,
-    _strip_code_fences,
-)
 import logging
 import os
-from dr_rd.retrieval.pipeline import collect_context
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
 from config.feature_flags import (
-    RAG_ENABLED,
-    RAG_TOPK,
     ENABLE_LIVE_SEARCH,
     LIVE_SEARCH_BACKEND,
     LIVE_SEARCH_SUMMARY_TOKENS,
+    RAG_ENABLED,
+    RAG_TOPK,
     VECTOR_INDEX_PRESENT,
 )
-from prompts.prompts import (
-    PLANNER_SYSTEM_PROMPT,
-    PLANNER_USER_PROMPT_TEMPLATE,
+from core.llm_client import (
+    _strip_code_fences,
+    call_openai,
+    extract_planner_payload,
+    llm_call,
 )
+from dr_rd.retrieval.pipeline import collect_context
+from prompts.prompts import PLANNER_SYSTEM_PROMPT, PLANNER_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -120,13 +119,14 @@ def run_planner(
         meta.get("rag_hits", 0),
         str(meta.get("web_used", False)).lower(),
         meta.get("backend", "none"),
-        len(bundle.sources),
+        meta.get("sources", 0),
         meta.get("reason", "ok"),
     )
     if bundle.rag_snippets:
         user_prompt += "\n\n# RAG Knowledge\n" + "\n".join(bundle.rag_snippets)
     if bundle.web_summary:
         user_prompt += "\n\n# Web Search Results\n" + bundle.web_summary
+        user_prompt += "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
     messages = [
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": user_prompt},
@@ -150,9 +150,7 @@ def run_planner(
             "yes",
         )
         if not use_chat:
-            logger.info(
-                "Planner seed provided but Responses API is in use; seed will be ignored."
-            )
+            logger.info("Planner seed provided but Responses API is in use; seed will be ignored.")
 
     resp = llm_call(None, model, "plan", messages, **params)
     finish = None
@@ -265,4 +263,3 @@ class PlannerAgent:
                 }
             ]
         return tasks
-
