@@ -1,48 +1,41 @@
-from types import SimpleNamespace
-
-from core.agents.base_agent import BaseAgent
-from core.retrieval.budget import RetrievalBudget
-from dr_rd.retrieval import pipeline
-from dr_rd.retrieval.live_search import Source
+import pytest
+from dr_rd.retrieval import live_search as ls
+from dr_rd.retrieval.context import retrieve_context
 
 
-class DummyClient:
-    def __init__(self):
-        self.called = 0
+class DummyIndex:
+    present = False
 
-    def search_and_summarize(self, query, k, max_tokens):
-        self.called += 1
-        return "s1\ns2", [Source(title="t1", url="u1"), Source(title="t2", url="u2")]
+    def search(self, *a, **k):
+        return []
 
 
-def test_live_search_fallback(monkeypatch):
+def test_openai_unavailable_falls_back_to_serpapi(monkeypatch):
+    monkeypatch.setenv("SERPAPI_API_KEY", "test")
+
+    def boom(*a, **k):
+        raise ls.OpenAIWebSearchUnavailable("web_search tool is not enabled")
+
+    monkeypatch.setattr(ls.OpenAIWebSearchClient, "search_and_summarize", boom)
+
+    def serp_ok(self, query: str, num: int = 6):
+        return {
+            "text": "summary",
+            "sources": [{"title": "A", "url": "https://a.example"}],
+        }
+
+    monkeypatch.setattr(ls.SerpAPIWebSearchClient, "search_and_summarize", serp_ok, raising=True)
+
     cfg = {
         "rag_enabled": True,
-        "rag_top_k": 5,
         "live_search_enabled": True,
         "live_search_backend": "openai",
-        "live_search_summary_tokens": 50,
-        "vector_index_present": False,
+        "web_search_max_calls": 3,
+        "exec_model": "gpt-4.1-mini",
     }
-    from core.retrieval import budget as rbudget
 
-    rbudget.RETRIEVAL_BUDGET = RetrievalBudget(3)
-    dummy = DummyClient()
-    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda b: dummy)
-
-    bundle = pipeline.collect_context("idea", "task", cfg, retriever=None)
-    assert dummy.called == 1
-    meta = bundle.meta
-    assert meta["web_used"] is True
-    assert meta["reason"] in {"web_only_mode", "rag_zero_hits"}
-
-    ctx = {
-        "rag_snippets": bundle.rag_snippets,
-        "web_results": [{"title": s.title, "url": s.url, "snippet": ""} for s in bundle.sources],
-        "trace": meta,
-    }
-    monkeypatch.setattr("core.agents.base_agent.fetch_context", lambda *a, **k: ctx)
-
-    agent = BaseAgent("Exec", "gpt", "sys", "Task: {task}")
-    prompt = agent._augment_prompt("start", "idea", "do task", task_id="T1")
-    assert "# Web Search Results" in prompt
+    out = retrieve_context("query", cfg, index=DummyIndex())
+    assert out["web_summary"] == "summary"
+    assert out["meta"]["web_search_calls_used"] == 1
+    assert out["meta"]["web_search_max_calls"] == 3
+    assert out["meta"]["vector_index_present"] is False
