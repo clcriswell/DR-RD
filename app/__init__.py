@@ -34,8 +34,7 @@ from core.poc.testplan import TestPlan
 from core.role_normalizer import group_by_role
 from core.role_normalizer import normalize_tasks as normalize_roles_tasks
 from dr_rd.core.config_snapshot import build_resolved_config_snapshot
-from dr_rd.knowledge.bootstrap import ensure_local_faiss_bundle
-from knowledge.faiss_store import FAISSLoadError, build_default_retriever
+from dr_rd.knowledge.bootstrap import bootstrap_vector_index
 from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
 
@@ -701,50 +700,17 @@ def main():
     final_flags = apply_profile(env_defaults, selected_mode, overrides=None)
     st.session_state["final_flags"] = final_flags
 
-    bootstrap_mode = _mode_cfg.get("faiss_bootstrap_mode", "download")
-    uri = _mode_cfg.get("faiss_index_uri")
-    local_dir = _mode_cfg.get("faiss_index_local_dir", ".faiss_index")
-    _mode_cfg["vector_index_path"] = local_dir
     _mode_cfg["web_search_calls_used"] = 0
-    doc_count = 0
-    dims = 0
+    bootstrap_vector_index(_mode_cfg, logger)
 
-    bootstrap = {"present": False, "path": local_dir, "source": "none", "reason": "bootstrap_skip"}
-    if bootstrap_mode == "download" and uri:
-        bootstrap = ensure_local_faiss_bundle(_mode_cfg, logger)
-        _mode_cfg["vector_index_path"] = bootstrap.get("path")
-        vpath = bootstrap.get("path")
-        if bootstrap.get("present"):
-            try:
-                retriever, doc_count, dims = build_default_retriever(path=vpath)
-                logger.info(
-                    "FAISSLoad path=%s doc_count=%d dims=%d result=ok reason=",
-                    vpath,
-                    doc_count,
-                    dims,
-                )
-            except FAISSLoadError as e:
-                logger.info(
-                    "FAISSLoad path=%s doc_count=0 dims=0 result=fail reason=%s",
-                    vpath,
-                    str(e),
-                )
-        else:
-            logger.info(
-                "FAISSLoad path=%s result=skip reason=%s",
-                local_dir,
-                bootstrap.get("reason") or "bootstrap_skip",
-            )
-    else:
-        logger.info(
-            "FAISSLoad path=%s result=skip reason=bootstrap_skip",
-            local_dir,
-        )
+    from core.retrieval import budget as rbudget
+    import config.feature_flags as ff
 
-    _mode_cfg["vector_index_present"] = bool(bootstrap.get("present"))
-    _mode_cfg["vector_index_source"] = bootstrap.get("source")
-    _mode_cfg["vector_index_reason"] = bootstrap.get("reason")
-    _mode_cfg["vector_doc_count"] = doc_count
+    cap = rbudget.get_web_search_max_calls(_mode_cfg, _os.environ)
+    _mode_cfg["live_search_max_calls"] = cap
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(cap)
+    ff.LIVE_SEARCH_MAX_CALLS = cap
+    final_flags["LIVE_SEARCH_MAX_CALLS"] = cap
     snapshot_cfg = dict(_mode_cfg)
     snapshot_cfg.update(final_flags)
     snapshot_cfg["mode"] = selected_mode
@@ -755,12 +721,11 @@ def main():
         snapshot_cfg["budget"] = budget_caps
     snapshot = build_resolved_config_snapshot(snapshot_cfg)
     logger.info("ResolvedConfig %s", json.dumps(snapshot, separators=(",", ":")))
-    import config.feature_flags as ff
 
-    ff.VECTOR_INDEX_PRESENT = bool(bootstrap.get("present"))
-    ff.VECTOR_INDEX_PATH = bootstrap.get("path") or ""
-    ff.VECTOR_INDEX_SOURCE = bootstrap.get("source") or "none"
-    ff.VECTOR_INDEX_REASON = bootstrap.get("reason") or ""
+    ff.VECTOR_INDEX_PRESENT = bool(_mode_cfg.get("vector_index_present"))
+    ff.VECTOR_INDEX_PATH = _mode_cfg.get("vector_index_path") or ""
+    ff.VECTOR_INDEX_SOURCE = _mode_cfg.get("vector_index_source") or "none"
+    ff.VECTOR_INDEX_REASON = _mode_cfg.get("vector_index_reason") or ""
     ff.FAISS_BOOTSTRAP_MODE = _mode_cfg.get("faiss_bootstrap_mode", ff.FAISS_BOOTSTRAP_MODE)
     for k, v in final_flags.items():
         setattr(ff, k, v)

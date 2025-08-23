@@ -11,7 +11,6 @@ from utils.logging import logger
 from config.feature_flags import (
     ENABLE_LIVE_SEARCH,
     LIVE_SEARCH_BACKEND,
-    LIVE_SEARCH_MAX_CALLS,
     LIVE_SEARCH_SUMMARY_TOKENS,
     RAG_ENABLED,
     RAG_TOPK,
@@ -110,15 +109,12 @@ class BaseAgent:
             "rag_top_k": RAG_TOPK,
             "live_search_enabled": ENABLE_LIVE_SEARCH,
             "live_search_backend": LIVE_SEARCH_BACKEND,
-            "live_search_max_calls": LIVE_SEARCH_MAX_CALLS,
             "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
+            "vector_index_present": vector_available,
         }
         bundle = collect_context(idea, task, cfg, retriever=self.retriever)
         self._sources = [s.title or (s.url or "") for s in bundle.sources]
         meta = bundle.meta
-        if not vector_available:
-            meta["rag_hits"] = 0
-            meta["reason"] = "no_vector_index"
         logger.info(
             "RetrievalTrace agent=%s task_id=%s rag_hits=%d web_used=%s backend=%s sources=%d reason=%s",
             self.name,

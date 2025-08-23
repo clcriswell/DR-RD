@@ -36,8 +36,12 @@ def build_resolved_config_snapshot(cfg: Dict[str, Any]) -> Dict[str, Any]:
     if caps:
         snapshot["budget_caps"] = caps
     # Vector index
-    vpath = _maybe(cfg, "vector_index_path") or _maybe(cfg, "vector_index")
-    snapshot["vector_index_present"] = bool(vpath)
+    if "vector_index_present" in cfg:
+        snapshot["vector_index_present"] = bool(cfg.get("vector_index_present"))
+        vpath = _maybe(cfg, "vector_index_path") or _maybe(cfg, "vector_index")
+    else:
+        vpath = _maybe(cfg, "vector_index_path") or _maybe(cfg, "vector_index")
+        snapshot["vector_index_present"] = bool(vpath)
     if vpath:
         from pathlib import Path
 
