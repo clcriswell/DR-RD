@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 import json
+import os
 
 
 def _flag(name: str) -> bool:
@@ -23,6 +23,13 @@ LIVE_SEARCH_MAX_CALLS: int = 0
 LIVE_SEARCH_SUMMARY_TOKENS: int = 256
 SERPAPI_KEY: str = os.getenv("SERPAPI_KEY", "")
 DISABLE_IMAGES_BY_DEFAULT = {"test": False, "deep": False}
+FAISS_INDEX_URI: str | None = os.getenv("FAISS_INDEX_URI")
+FAISS_INDEX_DIR: str = os.getenv("FAISS_INDEX_DIR", ".faiss_index")
+FAISS_BOOTSTRAP_MODE: str = os.getenv("FAISS_BOOTSTRAP_MODE", "download")
+VECTOR_INDEX_PRESENT: bool = False
+VECTOR_INDEX_PATH: str = ""
+VECTOR_INDEX_SOURCE: str = "none"
+VECTOR_INDEX_REASON: str = ""
 
 # Default evaluator weights and threshold. ``EVALUATOR_WEIGHTS`` can be
 # overridden via an environment variable containing a JSON object.
@@ -74,6 +81,7 @@ def apply_mode_overrides(cfg: dict) -> None:
     """Override feature flags using mode configuration."""
     global RAG_ENABLED, RAG_TOPK, ENABLE_LIVE_SEARCH
     global LIVE_SEARCH_BACKEND, LIVE_SEARCH_MAX_CALLS, LIVE_SEARCH_SUMMARY_TOKENS
+    global FAISS_BOOTSTRAP_MODE, VECTOR_INDEX_PATH, FAISS_INDEX_URI
     if "rag_enabled" in cfg:
         RAG_ENABLED = bool(cfg.get("rag_enabled"))
     if "rag_top_k" in cfg:
@@ -85,4 +93,12 @@ def apply_mode_overrides(cfg: dict) -> None:
     if "live_search_max_calls" in cfg:
         LIVE_SEARCH_MAX_CALLS = int(cfg.get("live_search_max_calls", LIVE_SEARCH_MAX_CALLS))
     if "live_search_summary_tokens" in cfg:
-        LIVE_SEARCH_SUMMARY_TOKENS = int(cfg.get("live_search_summary_tokens", LIVE_SEARCH_SUMMARY_TOKENS))
+        LIVE_SEARCH_SUMMARY_TOKENS = int(
+            cfg.get("live_search_summary_tokens", LIVE_SEARCH_SUMMARY_TOKENS)
+        )
+    if "faiss_bootstrap_mode" in cfg:
+        FAISS_BOOTSTRAP_MODE = str(cfg.get("faiss_bootstrap_mode") or FAISS_BOOTSTRAP_MODE)
+    if "faiss_index_local_dir" in cfg:
+        VECTOR_INDEX_PATH = str(cfg.get("faiss_index_local_dir") or VECTOR_INDEX_PATH)
+    if "faiss_index_uri" in cfg:
+        FAISS_INDEX_URI = str(cfg.get("faiss_index_uri") or FAISS_INDEX_URI)

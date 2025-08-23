@@ -1,21 +1,13 @@
-from core.agents.base_agent import BaseAgent
-from config.feature_flags import RAG_ENABLED, RAG_TOPK
-from core.model_router import pick_model, CallHints
-from core.llm_client import log_usage, call_openai
-from typing import Optional, Dict, Any, List, Tuple
 import json
 import re
-from prompts.prompts import (
-    MARKETING_SYSTEM_PROMPT,
-    MARKETING_USER_PROMPT_TEMPLATE,
-)
+from typing import Any, Dict, List, Optional, Tuple
 
-try:
-    from knowledge.retriever import Retriever  # type: ignore
-    from knowledge.faiss_store import build_default_retriever  # type: ignore
-except Exception:  # pragma: no cover
-    Retriever = None  # type: ignore
-    build_default_retriever = lambda: None  # type: ignore
+from config.feature_flags import RAG_ENABLED, RAG_TOPK
+from core.agents.base_agent import BaseAgent
+from core.llm_client import call_openai, log_usage
+from core.model_router import CallHints, pick_model
+from dr_rd.retrieval.vector_store import Retriever
+from prompts.prompts import MARKETING_SYSTEM_PROMPT, MARKETING_USER_PROMPT_TEMPLATE
 
 
 class MarketingAgent(BaseAgent):
@@ -47,7 +39,7 @@ class MarketingAgent(BaseAgent):
                     prompt += "\n\nResearch Bundle:\n" + bundle
             except Exception:
                 pass
-        
+
         sel = pick_model(CallHints(stage="exec"))
         result = call_openai(
             model=sel["model"],

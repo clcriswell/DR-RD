@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List, Optional
 
-from .vector_store import Snippet, Retriever, build_retriever
-from .live_search import get_live_client
 from core.llm_client import BUDGET
+
+from .live_search import get_live_client
+from .vector_store import Retriever, Snippet
+
 
 @dataclass
 class ContextBundle:
@@ -18,14 +20,15 @@ class ContextBundle:
     reason: str | None = None
 
 
-def collect_context(idea: str, task: str, cfg: dict, retriever: Optional[Retriever] = None) -> ContextBundle:
+def collect_context(
+    idea: str, task: str, cfg: dict, retriever: Optional[Retriever] = None
+) -> ContextBundle:
     sources: List[str] = []
     text = f"{idea}\n{task}".strip()
-    retriever = retriever or build_retriever()
     rag_text = ""
     hits: List[Snippet] = []
     reason = None
-    if cfg.get("rag_enabled") and retriever:
+    if cfg.get("rag_enabled") and retriever is not None:
         try:
             hits = retriever.query(text, cfg.get("rag_top_k", 5))  # type: ignore[arg-type]
         except Exception:
@@ -36,21 +39,23 @@ def collect_context(idea: str, task: str, cfg: dict, retriever: Optional[Retriev
             if BUDGET:
                 BUDGET.retrieval_calls += 1
                 BUDGET.retrieval_tokens += sum(len(sn.text.split()) for sn in hits)
+        else:
+            reason = "rag_empty"
     else:
         if not cfg.get("rag_enabled"):
             reason = "rag_disabled"
-        elif not retriever:
+        elif retriever is None:
             reason = "no_index"
     rag_hits = len(hits)
     web_summary = ""
     web_used = False
     backend = None
-    if cfg.get("live_search_enabled") and rag_hits < 1:
+    if cfg.get("live_search_enabled") and (rag_hits == 0 or retriever is None):
         backend = cfg.get("live_search_backend", "openai")
         max_calls = int(cfg.get("live_search_max_calls", 0))
         if BUDGET and BUDGET.web_search_calls >= max_calls > 0:
             BUDGET.skipped_due_to_budget = getattr(BUDGET, "skipped_due_to_budget", 0) + 1
-            reason = "budget"
+            reason = "budget_skip"
         else:
             client = get_live_client(backend)
             summary, srcs = client.search_and_summarize(
@@ -63,10 +68,11 @@ def collect_context(idea: str, task: str, cfg: dict, retriever: Optional[Retriev
             web_used = True
             if BUDGET:
                 BUDGET.web_search_calls += 1
-    elif not cfg.get("live_search_enabled"):
-        reason = reason or "web_disabled"
-    elif rag_hits >= 1:
-        reason = reason or "rag_sufficient"
+    else:
+        if not cfg.get("live_search_enabled"):
+            reason = reason or "web_disabled"
+        elif rag_hits > 0:
+            reason = reason or "rag_hit"
     return ContextBundle(
         rag_text=rag_text,
         web_summary=web_summary,
