@@ -44,7 +44,7 @@ def test_retrieval_budget_consumption(monkeypatch, caplog):
             return "summary", [Source(title="t", url="u")]
 
     dummy = DummyClient()
-    monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
+    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda b: dummy)
 
     with caplog.at_level(logging.INFO):
         bundle = pipeline.collect_context("idea", "task", cfg)
@@ -54,8 +54,6 @@ def test_retrieval_budget_consumption(monkeypatch, caplog):
             rbudget.RETRIEVAL_BUDGET.max_calls,
         )
     assert bundle.meta["web_used"] is True
-    assert bundle.meta["reason"] == "web_only"
+    assert bundle.meta["reason"] == "no_vector_index_fallback"
     assert rbudget.RETRIEVAL_BUDGET.used == 1
-    assert any(
-        f"RetrievalBudget web_search_calls=1/{cap}" in r.message for r in caplog.records
-    )
+    assert any(f"RetrievalBudget web_search_calls=1/{cap}" in r.message for r in caplog.records)

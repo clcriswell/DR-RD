@@ -28,21 +28,20 @@ def test_live_search_fallback(monkeypatch):
 
     rbudget.RETRIEVAL_BUDGET = RetrievalBudget(3)
     dummy = DummyClient()
-    monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
+    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda b: dummy)
 
     bundle = pipeline.collect_context("idea", "task", cfg, retriever=None)
     assert dummy.called == 1
     meta = bundle.meta
     assert meta["web_used"] is True
-    assert meta["reason"] in {"web_only", "rag_empty_web_fallback"}
+    assert meta["reason"] in {"no_vector_index_fallback", "rag_zero_hits"}
 
-    monkeypatch.setattr(
-        pipeline, "collect_context", lambda idea, task, cfg, retriever=None: bundle
-    )
-    monkeypatch.setattr(
-        "core.agents.base_agent.collect_context",
-        lambda idea, task, cfg, retriever=None: bundle,
-    )
+    ctx = {
+        "rag_snippets": bundle.rag_snippets,
+        "web_results": [{"title": s.title, "url": s.url, "snippet": ""} for s in bundle.sources],
+        "trace": meta,
+    }
+    monkeypatch.setattr("core.agents.base_agent.fetch_context", lambda *a, **k: ctx)
 
     agent = BaseAgent("Exec", "gpt", "sys", "Task: {task}")
     prompt = agent._augment_prompt("start", "idea", "do task", task_id="T1")

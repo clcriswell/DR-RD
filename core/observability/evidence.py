@@ -16,7 +16,7 @@ class EvidenceItem(BaseModel):
     evidence: str = ""
     sources: List[str] = Field(default_factory=list)
     quotes: List[str] = Field(default_factory=list)
-    confidence: float = 0.0   # 0..1
+    confidence: float = 0.0  # 0..1
     tokens_in: int = 0
     tokens_out: int = 0
     cost_usd: float = 0.0
@@ -71,9 +71,9 @@ class EvidenceSet(BaseModel):
 
     def add(self, **kwargs) -> None:
         claim = kwargs.get("claim")
-        if not isinstance(claim, str):
+        if claim is not None and not isinstance(claim, str):
             try:
-                kwargs["claim"] = json.dumps(claim, ensure_ascii=False)[:2000]
+                kwargs["claim"] = json.dumps(claim, ensure_ascii=False)
             except Exception:
                 kwargs["claim"] = str(claim)
         self.items.append(EvidenceItem(project_id=self.project_id, **kwargs))

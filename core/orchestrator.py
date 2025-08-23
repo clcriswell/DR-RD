@@ -187,87 +187,30 @@ def _normalize_evidence_payload(payload) -> dict:
     JSON-serialize unknown structures so that evidence logging remains robust.
     """
 
-    from dataclasses import asdict, is_dataclass
-
-    try:
-        from pydantic import BaseModel  # type: ignore
-    except Exception:  # pragma: no cover - pydantic always installed in tests
-        BaseModel = object  # type: ignore
-
-    def _coerce_mapping(d: dict) -> dict:
-        out: dict[str, object] = {}
-        for k, v in d.items():
-            key = str(k)
-            try:
-                json.dumps(v)
-                out[key] = v
-            except Exception:
-                try:
-                    out[key] = json.dumps(v, default=str)
-                except Exception:
-                    out[key] = str(v)
-        return out
-
     if payload is None:
         p: dict[str, object] = {}
     elif isinstance(payload, dict):
-        p = _coerce_mapping(payload)
-    elif isinstance(payload, str):
-        try:
-            loaded = json.loads(payload)
-            if isinstance(loaded, dict):
-                p = _coerce_mapping(loaded)
-            else:
-                p = {"text": payload}
-        except Exception:
-            p = {"text": payload}
+        p = dict(payload)
     elif isinstance(payload, (list, tuple)):
-        if all(isinstance(x, (list, tuple)) and len(x) in (2, 3) for x in payload):
-            p = {str(k): v for k, v, *_ in payload}  # ignore third item
+        if all(isinstance(x, (list, tuple)) and len(x) == 2 for x in payload):
+            p = {str(k): v for k, v in payload}
         elif all(isinstance(x, dict) for x in payload):
-            merged: dict = {}
+            p = {}
             for d in payload:
-                merged.update(d)
-            p = _coerce_mapping(merged)
+                p.update(d)
         else:
             p = {"items": list(payload)}
-    elif isinstance(payload, BaseModel):  # type: ignore
-        p = _coerce_mapping(payload.model_dump())  # type: ignore[attr-defined]
-    elif is_dataclass(payload):
-        p = _coerce_mapping(asdict(payload))
+    elif isinstance(payload, str):
+        p = {"text": payload}
     else:
+        p = {"value": payload}
+
+    claim = p.get("claim")
+    if claim is not None and not isinstance(claim, str):
         try:
-            json.dumps(payload)
-            p = {"value": payload}
+            p["claim"] = json.dumps(claim, ensure_ascii=False)
         except Exception:
-            p = {"value": str(payload)}
-
-    claim = p.get("claim", "")
-    if not isinstance(claim, str):
-        if isinstance(claim, (dict, list)):
-            try:
-                claim = json.dumps(claim)[:4000]
-            except Exception:
-                claim = str(claim)
-        else:
-            claim = str(claim)
-    p["claim"] = claim
-
-    srcs = p.get("sources", [])
-    if isinstance(srcs, str):
-        sources = [srcs]
-    elif isinstance(srcs, (list, tuple, set)):
-        sources = [str(s) for s in srcs]
-    else:
-        sources = [str(srcs)] if srcs else []
-    p["sources"] = sources
-
-    cost = p.get("cost_usd", p.get("cost", 0.0))
-    try:
-        cost_f = float(cost)
-    except Exception:
-        cost_f = 0.0
-    p["cost_usd"] = cost_f
+            p["claim"] = str(claim)
 
     return p
 

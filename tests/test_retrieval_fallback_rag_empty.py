@@ -32,7 +32,7 @@ def test_web_fallback_rag_empty(monkeypatch):
 
     rbudget.RETRIEVAL_BUDGET = RetrievalBudget(2)
     dummy = DummyClient()
-    monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
+    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda b: dummy)
 
     retriever = EmptyRetriever()
     bundle = pipeline.collect_context("idea", "task", cfg, retriever=retriever)
@@ -40,7 +40,7 @@ def test_web_fallback_rag_empty(monkeypatch):
     assert dummy.called == 1
     assert meta["rag_hits"] == 0
     assert meta["web_used"] is True
-    assert meta["reason"] == "rag_empty_web_fallback"
+    assert meta["reason"] == "rag_zero_hits"
     assert meta["backend"] == "openai"
     assert meta["sources"] == 1
     assert rbudget.RETRIEVAL_BUDGET.used == 1

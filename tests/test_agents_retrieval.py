@@ -5,20 +5,32 @@ from unittest.mock import patch
 
 from core.agents.base_agent import BaseAgent
 from dr_rd.retrieval import pipeline
-from dr_rd.retrieval.pipeline import ContextBundle
 from dr_rd.retrieval.live_search import Source
 
 
 def test_agent_populates_sources(caplog):
-    bundle = ContextBundle(
-        rag_snippets=["snippet"],
-        web_summary="web",
-        sources=[Source("doc1"), Source("url1")],
-        meta={"rag_hits": 1, "web_used": True, "backend": "openai", "reason": "ok"},
-    )
-    fake_resp = {"raw": SimpleNamespace(choices=[SimpleNamespace(usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0))]), "text": '{"x":1}'}
+    ctx = {
+        "rag_snippets": ["snippet"],
+        "web_results": [
+            {"title": "doc1", "url": "", "snippet": ""},
+            {"title": "url1", "url": "", "snippet": ""},
+        ],
+        "trace": {
+            "rag_hits": 1,
+            "web_used": True,
+            "backend": "openai",
+            "sources": 2,
+            "reason": "ok",
+        },
+    }
+    fake_resp = {
+        "raw": SimpleNamespace(
+            choices=[SimpleNamespace(usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0))]
+        ),
+        "text": '{"x":1}',
+    }
     with caplog.at_level(logging.INFO):
-        with patch("core.agents.base_agent.collect_context", return_value=bundle), patch(
+        with patch("core.agents.base_agent.fetch_context", return_value=ctx), patch(
             "core.agents.base_agent.call_openai", return_value=fake_resp
         ):
             agent = BaseAgent("Test", "gpt", "sys", "Task: {task}")
@@ -35,7 +47,7 @@ def test_pipeline_respects_budget(monkeypatch):
         retrieval_tokens=0,
         skipped_due_to_budget=0,
     )
-    monkeypatch.setattr(pipeline, "BUDGET", dummy_budget)
+    monkeypatch.setattr("dr_rd.retrieval.context.BUDGET", dummy_budget)
     cfg = {
         "rag_enabled": False,
         "live_search_enabled": True,

@@ -36,7 +36,7 @@ def test_planner_web_fallback(monkeypatch, caplog):
     rbudget.RETRIEVAL_BUDGET = RetrievalBudget(1)
 
     dummy = DummyClient()
-    monkeypatch.setattr(pipeline, "get_live_client", lambda _b: dummy)
+    monkeypatch.setattr("dr_rd.retrieval.context.get_live_client", lambda _b: dummy)
 
     def fake_llm_call(_a, _b, _c, messages, **_kw):
         return SimpleNamespace(
@@ -44,9 +44,7 @@ def test_planner_web_fallback(monkeypatch, caplog):
             choices=[
                 SimpleNamespace(
                     finish_reason="stop",
-                    usage=SimpleNamespace(
-                        prompt_tokens=0, completion_tokens=0, total_tokens=0
-                    ),
+                    usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0, total_tokens=0),
                 )
             ],
         )
@@ -62,6 +60,6 @@ def test_planner_web_fallback(monkeypatch, caplog):
     assert any(
         "RetrievalTrace agent=Planner" in r.message
         and "web_used=true" in r.message
-        and "reason=web_only" in r.message
+        and "reason=no_vector_index_fallback" in r.message
         for r in caplog.records
     )

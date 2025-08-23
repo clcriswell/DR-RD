@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from config.feature_flags import (
     ENABLE_LIVE_SEARCH,
     LIVE_SEARCH_BACKEND,
+    LIVE_SEARCH_MAX_CALLS,
     LIVE_SEARCH_SUMMARY_TOKENS,
     RAG_ENABLED,
     RAG_TOPK,
@@ -23,7 +24,7 @@ from core.llm_client import (
     extract_planner_payload,
     llm_call,
 )
-from dr_rd.retrieval.pipeline import collect_context
+from dr_rd.retrieval.context import fetch_context
 from prompts.prompts import PLANNER_SYSTEM_PROMPT, PLANNER_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
@@ -111,22 +112,28 @@ def run_planner(
         "live_search_backend": LIVE_SEARCH_BACKEND,
         "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
         "vector_index_present": vector_available,
+        "live_search_max_calls": LIVE_SEARCH_MAX_CALLS,
     }
-    bundle = collect_context(idea, idea, cfg)
-    meta = bundle.meta
+    ctx = fetch_context(cfg, idea, "Planner", "plan")
+    trace = ctx["trace"]
     logger.info(
         "RetrievalTrace agent=Planner task_id=plan rag_hits=%d web_used=%s backend=%s sources=%d reason=%s",
-        meta.get("rag_hits", 0),
-        str(meta.get("web_used", False)).lower(),
-        meta.get("backend", "none"),
-        meta.get("sources", 0),
-        meta.get("reason", "ok"),
+        trace.get("rag_hits", 0),
+        str(trace.get("web_used", False)).lower(),
+        trace.get("backend", "none"),
+        trace.get("sources", 0),
+        trace.get("reason", "ok"),
     )
-    if bundle.rag_snippets:
-        user_prompt += "\n\n# RAG Knowledge\n" + "\n".join(bundle.rag_snippets)
-    if bundle.web_summary:
-        user_prompt += "\n\n# Web Search Results\n" + bundle.web_summary
-        user_prompt += "\n\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
+    if ctx.get("rag_snippets"):
+        user_prompt += "\n\n# RAG Knowledge\n" + "\n".join(ctx["rag_snippets"])
+    if ctx.get("web_results"):
+        user_prompt += "\n\n# Web Search Results\n"
+        for res in ctx["web_results"]:
+            title = res.get("title", "")
+            snippet = res.get("snippet", "")
+            url = res.get("url", "")
+            user_prompt += f"- {title}: {snippet} ({url})\n"
+        user_prompt += "\nIf you use Web Search Results, include a sources array in your JSON with short titles or URLs."
     messages = [
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": user_prompt},
