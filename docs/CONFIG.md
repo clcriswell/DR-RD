@@ -18,7 +18,7 @@ subject to the web-search budget cap.
 
 `RetrievalTrace.reason` may be:
 
-- `no_vector_index_fallback` – no vector index, web search only.
+- `web_only_mode` – no vector index, web search only.
 - `rag_zero_hits` – vector index queried but returned zero hits.
 - `budget_exhausted` – web search skipped due to budget.
 - `disabled` – web search disabled when needed.
@@ -41,12 +41,16 @@ SERPAPI_KEY=your_key
 
 ### Budget cap normalization
 
-`web_search_max_calls` is resolved by preferring `web_search_max_calls` in the
-mode config, then `live_search_max_calls` for backwards compatibility. If
-neither is provided, it defaults to `3`. The cap never initializes to `0` when
-live search is the only retrieval path.
-`ResolvedConfig` will show `vector_index_present=false` when the FAISS index is
-skipped.
+`web_search_max_calls` is resolved by preferring, in order:
+
+1. `web_search_max_calls` in the mode config.
+2. `WEB_SEARCH_MAX_CALLS` environment variable.
+3. `LIVE_SEARCH_MAX_CALLS` environment variable (legacy).
+
+If the resolved value is missing or non-positive while the vector index is
+absent, the cap defaults to `3` so that web search remains available in
+web-only mode. `ResolvedConfig` always includes `web_search_max_calls` and
+tracks `web_search_calls_used` starting at `0`.
 
 ### FAISS bootstrap
 
@@ -93,7 +97,7 @@ FAISS_INDEX_DIR=.faiss_index
 Expected logs:
 
 - `FAISSLoad path=.faiss_index result=skip reason=bootstrap_skip`
-- `RetrievalTrace … rag_hits=0 web_used=true backend=<openai|serpapi> reason=no_vector_index_fallback`
+- `RetrievalTrace … rag_hits=0 web_used=true backend=<openai|serpapi> reason=web_only_mode`
 
 To re-enable FAISS later set:
 

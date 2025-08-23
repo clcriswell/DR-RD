@@ -60,6 +60,6 @@ def test_planner_web_fallback(monkeypatch, caplog):
     assert any(
         "RetrievalTrace agent=Planner" in r.message
         and "web_used=true" in r.message
-        and "reason=no_vector_index_fallback" in r.message
+        and "reason=web_only_mode" in r.message
         for r in caplog.records
     )

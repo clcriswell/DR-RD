@@ -33,7 +33,7 @@ def test_web_fallback_no_index(monkeypatch):
     meta = bundle.meta
     assert dummy.called == 1
     assert meta["web_used"] is True
-    assert meta["reason"] == "no_vector_index_fallback"
+    assert meta["reason"] == "web_only_mode"
     assert meta["backend"] == "openai"
     assert meta["sources"] == 2
     assert rbudget.RETRIEVAL_BUDGET.used == 1

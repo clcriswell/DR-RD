@@ -700,20 +700,20 @@ def main():
     final_flags = apply_profile(env_defaults, selected_mode, overrides=None)
     st.session_state["final_flags"] = final_flags
 
+    _mode_cfg["enable_images"] = bool(
+        final_flags.get("ENABLE_IMAGES", _mode_cfg.get("enable_images"))
+    )
     _mode_cfg["web_search_calls_used"] = 0
-    bootstrap_vector_index(_mode_cfg, logger)
-    if not _mode_cfg.get("vector_index_present"):
-        _mode_cfg.setdefault("vector_doc_count", 0)
-        _mode_cfg.setdefault("vector_index_source", "none")
+    bootstrap = bootstrap_vector_index(_mode_cfg, logger)
+    _mode_cfg["vector_index_present"] = bool(bootstrap.get("present"))
+    _mode_cfg["vector_doc_count"] = int(bootstrap.get("doc_count", 0))
+    _mode_cfg["vector_index_source"] = bootstrap.get("source", "none")
+    _mode_cfg["vector_index_reason"] = bootstrap.get("reason", "")
 
     from core.retrieval import budget as rbudget
     import config.feature_flags as ff
 
-    cap = rbudget.get_web_search_call_cap(_mode_cfg)
-    if cap <= 0 and _mode_cfg.get("live_search_enabled") and not _mode_cfg.get(
-        "vector_index_present"
-    ):
-        cap = 3
+    cap = rbudget.get_web_max_calls(_os.environ, _mode_cfg)
     _mode_cfg["web_search_max_calls"] = cap
     _mode_cfg["live_search_max_calls"] = cap
     rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(cap)
@@ -734,7 +734,9 @@ def main():
     ff.VECTOR_INDEX_PATH = _mode_cfg.get("vector_index_path") or ""
     ff.VECTOR_INDEX_SOURCE = _mode_cfg.get("vector_index_source") or "none"
     ff.VECTOR_INDEX_REASON = _mode_cfg.get("vector_index_reason") or ""
-    ff.FAISS_BOOTSTRAP_MODE = _mode_cfg.get("faiss_bootstrap_mode", ff.FAISS_BOOTSTRAP_MODE)
+    ff.FAISS_BOOTSTRAP_MODE = _mode_cfg.get(
+        "faiss_bootstrap_mode", ff.FAISS_BOOTSTRAP_MODE
+    )
     for k, v in final_flags.items():
         setattr(ff, k, v)
     if selected_mode == "deep":

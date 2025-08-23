@@ -25,6 +25,7 @@ from core.llm_client import (
     llm_call,
 )
 from dr_rd.retrieval.context import fetch_context
+from core.retrieval import budget as rbudget
 from prompts.prompts import PLANNER_SYSTEM_PROMPT, PLANNER_USER_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
@@ -173,6 +174,10 @@ def run_planner(
         "completion_tokens": getattr(usage_obj, "completion_tokens", 0),
         "total_tokens": getattr(usage_obj, "total_tokens", 0),
     }
+
+    used = rbudget.RETRIEVAL_BUDGET.used if rbudget.RETRIEVAL_BUDGET else 0
+    cap = rbudget.RETRIEVAL_BUDGET.max_calls if rbudget.RETRIEVAL_BUDGET else 0
+    logger.info("RetrievalBudget web_search_calls=%d/%d", used, cap)
 
     try:
         data = extract_planner_payload(resp)

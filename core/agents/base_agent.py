@@ -23,6 +23,7 @@ from core.llm_client import call_openai, log_usage
 from core.prompt_utils import coerce_user_content
 from dr_rd.retrieval.context import fetch_context
 from dr_rd.retrieval.vector_store import Retriever, build_retriever
+from core.retrieval import budget as rbudget
 
 
 @dataclass(init=False)
@@ -199,6 +200,9 @@ class BaseAgent:
                 pt=getattr(usage, "prompt_tokens", 0),
                 ct=getattr(usage, "completion_tokens", 0),
             )
+        used = rbudget.RETRIEVAL_BUDGET.used if rbudget.RETRIEVAL_BUDGET else 0
+        cap = rbudget.RETRIEVAL_BUDGET.max_calls if rbudget.RETRIEVAL_BUDGET else 0
+        logger.info("RetrievalBudget web_search_calls=%d/%d", used, cap)
         answer = (result["text"] or "").strip()
         flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
         if flags.get("TEST_MODE"):
