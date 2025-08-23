@@ -1,0 +1,118 @@
+name: faiss-nightly
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      release_to_prod:
+        description: "Also sync to gs://$GCS_BUCKET/prod/v1"
+        required: false
+        default: "false"
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      FAISS_SRC_DIR: knowledge/source_docs
+      FAISS_DST_DIR: .faiss_index
+      GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+      GCS_PREFIX: ${{ secrets.GCS_PREFIX }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install "faiss-cpu>=1.7.4" "google-cloud-storage>=2.16.0"
+
+      - name: Select source corpus
+        id: src
+        run: |
+          if [ -d "knowledge/source_docs" ]; then
+            echo "src=knowledge/source_docs" >> $GITHUB_OUTPUT
+          elif [ -d "docs" ]; then
+            echo "src=docs" >> $GITHUB_OUTPUT
+          else
+            echo "ERROR: No default corpus found (expected knowledge/source_docs or docs/)"; exit 1
+          fi
+
+      - name: Build FAISS index
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python scripts/build_faiss_index.py -h || true
+          python scripts/build_faiss_index.py --root "${{ steps.src.outputs.src }}" --out "${{ env.FAISS_DST_DIR }}"
+
+      - name: Validate bundle and emit manifest
+        run: |
+          python scripts/validate_faiss_bundle.py --path "${{ env.FAISS_DST_DIR }}" --out manifest.json
+
+      - name: Pack artifact
+        run: |
+          tar -C "${{ env.FAISS_DST_DIR }}" -czf faiss_index.tar.gz .
+
+      - name: Upload artifact (debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: faiss-bundle
+          path: |
+            faiss_index.tar.gz
+            manifest.json
+          retention-days: 7
+
+      - name: Auth to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: "gcloud,gsutil"
+
+      - name: Publish to GCS (nightly path + latest)
+        env:
+          NIGHTLY_DST: gs://${{ env.GCS_BUCKET }}/${{ env.GCS_PREFIX }}/nightly/${{ github.run_id }}-${{ github.sha }}
+          LATEST_DST: gs://${{ env.GCS_BUCKET }}/${{ env.GCS_PREFIX }}/nightly/latest
+        run: |
+          gsutil -m rsync -r "${{ env.FAISS_DST_DIR }}" "$NIGHTLY_DST"
+          gsutil -m rsync -d -r "${{ env.FAISS_DST_DIR }}" "$LATEST_DST"
+          gsutil cp -n manifest.json "$NIGHTLY_DST/manifest.json"
+          gsutil cp -a public-read -n manifest.json "$LATEST_DST/manifest.json" || true
+
+      - name: Optional promote to prod
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_to_prod == 'true' }}
+        env:
+          PROD_DST: gs://${{ env.GCS_BUCKET }}/prod/v1
+        run: |
+          gsutil -m rsync -d -r "${{ env.FAISS_DST_DIR }}" "$PROD_DST"
+          gsutil cp -n manifest.json "$PROD_DST/manifest.json"
+
+      - name: Write run summary
+        run: |
+          DOC_COUNT=$(jq -r '.doc_count' manifest.json || echo "unknown")
+          DIMS=$(jq -r '.dims' manifest.json || echo "unknown")
+          {
+            echo "### FAISS Nightly Build"
+            echo "- Source: \`${{ steps.src.outputs.src }}\`"
+            echo "- Doc count: **$DOC_COUNT**"
+            echo "- Dims: **$DIMS**"
+            echo "- Nightly: \`gs://${{ env.GCS_BUCKET }}/${{ env.GCS_PREFIX }}/nightly/${{ github.run_id }}-${{ github.sha }}\`"
+            echo "- Latest:  \`gs://${{ env.GCS_BUCKET }}/${{ env.GCS_PREFIX }}/nightly/latest\`"
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.release_to_prod }}" = "true" ]; then
+              echo "- Promoted to: \`gs://${{ env.GCS_BUCKET }}/prod/v1\`"
+            fi
+          } >> $GITHUB_STEP_SUMMARY
+
