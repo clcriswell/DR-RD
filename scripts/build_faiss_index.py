@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, os, json, re
+import argparse, os, json, re, sys
 import numpy as np
 import faiss
 
@@ -36,14 +36,14 @@ def _collect_docs(root: str) -> tuple[list[str], list[str]]:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default=".", help="repo root")
-    ap.add_argument("--out", default="memory", help="output dir")
+    ap.add_argument("--root", "--src", dest="root", default=".", help="repo/corpus root")
+    ap.add_argument("--out", "--dst", dest="out", default="memory", help="output dir")
     args = ap.parse_args()
 
     texts, sources = _collect_docs(args.root)
     if not texts:
-        print("No docs found under README.md or ./docs")
-        return
+        print("No docs found under README.md or ./docs", file=sys.stderr)
+        raise SystemExit(1)
 
     xb = np.vstack([_embed(t) for t in texts])
     index = faiss.IndexFlatL2(xb.shape[1])
@@ -55,7 +55,9 @@ def main():
     with open(os.path.join(args.out, "docs.json"), "w", encoding="utf-8") as fh:
         json.dump(docs, fh)
 
-    print(f"Wrote {len(docs)} docs to {args.out}/index.faiss and {args.out}/docs.json")
+    print(
+        f"Wrote {len(docs)} docs to {args.out}/index.faiss and {args.out}/docs.json (root={args.root})"
+    )
 
 if __name__ == "__main__":
     main()
