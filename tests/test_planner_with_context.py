@@ -42,7 +42,7 @@ def test_planner_web_injection(monkeypatch):
         rag_snippets=[],
         web_summary="web",  # type: ignore[arg-type]
         sources=[],
-        meta={"rag_hits": 0, "web_used": True, "backend": "openai", "reason": "no_results"},
+        meta={"rag_hits": 0, "web_used": True, "backend": "openai", "reason": "rag_empty_web_fallback"},
     )
     captured = {}
     with patch("core.agents.planner_agent.collect_context", return_value=bundle), patch(

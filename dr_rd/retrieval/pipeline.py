@@ -32,7 +32,7 @@ def collect_context(
     sources: List[Source] = []
     reason = "ok"
 
-    if cfg.get("rag_enabled") and retriever is not None:
+    if cfg.get("rag_enabled") and cfg.get("vector_index_present") and retriever is not None:
         try:
             hits = retriever.query(text, cfg.get("rag_top_k", 5))  # type: ignore[arg-type]
         except Exception:
@@ -46,7 +46,7 @@ def collect_context(
                 BUDGET.retrieval_calls += 1
                 BUDGET.retrieval_tokens += sum(len(sn.text.split()) for sn in hits)
         else:
-            reason = "no_results"
+            reason = "rag_empty"
     else:
         if not cfg.get("vector_index_present", False):
             reason = "no_vector"
@@ -81,9 +81,7 @@ def collect_context(
             if BUDGET:
                 BUDGET.web_search_calls += 1
             reason = (
-                "fallback_no_vector"
-                if not cfg.get("vector_index_present", False)
-                else "no_results"
+                "web_only" if not cfg.get("vector_index_present", False) else "rag_empty_web_fallback"
             )
         except Exception:
             reason = "error"
@@ -94,12 +92,7 @@ def collect_context(
                 BUDGET.skipped_due_to_budget = getattr(
                     BUDGET, "skipped_due_to_budget", 0
                 ) + 1
-        elif not cfg.get("vector_index_present", False):
-            reason = "no_vector"
-        elif rag_hits == 0:
-            reason = "no_results"
-        else:
-            reason = "ok"
+        # otherwise keep existing reason (no_vector, rag_empty, rag_disabled, ok)
 
     meta = {
         "rag_hits": rag_hits,

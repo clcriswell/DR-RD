@@ -179,35 +179,97 @@ def _slugify(name: str) -> str:
     return s[:64] or "project"
 
 
-def _normalize_evidence_payload(payload):
-    """Coerce arbitrary payloads into a dictionary.
+def _normalize_evidence_payload(payload) -> dict:
+    """Best-effort coercion of arbitrary payloads into a dict.
 
-    Accepts dictionaries, list-like structures, or scalars. Non-dict inputs are
-    wrapped so that we always return a dict suitable for ``EvidenceItem``.
+    The normalizer accepts loose inputs from agents and converts them into a
+    dictionary compatible with :class:`EvidenceItem`.  It never raises and will
+    JSON-serialize unknown structures so that evidence logging remains robust.
     """
 
+    from dataclasses import asdict, is_dataclass
+
+    try:
+        from pydantic import BaseModel  # type: ignore
+    except Exception:  # pragma: no cover - pydantic always installed in tests
+        BaseModel = object  # type: ignore
+
+    def _coerce_mapping(d: dict) -> dict:
+        out: dict[str, object] = {}
+        for k, v in d.items():
+            key = str(k)
+            try:
+                json.dumps(v)
+                out[key] = v
+            except Exception:
+                try:
+                    out[key] = json.dumps(v, default=str)
+                except Exception:
+                    out[key] = str(v)
+        return out
+
     if payload is None:
-        return {}
-    if isinstance(payload, dict):
-        return payload
-    if isinstance(payload, (list, tuple)):
-        # Case A: list of (k, v) pairs
-        if all(isinstance(x, (list, tuple)) and len(x) == 2 for x in payload):
-            return {str(k): v for k, v in payload}
-        # Case B: list of dicts – shallow merge
-        if all(isinstance(x, dict) for x in payload):
-            merged: Dict[str, Any] = {}
+        p: dict[str, object] = {}
+    elif isinstance(payload, dict):
+        p = _coerce_mapping(payload)
+    elif isinstance(payload, str):
+        try:
+            loaded = json.loads(payload)
+            if isinstance(loaded, dict):
+                p = _coerce_mapping(loaded)
+            else:
+                p = {"text": payload}
+        except Exception:
+            p = {"text": payload}
+    elif isinstance(payload, (list, tuple)):
+        if all(isinstance(x, (list, tuple)) and len(x) in (2, 3) for x in payload):
+            p = {str(k): v for k, v, *_ in payload}  # ignore third item
+        elif all(isinstance(x, dict) for x in payload):
+            merged: dict = {}
             for d in payload:
                 merged.update(d)
-            return merged
-        # Fallback: preserve raw data for debugging
-        return {"_data": payload, "_note": "non-dict payload coerced"}
-    # Fallback for scalars/unknown types
+            p = _coerce_mapping(merged)
+        else:
+            p = {"items": list(payload)}
+    elif isinstance(payload, BaseModel):  # type: ignore
+        p = _coerce_mapping(payload.model_dump())  # type: ignore[attr-defined]
+    elif is_dataclass(payload):
+        p = _coerce_mapping(asdict(payload))
+    else:
+        try:
+            json.dumps(payload)
+            p = {"value": payload}
+        except Exception:
+            p = {"value": str(payload)}
+
+    claim = p.get("claim", "")
+    if not isinstance(claim, str):
+        if isinstance(claim, (dict, list)):
+            try:
+                claim = json.dumps(claim)[:4000]
+            except Exception:
+                claim = str(claim)
+        else:
+            claim = str(claim)
+    p["claim"] = claim
+
+    srcs = p.get("sources", [])
+    if isinstance(srcs, str):
+        sources = [srcs]
+    elif isinstance(srcs, (list, tuple, set)):
+        sources = [str(s) for s in srcs]
+    else:
+        sources = [str(srcs)] if srcs else []
+    p["sources"] = sources
+
+    cost = p.get("cost_usd", p.get("cost", 0.0))
     try:
-        json.dumps(payload)
-        return {"_data": payload}
+        cost_f = float(cost)
     except Exception:
-        return {"_repr": repr(payload)}
+        cost_f = 0.0
+    p["cost_usd"] = cost_f
+
+    return p
 
 
 def execute_plan(

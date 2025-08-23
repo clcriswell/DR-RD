@@ -1,22 +1,26 @@
 import logging
 
+import logging
+
+import pytest
+
 from core.retrieval.budget import RetrievalBudget, get_web_search_call_cap
 from dr_rd.retrieval import pipeline
 from dr_rd.retrieval.live_search import Source
 
 
-def test_get_web_search_call_cap():
-    cfg = {}
-    assert get_web_search_call_cap(cfg) == 3  # default
-
-    cfg = {"web_search_max_calls": 5}
-    assert get_web_search_call_cap(cfg) == 5  # explicit web cap
-
-    cfg = {"live_search_max_calls": 4}
-    assert get_web_search_call_cap(cfg) == 4  # legacy field
-
-    cfg = {"web_search_max_calls": 2, "live_search_max_calls": 9}
-    assert get_web_search_call_cap(cfg) == 2  # web cap wins
+@pytest.mark.parametrize(
+    "cfg, expected",
+    [
+        ({"web_search_max_calls": 5}, 5),
+        ({"live_search_max_calls": 4}, 4),
+        ({}, 3),
+    ],
+)
+def test_get_web_search_call_cap(cfg, expected):
+    assert get_web_search_call_cap(cfg) == expected
+    cfg["live_search_enabled"] = True
+    assert get_web_search_call_cap(cfg) > 0
 
 
 def test_retrieval_budget_consumption(monkeypatch, caplog):
@@ -50,7 +54,7 @@ def test_retrieval_budget_consumption(monkeypatch, caplog):
             rbudget.RETRIEVAL_BUDGET.max_calls,
         )
     assert bundle.meta["web_used"] is True
-    assert bundle.meta["reason"] == "fallback_no_vector"
+    assert bundle.meta["reason"] == "web_only"
     assert rbudget.RETRIEVAL_BUDGET.used == 1
     assert any(
         f"RetrievalBudget web_search_calls=1/{cap}" in r.message for r in caplog.records

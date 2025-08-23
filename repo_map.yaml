@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-23T17:31:06.867904Z'
-git_sha: b6780740e1cd1ade90c8c0b6c97b0290bbac6ed6
+generated_at: '2025-08-23T18:36:36.569676Z'
+git_sha: c2c94ab2a21a779937f0e03c77a2aae6572f523b
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -102,14 +102,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/app_builder.py
+- path: orchestrators/qa_router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/__init__.py
+- path: orchestrators/app_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -130,14 +130,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/spec_builder.py
+- path: orchestrators/__init__.py
   role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/qa_router.py
+- path: orchestrators/spec_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []

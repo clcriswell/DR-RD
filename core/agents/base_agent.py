@@ -101,7 +101,7 @@ class BaseAgent:
 
     def _augment_prompt(self, prompt: str, idea: str, task: str, task_id: str = "") -> str:
         """Attach retrieved snippets and optionally web summary."""
-        vector_available = VECTOR_INDEX_PRESENT
+        vector_available = VECTOR_INDEX_PRESENT and self.retriever is not None
         cfg = {
             "rag_enabled": RAG_ENABLED and vector_available,
             "rag_top_k": RAG_TOPK,

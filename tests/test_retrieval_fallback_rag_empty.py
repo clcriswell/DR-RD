@@ -40,7 +40,7 @@ def test_web_fallback_rag_empty(monkeypatch):
     assert dummy.called == 1
     assert meta["rag_hits"] == 0
     assert meta["web_used"] is True
-    assert meta["reason"] == "no_results"
+    assert meta["reason"] == "rag_empty_web_fallback"
     assert meta["backend"] == "openai"
     assert meta["sources"] == 1
     assert rbudget.RETRIEVAL_BUDGET.used == 1

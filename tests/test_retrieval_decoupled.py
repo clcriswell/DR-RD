@@ -38,9 +38,12 @@ def test_no_retriever_triggers_web(monkeypatch):
     monkeypatch.setattr(pipeline, "get_live_client", lambda b: dummy)
     cfg = _cfg()
     cfg["vector_index_present"] = False
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(5)
     bundle = pipeline.collect_context("idea", "task", cfg, retriever=None)
     assert dummy.called == 1
-    assert bundle.meta["reason"] == "fallback_no_vector"
+    assert bundle.meta["reason"] == "web_only"
     assert bundle.web_summary == "sum"
 
 
@@ -50,9 +53,12 @@ def test_empty_rag_triggers_web(monkeypatch):
     retriever = DummyRetriever([])
     cfg = _cfg()
     cfg["vector_index_present"] = True
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(5)
     bundle = pipeline.collect_context("i", "t", cfg, retriever=retriever)
     assert dummy.called == 1
-    assert bundle.meta["reason"] == "no_results"
+    assert bundle.meta["reason"] == "rag_empty_web_fallback"
 
 
 def test_budget_skip(monkeypatch):
