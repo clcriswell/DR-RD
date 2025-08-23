@@ -95,9 +95,7 @@ class BaseAgent:
             self.retriever = retriever
         else:
             self.retriever = (
-                build_retriever(VECTOR_INDEX_PATH)
-                if RAG_ENABLED and VECTOR_INDEX_PRESENT
-                else None
+                build_retriever(VECTOR_INDEX_PATH) if RAG_ENABLED and VECTOR_INDEX_PRESENT else None
             )
         self._sources: list[str] = []
 
@@ -122,7 +120,7 @@ class BaseAgent:
             meta.get("rag_hits", 0),
             str(meta.get("web_used", False)).lower(),
             meta.get("backend", "none"),
-            len(bundle.sources),
+            meta.get("sources", 0),
             meta.get("reason", "ok"),
         )
         if bundle.rag_snippets:
