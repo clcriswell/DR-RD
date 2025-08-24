@@ -2,7 +2,7 @@ from copy import deepcopy
 
 PROFILES = {
     "deep": {
-        "ENABLE_LIVE_SEARCH": True, "LIVE_SEARCH_MAX_CALLS": 3, "LIVE_SEARCH_SUMMARY_TOKENS": int = 256,
+        "ENABLE_LIVE_SEARCH": True, "LIVE_SEARCH_SUMMARY_TOKENS": int = 256,
         "PARALLEL_EXEC_ENABLED": True,
         "TOT_PLANNING_ENABLED": True, "TOT_K": 4, "TOT_BEAM": 3, "TOT_MAX_DEPTH": 3,
         "EVALUATORS_ENABLED": True, "EVALUATOR_MIN_OVERALL": 0.70,
