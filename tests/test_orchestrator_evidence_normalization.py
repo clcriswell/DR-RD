@@ -8,16 +8,15 @@ from core.orchestrator import _normalize_evidence_payload
 @pytest.mark.parametrize(
     "payload",
     [
-        {"claim": "c", "sources": ["s1"], "cost": "1.2"},
-        '{"claim": "c", "sources": ["s1"]}',
-        [("claim", "c"), ("sources", ["s1"])],
-        [("claim", "c", 1), ("sources", ["s1"], 2)],
-        [{"claim": "c"}, {"sources": ["s1"]}],
+        {"quotes": ["c"], "citations": ["s1"], "cost": "1.2"},
+        '{"quotes": ["c"], "citations": ["s1"]}',
+        [("q1", "c")],
+        [{"quotes": ["c"]}, {"tokens_in": 1}],
         ["a", "b"],
         None,
     ],
 )
-def test_normalization_returns_dict_and_claim_str(payload):
+def test_normalization_returns_dict(payload):
     out = _normalize_evidence_payload(payload)
     assert isinstance(out, dict)
-    assert isinstance(out.get("claim", ""), str)
+    assert isinstance(out.get("quotes"), list)
