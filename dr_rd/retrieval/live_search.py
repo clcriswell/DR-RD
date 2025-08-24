@@ -80,10 +80,16 @@ class OpenAIWebSearchClient:
         k: int | None = None,
         max_tokens: int | None = None,
         max_sources: int = 5,
+        *,
+        tools: list[dict] | None = None,
+        tool_choice: str | None = None,
     ) -> Any:
         if k is not None:
             max_sources = k
         try:
+            kwargs: dict = {"tools": tools or [{"type": "web_search"}]}
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
             rsp = call_openai(
                 model=self.model,
                 messages=[
@@ -96,7 +102,7 @@ class OpenAIWebSearchClient:
                         "content": f"Search the web and summarize reliably with sources: {query}",
                     },
                 ],
-                tools=[{"type": "web_search"}],
+                **kwargs,
             )
         except Exception as e:  # pragma: no cover - network failures
             if _is_openai_web_search_unavailable(e):

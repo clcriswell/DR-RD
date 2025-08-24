@@ -3,11 +3,16 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any, Dict, List
+import os
 
 from core.llm_client import BUDGET
 from core.retrieval import budget as rbudget
 from core.retrieval.budget import get_web_search_call_cap
-from dr_rd.retrieval.live_search import get_live_client, run_live_search_with_fallback
+from dr_rd.retrieval.live_search import (
+    get_live_client,
+    OpenAIWebSearchClient,
+    OpenAIWebSearchUnavailable,
+)
 from dr_rd.retrieval.vector_store import Retriever
 from utils.search_tools import search_google
 
@@ -73,27 +78,68 @@ def fetch_context(
 
     if need_web:
         if cfg.get("live_search_enabled") and budget_allows:
-            backend = str(cfg.get("live_search_backend", "openai"))
+            backend = "openai"
+            web_used = True
             try:
-                if backend == "serpapi":
-                    raw = search_google(agent_name, "", query, k=rag_top_k)
-                    web_results = _format_results(raw)
-                else:
-                    client = get_live_client(backend)
+                client = get_live_client("openai")
+                extra = {}
+                if isinstance(client, OpenAIWebSearchClient):
+                    extra = {
+                        "tools": [{"type": "web_search_preview"}],
+                        "tool_choice": "required",
+                    }
+                try:
                     _summary, srcs = client.search_and_summarize(
-                        query, rag_top_k, cfg.get("live_search_summary_tokens", 256)
+                        query,
+                        rag_top_k,
+                        cfg.get("live_search_summary_tokens", 256),
+                        **extra,
                     )
-                    web_results = [
-                        {"title": s.title, "url": s.url or "", "snippet": ""} for s in srcs
-                    ]
-                web_used = True
+                except TypeError:
+                    _summary, srcs = client.search_and_summarize(
+                        query,
+                        rag_top_k,
+                        cfg.get("live_search_summary_tokens", 256),
+                    )
+                web_results = [
+                    {"title": s.title, "url": s.url or "", "snippet": ""} for s in srcs
+                ]
                 cfg["web_search_calls_used"] = used + 1
                 if budget_obj:
                     budget_obj.consume()
                 if BUDGET:
                     BUDGET.web_search_calls += 1
-            except Exception:
-                pass
+            except OpenAIWebSearchUnavailable as e:
+                log.warning(
+                    "RetrievalTrace agent=%s task_id=%s rag_hits=%d web_used=false backend=openai sources=0 reason=live_search_error err=%s",
+                    agent_name,
+                    task_id,
+                    rag_hits,
+                    e,
+                )
+                web_used = False
+                reason = "live_search_error"
+                serp_key = os.getenv("SERPAPI_KEY")
+                if str(cfg.get("live_search_backend")) == "serpapi" and serp_key:
+                    backend = "serpapi"
+                    raw = search_google(agent_name, "", query, k=rag_top_k)
+                    web_results = _format_results(raw)
+                    web_used = True
+                    cfg["web_search_calls_used"] = used + 1
+                    if budget_obj:
+                        budget_obj.consume()
+                    if BUDGET:
+                        BUDGET.web_search_calls += 1
+            except Exception as e:
+                log.warning(
+                    "RetrievalTrace agent=%s task_id=%s rag_hits=%d web_used=false backend=openai sources=0 reason=live_search_error err=%s",
+                    agent_name,
+                    task_id,
+                    rag_hits,
+                    e,
+                )
+                web_used = False
+                reason = "live_search_error"
         else:
             if not cfg.get("live_search_enabled"):
                 reason = "disabled"
@@ -105,7 +151,7 @@ def fetch_context(
     trace = {
         "rag_hits": rag_hits,
         "web_used": web_used,
-        "backend": backend if web_used else "none",
+        "backend": backend,
         "sources": len(web_results),
         "reason": reason,
     }

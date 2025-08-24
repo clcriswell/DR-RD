@@ -10,14 +10,12 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from config.feature_flags import (
-    ENABLE_LIVE_SEARCH,
-    LIVE_SEARCH_BACKEND,
-    LIVE_SEARCH_MAX_CALLS,
     LIVE_SEARCH_SUMMARY_TOKENS,
     RAG_ENABLED,
     RAG_TOPK,
     VECTOR_INDEX_PRESENT,
 )
+import config.feature_flags as ff
 from core.llm_client import (
     _strip_code_fences,
     call_openai,
@@ -110,11 +108,11 @@ def run_planner(
     cfg = {
         "rag_enabled": RAG_ENABLED and vector_available,
         "rag_top_k": RAG_TOPK,
-        "live_search_enabled": ENABLE_LIVE_SEARCH,
-        "live_search_backend": LIVE_SEARCH_BACKEND,
+        "live_search_enabled": ff.ENABLE_LIVE_SEARCH,
+        "live_search_backend": ff.LIVE_SEARCH_BACKEND,
         "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
         "vector_index_present": vector_available,
-        "live_search_max_calls": LIVE_SEARCH_MAX_CALLS,
+        "live_search_max_calls": ff.LIVE_SEARCH_MAX_CALLS,
     }
     ctx = fetch_context(cfg, idea, "Planner", "plan")
     trace = ctx["trace"]
@@ -161,7 +159,7 @@ def run_planner(
         if not use_chat:
             logger.info("Planner seed provided but Responses API is in use; seed will be ignored.")
 
-    resp = llm_call(None, model, "plan", messages, enable_web_search=ENABLE_LIVE_SEARCH, **params)
+    resp = llm_call(None, model, "plan", messages, enable_web_search=ff.ENABLE_LIVE_SEARCH, **params)
     finish = None
     if getattr(resp, "choices", None):
         finish = getattr(resp.choices[0], "finish_reason", None)
@@ -260,7 +258,7 @@ class PlannerAgent:
             messages=messages,
             temperature=0.2,
             response_format={"type": "json_object"},
-            enable_web_search=ENABLE_LIVE_SEARCH,
+            enable_web_search=ff.ENABLE_LIVE_SEARCH,
         )
         raw = result["text"] or "{}"
         try:
