@@ -26,12 +26,14 @@ class IPAnalystAgent(BaseAgent):
         prompt = self.user_prompt_template.format(idea=idea, task=task)
         prompt = self._augment_prompt(prompt, idea, task, "")
         sel = pick_model(CallHints(stage="exec"))
+        enable_web = bool(context.get("live_search_enabled", False)) if context else False
         result = call_openai(
             model=sel["model"],
             messages=[
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
             ],
+            enable_web_search=enable_web,
             **sel["params"],
         )
         resp = result["raw"]

@@ -188,6 +188,7 @@ class BaseAgent:
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
             ],
+            enable_web_search=ENABLE_LIVE_SEARCH,
         )
         resp = result["raw"]
         usage = getattr(resp, "usage", None)

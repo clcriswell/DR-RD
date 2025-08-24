@@ -11,6 +11,13 @@ The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in 
 - `live_search_summary_tokens`: cap for web-summary tokens.
 - `enable_images`: allow image generation (default `false` for `test` and `deep`).
 
+**Model defaults with OpenAI web search**
+
+When `LIVE_SEARCH_BACKEND=openai`, the default model is `gpt-4o-mini` so that the
+`web_search_preview` tool is supported without extra configuration. If you force
+another model via env or mode config, the client will emit a warning and
+temporarily override to `gpt-4o-mini` for calls that request web search.
+
 When `live_search_enabled` is true, the system automatically performs a live web
 search if the vector index is absent or a RAG lookup returns zero hits. The
 resulting snippets are injected into prompts under `# Web Search Results`,

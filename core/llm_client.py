@@ -32,6 +32,47 @@ _SUPPORTS_RESPONSE_FORMAT = (
     "response_format" in inspect.signature(client.responses.create).parameters
 )
 
+# OpenAI "web_search_preview" tool is only supported on specific models.
+# Keep this list conservative and explicit to avoid silent failures.
+SUPPORTED_OPENAI_SEARCH_MODELS: set[str] = {"gpt-4o-mini", "gpt-4o"}
+
+
+def _bool_env(name: str, default: bool = False) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return default
+    return str(v).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _live_search_backend() -> str:
+    return (os.getenv("LIVE_SEARCH_BACKEND") or "").strip().lower()
+
+
+def _openai_web_search_requested(enable_web_search: Optional[bool]) -> bool:
+    """
+    If caller passes an explicit enable_web_search flag, honor it.
+    Otherwise infer from env: ENABLE_LIVE_SEARCH==true and LIVE_SEARCH_BACKEND==openai.
+    """
+
+    if enable_web_search is not None:
+        return bool(enable_web_search) and _live_search_backend() == "openai"
+    return _bool_env("ENABLE_LIVE_SEARCH", False) and _live_search_backend() == "openai"
+
+
+def _coerce_model_for_openai_search(model: str) -> str:
+    """If OpenAI web search is requested but model unsupported, warn and override."""
+
+    if _live_search_backend() != "openai":
+        return model
+    if model in SUPPORTED_OPENAI_SEARCH_MODELS:
+        return model
+    logger.warning(
+        "OpenAI web search requires one of %s; got '%s'. Overriding to 'gpt-4o-mini'.",
+        sorted(SUPPORTED_OPENAI_SEARCH_MODELS),
+        model,
+    )
+    return "gpt-4o-mini"
+
 
 def _dry_stub(prompt: str) -> dict:
     return {"text": "[DRY_RUN] " + (prompt[:200] if isinstance(prompt, str) else "ok")}
@@ -161,6 +202,7 @@ def call_openai(
     response_params: Dict[str, Any] | None = None,
     tools: List[Dict[str, Any]] | None = None,
     tool_choice: Any | None = None,
+    enable_web_search: bool | None = None,
     **kwargs,
 ) -> Dict[str, Any]:
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
@@ -168,10 +210,16 @@ def call_openai(
     request_id = uuid.uuid4().hex
     t0 = time.monotonic()
     meta = meta or {}
+    web_search_requested = _openai_web_search_requested(enable_web_search)
+    effective_model = (
+        _coerce_model_for_openai_search(model) if web_search_requested else model
+    )
+    api = kwargs.pop("api", "Responses")
+
     logger.info(
         "LLM start req=%s model=%s purpose=%s agent=%s",
         request_id,
-        model,
+        effective_model,
         meta.get("purpose"),
         meta.get("agent"),
     )
@@ -200,6 +248,11 @@ def call_openai(
             except Exception:
                 http_status_or_exc = 0
                 return {"raw": {}, "text": ""}
+
+        if web_search_requested:
+            tools = [{"type": "web_search_preview"}]
+            if tool_choice is None:
+                tool_choice = "auto"
 
         params = {**(response_params or {}), **kwargs}
         if tools is not None:
@@ -245,12 +298,12 @@ def call_openai(
             params["max_output_tokens"] = params.pop("max_tokens")
 
         resp_params = {k: v for k, v in params.items() if k != "temperature"}
-        logger.info("call_openai: model=%s api=Responses", model)
+        logger.info("call_openai: model=%s api=Responses", effective_model)
         backoff = 0.1
         for attempt in range(4):
             try:
                 resp = client.responses.create(
-                    model=model,
+                    model=effective_model,
                     input=_to_responses_input(messages),
                     **resp_params,
                 )
@@ -282,9 +335,9 @@ def call_openai(
             chat_params["response_format"] = response_format
         if "max_output_tokens" in chat_params and "max_tokens" not in chat_params:
             chat_params["max_tokens"] = chat_params.pop("max_output_tokens")
-        logger.info("call_openai: model=%s api=Chat", model)
+        logger.info("call_openai: model=%s api=Chat", effective_model)
         resp = client.chat.completions.create(
-            model=model, messages=_to_chat_messages(messages), **chat_params
+            model=effective_model, messages=_to_chat_messages(messages), **chat_params
         )
         http_status_or_exc = getattr(resp, "http_status", 200)
         text = extract_text(resp)
@@ -334,6 +387,7 @@ def llm_call(
     messages: list,
     seed: int | None = None,
     temperature: float | None = None,
+    enable_web_search: bool | None = None,
     **params,
 ):
     """Backward-compatible wrapper around :func:`call_openai`."""
@@ -349,6 +403,7 @@ def llm_call(
         messages=messages,
         response_format=response_format,
         response_params=safe,
+        enable_web_search=enable_web_search,
     )
     resp = result["raw"]
 

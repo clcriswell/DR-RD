@@ -41,12 +41,14 @@ class MarketingAgent(BaseAgent):
                 pass
 
         sel = pick_model(CallHints(stage="exec"))
+        enable_web = bool(context.get("live_search_enabled", False)) if context else False
         result = call_openai(
             model=sel["model"],
             messages=[
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
             ],
+            enable_web_search=enable_web,
             **sel["params"],
         )
         resp = result["raw"]
