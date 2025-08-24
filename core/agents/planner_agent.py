@@ -68,6 +68,7 @@ def _repair_to_json(raw_txt: str, model: str) -> str:
         messages=repair_msgs,
         temperature=0.0,
         response_format={"type": "json_object"},
+        enable_web_search=False,
     )
     return result["text"] or "{}"
 
@@ -160,7 +161,7 @@ def run_planner(
         if not use_chat:
             logger.info("Planner seed provided but Responses API is in use; seed will be ignored.")
 
-    resp = llm_call(None, model, "plan", messages, **params)
+    resp = llm_call(None, model, "plan", messages, enable_web_search=ENABLE_LIVE_SEARCH, **params)
     finish = None
     if getattr(resp, "choices", None):
         finish = getattr(resp.choices[0], "finish_reason", None)
@@ -259,6 +260,7 @@ class PlannerAgent:
             messages=messages,
             temperature=0.2,
             response_format={"type": "json_object"},
+            enable_web_search=ENABLE_LIVE_SEARCH,
         )
         raw = result["text"] or "{}"
         try:

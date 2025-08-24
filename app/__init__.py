@@ -56,6 +56,18 @@ def _safe_expander(obj, label, expanded=False):
 
 logger = logging.getLogger(__name__)
 
+
+def _bool_env(name: str, default: bool = False) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return default
+    return str(v).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _str_env(name: str, default: str = "") -> str:
+    v = os.getenv(name)
+    return default if v is None else str(v).strip()
+
 from core.agents.registry import validate_registry
 
 try:
@@ -112,7 +124,9 @@ def get_agents():
     """Create and return the initialized agents using the core registry."""
     use_test = st.session_state.get("MODE") == "test"
     mapping = TEST_ROLE_MODELS if use_test else AGENT_MODEL_MAP
-    default_model = mapping.get("DEFAULT") or os.getenv("DRRD_OPENAI_MODEL") or "gpt-4.1-mini"
+    live_backend = _str_env("LIVE_SEARCH_BACKEND").lower()
+    base_default = "gpt-4o-mini" if live_backend == "openai" else "gpt-4.1-mini"
+    default_model = mapping.get("DEFAULT") or os.getenv("DRRD_OPENAI_MODEL") or base_default
     agents = build_agents_unified(mapping, default_model)
     agents["Planner"] = PlannerAgent(mapping.get("Planner") or default_model)
     agents["Synthesizer"] = SynthesizerAgent(mapping.get("Synthesizer") or default_model)
