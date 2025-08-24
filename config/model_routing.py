@@ -4,12 +4,12 @@ from pathlib import Path
 import yaml
 
 DEFAULTS = {
-    "PLANNER": "gpt-5",
-    "RESEARCHER": "gpt-5",
-    "EVALUATOR": "gpt-5",
-    "SYNTHESIZER": "gpt-5",
-    "FINAL_SYNTH": "gpt-5",
-    "BRAIN_MODE_LOOP": "gpt-5",
+    "PLANNER": "gpt-4o-mini",
+    "RESEARCHER": "gpt-4o-mini",
+    "EVALUATOR": "gpt-4o-mini",
+    "SYNTHESIZER": "gpt-4o-mini",
+    "FINAL_SYNTH": "gpt-4o-mini",
+    "BRAIN_MODE_LOOP": "gpt-4o-mini",
 }
 
 def _load_prices() -> dict:
