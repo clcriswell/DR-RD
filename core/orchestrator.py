@@ -3,7 +3,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import streamlit as st
 from utils.agent_json import (
@@ -182,54 +182,78 @@ def _slugify(name: str) -> str:
     return s[:64] or "project"
 
 
-def _normalize_evidence_payload(payload) -> dict:
-    """Normalize arbitrary evidence payloads into a dict.
+def _normalize_evidence_payload(payload: Any) -> Dict[str, Any]:
+    """Normalize evidence payloads of various shapes into a dict.
 
-    The function is intentionally defensive: it accepts dicts, iterables of
-    pairs or dicts, and falls back to embedding the raw payload.  The resulting
-    structure is always JSON-serializable and includes a string ``claim`` field.
+    Accepts dict, list[dict], list[tuple], or list[str]. Always returns a dict
+    with keys: ``quotes``, ``tokens_in``, ``tokens_out``, ``citations``, ``cost``,
+    and ``raw``.
     """
 
-    import json
+    quotes: List[Any] = []
+    tokens_in = 0
+    tokens_out = 0
+    citations: List[Any] = []
+    cost = 0.0
 
-    if payload is None:
-        p: dict[str, object] = {}
-    elif isinstance(payload, dict):
-        p = dict(payload)
-    elif isinstance(payload, (list, tuple)):
-        if all(isinstance(x, dict) for x in payload):
-            merged: dict[str, object] = {}
-            for d in payload:
-                for k, v in d.items():
-                    merged[str(k)] = v
-            p = merged
-        elif all(isinstance(x, (list, tuple)) and len(x) == 2 for x in payload):
-            p = {str(k): v for k, v in payload}
-        else:
-            p = {"raw": payload}
-    else:
+    if isinstance(payload, dict):
+        quotes = payload.get("quotes", []) or []
+        tokens_in = int(payload.get("tokens_in", 0) or 0)
+        tokens_out = int(payload.get("tokens_out", 0) or 0)
+        citations = payload.get("citations", []) or []
         try:
-            json.dumps(payload)
-            p = {"raw": payload}
+            cost = float(payload.get("cost", 0.0) or 0.0)
         except Exception:
-            p = {"raw": repr(payload)}
+            cost = 0.0
+        return {
+            "quotes": quotes,
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "citations": citations,
+            "cost": cost,
+            "raw": payload,
+        }
 
-    claim = p.get("claim")
-    if not isinstance(claim, str):
-        try:
-            p["claim"] = json.dumps(payload, ensure_ascii=False)[:500]
-        except Exception:
-            p["claim"] = repr(payload)[:500]
+    if isinstance(payload, list):
+        if all(isinstance(x, str) for x in payload):
+            quotes = list(payload)
+        elif all(isinstance(x, dict) for x in payload):
+            for x in payload:
+                q = x.get("quotes")
+                if isinstance(q, list):
+                    quotes.extend(q)
+                c = x.get("citations")
+                if isinstance(c, list):
+                    citations.extend(c)
+                tokens_in += int(x.get("tokens_in", 0) or 0)
+                tokens_out += int(x.get("tokens_out", 0) or 0)
+                try:
+                    cost += float(x.get("cost", 0.0) or 0.0)
+                except Exception:
+                    pass
+        elif all(isinstance(x, tuple) and len(x) >= 1 for x in payload):
+            for t in payload:
+                if len(t) >= 1 and isinstance(t[0], str):
+                    quotes.append(t[0])
+                if len(t) >= 2:
+                    citations.append(t[1])
+        return {
+            "quotes": quotes,
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "citations": citations,
+            "cost": cost,
+            "raw": payload,
+        }
 
-    for k, v in list(p.items()):
-        if k == "claim":
-            continue
-        try:
-            json.dumps(v)
-        except Exception:
-            p[k] = repr(v)
-
-    return p
+    return {
+        "quotes": [],
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "citations": [],
+        "cost": 0.0,
+        "raw": payload,
+    }
 
 
 def execute_plan(
@@ -267,21 +291,14 @@ def execute_plan(
         role_to_findings[role] = payload
         if evidence is not None:
             norm = _normalize_evidence_payload(payload)
-            if isinstance(norm.get("claim"), (dict, list)) or isinstance(
-                norm.get("evidence"), (dict, list)
-            ):
-                logger.info("Evidence normalization: structured fields coerced for role=%s", role)
             evidence.add(
                 role=role,
                 task_title=routed.get("title", ""),
-                claim=norm.get("claim", ""),
-                evidence=norm.get("evidence", ""),
-                sources=norm.get("sources", []),
                 quotes=norm.get("quotes", []),
                 tokens_in=norm.get("tokens_in", 0),
                 tokens_out=norm.get("tokens_out", 0),
-                cost_usd=norm.get("cost_usd", norm.get("cost", 0.0)),
-                meta=norm.get("meta"),
+                citations=norm.get("citations", []),
+                cost_usd=norm.get("cost", 0.0),
             )
         if save_decision_log:
             log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})

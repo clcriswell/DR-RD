@@ -159,6 +159,8 @@ def call_openai(
     response_format: Dict[str, Any] | None = None,
     meta: Dict[str, Any] | None = None,
     response_params: Dict[str, Any] | None = None,
+    tools: List[Dict[str, Any]] | None = None,
+    tool_choice: Any | None = None,
     **kwargs,
 ) -> Dict[str, Any]:
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
@@ -200,6 +202,10 @@ def call_openai(
                 return {"raw": {}, "text": ""}
 
         params = {**(response_params or {}), **kwargs}
+        if tools is not None:
+            params["tools"] = tools
+        if tool_choice is not None:
+            params["tool_choice"] = tool_choice
         use_chat_for_seed = os.getenv("DRRD_USE_CHAT_FOR_SEEDED", "false").lower() in (
             "1",
             "true",

@@ -13,14 +13,14 @@ class Dummy:
 @pytest.mark.parametrize(
     "payload",
     [
-        {"claim": "ok"},
-        [{"a": 1}, {"b": 2}],
-        [("a", 1), ("b", 2)],
-        [("a", 1, 2)],
+        {"quotes": ["ok"]},
+        [{"quotes": ["a"]}, {"tokens_in": 2}],
+        [("q1", "c1")],
+        ["a", "b"],
         Dummy(),
     ],
 )
-def test_normalizer_claim_string(payload):
+def test_normalizer_returns_serializable(payload):
     out = _normalize_evidence_payload(payload)
-    assert isinstance(out.get("claim"), str)
+    assert isinstance(out.get("quotes"), list)
     json.dumps(out)
