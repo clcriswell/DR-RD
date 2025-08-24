@@ -9,15 +9,13 @@ import streamlit as st
 from utils.logging import logger
 
 from config.feature_flags import (
-    ENABLE_LIVE_SEARCH,
-    LIVE_SEARCH_BACKEND,
-    LIVE_SEARCH_MAX_CALLS,
     LIVE_SEARCH_SUMMARY_TOKENS,
     RAG_ENABLED,
     RAG_TOPK,
     VECTOR_INDEX_PATH,
     VECTOR_INDEX_PRESENT,
 )
+import config.feature_flags as ff
 from core.llm import complete
 from core.llm_client import call_openai, log_usage
 from core.prompt_utils import coerce_user_content
@@ -107,12 +105,12 @@ class BaseAgent:
         cfg = {
             "rag_enabled": RAG_ENABLED and vector_available,
             "rag_top_k": RAG_TOPK,
-            "live_search_enabled": ENABLE_LIVE_SEARCH,
-            "live_search_backend": LIVE_SEARCH_BACKEND,
+            "live_search_enabled": ff.ENABLE_LIVE_SEARCH,
+            "live_search_backend": ff.LIVE_SEARCH_BACKEND,
             "live_search_summary_tokens": LIVE_SEARCH_SUMMARY_TOKENS,
             "vector_index_present": vector_available,
             "retriever": self.retriever,
-            "live_search_max_calls": LIVE_SEARCH_MAX_CALLS,
+            "live_search_max_calls": ff.LIVE_SEARCH_MAX_CALLS,
         }
         ctx = fetch_context(cfg, f"{idea}\n{task}".strip(), self.name, task_id)
         trace = ctx["trace"]
@@ -188,7 +186,7 @@ class BaseAgent:
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt},
             ],
-            enable_web_search=ENABLE_LIVE_SEARCH,
+            enable_web_search=ff.ENABLE_LIVE_SEARCH,
         )
         resp = result["raw"]
         usage = getattr(resp, "usage", None)

@@ -1,41 +1,70 @@
-import pytest
-from dr_rd.retrieval import live_search as ls
-from dr_rd.retrieval.context import retrieve_context
+import logging
+
+from core.retrieval.budget import RetrievalBudget
+from dr_rd.retrieval.context import fetch_context
 
 
-class DummyIndex:
-    present = False
-
-    def search(self, *a, **k):
-        return []
-
-
-def test_openai_unavailable_falls_back_to_serpapi(monkeypatch):
-    monkeypatch.setenv("SERPAPI_API_KEY", "test")
-
-    def boom(*a, **k):
-        raise ls.OpenAIWebSearchUnavailable("web_search tool is not enabled")
-
-    monkeypatch.setattr(ls.OpenAIWebSearchClient, "search_and_summarize", boom)
-
-    def serp_ok(self, query: str, num: int = 6):
-        return {
-            "text": "summary",
-            "sources": [{"title": "A", "url": "https://a.example"}],
-        }
-
-    monkeypatch.setattr(ls.SerpAPIWebSearchClient, "search_and_summarize", serp_ok, raising=True)
-
-    cfg = {
+def _base_cfg():
+    return {
+        "vector_index_present": False,
         "rag_enabled": True,
+        "rag_top_k": 5,
         "live_search_enabled": True,
         "live_search_backend": "openai",
-        "web_search_max_calls": 3,
-        "exec_model": "gpt-4.1-mini",
+        "web_search_max_calls": 2,
+        "web_search_calls_used": 0,
     }
 
-    out = retrieve_context("query", cfg, index=DummyIndex())
-    assert out["web_summary"] == "summary"
-    assert out["meta"]["web_search_calls_used"] == 1
-    assert out["meta"]["web_search_max_calls"] == 3
-    assert out["meta"]["vector_index_present"] is False
+
+def test_openai_web_search_used(monkeypatch):
+    monkeypatch.setenv("FAISS_BOOTSTRAP_MODE", "skip")
+    monkeypatch.setenv("ENABLE_LIVE_SEARCH", "true")
+    cfg = _base_cfg()
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = RetrievalBudget(3)
+
+    class Src:
+        def __init__(self, title, url):
+            self.title = title
+            self.url = url
+
+    def fake_search(self, query, k, max_tokens, **kwargs):
+        return "summary", [Src("t1", "u1")]
+
+    monkeypatch.setattr(
+        "dr_rd.retrieval.context.OpenAIWebSearchClient.search_and_summarize",
+        fake_search,
+    )
+
+    out = fetch_context(cfg, "q", "A", "T1")
+    trace = out["trace"]
+    assert trace["web_used"] is True
+    assert trace["backend"] == "openai"
+    assert cfg["web_search_calls_used"] == 1
+
+
+def test_openai_web_search_error(monkeypatch, caplog):
+    monkeypatch.setenv("FAISS_BOOTSTRAP_MODE", "skip")
+    monkeypatch.setenv("ENABLE_LIVE_SEARCH", "true")
+    cfg = _base_cfg()
+    from core.retrieval import budget as rbudget
+
+    rbudget.RETRIEVAL_BUDGET = RetrievalBudget(3)
+
+    def boom(self, *args, **kwargs):
+        raise RuntimeError("no tool")
+
+    monkeypatch.setattr(
+        "dr_rd.retrieval.context.OpenAIWebSearchClient.search_and_summarize",
+        boom,
+    )
+
+    with caplog.at_level(logging.WARNING):
+        out = fetch_context(cfg, "q", "A", "T1")
+    trace = out["trace"]
+    assert trace["reason"] == "live_search_error"
+    assert trace["backend"] == "openai"
+    assert trace["web_used"] is False
+    assert cfg["web_search_calls_used"] == 0
+    assert any("live_search_error" in r.message for r in caplog.records)
