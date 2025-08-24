@@ -36,7 +36,7 @@ def select_model(
             model = env_global.strip()
 
     if not model:
-        model = "gpt-4.0-mini"
+        model = "gpt-4o-mini"
 
     resolved = model
     forced = os.getenv("DRRD_FORCE_MODEL")
