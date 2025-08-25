@@ -13,20 +13,15 @@ internal heuristic.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
 import logging
+from typing import Any, Dict, List
 
-from config.feature_flags import (
-    EVALUATORS_ENABLED,
-    TOT_BEAM,
-    TOT_K,
-    TOT_MAX_DEPTH,
-)
+from config.feature_flags import EVALUATORS_ENABLED, TOT_BEAM, TOT_K, TOT_MAX_DEPTH
 from extensions.abcs import BasePlannerStrategy
 from extensions.registry import EvaluatorRegistry, PlannerStrategyRegistry
 
 if EVALUATORS_ENABLED:
-    import evaluators  # noqa: F401
+    import dr_rd.evaluators as _ev  # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +30,9 @@ logger = logging.getLogger(__name__)
 class ToTPlannerStrategy(BasePlannerStrategy):
     """Simple beam-search tree-of-thoughts planner."""
 
-    def __init__(self, k: int = TOT_K, beam: int = TOT_BEAM, max_depth: int = TOT_MAX_DEPTH) -> None:
+    def __init__(
+        self, k: int = TOT_K, beam: int = TOT_BEAM, max_depth: int = TOT_MAX_DEPTH
+    ) -> None:
         self.k = k
         self.beam = beam
         self.max_depth = max_depth
@@ -154,4 +151,3 @@ class ToTPlannerStrategy(BasePlannerStrategy):
 # Register the strategy so it can be discovered via the registry when the
 # feature flag is enabled.
 PlannerStrategyRegistry.register("tot", ToTPlannerStrategy)
-

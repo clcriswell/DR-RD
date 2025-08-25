@@ -3,7 +3,6 @@ from __future__ import annotations
 import evaluation.llm_rubric as lr
 from extensions.abcs import BaseEvaluator
 
-
 NOVELTY_RUBRIC = (
     "Assess originality vs. standard solutions for this domain. "
     "Return a single 0–1 score where 0 = derivative/common, 1 = highly novel."

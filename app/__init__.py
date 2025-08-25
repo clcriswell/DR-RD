@@ -14,37 +14,36 @@ from utils.firestore_workspace import FirestoreWorkspace as WS
 from utils.refinement import refine_agent_output
 
 import core
-from app.config_loader import load_mode
+from app.config_loader import load_profile
 from app.logging_setup import init_gcp_logging
 from app.ui_cost_meter import render_cost_summary
+from app.ui_presets import UI_PRESETS
 from collaboration import agent_chat
 from config.agent_models import AGENT_MODEL_MAP
-from config.feature_flags import get_env_defaults, apply_overrides
-from config.mode_profiles import UI_PRESETS, apply_profile
+from config.feature_flags import apply_overrides, get_env_defaults
 from core.agents.planner_agent import PlannerAgent
 from core.agents.simulation_agent import SimulationAgent
-from core.agents.synthesizer_agent import SynthesizerAgent
+from core.agents.synthesizer_agent import SynthesizerAgent, compose_final_proposal
 from core.agents.unified_registry import (
     AGENT_REGISTRY,
     build_agents_unified,
     validate_registry,
 )
-from core.llm_client import BUDGET, METER, call_openai, set_budget_manager
 from core.llm import select_model
+from core.llm_client import BUDGET, METER, call_openai, set_budget_manager
 from core.model_router import CallHints, difficulty_from_signals, pick_model
 from core.orchestrator import execute_plan, generate_plan, run_poc
-from core.agents.synthesizer_agent import compose_final_proposal
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks  # noqa: F401
 from core.poc.testplan import TestPlan
 from core.role_normalizer import group_by_role
 from core.role_normalizer import normalize_tasks as normalize_roles_tasks
+from core.summarization import two_pass_enabled
+from core.summarization.integrator import integrate
+from core.summarization.schemas import RoleSummary
 from dr_rd.core.config_snapshot import build_resolved_config_snapshot
 from dr_rd.knowledge.bootstrap import bootstrap_vector_index
 from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
-from core.summarization import two_pass_enabled
-from core.summarization.integrator import integrate
-from core.summarization.schemas import RoleSummary
 
 
 class _DummyCtx:
@@ -655,15 +654,9 @@ def main():
     else:
         st.markdown("## Configuration")
 
-    import os as _os
-
-    env_mode = _os.getenv("DRRD_MODE")
-    if env_mode and env_mode.lower() != "standard":
-        st.warning("DRRD_MODE is deprecated; using standard profile.")
-
     # Install a BudgetManager with the standard profile
     try:
-        _mode_cfg, _budget = load_mode("standard")
+        _mode_cfg, _budget = load_profile()
         models_cfg = dict(_mode_cfg.get("models", {}))
         resolved = {}
         for stage, name in models_cfg.items():
@@ -674,11 +667,11 @@ def main():
     except Exception as _e:
         logging.info(f"Budget manager not installed: {str(_e)}")
     env_defaults = get_env_defaults()
-    final_flags = apply_profile(env_defaults, "standard", overrides=None)
-    st.session_state["final_flags"] = final_flags
+    st.session_state["final_flags"] = env_defaults
+    final_flags = env_defaults
 
     _mode_cfg["enable_images"] = bool(
-        final_flags.get("ENABLE_IMAGES", _mode_cfg.get("enable_images"))
+        env_defaults.get("ENABLE_IMAGES", _mode_cfg.get("enable_images"))
     )
     _mode_cfg["web_search_calls_used"] = 0
     bootstrap = bootstrap_vector_index(_mode_cfg, logger)
@@ -687,10 +680,10 @@ def main():
     _mode_cfg["vector_index_source"] = bootstrap.get("source", "none")
     _mode_cfg["vector_index_reason"] = bootstrap.get("reason", "")
 
-    from core.retrieval import budget as rbudget
     import config.feature_flags as ff
+    from core.retrieval import budget as rbudget
 
-    cap = rbudget.get_web_max_calls(_os.environ, _mode_cfg)
+    cap = rbudget.get_web_max_calls(os.environ, _mode_cfg)
     _mode_cfg["web_search_max_calls"] = cap
     _mode_cfg["live_search_max_calls"] = cap
     rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(cap)
@@ -711,9 +704,7 @@ def main():
     ff.VECTOR_INDEX_PATH = _mode_cfg.get("vector_index_path") or ""
     ff.VECTOR_INDEX_SOURCE = _mode_cfg.get("vector_index_source") or "none"
     ff.VECTOR_INDEX_REASON = _mode_cfg.get("vector_index_reason") or ""
-    ff.FAISS_BOOTSTRAP_MODE = _mode_cfg.get(
-        "faiss_bootstrap_mode", ff.FAISS_BOOTSTRAP_MODE
-    )
+    ff.FAISS_BOOTSTRAP_MODE = _mode_cfg.get("faiss_bootstrap_mode", ff.FAISS_BOOTSTRAP_MODE)
     for k, v in final_flags.items():
         setattr(ff, k, v)
 
@@ -738,9 +729,7 @@ def main():
             "selectbox",
             lambda label, options, index=0, **k: options[index],
         )
-        rag_enabled = checkbox(
-            "Enable RAG (vector index)", value=cfg.get("rag_enabled", True)
-        )
+        rag_enabled = checkbox("Enable RAG (vector index)", value=cfg.get("rag_enabled", True))
         rag_top_k = number_input(
             "RAG top-K", min_value=1, value=int(cfg.get("rag_top_k", 5)), step=1
         )
@@ -779,9 +768,7 @@ def main():
 
     # Budget controls -----------------------------------------------------------
     with _safe_expander(sidebar, "Budget", expanded=False):
-        number_input = getattr(
-            st, "number_input", lambda label, value=0.0, **k: value
-        )
+        number_input = getattr(st, "number_input", lambda label, value=0.0, **k: value)
         target_budget = number_input(
             "Target budget (USD)",
             min_value=0.0,
@@ -1626,7 +1613,7 @@ def main():
         ]
         if use_firestore:
             try:
-                    db.collection("rd_projects").document(doc_id).set(
+                db.collection("rd_projects").document(doc_id).set(
                     {
                         "chat": new_chat,
                         "constraints": st.session_state.get("constraints", ""),

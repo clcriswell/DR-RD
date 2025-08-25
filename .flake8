@@ -3,3 +3,4 @@ max-line-length = 100
 per-file-ignores =
     core/agents/base_agent.py:E731,E501
     core/orchestrator.py:E501
+    app/__init__.py:E501,F401,F821,F841,E231

@@ -20,8 +20,8 @@ one release.
 ## Agent registry
 
 The canonical agent registry lives in `core.agents.unified_registry`. Legacy
-modules `core.agents.registry` and `core.agents_registry` re-export this API for
-one release and emit deprecation warnings.
+module `core.agents.registry` re-exports this API for
+one release and emits deprecation warnings.
 
 ## Runtime profile
 

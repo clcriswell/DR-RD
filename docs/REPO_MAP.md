@@ -12,13 +12,25 @@ User idea → Planner → Router/Registry → Executor → Summarization → Syn
 
 ### Runtime Modes
 - **standard**: target cost USD 2.5
-- **test**: target cost USD 2.5
-- **deep**: target cost USD 2.5
-
+Deprecated aliases: test, deep
 
 ## Agent Roster
 | Role | Module | Contract |
 | --- | --- | --- |
+| CTO | `core/agents/cto_agent.py` | JSON |
+| Research Scientist | `core/agents/research_scientist_agent.py` | JSON |
+| Regulatory | `core/agents/regulatory_agent.py` | JSON |
+| Finance | `core/agents/finance_agent.py` | JSON |
+| Marketing Analyst | `core/agents/marketing_agent.py` | JSON |
+| IP Analyst | `core/agents/ip_analyst_agent.py` | JSON |
+| Planner | `core/agents/planner_agent.py` | JSON |
+| Synthesizer | `core/agents/synthesizer_agent.py` | JSON |
+| Mechanical Systems Lead | `core/agents/mechanical_systems_lead_agent.py` | JSON |
+| HRM | `core/agents/hrm_agent.py` | JSON |
+| Materials Engineer | `core/agents/materials_engineer_agent.py` | JSON |
+| Reflection | `core/agents/reflection_agent.py` | JSON |
+| Chief Scientist | `core/agents/chief_scientist_agent.py` | JSON |
+| Regulatory Specialist | `core/agents/regulatory_specialist_agent.py` | JSON |
 
 
 ## Orchestrator & Executor Responsibilities
@@ -26,11 +38,11 @@ Contracts are strict JSON between pipeline stages.
 
 ## Config & Env Flags
 Config files:
-- `config/modes.yaml` (requires keys: test, deep)
+- `config/modes.yaml` (requires keys: standard)
 - `config/prices.yaml` (requires keys: models)
 
 
-Environment flags: DRRD_MODE, RAG_ENABLED, ENABLE_LIVE_SEARCH, SERPAPI_KEY
+Environment flags: DRRD_MODE (deprecated shim), RAG_ENABLED, ENABLE_LIVE_SEARCH, EVALUATORS_ENABLED, PARALLEL_EXEC_ENABLED, SERPAPI_KEY
 
 ## What Runs When
 Streamlit imports `app.main` from `app/__init__.py`.
@@ -38,4 +50,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-08-25T20:37:37.771239Z from commit 9b4420a_
+_Last generated at 2025-08-25T22:00:21.202618Z from commit c57a33b_

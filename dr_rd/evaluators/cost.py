@@ -1,15 +1,14 @@
-from __future__ import annotations
-
 import re
 from typing import Optional
 
 import evaluation.llm_rubric as lr
 from extensions.abcs import BaseEvaluator
 
-
 COST_RUBRIC = (
-    "If no numeric normalized cost in [0,1] is provided, infer cost realism and affordability given scope, "
-    "and return a conservative 0–1 score where higher is better (lower real cost / higher affordability). "
+    "If no numeric normalized cost in [0,1] is provided, "
+    "infer cost realism and affordability given scope, "
+    "and return a conservative 0–1 score where higher is better "
+    "(lower real cost / higher affordability). "
     "Return STRICT JSON with keys: score (float 0..1) and rationale (string)."
 )
 
@@ -19,12 +18,7 @@ def _clip(x: float) -> float:
 
 
 def _extract_normalized_cost(text: str) -> Optional[float]:
-    """Attempt to extract a normalized cost value from ``text``.
-
-    Looks for patterns like ``cost: 0.2`` or ``budget is 25%`` near the keywords
-    ``cost``, ``budget`` or ``price``. Dollar amounts or other numbers are
-    ignored to avoid accidental conversions.
-    """
+    """Attempt to extract a normalized cost value from ``text``."""
 
     window = r"(?:[^0-9%]{0,20})"
     pat = rf"(?i)\b(cost|budget|price)\b{window}([0-9]*\.?[0-9]+)\s*(%)?"
@@ -51,4 +45,3 @@ class CostEvaluator(BaseEvaluator):
 
 
 __all__ = ["CostEvaluator"]
-

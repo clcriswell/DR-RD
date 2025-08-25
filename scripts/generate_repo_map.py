@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import datetime
-import re
 import subprocess
+import sys
 from pathlib import Path
 
 import yaml
 from jinja2 import Environment, FileSystemLoader
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT))
 YAML_PATH = ROOT / "repo_map.yaml"
 DOC_PATH = ROOT / "docs" / "REPO_MAP.md"
 TEMPLATE_PATH = ROOT / "docs" / "templates" / "repo_map.md.j2"
@@ -25,27 +26,64 @@ def _load_yaml(path: Path):
 
 
 def _get_runtime_modes():
-    return _load_yaml(ROOT / "config" / "modes.yaml")
+    modes = _load_yaml(ROOT / "config" / "modes.yaml") or {}
+    aliases = [m for m in ("test", "deep") if m in modes]
+    return {"standard": modes.get("standard", {})}, aliases
 
 
 def _get_agent_registry() -> dict[str, str]:
-    content = (ROOT / "core" / "agents_registry.py").read_text()
-    imports = re.findall(
-        r"from core\.agents\.([a-zA-Z0-9_]+)_agent import ([A-Za-z0-9_]+)", content
-    )
-    class_to_module = {cls: f"core/agents/{name}_agent.py" for name, cls in imports}
+    import inspect
+    import sys
+    import types
+
+    if "streamlit" not in sys.modules:
+        sys.modules["streamlit"] = types.SimpleNamespace()
+    if "openai" not in sys.modules:
+
+        class _Resp:
+            def create(self, *a, **k):
+                pass
+
+        class _OpenAI:
+            def __init__(self, *a, **k):
+                self.responses = _Resp()
+
+        openai_stub = types.SimpleNamespace(APIStatusError=Exception, OpenAI=_OpenAI)
+        sys.modules["openai"] = openai_stub
+    if "httpx" not in sys.modules:
+        sys.modules["httpx"] = types.SimpleNamespace()
+    if "requests" not in sys.modules:
+        sys.modules["requests"] = types.SimpleNamespace()
+    if "pydantic" not in sys.modules:
+
+        class _BaseModel:
+            pass
+
+        def Field(*a, **k):
+            return None
+
+        pydantic_stub = types.SimpleNamespace(BaseModel=_BaseModel, Field=Field)
+        sys.modules["pydantic"] = pydantic_stub
+    if "PIL" not in sys.modules:
+        sys.modules["PIL"] = types.SimpleNamespace(Image=object)
+    if "google" not in sys.modules:
+        google = types.SimpleNamespace()
+        google.cloud = types.SimpleNamespace(storage=types.SimpleNamespace())
+        sys.modules["google"] = google
+        sys.modules["google.cloud"] = google.cloud
+        sys.modules["google.cloud.storage"] = google.cloud.storage
+    from core.agents import unified_registry
+
     mapping: dict[str, str] = {}
-    entries = re.findall(r"\"([^\"]+)\":\s*([A-Za-z0-9_]+)\(", content)
-    for role, cls in entries:
-        module_path = class_to_module.get(cls)
-        if module_path:
-            mapping[role] = module_path
+    for role, cls in unified_registry.AGENT_REGISTRY.items():
+        path = Path(inspect.getsourcefile(cls)).resolve().relative_to(ROOT)
+        mapping[role] = path.as_posix()
     return mapping
 
 
 def build_repo_map() -> dict:
     git_sha = _git_sha()
-    modes = _get_runtime_modes()
+    modes, aliases = _get_runtime_modes()
     agent_registry = _get_agent_registry()
     modules = []
     for role, module in agent_registry.items():
@@ -107,23 +145,28 @@ def build_repo_map() -> dict:
         ],
         "architecture": "Planner → Router/Registry → Executor → Summarization → Synthesizer",
         "runtime_modes": modes,
+        "mode_aliases": aliases,
         "env_flags": [
-            "DRRD_MODE",
+            "DRRD_MODE (deprecated shim)",
             "RAG_ENABLED",
             "ENABLE_LIVE_SEARCH",
+            "EVALUATORS_ENABLED",
+            "PARALLEL_EXEC_ENABLED",
             "SERPAPI_KEY",
         ],
         "modules": modules,
         "agent_registry": agent_registry,
         "config_files": [
-            {"path": "config/modes.yaml", "required_keys": ["test", "deep"]},
+            {"path": "config/modes.yaml", "required_keys": ["standard"]},
             {"path": "config/prices.yaml", "required_keys": ["models"]},
         ],
         "prompts_dir": "prompts",
         "tests_dir": "tests",
         "orchestrators_dir": "orchestrators",
         "ui_files": ["app.py", "app/__init__.py"],
-        "execution_flow": "User idea → Planner → Router/Registry → Executor → Summarization → Synthesizer → UI",
+        "execution_flow": (
+            "User idea → Planner → Router/Registry → Executor → " "Summarization → Synthesizer → UI"
+        ),
         "rules_ref": "docs/REPO_RULES.md",
     }
     return data

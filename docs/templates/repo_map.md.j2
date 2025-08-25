@@ -10,8 +10,8 @@
 {% endfor %}
 
 ### Runtime Modes
-{% for name, mode in runtime_modes.items() %}- **{{ name }}**: target cost USD {{ mode.target_cost_usd }}
-{% endfor %}
+- **standard**: target cost USD {{ runtime_modes.standard.target_cost_usd }}
+{% if mode_aliases %}Deprecated aliases: {{ mode_aliases | join(", ") }}{% endif %}
 
 ## Agent Roster
 | Role | Module | Contract |
