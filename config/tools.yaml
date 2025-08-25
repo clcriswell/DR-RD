@@ -1,0 +1,13 @@
+CODE_IO:
+  enabled: true
+  max_files: 20
+  max_runtime_s: 10
+  max_tokens: 10000
+SIMULATION:
+  enabled: true
+  max_runtime_s: 30
+  max_tokens: 5000
+VISION:
+  enabled: true
+  max_runtime_s: 60
+  max_tokens: 5000
