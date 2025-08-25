@@ -32,6 +32,15 @@ VECTOR_INDEX_PATH: str = ""
 VECTOR_INDEX_SOURCE: str = "none"
 VECTOR_INDEX_REASON: str = ""
 
+EVALUATION_ENABLED = _flag("EVALUATION_ENABLED")
+EVALUATION_MAX_ROUNDS: int = int(os.getenv("EVALUATION_MAX_ROUNDS", "1"))
+EVALUATION_HUMAN_REVIEW = _flag("EVALUATION_HUMAN_REVIEW")
+EVALUATION_USE_LLM_RUBRIC = _flag("EVALUATION_USE_LLM_RUBRIC")
+EVAL_WEIGHTS = json.loads(
+    os.getenv("EVAL_WEIGHTS", '{"clarity":0.3,"completeness":0.5,"grounding":0.2}')
+)
+EVAL_MIN_OVERALL: float = float(os.getenv("EVAL_MIN_OVERALL", "0.65"))
+
 # Default evaluator weights and threshold. ``EVALUATOR_WEIGHTS`` can be
 # overridden via an environment variable containing a JSON object.
 EVALUATOR_WEIGHTS = json.loads(
@@ -76,6 +85,12 @@ def get_env_defaults() -> dict:
         "SIM_OPTIMIZER_ENABLED": SIM_OPTIMIZER_ENABLED,
         "SIM_OPTIMIZER_STRATEGY": SIM_OPTIMIZER_STRATEGY,
         "SIM_OPTIMIZER_MAX_EVALS": SIM_OPTIMIZER_MAX_EVALS,
+        "EVALUATION_ENABLED": EVALUATION_ENABLED,
+        "EVALUATION_MAX_ROUNDS": EVALUATION_MAX_ROUNDS,
+        "EVALUATION_HUMAN_REVIEW": EVALUATION_HUMAN_REVIEW,
+        "EVALUATION_USE_LLM_RUBRIC": EVALUATION_USE_LLM_RUBRIC,
+        "EVAL_MIN_OVERALL": EVAL_MIN_OVERALL,
+        "EVAL_WEIGHTS": EVAL_WEIGHTS,
     }
 
 
@@ -85,6 +100,8 @@ def apply_overrides(cfg: dict) -> None:
     global RAG_ENABLED, RAG_TOPK, ENABLE_LIVE_SEARCH
     global LIVE_SEARCH_BACKEND, LIVE_SEARCH_MAX_CALLS, LIVE_SEARCH_SUMMARY_TOKENS
     global FAISS_BOOTSTRAP_MODE, VECTOR_INDEX_PATH, FAISS_INDEX_URI, ENABLE_IMAGES
+    global EVALUATION_ENABLED, EVALUATION_MAX_ROUNDS, EVALUATION_HUMAN_REVIEW
+    global EVALUATION_USE_LLM_RUBRIC, EVAL_MIN_OVERALL, EVAL_WEIGHTS
     if "rag_enabled" in cfg:
         RAG_ENABLED = bool(cfg.get("rag_enabled"))
     if "rag_top_k" in cfg:
@@ -107,6 +124,21 @@ def apply_overrides(cfg: dict) -> None:
         FAISS_INDEX_URI = str(cfg.get("faiss_index_uri") or FAISS_INDEX_URI)
     if "enable_images" in cfg:
         ENABLE_IMAGES = bool(cfg.get("enable_images"))
+    if "evaluation_enabled" in cfg:
+        EVALUATION_ENABLED = bool(cfg.get("evaluation_enabled"))
+    if "evaluation_max_rounds" in cfg:
+        EVALUATION_MAX_ROUNDS = int(cfg.get("evaluation_max_rounds", EVALUATION_MAX_ROUNDS))
+    if "evaluation_human_review" in cfg:
+        EVALUATION_HUMAN_REVIEW = bool(cfg.get("evaluation_human_review"))
+    if "evaluation_use_llm_rubric" in cfg:
+        EVALUATION_USE_LLM_RUBRIC = bool(cfg.get("evaluation_use_llm_rubric"))
+    if "evaluation_min_overall" in cfg:
+        EVAL_MIN_OVERALL = float(cfg.get("evaluation_min_overall", EVAL_MIN_OVERALL))
+    if "evaluation_weights" in cfg:
+        try:
+            EVAL_WEIGHTS = dict(cfg.get("evaluation_weights", EVAL_WEIGHTS))
+        except Exception:
+            pass
 
 
 def apply_mode_overrides(cfg: dict) -> None:

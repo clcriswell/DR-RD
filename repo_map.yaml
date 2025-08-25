@@ -1,13 +1,12 @@
 version: 1
-generated_at: '2025-08-25T22:54:51.646146Z'
-git_sha: 65bd9c02778147f50dfc5b0015e8358e8ef82068
+generated_at: '2025-08-25T23:27:11.560811Z'
+git_sha: 6eca588ecee83e6c66e3cf1806dec67a63868a5b
 entry_points:
 - name: streamlit_app
   path: app.py
 - name: package_init
   path: app/__init__.py:main
-architecture: "Planner \u2192 Router/Registry \u2192 Executor \u2192 Summarization\
-  \ \u2192 Synthesizer"
+architecture: "Planner \u2192 Router/Registry \u2192 Executor \u2192 Evaluation \u2192 Synthesizer"
 runtime_modes:
   standard:
     target_cost_usd: 2.5
@@ -141,14 +140,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/plan_utils.py
-  role: Orchestrator
+- path: core/agents/evaluation_agent.py
+  role: Agent[Evaluation]
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/qa_router.py
+- path: orchestrators/app_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -162,13 +161,6 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/app_builder.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
 - path: orchestrators/spec_builder.py
   role: Orchestrator
   responsibilities: []
@@ -176,14 +168,21 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/role_summarizer.py
-  role: Summarization
+- path: orchestrators/qa_router.py
+  role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/__init__.py
+- path: orchestrators/plan_utils.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/schemas.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -197,7 +196,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/schemas.py
+- path: core/summarization/__init__.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/role_summarizer.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -233,6 +239,7 @@ agent_registry:
   Reflection: core/agents/reflection_agent.py
   Chief Scientist: core/agents/chief_scientist_agent.py
   Regulatory Specialist: core/agents/regulatory_specialist_agent.py
+  Evaluation: core/agents/evaluation_agent.py
 config_files:
 - path: config/modes.yaml
   required_keys:

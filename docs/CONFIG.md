@@ -36,7 +36,10 @@ The Streamlit app exposes runtime controls in the sidebar while running in the
 single **Standard** profile. Retrieval features (RAG and Live Search) can be
 toggled and adjusted on demand; changes are pushed into runtime flags via
 `config.feature_flags.apply_overrides()`. The sidebar also includes a numeric
-target budget and optional stage weight inputs. There is no “Test” or “Deep”
+target budget and optional stage weight inputs. A separate **Quality & Evaluation**
+expander enables an internal evaluator that can request follow‑up tasks. Users
+may toggle evaluation, set the maximum refinement rounds, and require manual
+approval of follow‑ups. There is no “Test” or “Deep”
 mode selector; similar behaviour is achieved by lowering the budget or choosing
 cheaper models in configuration.
 
@@ -77,6 +80,11 @@ ENABLE_LIVE_SEARCH=true|false
 LIVE_SEARCH_BACKEND=openai|serpapi
 ENABLE_IMAGES=true|false
 SERPAPI_KEY=your_key
+EVALUATION_ENABLED=true|false
+EVALUATION_MAX_ROUNDS=0..2
+EVALUATION_HUMAN_REVIEW=true|false
+EVAL_MIN_OVERALL=0.0..1.0
+EVALUATION_USE_LLM_RUBRIC=true|false
 ```
 
 ## Feature flags

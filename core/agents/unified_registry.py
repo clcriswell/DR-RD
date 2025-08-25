@@ -21,6 +21,7 @@ from core.agents.chief_scientist_agent import ChiefScientistAgent
 from core.agents.regulatory_specialist_agent import RegulatorySpecialistAgent
 from core.agents.invoke import resolve_invoker
 from core.llm import select_model
+from core.agents.evaluation_agent import EvaluationAgent
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ AGENT_REGISTRY: Dict[str, Type[BaseAgent]] = {
     "Reflection": ReflectionAgent,
     "Chief Scientist": ChiefScientistAgent,
     "Regulatory Specialist": RegulatorySpecialistAgent,
+    "Evaluation": EvaluationAgent,
 }
 
 # Backwards compatibility alias
