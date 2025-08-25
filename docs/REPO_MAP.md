@@ -1,7 +1,7 @@
 # Repository Map
 
 ## Overview & Flow Diagram
-User idea → Planner → Router/Registry → Executor → Evaluation → Synthesizer → UI
+User idea → Planner → Router/Registry → Executor → Summarization → Synthesizer → UI
 
 ## Entry Points & Run Modes
 
@@ -33,6 +33,12 @@ Deprecated aliases: test, deep
 | Regulatory Specialist | `core/agents/regulatory_specialist_agent.py` | JSON |
 | Evaluation | `core/agents/evaluation_agent.py` | JSON |
 
+## Tool Modules
+- `dr_rd/tools/code_io.py`
+- `dr_rd/tools/simulations/digital_twin.py`
+- `dr_rd/tools/vision.py`
+- `core/tool_router.py`
+
 
 ## Orchestrator & Executor Responsibilities
 Contracts are strict JSON between pipeline stages.
@@ -41,6 +47,7 @@ Contracts are strict JSON between pipeline stages.
 Config files:
 - `config/modes.yaml` (requires keys: standard)
 - `config/prices.yaml` (requires keys: models)
+- `config/tools.yaml` (requires keys: CODE_IO, SIMULATION, VISION)
 
 
 Environment flags: DRRD_MODE (deprecated shim), RAG_ENABLED, ENABLE_LIVE_SEARCH, EVALUATORS_ENABLED, PARALLEL_EXEC_ENABLED, SERPAPI_KEY
@@ -51,4 +58,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-08-25T23:27:11.560811Z from commit 6eca588_
+_Last generated at 2025-08-25T23:48:53.250668Z from commit 2db8e46_

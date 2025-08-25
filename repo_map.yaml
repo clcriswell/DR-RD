@@ -1,12 +1,13 @@
 version: 1
-generated_at: '2025-08-25T23:27:11.560811Z'
-git_sha: 6eca588ecee83e6c66e3cf1806dec67a63868a5b
+generated_at: '2025-08-25T23:48:53.250668Z'
+git_sha: 2db8e46814a83e58e212e49e8732c51e75c1bab6
 entry_points:
 - name: streamlit_app
   path: app.py
 - name: package_init
   path: app/__init__.py:main
-architecture: "Planner \u2192 Router/Registry \u2192 Executor \u2192 Evaluation \u2192 Synthesizer"
+architecture: "Planner \u2192 Router/Registry \u2192 Executor \u2192 Summarization\
+  \ \u2192 Synthesizer"
 runtime_modes:
   standard:
     target_cost_usd: 2.5
@@ -154,21 +155,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/__init__.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
 - path: orchestrators/spec_builder.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/qa_router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -182,8 +169,15 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/schemas.py
-  role: Summarization
+- path: orchestrators/__init__.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/qa_router.py
+  role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
@@ -196,7 +190,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/__init__.py
+- path: core/summarization/schemas.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -204,6 +198,13 @@ modules:
   invoked_by: []
   invokes: []
 - path: core/summarization/role_summarizer.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/__init__.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -219,6 +220,34 @@ modules:
   invokes: []
 - path: app/__init__.py
   role: UI
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: dr_rd/tools/code_io.py
+  role: Tool[Code I/O]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: dr_rd/tools/simulations/digital_twin.py
+  role: Tool[Simulation]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: dr_rd/tools/vision.py
+  role: Tool[Vision]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/tool_router.py
+  role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
@@ -247,6 +276,11 @@ config_files:
 - path: config/prices.yaml
   required_keys:
   - models
+- path: config/tools.yaml
+  required_keys:
+  - CODE_IO
+  - SIMULATION
+  - VISION
 prompts_dir: prompts
 tests_dir: tests
 orchestrators_dir: orchestrators
