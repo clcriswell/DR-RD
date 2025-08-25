@@ -28,7 +28,8 @@ from core.agents.unified_registry import build_agents_unified
 from core.llm_client import METER, call_openai, set_budget_manager
 from core.llm import select_model
 from core.model_router import CallHints, difficulty_from_signals, pick_model
-from core.orchestrator import compile_proposal, execute_plan, generate_plan, run_poc
+from core.orchestrator import execute_plan, generate_plan, run_poc
+from core.agents.synthesizer_agent import compose_final_proposal
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks  # noqa: F401
 from core.poc.testplan import TestPlan
 from core.role_normalizer import group_by_role
@@ -1200,14 +1201,14 @@ def main():
                         )["text"]
                         update_cost()
                         planner_text = (planner_text or "").strip()
-                        integrate = planner_text.lower().startswith("yes")
+                        should_integrate = planner_text.lower().startswith("yes")
                         planner_reason = (
                             planner_text[3:].strip(" .:-")
-                            if integrate
+                            if should_integrate
                             else planner_text[2:].strip(" .:-")
                         )
 
-                        if integrate:
+                        if should_integrate:
                             suggestion_prompt = (
                                 f"The Planner approved this suggestion: {planner_reason}. "
                                 "Please update your output accordingly. First, provide the revised output in detail, "
@@ -1244,7 +1245,7 @@ def main():
                             f"**{role} response:**\n\n{revised_output}",
                             unsafe_allow_html=True,
                         )
-                        if integrate:
+                        if should_integrate:
                             try:
                                 accept = st.button(
                                     "✅ Accept Revision",
@@ -1287,10 +1288,11 @@ def main():
             logging.info("User compiled final proposal")
             with st.spinner("🚀 Synthesizing final R&D proposal..."):
                 try:
-                    final_report_text = compile_proposal(
+                    result = compose_final_proposal(
                         idea,
                         st.session_state["answers"],
                     )
+                    final_report_text = result.get("document", "")
                     update_cost()
                     memory_manager.store_project(
                         st.session_state.get("project_name", ""),
@@ -1298,7 +1300,7 @@ def main():
                         st.session_state.get("plan_tasks", st.session_state.get("plan", {})),
                         st.session_state["answers"],
                         final_report_text,
-                        [],
+                        result.get("images", []),
                         constraints=st.session_state.get("constraints", ""),
                         risk_posture=st.session_state.get("risk_posture", "Medium"),
                     )
