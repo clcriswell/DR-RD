@@ -1,9 +1,6 @@
 from config.model_routing import (
     DEFAULTS,
     CallHints,
-    TEST_MODEL_ID,
-    PRICE_TABLE,
-    _cheap_default,
 )
 import streamlit as st
 from core.llm import select_model
@@ -43,27 +40,6 @@ def pick_model(h: CallHints) -> dict:
         elif h.stage == "synth":
             sel["model"] = stage_map.get("synth", sel["model"])
 
-    flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
-    if flags.get("TEST_MODE"):
-        override = {
-            "plan": flags.get("MODEL_PLANNER"),
-            "exec": flags.get("MODEL_EXEC"),
-            "synth": flags.get("MODEL_SYNTH"),
-        }.get(h.stage)
-        if override:
-            sel["model"] = override
-        else:
-            default_model = (
-                st.session_state.get("MODE_CFG", {})
-                .get("models", {})
-                .get(h.stage)
-                or TEST_MODEL_ID
-                or _cheap_default(PRICE_TABLE)
-            )
-            sel["model"] = default_model
-        params = sel.get("params", {})
-        params["temperature"] = min(0.3, params.get("temperature", 0.3))
-        sel["params"] = params
     return sel
 
 
