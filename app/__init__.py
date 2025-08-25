@@ -17,6 +17,12 @@ import core
 from app.config_loader import load_profile
 from app.logging_setup import init_gcp_logging
 from app.ui_cost_meter import render_cost_summary
+from app.agent_trace_ui import (
+    render_agent_trace,
+    render_live_status,
+    render_exports,
+    render_role_summaries,
+)
 from app.ui_presets import UI_PRESETS
 from collaboration import agent_chat
 from config.agent_models import AGENT_MODEL_MAP
@@ -630,6 +636,7 @@ def main():
     agents = dict(base_agents)
 
     memory_manager = get_memory_manager()
+    st.session_state.setdefault("live_status", {})
 
     st.set_page_config(page_title="Dr. R&D", layout="wide")
     st.title("Dr. R&D")
@@ -1150,19 +1157,6 @@ def main():
                         ui_model=ui_model,
                     )
                     st.session_state["answers"] = results
-                    if use_firestore:
-                        try:
-                            doc_id = get_project_id()
-                            db.collection("rd_projects").document(doc_id).set(
-                                {
-                                    "results": results,
-                                    "constraints": st.session_state.get("constraints", ""),
-                                    "risk_posture": st.session_state.get("risk_posture", "Medium"),
-                                },
-                                merge=True,
-                            )
-                        except Exception as e:
-                            logging.error(f"Save results failed: {e}")
                     render_cost_summary(st.session_state.get("plan"))
                 except openai.OpenAIError as e:
                     logging.exception("OpenAI error during plan execution: %s", e)
@@ -1177,140 +1171,13 @@ def main():
                 else:
                     getattr(st, "success", lambda *a, **k: None)("✅ Domain experts complete!")
 
-    if "answers" in st.session_state:
-        st.subheader("Domain Expert Outputs")
-        expander_container = st if hasattr(st, "expander") else sidebar
-        for role, output in st.session_state["answers"].items():
-            with _safe_expander(expander_container, role, expanded=False):
-                st.markdown(output, unsafe_allow_html=True)
-                suggestion = st.text_input(
-                    f"💡 Suggest an edit for {role}:",
-                    key=f"suggestion_{role.replace(' ', '_')}",
-                )
-                try:
-                    submit_clicked = st.button(
-                        "Submit Suggestion", key=f"submit_{role.replace(' ', '_')}"
-                    )
-                except TypeError:  # pragma: no cover - for simple stubs in tests
-                    submit_clicked = st.button("Submit Suggestion")
-
-                if submit_clicked:
-                    try:
-                        planner_agent = core.agents.get("Planner")
-                        domain_agent = core.agents.get(role)
-                        orig_output = output
-                        role_task = next(
-                            (
-                                f"{t['title']}: {t['description']}"
-                                for t in st.session_state.get("plan", [])
-                                if t.get("role") == role
-                            ),
-                            "",
-                        )
-                        planner_query = (
-                            f"For the project idea '{idea}', the user suggests: '{suggestion}' for the {role}'s output. "
-                            f"Given the {role}'s task '{role_task}', should this suggestion be incorporated to improve the overall plan? "
-                            "Respond with Yes or No and a brief reason."
-                        )
-                        sel = pick_model(CallHints(stage="plan"))
-                        logging.info(f"Model[plan]={sel['model']} params={sel['params']}")
-                        planner_text = call_openai(
-                            model=sel["model"],
-                            messages=[
-                                {
-                                    "role": "system",
-                                    "content": planner_agent.system_message,
-                                },
-                                {"role": "user", "content": planner_query},
-                            ],
-                            **sel["params"],
-                        )["text"]
-                        update_cost()
-                        planner_text = (planner_text or "").strip()
-                        should_integrate = planner_text.lower().startswith("yes")
-                        planner_reason = (
-                            planner_text[3:].strip(" .:-")
-                            if should_integrate
-                            else planner_text[2:].strip(" .:-")
-                        )
-
-                        if should_integrate:
-                            suggestion_prompt = (
-                                f"The Planner approved this suggestion: {planner_reason}. "
-                                "Please update your output accordingly. First, provide the revised output in detail, "
-                                "then explain briefly how this change improves the design."
-                            )
-                        else:
-                            suggestion_prompt = (
-                                f"The Planner advises against this suggestion: {planner_reason}. "
-                                "Explain to the user why this suggestion won't be adopted."
-                            )
-                        sel = pick_model(CallHints(stage="exec"))
-                        logging.info(f"Model[exec]={sel['model']} params={sel['params']}")
-                        revised_output = call_openai(
-                            model=sel["model"],
-                            messages=[
-                                {
-                                    "role": "system",
-                                    "content": domain_agent.system_message,
-                                },
-                                {
-                                    "role": "user",
-                                    "content": domain_agent.user_prompt_template.format(
-                                        idea=idea, task=role_task
-                                    ),
-                                },
-                                {"role": "assistant", "content": orig_output},
-                                {"role": "user", "content": suggestion_prompt},
-                            ],
-                            **sel["params"],
-                        )["text"]
-                        update_cost()
-                        revised_output = (revised_output or "").strip()
-                        st.markdown(
-                            f"**{role} response:**\n\n{revised_output}",
-                            unsafe_allow_html=True,
-                        )
-                        if should_integrate:
-                            try:
-                                accept = st.button(
-                                    "✅ Accept Revision",
-                                    key=f"accept_{role.replace(' ', '_')}",
-                                )
-                                continue_discussion = st.button(
-                                    "🗨️ Continue Discussion",
-                                    key=f"continue_{role.replace(' ', '_')}",
-                                )
-                            except TypeError:  # pragma: no cover - test stubs
-                                accept = st.button("✅ Accept Revision")
-                                continue_discussion = st.button("🗨️ Continue Discussion")
-                            if accept:
-                                parts = revised_output.strip().rsplit("\n\n", 1)
-                                updated_output_text = (
-                                    parts[0] if len(parts) >= 1 else revised_output
-                                )
-                                st.session_state["answers"][role] = updated_output_text
-                                getattr(st, "success", lambda *a, **k: None)(
-                                    f"Accepted revision for {role}. The output has been updated."
-                                )
-                            if continue_discussion:
-                                st.info(
-                                    f"You can refine your suggestion for {role} and submit again."
-                                )
-                    except Exception as e:  # pylint: disable=broad-except
-                        getattr(st, "error", lambda *a, **k: None)(
-                            f"Failed to process suggestion for {role}: {e}"
-                        )
-
-        if st.session_state.get("agent_trace"):
-            expander = getattr(st, "expander", None)
-            if expander:
-                with expander("Agent Trace"):
-                    for item in st.session_state["agent_trace"]:
-                        st.write(
-                            f"{item['agent']} ({item.get('tokens',0)} tokens): {item['finding']}"
-                        )
-        if st.button("3⃣ Compile Final Proposal"):
+    render_live_status(st.session_state.get("live_status", {}))
+    agent_trace = st.session_state.get("agent_trace")
+    if agent_trace:
+        render_agent_trace(agent_trace, st.session_state.get("answers", {}))
+        render_exports(get_project_id() or "", agent_trace)
+    render_role_summaries(st.session_state.get("answers", {}))
+    if st.button("3⃣ Compile Final Proposal"):
             logging.info("User compiled final proposal")
             with st.spinner("🚀 Synthesizing final R&D proposal..."):
                 try:
@@ -1358,6 +1225,7 @@ def main():
                             "proposal": final_report_text,
                             "constraints": st.session_state.get("constraints", ""),
                             "risk_posture": st.session_state.get("risk_posture", "Medium"),
+                            "trace_ref": f"audits/{doc_id}/trace.json",
                         },
                         merge=True,
                     )
@@ -1441,24 +1309,6 @@ def main():
                     file_name="poc_results.csv",
                     mime="text/csv",
                 )
-
-        paths = st.session_state.get("final_paths")
-        if paths:
-            with st.expander("Final Deliverables", expanded=False):
-                st.download_button(
-                    "Download final report (MD)",
-                    data=open(paths["report"], "rb"),
-                    file_name="final_report.md",
-                )
-                st.download_button(
-                    "Download bundle (ZIP)",
-                    data=open(paths["bundle"], "rb"),
-                    file_name="final_bundle.zip",
-                )
-                if paths.get("appendices_map"):
-                    st.markdown(f"[appendices_map.json]({paths['appendices_map']})")
-                if paths.get("traceability"):
-                    st.markdown(f"[traceability_matrix.csv]({paths['traceability']})")
 
         # --- App Builder (inline) ---
         if build_app_from_idea:
