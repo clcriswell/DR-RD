@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import streamlit as st
-from config.mode_profiles import UI_PRESETS
+
 from app.price_loader import cost_usd, load_prices
+from app.ui_presets import UI_PRESETS
 from core.llm import select_model
 
 

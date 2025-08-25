@@ -15,7 +15,7 @@ and an optional list of `notes`.
 
 ## Registering an evaluator
 
-Create a module under `evaluators/` that subclasses `BaseEvaluator` and
+Create a module under `dr_rd/evaluators/` that subclasses `BaseEvaluator` and
 registers it with the `EvaluatorRegistry`:
 
 ```python

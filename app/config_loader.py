@@ -24,6 +24,11 @@ def load_profile(mode: str | None = None) -> tuple[dict, CostTracker]:
     deprecation warning. Any unknown or missing mode also falls back to
     ``standard`` with a warning.
     """
+    env_mode = os.getenv("DRRD_MODE")
+    if env_mode and env_mode.lower() != "standard":
+        logging.warning("DRRD_MODE '%s' is deprecated and maps to 'standard'.", env_mode)
+    if mode is None:
+        mode = env_mode
 
     modes_path = CONFIG_DIR / "modes.yaml"
     prices_path = Path(os.getenv("PRICES_PATH", CONFIG_DIR / "prices.yaml"))

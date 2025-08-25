@@ -6,7 +6,7 @@
 
 ## Adding an Agent
 1. Place the agent implementation in `core/agents/`.
-2. Register the role in `core/agents_registry.py`.
+2. Register the role in `core/agents/unified_registry.py`.
 3. Provide prompts/contracts and add tests in `tests/`.
 4. Run `make repo-map` and commit the updated map and docs.
 

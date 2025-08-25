@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-25T20:37:37.771239Z'
-git_sha: 9b4420ae0219810364fc9f2a8cd4561cdb7f2c59
+generated_at: '2025-08-25T22:00:21.202618Z'
+git_sha: c57a33bd9fde9ae2f67d1fa5d72c149d75b81e95
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -9,7 +9,7 @@ entry_points:
 architecture: "Planner \u2192 Router/Registry \u2192 Executor \u2192 Summarization\
   \ \u2192 Synthesizer"
 runtime_modes:
-  standard: &id001
+  standard:
     target_cost_usd: 2.5
     enforce_caps: false
     models:
@@ -32,15 +32,130 @@ runtime_modes:
     faiss_bootstrap_mode: skip
     faiss_index_uri: ''
     enable_images: false
-  test: *id001
-  deep: *id001
+mode_aliases:
+- test
+- deep
 env_flags:
-- DRRD_MODE
+- DRRD_MODE (deprecated shim)
 - RAG_ENABLED
 - ENABLE_LIVE_SEARCH
+- EVALUATORS_ENABLED
+- PARALLEL_EXEC_ENABLED
 - SERPAPI_KEY
 modules:
-- path: orchestrators/router.py
+- path: core/agents/cto_agent.py
+  role: Agent[CTO]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/research_scientist_agent.py
+  role: Agent[Research Scientist]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/regulatory_agent.py
+  role: Agent[Regulatory]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/finance_agent.py
+  role: Agent[Finance]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/marketing_agent.py
+  role: Agent[Marketing Analyst]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/ip_analyst_agent.py
+  role: Agent[IP Analyst]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/planner_agent.py
+  role: Agent[Planner]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/synthesizer_agent.py
+  role: Agent[Synthesizer]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/mechanical_systems_lead_agent.py
+  role: Agent[Mechanical Systems Lead]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/hrm_agent.py
+  role: Agent[HRM]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/materials_engineer_agent.py
+  role: Agent[Materials Engineer]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/reflection_agent.py
+  role: Agent[Reflection]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/chief_scientist_agent.py
+  role: Agent[Chief Scientist]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/regulatory_specialist_agent.py
+  role: Agent[Regulatory Specialist]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/app_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/__init__.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/plan_utils.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -61,28 +176,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/app_builder.py
-  role: Orchestrator
+- path: core/summarization/integrator.py
+  role: Summarization
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/plan_utils.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/__init__.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/summarization/schemas.py
+- path: core/summarization/__init__.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -96,14 +197,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/integrator.py
-  role: Summarization
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/summarization/__init__.py
+- path: core/summarization/schemas.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -124,12 +218,25 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-agent_registry: {}
+agent_registry:
+  CTO: core/agents/cto_agent.py
+  Research Scientist: core/agents/research_scientist_agent.py
+  Regulatory: core/agents/regulatory_agent.py
+  Finance: core/agents/finance_agent.py
+  Marketing Analyst: core/agents/marketing_agent.py
+  IP Analyst: core/agents/ip_analyst_agent.py
+  Planner: core/agents/planner_agent.py
+  Synthesizer: core/agents/synthesizer_agent.py
+  Mechanical Systems Lead: core/agents/mechanical_systems_lead_agent.py
+  HRM: core/agents/hrm_agent.py
+  Materials Engineer: core/agents/materials_engineer_agent.py
+  Reflection: core/agents/reflection_agent.py
+  Chief Scientist: core/agents/chief_scientist_agent.py
+  Regulatory Specialist: core/agents/regulatory_specialist_agent.py
 config_files:
 - path: config/modes.yaml
   required_keys:
-  - test
-  - deep
+  - standard
 - path: config/prices.yaml
   required_keys:
   - models
