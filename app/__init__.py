@@ -18,14 +18,14 @@ from app.config_loader import load_mode
 from app.logging_setup import init_gcp_logging
 from app.ui_cost_meter import render_cost_summary
 from collaboration import agent_chat
-from config.agent_models import AGENT_MODEL_MAP, TEST_ROLE_MODELS
-from config.feature_flags import get_env_defaults
+from config.agent_models import AGENT_MODEL_MAP
+from config.feature_flags import get_env_defaults, apply_overrides
 from config.mode_profiles import UI_PRESETS, apply_profile
 from core.agents.planner_agent import PlannerAgent
 from core.agents.simulation_agent import SimulationAgent
 from core.agents.synthesizer_agent import SynthesizerAgent
 from core.agents.unified_registry import build_agents_unified
-from core.llm_client import METER, call_openai, set_budget_manager
+from core.llm_client import BUDGET, METER, call_openai, set_budget_manager
 from core.llm import select_model
 from core.model_router import CallHints, difficulty_from_signals, pick_model
 from core.orchestrator import execute_plan, generate_plan, run_poc
@@ -126,8 +126,7 @@ def setup_logging():
 @cache_resource
 def get_agents():
     """Create and return the initialized agents using the core registry."""
-    use_test = st.session_state.get("MODE") == "test"
-    mapping = TEST_ROLE_MODELS if use_test else AGENT_MODEL_MAP
+    mapping = AGENT_MODEL_MAP
     live_backend = _str_env("LIVE_SEARCH_BACKEND").lower()
     base_default = "gpt-4o-mini" if live_backend == "openai" else "gpt-4.1-mini"
     default_model = mapping.get("DEFAULT") or os.getenv("DRRD_OPENAI_MODEL") or base_default
@@ -534,7 +533,6 @@ def run_manual_pipeline(
                         "results": st.session_state["answers"],
                         "constraints": st.session_state.get("constraints", ""),
                         "risk_posture": st.session_state.get("risk_posture", "Medium"),
-                        **st.session_state.get("test_marker", {}),
                     },
                     merge=True,
                 )
@@ -591,7 +589,6 @@ def run_manual_pipeline(
                         "results": st.session_state["answers"],
                         "constraints": st.session_state.get("constraints", ""),
                         "risk_posture": st.session_state.get("risk_posture", "Medium"),
-                        **st.session_state.get("test_marker", {}),
                     },
                     merge=True,
                 )
@@ -657,49 +654,9 @@ def main():
 
     import os as _os
 
-    developer_expander = getattr(sidebar, "expander", None)
-    if callable(developer_expander):
-        with developer_expander("Developer", expanded=False):
-            if "dev_mode" not in st.session_state:
-                st.session_state["dev_mode"] = _get_qs_flag("dev")
-            toggle_fn = getattr(st, "toggle", getattr(st, "checkbox", lambda *a, **k: False))
-            dev_on = toggle_fn(
-                "Enable Test (dev) mode",
-                value=bool(st.session_state.get("dev_mode")),
-                help="Adds a low-cost end-to-end test mode.",
-            )
-            st.session_state["dev_mode"] = dev_on
-            _set_qs_flag("dev", dev_on)
-    else:
-        if "dev_mode" not in st.session_state:
-            st.session_state["dev_mode"] = _get_qs_flag("dev")
-
-    from pathlib import Path
-
-    import yaml
-
-    env_mode = _os.getenv("DRRD_MODE")
-    if env_mode:
-        try:
-            modes_path = Path(__file__).resolve().parent.parent / "config" / "modes.yaml"
-            with open(modes_path) as fh:
-                modes_yaml = yaml.safe_load(fh) or {}
-            env_mode_key = env_mode.lower()
-            if env_mode_key not in modes_yaml:
-                st.warning(f"Unknown mode: {env_mode}. Falling back to test.")
-                env_mode_key = "test"
-        except Exception:
-            env_mode_key = env_mode.lower()
-    else:
-        env_mode_key = None
-
-    selected_mode = env_mode_key or "deep"
-    if st.session_state.get("dev_mode"):
-        selected_mode = "test"
-    selected_label = "Test (dev)" if selected_mode == "test" else "Deep"
-    # Install a BudgetManager so runs enforce a hard spend cap
+    # Install a BudgetManager with the standard profile
     try:
-        _mode_cfg, _budget = load_mode(selected_mode)
+        _mode_cfg, _budget = load_mode("standard")
         models_cfg = dict(_mode_cfg.get("models", {}))
         resolved = {}
         for stage, name in models_cfg.items():
@@ -708,14 +665,9 @@ def main():
         st.session_state["MODE_CFG"] = _mode_cfg
         set_budget_manager(_budget)
     except Exception as _e:
-        # Keep running without a budget if config is missing; log only
         logging.info(f"Budget manager not installed: {str(_e)}")
-    if selected_mode == "test":
-        st.info(
-            "**Test (dev)** is ON: minimal tokens, capped domains, tiny image, truncated outputs."
-        )
     env_defaults = get_env_defaults()
-    final_flags = apply_profile(env_defaults, selected_mode, overrides=None)
+    final_flags = apply_profile(env_defaults, "standard", overrides=None)
     st.session_state["final_flags"] = final_flags
 
     _mode_cfg["enable_images"] = bool(
@@ -739,7 +691,7 @@ def main():
     final_flags["LIVE_SEARCH_MAX_CALLS"] = cap
     snapshot_cfg = dict(_mode_cfg)
     snapshot_cfg.update(final_flags)
-    snapshot_cfg["mode"] = selected_mode
+    snapshot_cfg["mode"] = "standard"
     budget_caps = {}
     if _mode_cfg.get("target_cost_usd") is not None:
         budget_caps["target_cost_usd"] = _mode_cfg.get("target_cost_usd")
@@ -757,30 +709,112 @@ def main():
     )
     for k, v in final_flags.items():
         setattr(ff, k, v)
-    if selected_mode == "deep":
-        _os.environ.setdefault("HRM_ROLE_DISCOVERY", "true")
-    ui_preset = UI_PRESETS[selected_mode]
+
+    ui_preset = UI_PRESETS["standard"]
     st.session_state["simulate_enabled"] = ui_preset["simulate_enabled"]
     st.session_state["design_depth"] = ui_preset["design_depth"]
-    st.session_state["test_marker"] = {"test": True} if final_flags.get("TEST_MODE") else {}
-    st.session_state["MODE"] = selected_mode
+    st.session_state["MODE"] = "standard"
     if hasattr(st, "caption"):
         st.caption(
-            ("**DEV** • " if selected_mode == "test" else "")
-            + f"Mode: {selected_label} • Depth={ui_preset['design_depth']} • "
+            f"Profile: Standard • Depth={ui_preset['design_depth']} • "
             + f"Refinement rounds={ui_preset['refinement_rounds']} • "
             + f"Simulations={'on' if ui_preset['simulate_enabled'] else 'off'}"
         )
-    if selected_mode == "deep":
-        image_toggle_fn = getattr(
-            sidebar, "toggle", getattr(sidebar, "checkbox", lambda *a, **k: False)
+
+    # Retrieval feature toggles -------------------------------------------------
+    cfg = st.session_state["MODE_CFG"]
+    with _safe_expander(sidebar, "Retrieval", expanded=False):
+        checkbox = getattr(st, "checkbox", lambda label, value=False, **k: value)
+        number_input = getattr(st, "number_input", lambda label, value=0, **k: value)
+        selectbox = getattr(
+            st,
+            "selectbox",
+            lambda label, options, index=0, **k: options[index],
         )
-        default_images_on = ff.ENABLE_IMAGES
-        st.session_state["disable_images"] = not image_toggle_fn(
-            "Generate images",
-            value=default_images_on,
-            help="Include schematic and appearance visuals in the final proposal.",
+        rag_enabled = checkbox(
+            "Enable RAG (vector index)", value=cfg.get("rag_enabled", True)
         )
+        rag_top_k = number_input(
+            "RAG top-K", min_value=1, value=int(cfg.get("rag_top_k", 5)), step=1
+        )
+        live_search_enabled = checkbox(
+            "Enable Live Search", value=cfg.get("live_search_enabled", True)
+        )
+        live_search_backend = selectbox(
+            "Live Search backend",
+            ["openai", "serpapi"],
+            index=0 if cfg.get("live_search_backend", "openai") == "openai" else 1,
+        )
+        live_search_max_calls = number_input(
+            "Max live search calls",
+            min_value=0,
+            value=int(cfg.get("live_search_max_calls", 3)),
+            step=1,
+        )
+        live_search_summary_tokens = number_input(
+            "Live search summary tokens",
+            min_value=0,
+            value=int(cfg.get("live_search_summary_tokens", 256)),
+            step=32,
+        )
+
+    overrides = {
+        "rag_enabled": rag_enabled,
+        "rag_top_k": int(rag_top_k),
+        "live_search_enabled": live_search_enabled,
+        "live_search_backend": live_search_backend,
+        "live_search_max_calls": int(live_search_max_calls),
+        "live_search_summary_tokens": int(live_search_summary_tokens),
+    }
+    cfg.update(overrides)
+    apply_overrides({k: v for k, v in overrides.items() if v is not None})
+    rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(cfg.get("live_search_max_calls", 0))
+
+    # Budget controls -----------------------------------------------------------
+    with _safe_expander(sidebar, "Budget", expanded=False):
+        number_input = getattr(
+            st, "number_input", lambda label, value=0.0, **k: value
+        )
+        target_budget = number_input(
+            "Target budget (USD)",
+            min_value=0.0,
+            value=float(cfg.get("target_cost_usd", 0.0)),
+            step=0.1,
+        )
+        cfg["target_cost_usd"] = float(target_budget)
+        if BUDGET:
+            BUDGET.target_cost_usd = float(target_budget)
+        stage_weights_cfg = cfg.get("stage_weights", {})
+        with _safe_expander(st, "Stage weights", expanded=False):
+            plan_w = number_input(
+                "Plan weight",
+                min_value=0.0,
+                value=float(stage_weights_cfg.get("plan", 0.0)),
+                step=0.05,
+            )
+            exec_w = number_input(
+                "Exec weight",
+                min_value=0.0,
+                value=float(stage_weights_cfg.get("exec", 0.0)),
+                step=0.05,
+            )
+            synth_w = number_input(
+                "Synth weight",
+                min_value=0.0,
+                value=float(stage_weights_cfg.get("synth", 0.0)),
+                step=0.05,
+            )
+            total = plan_w + exec_w + synth_w
+            if total > 0:
+                stage_weights = {
+                    "plan": plan_w / total,
+                    "exec": exec_w / total,
+                    "synth": synth_w / total,
+                }
+                cfg["stage_weights"] = stage_weights
+                if BUDGET:
+                    BUDGET.stage_weights = stage_weights
+
     project_names = []
     project_doc_ids = {}
     if db:
@@ -1029,13 +1063,12 @@ def main():
                             "constraints": st.session_state.get("constraints", ""),
                             "risk_posture": st.session_state.get("risk_posture", "Medium"),
                             "plan": tasks,
-                            **st.session_state.get("test_marker", {}),
                         },
                         merge=True,
                     )
                 except Exception as e:
                     logging.error(f"Save plan failed: {e}")
-            render_cost_summary(selected_mode, st.session_state.get("plan"))
+            render_cost_summary(st.session_state.get("plan"))
         except openai.OpenAIError as e:
             logging.exception("OpenAI error during plan generation: %s", e)
             getattr(
@@ -1131,13 +1164,12 @@ def main():
                                     "results": results,
                                     "constraints": st.session_state.get("constraints", ""),
                                     "risk_posture": st.session_state.get("risk_posture", "Medium"),
-                                    **st.session_state.get("test_marker", {}),
                                 },
                                 merge=True,
                             )
                         except Exception as e:
                             logging.error(f"Save results failed: {e}")
-                    render_cost_summary(selected_mode, st.session_state.get("plan"))
+                    render_cost_summary(st.session_state.get("plan"))
                 except openai.OpenAIError as e:
                     logging.exception("OpenAI error during plan execution: %s", e)
                     getattr(st, "error", lambda *a, **k: None)(
@@ -1332,7 +1364,6 @@ def main():
                             "proposal": final_report_text,
                             "constraints": st.session_state.get("constraints", ""),
                             "risk_posture": st.session_state.get("risk_posture", "Medium"),
-                            **st.session_state.get("test_marker", {}),
                         },
                         merge=True,
                     )
@@ -1565,7 +1596,7 @@ def main():
 
         from core.model_router import CallHints, pick_model
 
-        sel = pick_model(CallHints(stage="exec", deep_reasoning=(selected_mode == "deep")))
+        sel = pick_model(CallHints(stage="exec", deep_reasoning=False))
         msg = "\n\n".join(context_bits) + f"\n\nUser: {user_msg}"
         try:
             reply = call_openai(
@@ -1588,12 +1619,11 @@ def main():
         ]
         if use_firestore:
             try:
-                db.collection("rd_projects").document(doc_id).set(
+                    db.collection("rd_projects").document(doc_id).set(
                     {
                         "chat": new_chat,
                         "constraints": st.session_state.get("constraints", ""),
                         "risk_posture": st.session_state.get("risk_posture", "Medium"),
-                        **st.session_state.get("test_marker", {}),
                     },
                     merge=True,
                 )

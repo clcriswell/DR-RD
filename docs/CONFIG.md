@@ -24,6 +24,16 @@ one release.
 Behavioural knobs are controlled by feature flags and toggles (details to
 follow).
 
+## Runtime controls in UI
+
+The Streamlit app exposes runtime controls in the sidebar while running in the
+single **Standard** profile. Retrieval features (RAG and Live Search) can be
+toggled and adjusted on demand; changes are pushed into runtime flags via
+`config.feature_flags.apply_overrides()`. The sidebar also includes a numeric
+target budget and optional stage weight inputs. There is no “Test” or “Deep”
+mode selector; similar behaviour is achieved by lowering the budget or choosing
+cheaper models in configuration.
+
 ## Model routing
 
 Selection no longer uses runtime "mode". `pick_model(stage, role, mode, ...)` keeps the same signature for one release but ignores `mode` and logs a warning. Prefer `pick_model_for_stage(stage, role)` going forward.
