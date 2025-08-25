@@ -1,40 +1,49 @@
 from copy import deepcopy
 import logging
 
-PROFILES = {
-    "standard": {
-        "ENABLE_LIVE_SEARCH": True,
-        "PARALLEL_EXEC_ENABLED": True,
-        "TOT_PLANNING_ENABLED": True,
-        "TOT_K": 4,
-        "TOT_BEAM": 3,
-        "TOT_MAX_DEPTH": 3,
-        "EVALUATORS_ENABLED": True,
-        "EVALUATOR_MIN_OVERALL": 0.70,
-        "REFLECTION_ENABLED": True,
-        "REFLECTION_PATIENCE": 1,
-        "RAG_ENABLED": True,
-        "RAG_TOPK": 8,
-        "SIM_OPTIMIZER_ENABLED": True,
-        "SIM_OPTIMIZER_STRATEGY": "random",
-        "SIM_OPTIMIZER_MAX_EVALS": 30,
-        "IMAGES_SIZE": "256x256",
-    }
-}
-PROFILES["deep"] = PROFILES["standard"]
-PROFILES["test"] = PROFILES["standard"]
 
-UI_PRESETS = {
-    "standard": {
-        "simulate_enabled": True,
-        "design_depth": "High",
-        "refinement_rounds": 3,
-        "rerun_sims_each_round": True,
-        "estimator": {"exec_tokens": 90000, "help_prob": 0.50},
+class _ModeShim(dict):
+    def __getitem__(self, key):  # pragma: no cover - compatibility shim
+        if key in {"deep", "test"}:
+            logging.warning("Mode '%s' is deprecated; using 'standard'.", key)
+            key = "standard"
+        return super().__getitem__(key)
+
+
+PROFILES = _ModeShim(
+    {
+        "standard": {
+            "ENABLE_LIVE_SEARCH": True,
+            "PARALLEL_EXEC_ENABLED": True,
+            "TOT_PLANNING_ENABLED": True,
+            "TOT_K": 4,
+            "TOT_BEAM": 3,
+            "TOT_MAX_DEPTH": 3,
+            "EVALUATORS_ENABLED": True,
+            "EVALUATOR_MIN_OVERALL": 0.70,
+            "REFLECTION_ENABLED": True,
+            "REFLECTION_PATIENCE": 1,
+            "RAG_ENABLED": True,
+            "RAG_TOPK": 8,
+            "SIM_OPTIMIZER_ENABLED": True,
+            "SIM_OPTIMIZER_STRATEGY": "random",
+            "SIM_OPTIMIZER_MAX_EVALS": 30,
+            "IMAGES_SIZE": "256x256",
+        }
     }
-}
-UI_PRESETS["deep"] = UI_PRESETS["standard"]
-UI_PRESETS["test"] = UI_PRESETS["standard"]
+)
+
+UI_PRESETS = _ModeShim(
+    {
+        "standard": {
+            "simulate_enabled": True,
+            "design_depth": "High",
+            "refinement_rounds": 3,
+            "rerun_sims_each_round": True,
+            "estimator": {"exec_tokens": 90000, "help_prob": 0.50},
+        }
+    }
+)
 
 
 def apply_profile(env_defaults: dict, mode: str, overrides: dict | None = None) -> dict:

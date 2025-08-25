@@ -20,3 +20,13 @@ def test_feature_flags_default_false(monkeypatch):
     assert not flags.REFLECTION_ENABLED
     assert not flags.SIM_OPTIMIZER_ENABLED
     assert not flags.RAG_ENABLED
+
+
+def test_apply_overrides(monkeypatch):
+    import config.feature_flags as ff
+
+    ff.RAG_ENABLED = False
+    ff.ENABLE_LIVE_SEARCH = True
+    ff.apply_overrides({"rag_enabled": True, "live_search_enabled": False})
+    assert ff.RAG_ENABLED is True
+    assert ff.ENABLE_LIVE_SEARCH is False

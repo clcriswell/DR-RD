@@ -6,7 +6,7 @@ from core.agents.synthesizer_agent import compose_final_proposal
 
 def test_images_disabled(monkeypatch):
     class DummySt:
-        session_state = {"final_flags": {"ENABLE_IMAGES": False, "TEST_MODE": False}}
+        session_state = {"final_flags": {"ENABLE_IMAGES": False}}
 
     monkeypatch.setattr(sa, "st", DummySt)
 
