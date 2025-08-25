@@ -11,6 +11,7 @@ if TYPE_CHECKING:  # pragma: no cover - for static typing only
     from core.agents.base_agent import BaseAgent
 
 from core.agents.registry import get_agent_class
+from core.router import choose_agent_for_task as router_choose
 
 logger = logging.getLogger("unified_registry")
 
@@ -66,6 +67,9 @@ def build_agents_unified(
         "IP Analyst",
         "Planner",
         "Synthesizer",
+        "HRM",
+        "Materials Engineer",
+        "Reflection",
     ]:
         cls = get_agent_class(role)
         if not cls:
@@ -110,25 +114,12 @@ def ensure_canonical_agent_keys(agents: Dict[str, BaseAgent]) -> Dict[str, BaseA
 
 
 def choose_agent_for_task(
-    planned_role: str, title: str, desc: Optional[str], agents: Dict[str, BaseAgent]
+    planned_role: str,
+    title: str,
+    desc: Optional[str],
+    agents: Dict[str, BaseAgent],
 ) -> Tuple[str, BaseAgent]:
-    # Exact match first
-    agent = core.agents.get(planned_role)
-    if agent:
-        return planned_role, agent
-
-    low = f"{title} {desc or ''}".lower()
-    if any(k in low for k in ["market", "position", "segment", "competitor", "pricing"]):
-        a = core.agents.get("Marketing Analyst")
-        if a:
-            return "Marketing Analyst", a
-    if any(k in low for k in ["budget", "cost", "price", "roi", "capex", "opex"]):
-        a = core.agents.get("Finance")
-        if a:
-            return "Finance", a
-
-    # Default
-    routed_role = (
-        "Research Scientist" if "Research Scientist" in agents else next(iter(core.agents.keys()))
-    )
-    return routed_role, agents[routed_role]
+    """Delegate role resolution to the canonical router."""
+    resolved, _cls, _model = router_choose(planned_role, title, desc or "", None)
+    agent = agents.get(resolved) or agents.get("Research Scientist")
+    return resolved, agent

@@ -2,7 +2,8 @@ from core.agents.base_agent import LLMRoleAgent
 
 ROLE_PROMPT = (
     "You are an HR Manager specializing in R&D projects. "
-    "Identify the expert roles needed for the following idea."
+    "Identify the expert roles needed for the following idea. "
+    "Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
 )
 
 class HRMAgent(LLMRoleAgent):

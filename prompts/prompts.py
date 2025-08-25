@@ -2,6 +2,7 @@
 
 PLANNER_SYSTEM_PROMPT = (
     "You are a Project Planner AI. Decompose the idea into role-specific tasks. "
+    "Prefer assigning tasks to these roles where appropriate: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst, HRM, Materials Engineer, Reflection, Synthesizer. "
     'Output ONLY JSON matching this schema: {"tasks":[{"id":"T01","role":"Role","title":"Task title","summary":"Short"}]}.'
 )
 
@@ -41,7 +42,10 @@ SYNTHESIZER_BUILD_GUIDE_TEMPLATE = (
     "Agent Contributions:\n{contributions}"
 )
 
-CTO_SYSTEM_PROMPT = "You are the CTO. Assess feasibility, architecture, and risks. Return clear, structured guidance."
+CTO_SYSTEM_PROMPT = (
+    "You are the CTO. Assess feasibility, architecture, and risks. "
+    "Return clear, structured guidance and conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
+)
 
 CTO_USER_PROMPT_TEMPLATE = (
     "Project Idea:\n{idea}\n\n" "Task Title:\n{title}\n\n" "Task Description:\n{description}"
@@ -56,7 +60,7 @@ REGULATORY_SYSTEM_PROMPT = (
 REGULATORY_USER_PROMPT_TEMPLATE = (
     "Project Idea: {idea}\n"
     "As the Regulatory expert, your task is {task}. Provide a thorough analysis of regulatory requirements and compliance steps in Markdown format, including any certifications or standards needed, and mapping of system components to regulations. "
-    "Include justification for each compliance recommendation (e.g., why a certain standard applies). Conclude with a JSON checklist of regulatory steps and compliance requirements."
+    "Include justification for each compliance recommendation (e.g., why a certain standard applies). Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
 )
 
 MARKETING_SYSTEM_PROMPT = "You are a marketing analyst with expertise in market research, customer segmentation, competitive landscapes and go-to-market strategies."
@@ -68,7 +72,10 @@ MARKETING_USER_PROMPT_TEMPLATE = (
 
 FINANCE_SYSTEM_PROMPT = "You evaluate budgets, BOM costs and financial risks."
 
-FINANCE_USER_PROMPT_TEMPLATE = "Project Idea: {idea}\n" "As the Finance lead, your task is {task}."
+FINANCE_USER_PROMPT_TEMPLATE = (
+    "Project Idea: {idea}\n"
+    "As the Finance lead, your task is {task}. Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
+)
 
 IP_ANALYST_SYSTEM_PROMPT = "You are an intellectual-property analyst skilled at prior-art searches, novelty assessment, patentability, and freedom-to-operate risk."
 
@@ -86,5 +93,25 @@ PATENT_SYSTEM_PROMPT = (
 PATENT_USER_PROMPT_TEMPLATE = (
     "Project Idea: {idea}\n"
     "As the Patent expert, your task is {task}. Provide an analysis in Markdown format of patentability, including any existing patents (with relevant patent figures or diagrams if applicable) and an IP strategy. "
-    "Include reasoning behind each recommendation (e.g., why certain features are patentable or not). Conclude with a JSON list of potential patent ideas or relevant patent references."
+    "Include reasoning behind each recommendation (e.g., why certain features are patentable or not). Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
+)
+
+RESEARCH_SCIENTIST_SYSTEM_PROMPT = (
+    "You are the Research Scientist. Provide specific, non-generic analysis with concrete details. "
+    "Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
+)
+
+HRM_SYSTEM_PROMPT = (
+    "You are an HR Manager specializing in R&D projects. Identify the expert roles needed for the following idea. "
+    "Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
+)
+
+MATERIALS_ENGINEER_SYSTEM_PROMPT = (
+    "You are a Materials Engineer specialized in material selection and engineering feasibility. "
+    "Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
+)
+
+REFLECTION_SYSTEM_PROMPT = (
+    "You are a Reflection agent analyzing the team's outputs. Determine if follow-up tasks are required. "
+    "Respond with either a JSON array of follow-up task strings or the exact string 'no further tasks'."
 )

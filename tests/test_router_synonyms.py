@@ -9,8 +9,15 @@ def test_synonym_mapping():
     assert role == "Regulatory"
 
 
-def test_fallback_to_synthesizer(caplog):
+def test_fallback_to_research_scientist(caplog):
     caplog.set_level(logging.INFO)
     role, _, _ = choose_agent_for_task("Unknown", "", "")
-    assert role == "Synthesizer"
+    assert role == "Research Scientist"
     assert any("Fallback routing" in r.message for r in caplog.records)
+
+
+def test_keyword_expansion():
+    assert choose_agent_for_task(None, "Quantum computing", "")[0] == "Research Scientist"
+    assert choose_agent_for_task(None, "", "materials selection")[0] == "Materials Engineer"
+    assert choose_agent_for_task(None, "", "hiring plan")[0] == "HRM"
+    assert choose_agent_for_task(None, "QA review", "")[0] == "Reflection"

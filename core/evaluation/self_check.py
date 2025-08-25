@@ -1,0 +1,65 @@
+import json
+import logging
+from typing import Callable, Tuple
+
+from utils.agent_json import extract_json_block
+
+logger = logging.getLogger(__name__)
+
+REQUIRED_KEYS = ["role", "task", "findings", "risks", "next_steps", "sources"]
+
+
+def _has_required(data: dict) -> bool:
+    return all(k in data for k in REQUIRED_KEYS)
+
+
+def validate_and_retry(
+    agent_name: str,
+    task: dict,
+    raw_text: str,
+    retry_fn: Callable[[str], str],
+) -> Tuple[str, dict]:
+    """Validate ``raw_text`` for the uniform JSON contract and retry once if needed.
+
+    Parameters
+    ----------
+    agent_name: str
+        Name of the agent producing ``raw_text``.
+    task: dict
+        Original task dictionary for logging context.
+    raw_text: str
+        Initial agent output.
+    retry_fn: Callable[[str], str]
+        Callback invoked with a reminder string if a retry is required. It must
+        return the agent's second attempt as text.
+    """
+
+    retried = False
+    valid = False
+
+    def _check(text: str) -> bool:
+        block = extract_json_block(text)
+        candidate = block if block is not None else text
+        try:
+            data = json.loads(candidate)
+        except Exception:
+            return False
+        return _has_required(data)
+
+    valid = _check(raw_text)
+    if not valid:
+        retried = True
+        reminder = (
+            "You omitted the required JSON summary. Return only the JSON object with keys: "
+            "role, task, findings, risks, next_steps, sources."
+        )
+        try:
+            second = retry_fn(reminder)
+        except Exception as e:  # pragma: no cover - retry best effort
+            logger.warning("Retry failed for %s: %s", agent_name, e)
+            second = raw_text
+        if _check(second):
+            raw_text = second
+            valid = True
+    logger.info("self_check=%s", {"retried": retried, "valid_json": valid, "role": agent_name, "task": task.get('title')})
+    return raw_text, {"retried": retried, "valid_json": valid}

@@ -16,12 +16,13 @@ from utils.logging import logger, safe_exc
 from utils.paths import new_run_dir
 
 from core.agents.planner_agent import PlannerAgent
-from core.agents.registry import build_agents, load_mode_models
+from core.agents.registry import AGENT_REGISTRY, build_agents, load_mode_models
 from core.agents_registry import agents_dict
 from core.dossier import Dossier, Finding
 from core.llm import complete, select_model
 from core.llm_client import responses_json_schema_for
 from core.observability import EvidenceSet, build_coverage
+from core.evaluation.self_check import validate_and_retry
 
 
 evidence: EvidenceSet | None = None
@@ -286,6 +287,13 @@ def execute_plan(
             safe_exc(logger, idea, f"invoke_agent[{role}]", e)
             out = "out"
         text = out if isinstance(out, str) else json.dumps(out)
+
+        def _retry_fn(rem: str) -> str:
+            retry_task = dict(routed)
+            retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
+            return _invoke_agent(agent, idea, retry_task, model=model)
+
+        text, _ = validate_and_retry(role, routed, text, _retry_fn)
         answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
         payload = extract_json_block(text) or {}
         role_to_findings[role] = payload
@@ -302,6 +310,62 @@ def execute_plan(
             )
         if save_decision_log:
             log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})
+
+    # Cross-agent reflection pass
+    follow_ups: List[Dict[str, str]] = []
+    from config.feature_flags import REFLECTION_ENABLED
+    if REFLECTION_ENABLED and role_to_findings:
+        try:
+            reflection_cls = AGENT_REGISTRY.get("Reflection")
+        except Exception:
+            reflection_cls = None
+        if reflection_cls:
+            reflection_agent = reflection_cls(select_model("agent", ui_model, agent_name="Reflection"))
+            ref_task = {
+                "role": "Reflection",
+                "title": "Review",
+                "description": json.dumps(role_to_findings),
+            }
+            try:
+                ref_out = _invoke_agent(reflection_agent, idea, ref_task)
+            except Exception as e:
+                safe_exc(logger, idea, "invoke_agent[Reflection]", e)
+                ref_out = "no further tasks"
+            ref_text = ref_out if isinstance(ref_out, str) else json.dumps(ref_out)
+            if "no further tasks" not in ref_text.lower():
+                try:
+                    follow_ups = json.loads(extract_json_block(ref_text) or ref_text)
+                except Exception:
+                    follow_ups = []
+                if not isinstance(follow_ups, list):
+                    follow_ups = []
+
+    for ft in follow_ups:
+        if isinstance(ft, str):
+            m = re.match(r"\[(?P<role>[^]]+)\]:\s*(?P<title>.*)", ft)
+            role_hint = m.group("role") if m else None
+            title = m.group("title") if m else ft
+            task = {"role": role_hint, "title": title, "description": title}
+        elif isinstance(ft, dict):
+            task = ft
+        else:
+            continue
+        rrole, AgentCls, model, routed = route_task(task, ui_model)
+        agent = AgentCls(model)
+        try:
+            out = _invoke_agent(agent, idea, routed, model=model)
+        except Exception as e:
+            safe_exc(logger, idea, f"invoke_agent[{rrole}]", e)
+            out = "out"
+        text = out if isinstance(out, str) else json.dumps(out)
+        def _rfn(rem: str) -> str:
+            retry_task = dict(routed)
+            retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
+            return _invoke_agent(agent, idea, retry_task, model=model)
+        text, _ = validate_and_retry(rrole, routed, text, _rfn)
+        answers[rrole] = answers.get(rrole, "") + ("\n\n" if rrole in answers else "") + text
+        payload = extract_json_block(text) or {}
+        role_to_findings[rrole] = payload
 
     if save_evidence and evidence is not None:
         rows = build_coverage(project_id, role_to_findings)
