@@ -657,6 +657,10 @@ def main():
 
     import os as _os
 
+    env_mode = _os.getenv("DRRD_MODE")
+    if env_mode and env_mode.lower() != "standard":
+        st.warning("DRRD_MODE is deprecated; using standard profile.")
+
     # Install a BudgetManager with the standard profile
     try:
         _mode_cfg, _budget = load_mode("standard")

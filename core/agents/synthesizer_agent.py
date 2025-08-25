@@ -96,36 +96,6 @@ def compose_final_proposal(
         if not getattr(compose_final_proposal, "_image_disabled_logged", False):
             logging.info("Images: skipped (disabled by config)")
             compose_final_proposal._image_disabled_logged = True
-    elif flags.get("TEST_MODE"):
-        img_size = flags.get("IMAGES_SIZE", "256x256")
-        img_quality = flags.get("IMAGES_QUALITY", "high")
-        try:
-            from utils.image_visuals import _openai as _img_openai, _decode_to_bytes, upload_bytes_to_gcs
-            client = _img_openai()
-            prompt = f"Schematic/appearance concept for dev test: {idea[:160]}"
-            res = client.images.generate(
-                model="gpt-image-1",
-                prompt=prompt,
-                size=img_size,
-                quality=img_quality,
-                n=1,
-            )
-            b64 = res.data[0].b64_json
-            data = _decode_to_bytes(b64)
-            from io import BytesIO
-            bio = BytesIO(data)
-            fmt = "png"
-            content_type = "image/png"
-            url = None
-            if bucket:
-                filename = f"{int(__import__('time').time())}-test.{fmt}"
-                try:
-                    url = upload_bytes_to_gcs(bio.getvalue(), filename, content_type, bucket)
-                except Exception:
-                    url = None
-            images.append({"kind": "test", "url": url, "data": bio.getvalue(), "caption": "Test Visual"})
-        except Exception:
-            pass
     else:
         images = make_visuals_for_project(idea, plan_roles, bucket)
 
@@ -136,7 +106,7 @@ def compose_final_proposal(
             if img.get("url"):
                 final_document += f"\n![]({img['url']})\n"
 
-    result_payload = {"document": final_document, "images": images, "test": bool(flags.get("TEST_MODE"))}
+    result_payload = {"document": final_document, "images": images}
     if not getattr(compose_final_proposal, "_budget_logged", False):
         used = RETRIEVAL_BUDGET.used if RETRIEVAL_BUDGET else 0
         cap = RETRIEVAL_BUDGET.max_calls if RETRIEVAL_BUDGET else 0

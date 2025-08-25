@@ -129,17 +129,16 @@ def choose_agent_for_task(
 # ---------------------------------------------------------------------------
 
 def resolve_model(role: str, purpose: str = "exec") -> str:
-    profile = os.getenv("DRRD_PROFILE", "deep").lower()
+    profile = os.getenv("DRRD_PROFILE", "standard").lower()
+    if profile in {"test", "deep"}:
+        logging.warning("DRRD_PROFILE '%s' is deprecated; using 'standard'.", profile)
+        profile = "standard"
     default_model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
     if purpose == "plan":
         return os.getenv("DRRD_MODEL_PLAN") or ("gpt-5" if profile == "pro" else default_model)
     if purpose == "synth":
         return os.getenv("DRRD_MODEL_SYNTH") or ("gpt-5" if profile == "pro" else default_model)
-    if profile == "test":
-        return os.getenv("DRRD_MODEL_EXEC_TEST") or os.getenv("OPENAI_MODEL") or "gpt-4-turbo"
     if profile == "pro":
         return os.getenv("DRRD_MODEL_EXEC_PRO") or "gpt-5"
-    if profile == "deep":
-        return os.getenv("DRRD_MODEL_EXEC_DEEP") or default_model
     return os.getenv("DRRD_MODEL_EXEC_EFFICIENT") or default_model
 

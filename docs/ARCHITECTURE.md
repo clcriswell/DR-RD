@@ -3,16 +3,12 @@
 - agents: UI-only wrappers (PlannerAgent, SynthesizerAgent) and any view helpers.
 - legacy agents directory: deprecated shim removed after migration to core.agents.
 
-The app builds agents via core/agents/unified_registry.build_agents_unified(...). The orchestrator now executes a single "Planner → Router/Registry → Executor → Synthesizer" pipeline with no mode-specific branches. The HRM “Pro” loop runs through orchestrators/router + orchestrators/plan_utils.
+The app builds agents via core/agents/unified_registry.build_agents_unified(...). The orchestrator executes a single "Planner → Router/Registry → Executor → Synthesizer" pipeline regardless of profile. Runtime knobs are exposed as feature-flag toggles rather than separate modes.
 
-## Modes and cost tracking
+## Runtime toggles and cost tracking
 
-The system operates in two modes:
-
-- **deep** – full reasoning with all features.
-- **test** – routes every stage to a cheap model for dry runs.
-
-Token usage is logged via a CostTracker. Costs are tracked for telemetry only; caps are not enforced.
+Only the **Standard** profile is supported. Retrieval features (RAG and Live Search) and budgets are controlled via `config.feature_flags` and may be adjusted at runtime through `apply_overrides`.
+Token usage is logged via a CostTracker for telemetry; caps may be enforced via configuration budgets.
 
 ## Sanitization
 

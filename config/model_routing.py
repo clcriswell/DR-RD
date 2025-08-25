@@ -24,8 +24,6 @@ def _load_prices() -> dict:
 
 
 PRICE_TABLE = _load_prices()
-# DEPRECATED and ignored; will be removed next release.
-TEST_MODEL_ID = os.getenv("TEST_MODEL_ID", None)
 
 
 def _cheap_default(prices: dict) -> str:

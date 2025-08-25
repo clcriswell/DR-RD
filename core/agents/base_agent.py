@@ -203,11 +203,6 @@ class BaseAgent:
         cap = rbudget.RETRIEVAL_BUDGET.max_calls if rbudget.RETRIEVAL_BUDGET else 0
         logger.info("RetrievalBudget web_search_calls=%d/%d", used, cap)
         answer = (result["text"] or "").strip()
-        flags = st.session_state.get("final_flags", {}) if "st" in globals() else {}
-        if flags.get("TEST_MODE"):
-            max_chars = int(flags.get("MAX_OUTPUT_CHARS", 900))
-            if isinstance(answer, str) and len(answer) > max_chars:
-                answer = answer[:max_chars] + " …[truncated test]"
         if self._sources:
             try:
                 data = json.loads(answer)

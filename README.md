@@ -36,24 +36,18 @@ DR-RD now performs a three stage pipeline:
 
 3. A synthesizer combines the findings into a unified plan.
 
-Model selections and **budget caps** for different modes live in `config/modes.yaml`.
-Each mode specifies a `target_cost_usd`, default models for the planning/execution/synthesis stages,
+Model selections and **budget caps** live in `config/modes.yaml`.
+The single **Standard** profile specifies a `target_cost_usd`, default models for the planning/execution/synthesis stages,
 and limits such as `k_search` and `max_loops`.
 
 Schemas live in `core/schemas.py`; segmentation utility in `planning/segmenter.py`.
 
 Token pricing lives in `config/prices.yaml` (override via `PRICES_PATH`).
 
-Set the mode via the `DRRD_MODE` environment variable. By default the app runs in Deep mode, but a developer-only Test mode can be enabled from the sidebar. The Streamlit interface includes an **Agent Trace** expander showing which agent handled each task, token counts and a brief finding.
+The interface exposes runtime toggles for retrieval (RAG and Live Search), a numeric budget, and design depth presets.
+`DRRD_MODE` is ignored and maps to the Standard profile.
 
-### Modes & Cost
-
-| Mode | Plan model | Exec model | Synth model | max_loops | Notes |
-|------|------------|------------|-------------|-----------|-------|
-| Test | gpt-5 | gpt-5 | gpt-5 | 1 | images disabled |
-| Deep | gpt-5 | gpt-5 | gpt-5 | 5 | images optional |
-
-Images are disabled by default for the Test mode. Deep mode lets users toggle images on or off.
+See [MIGRATION.md](MIGRATION.md) for details on the consolidation of legacy Test/Deep modes.
 
 ## Quick Start
 1) `pip install -r requirements.txt`
@@ -66,7 +60,7 @@ Images are disabled by default for the Test mode. Deep mode lets users toggle im
 
 Set `ENABLE_LIVE_SEARCH=true` and provide a `SERPAPI_KEY` to allow the Research Scientist, IP Analyst, and Regulatory agents to query the live web when local RAG hits are missing or too short. When web results are used, these agents add a `sources` array with short titles or URLs to their JSON output.
 
-The application always runs with the full Pro profile. Use the Developer toggle to activate Test mode for quick low-cost checks.
+The application always runs with the Standard profile. Lower the budget or choose cheaper models to simulate low‑cost runs.
 
 ### Dry-run for CI
 
