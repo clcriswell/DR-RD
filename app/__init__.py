@@ -1518,8 +1518,6 @@ def main():
                                     st.warning(f"Could not create repo: {info}")
         # --- end App Builder ---
 
-        import pandas as pd
-
         by_stage = METER.by_stage()
         df = pd.DataFrame(
             [
