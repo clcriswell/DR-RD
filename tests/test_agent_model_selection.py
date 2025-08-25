@@ -48,7 +48,7 @@ def test_per_agent_override(monkeypatch):
     assert used_s == "synth-model"
     rs_task = {"role": "Research Scientist", "title": "t", "description": "d"}
     used_r = _run(rs_task, None, monkeypatch)
-    assert used_r == "gpt-4.1-mini"
+    assert used_r == "gpt-4o-mini"
     monkeypatch.delenv("DRRD_MODEL_AGENT_SYNTHESIZER", raising=False)
 
 

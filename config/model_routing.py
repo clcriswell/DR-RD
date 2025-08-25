@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 import os
 from pathlib import Path
 import yaml
@@ -23,6 +24,7 @@ def _load_prices() -> dict:
 
 
 PRICE_TABLE = _load_prices()
+# DEPRECATED and ignored; will be removed next release.
 TEST_MODEL_ID = os.getenv("TEST_MODEL_ID", None)
 
 
@@ -46,8 +48,19 @@ class CallHints:
 
 
 def pick_model(stage: str, role: str | None, mode: str, prices: dict | None = None) -> str:
-    prices = prices or PRICE_TABLE
-    if mode == "test":
-        return TEST_MODEL_ID or _cheap_default(prices)
-    key = (role or stage or "").upper()
-    return DEFAULTS.get(key, DEFAULTS.get(stage.upper(), "gpt-5"))
+    if mode:
+        logging.warning(
+            "config.model_routing.pick_model: 'mode' argument is deprecated and ignored; using unified 'standard' routing"
+        )
+    if role:
+        model = DEFAULTS.get(role.upper())
+        if model:
+            return model
+    model = DEFAULTS.get(stage.upper())
+    if model:
+        return model
+    return DEFAULTS.get("RESEARCHER", "gpt-5")
+
+
+def pick_model_for_stage(stage: str, role: str | None = None, prices: dict | None = None) -> str:
+    return pick_model(stage, role, mode="", prices=prices)

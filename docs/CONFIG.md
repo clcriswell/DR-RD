@@ -15,6 +15,10 @@ The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in 
 
 `standard` is the only supported runtime profile going forward. `test` and `deep` are temporary aliases to `standard` and will be removed in an upcoming release. Behavioural knobs are controlled by feature flags and toggles (details to follow).
 
+## Model routing
+
+Selection no longer uses runtime "mode". `pick_model(stage, role, mode, ...)` keeps the same signature for one release but ignores `mode` and logs a warning. Prefer `pick_model_for_stage(stage, role)` going forward.
+
 **Model defaults with OpenAI web search**
 
 When `LIVE_SEARCH_BACKEND=openai`, the default model is `gpt-4o-mini` so that the
