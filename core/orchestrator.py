@@ -12,7 +12,11 @@ from core.agents.unified_registry import AGENT_REGISTRY
 from core.evaluation.self_check import validate_and_retry
 from core.llm import complete, select_model
 from core.llm_client import responses_json_schema_for
-from core.observability import EvidenceSet, build_coverage
+from core.observability import (
+    EvidenceSet,
+    build_coverage,
+    AgentTraceCollector,
+)
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from core.privacy import pseudonymize_for_model, rehydrate_output
 from core.router import route_task
@@ -264,9 +268,43 @@ def execute_plan(
     answers: Dict[str, str] = {}
     role_to_findings: Dict[str, dict] = {}
     evidence = EvidenceSet(project_id=project_id) if save_evidence else None
+    collector = AgentTraceCollector(project_id=project_id)
+    try:
+        st.session_state.setdefault("routing_report", [])
+        st.session_state.setdefault("live_status", {})
+    except Exception:
+        pass
 
     def _run_task(t: Dict[str, str]) -> None:
         role, AgentCls, model, routed = route_task(t, ui_model)
+        handle = collector.start_item(routed, role, model)
+        tid = routed.get("id") or f"T{handle+1:02d}"
+        collector.append_event(
+            handle,
+            "route",
+            {"planned_role": t.get("role"), "routed_role": role, "model": model},
+        )
+        try:
+            st.session_state["routing_report"].append(
+                {
+                    "task_id": tid,
+                    "planned_role": t.get("role"),
+                    "routed_role": role,
+                    "model": model,
+                }
+            )
+            st.session_state["live_status"][tid] = {
+                "done": False,
+                "progress": 0.0,
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "cost_usd": 0.0,
+                "model": model,
+                "role": role,
+                "title": routed.get("title", ""),
+            }
+        except Exception:
+            pass
         if save_decision_log:
             log_decision(
                 project_id,
@@ -277,6 +315,7 @@ def execute_plan(
         if agent is None:
             agent = AgentCls(model)
             agents[role] = agent
+        collector.append_event(handle, "call", {"attempt": 1})
         try:
             out = _invoke_agent(agent, idea, routed, model=model)
         except Exception as e:
@@ -285,15 +324,24 @@ def execute_plan(
         text = out if isinstance(out, str) else json.dumps(out)
 
         def _retry_fn(rem: str) -> str:
+            collector.append_event(handle, "retry", {"attempt": 2})
+            collector.append_event(handle, "call", {"attempt": 2})
             retry_task = dict(routed)
             retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
             return _invoke_agent(agent, idea, retry_task, model=model)
 
-        text, _ = validate_and_retry(role, routed, text, _retry_fn)
+        text, meta = validate_and_retry(role, routed, text, _retry_fn)
+        collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
         answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
         payload = extract_json_block(text) or {}
         role_to_findings[role] = payload
         norm = _normalize_evidence_payload(payload)
+        finding_text = ""
+        if isinstance(payload, dict):
+            finding_text = str(payload.get("findings") or "")
+        if not finding_text:
+            finding_text = text
+        finding_snip = finding_text.strip()[:240]
         if evidence is not None:
             evidence.add(
                 role=role,
@@ -304,6 +352,37 @@ def execute_plan(
                 citations=norm.get("citations", []),
                 cost_usd=norm.get("cost", 0.0),
             )
+            collector.append_event(
+                handle,
+                "save_evidence",
+                {
+                    "quotes": len(norm.get("quotes", [])),
+                    "citations": len(norm.get("citations", [])),
+                },
+            )
+        collector.finalize_item(
+            handle,
+            finding_snip,
+            payload if isinstance(payload, dict) else {},
+            norm.get("tokens_in", 0),
+            norm.get("tokens_out", 0),
+            norm.get("cost", 0.0),
+            norm.get("quotes", []),
+            norm.get("citations", []),
+        )
+        try:
+            st.session_state["live_status"][tid] = {
+                "done": True,
+                "progress": 1.0,
+                "tokens_in": norm.get("tokens_in", 0),
+                "tokens_out": norm.get("tokens_out", 0),
+                "cost_usd": norm.get("cost", 0.0),
+                "model": model,
+                "role": role,
+                "title": routed.get("title", ""),
+            }
+        except Exception:
+            pass
         if save_decision_log:
             log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})
         try:  # light budget telemetry
@@ -448,6 +527,15 @@ def execute_plan(
                 f"Consumer: {i.consumer}\n\nContract:\n{i.contract}\n"
             )
 
+    trace_data = collector.as_dicts()
+    try:
+        st.session_state["agent_trace"] = trace_data
+    except Exception:
+        pass
+    out_dir = os.path.join("audits", project_id)
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "trace.json"), "w", encoding="utf-8") as f:
+        json.dump(trace_data, f, ensure_ascii=False, indent=2)
     return answers
 
 
