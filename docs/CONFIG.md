@@ -9,7 +9,7 @@ The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in 
 - `web_search_max_calls` (legacy `live_search_max_calls`): maximum live-search
   queries per run.
 - `live_search_summary_tokens`: cap for web-summary tokens.
-- `enable_images`: allow image generation (default `false` for `test` and `deep`).
+- `enable_images`: allow image generation (default `false`).
 
 ## Runtime profile
 
@@ -49,6 +49,26 @@ LIVE_SEARCH_BACKEND=openai|serpapi
 ENABLE_IMAGES=true|false
 SERPAPI_KEY=your_key
 ```
+
+## Feature flags
+
+Environment variables remain the baseline source of truth. The active runtime
+profile (`standard` from `modes.yaml`) may override selected flags at startup via
+`apply_overrides(cfg)`. The legacy function name `apply_mode_overrides` is
+deprecated and will be removed; code should migrate to `apply_overrides`.
+
+Config keys that can be overridden:
+
+- `rag_enabled`
+- `rag_top_k`
+- `live_search_enabled`
+- `live_search_backend`
+- `live_search_max_calls`
+- `live_search_summary_tokens`
+- `faiss_bootstrap_mode`
+- `faiss_index_local_dir`
+- `faiss_index_uri`
+- `enable_images`
 
 ### Budget cap normalization
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 
 
@@ -22,7 +23,6 @@ LIVE_SEARCH_BACKEND: str = os.getenv("LIVE_SEARCH_BACKEND", "openai")
 LIVE_SEARCH_MAX_CALLS: int = 3
 LIVE_SEARCH_SUMMARY_TOKENS: int = 256
 SERPAPI_KEY: str = os.getenv("SERPAPI_KEY", "")
-DISABLE_IMAGES_BY_DEFAULT = {"test": False, "deep": False}
 ENABLE_IMAGES = _flag("ENABLE_IMAGES")
 FAISS_INDEX_URI: str | None = os.getenv("FAISS_INDEX_URI")
 FAISS_INDEX_DIR: str = os.getenv("FAISS_INDEX_DIR", ".faiss_index")
@@ -79,8 +79,9 @@ def get_env_defaults() -> dict:
     }
 
 
-def apply_mode_overrides(cfg: dict) -> None:
-    """Override feature flags using mode configuration."""
+def apply_overrides(cfg: dict) -> None:
+    """Apply config-driven overrides to module-level feature flags.
+    Accepts keys aligned with config/modes.yaml (standard profile)."""
     global RAG_ENABLED, RAG_TOPK, ENABLE_LIVE_SEARCH
     global LIVE_SEARCH_BACKEND, LIVE_SEARCH_MAX_CALLS, LIVE_SEARCH_SUMMARY_TOKENS
     global FAISS_BOOTSTRAP_MODE, VECTOR_INDEX_PATH, FAISS_INDEX_URI, ENABLE_IMAGES
@@ -106,3 +107,31 @@ def apply_mode_overrides(cfg: dict) -> None:
         FAISS_INDEX_URI = str(cfg.get("faiss_index_uri") or FAISS_INDEX_URI)
     if "enable_images" in cfg:
         ENABLE_IMAGES = bool(cfg.get("enable_images"))
+
+
+def apply_mode_overrides(cfg: dict) -> None:
+    """Deprecated alias for :func:`apply_overrides`.
+
+    config.feature_flags.apply_mode_overrides() is deprecated; use
+    :func:`apply_overrides` instead. This alias will be removed in the next
+    release.
+    """
+    logging.warning(
+        "config.feature_flags.apply_mode_overrides() is deprecated; use apply_overrides(). "
+        "This alias will be removed in the next release."
+    )
+    apply_overrides(cfg)
+
+
+# DEPRECATED: retained for one release; not used by runtime
+class _DeprecatedImagesDefault(dict):
+    def __getitem__(self, key):  # pragma: no cover - compatibility shim
+        logging.warning(
+            "config.feature_flags.DISABLE_IMAGES_BY_DEFAULT is deprecated; use ENABLE_IMAGES instead."
+        )
+        return super().__getitem__(key)
+
+
+DISABLE_IMAGES_BY_DEFAULT = _DeprecatedImagesDefault(
+    {"standard": not ENABLE_IMAGES, "test": not ENABLE_IMAGES, "deep": not ENABLE_IMAGES}
+)
