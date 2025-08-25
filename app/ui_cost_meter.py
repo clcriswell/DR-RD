@@ -6,12 +6,12 @@ from app.price_loader import cost_usd, load_prices
 from core.llm import select_model
 
 
-def _estimate_remaining(plan: dict | list | None, stage_counts: dict[str, int], mode: str) -> float:
+def _estimate_remaining(plan: dict | list | None, stage_counts: dict[str, int]) -> float:
     cfg = st.session_state.get("MODE_CFG", {}) or {}
     models = cfg.get("models", {})
     weights = cfg.get("stage_weights", {})
     target = cfg.get("target_cost_usd", 0.0)
-    preset = UI_PRESETS.get(mode, UI_PRESETS.get("deep", {}))
+    preset = UI_PRESETS.get("standard", {})
     refinement_rounds = preset.get("refinement_rounds", 1)
     if isinstance(plan, dict):
         roles = len(plan.keys())
@@ -43,28 +43,22 @@ def _estimate_remaining(plan: dict | list | None, stage_counts: dict[str, int], 
     return remainder
 
 
-def render_estimator(mode: str, idea_text: str):
+def render_estimator(idea_text: str):
     st.subheader("Run Cost Estimate")
-    if mode == "test":
-        st.info("**Test mode:** minimal-cost dry run to exercise all features.")
-    est_cost = _estimate_remaining(None, {}, mode)
+    est_cost = _estimate_remaining(None, {})
     metric = getattr(st, "metric", None)
     if callable(metric):
-        label = "Estimated Cost"
-        if mode == "test":
-            metric(label, f"${est_cost:.4f}", help="dev-only")
-        else:
-            metric(label, f"${est_cost:.2f}")
+        metric("Estimated Cost", f"${est_cost:.2f}")
 
 
-def render_cost_summary(mode: str, plan: dict | list | None):
+def render_cost_summary(plan: dict | list | None):
     log = st.session_state.get("usage_log", [])
     actual = 0.0
     stage_counts: dict[str, int] = {}
     for entry in log:
         actual += cost_usd(entry["model"], entry["pt"], entry["ct"])
         stage_counts[entry["stage"]] = stage_counts.get(entry["stage"], 0) + 1
-    remainder = _estimate_remaining(plan, stage_counts, mode)
+    remainder = _estimate_remaining(plan, stage_counts)
     metric = getattr(st, "metric", None)
     caption = getattr(st, "caption", None)
     if callable(metric):
