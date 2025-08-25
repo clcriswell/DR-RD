@@ -1,16 +1,16 @@
 """Parallel task execution utilities for the DR-RD engine.
 
-This module exposes a ``run_tasks`` helper that schedules independent tasks for
-concurrent execution while ensuring that merges back into the shared state are
-performed deterministically.  It purposefully avoids mutating shared state from
-worker threads; only the orchestrator thread performs state mutations.
+The :func:`run_tasks` helper schedules independent tasks for concurrent
+execution while ensuring deterministic merging of results.  It purposefully
+avoids mutating shared state from worker threads; only the orchestrator thread
+performs state mutations.  The unified orchestrator uses this helper when
+``PARALLEL_EXEC_ENABLED`` is set to ``True``.
 """
 
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Dict, Iterable, List, Tuple
-
 
 Task = Dict[str, Any]
 TaskResult = Tuple[Task, Any, float]  # (task, result, score)
@@ -31,7 +31,9 @@ def _sort_key(item: TaskResult) -> Tuple[int, float, str]:
     return (-int(t.get("priority", 0)), float(t.get("created_at", 0)), t.get("id", ""))
 
 
-def merge_results(state: Any, task: Task, result: Any, score: float, log: Callable[[str], None] | None = None) -> None:
+def merge_results(
+    state: Any, task: Task, result: Any, score: float, log: Callable[[str], None] | None = None
+) -> None:
     """Merge ``result`` for ``task`` into ``state`` with basic conflict resolution."""
     existing = state.ws.read().get("results", {})
     if task["id"] in existing and log:
