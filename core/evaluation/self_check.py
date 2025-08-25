@@ -37,7 +37,13 @@ def validate_and_retry(
     retried = False
     valid = False
 
+    # ``raw_text`` may be a dict if the agent returns structured data.
+    if not isinstance(raw_text, str):
+        raw_text = json.dumps(raw_text)
+
     def _check(text: str) -> bool:
+        if not isinstance(text, str):
+            text = json.dumps(text)
         block = extract_json_block(text)
         candidate = block if block is not None else text
         try:
@@ -58,8 +64,13 @@ def validate_and_retry(
         except Exception as e:  # pragma: no cover - retry best effort
             logger.warning("Retry failed for %s: %s", agent_name, e)
             second = raw_text
+        if not isinstance(second, str):
+            second = json.dumps(second)
         if _check(second):
             raw_text = second
             valid = True
-    logger.info("self_check=%s", {"retried": retried, "valid_json": valid, "role": agent_name, "task": task.get('title')})
+    logger.info(
+        "self_check=%s",
+        {"retried": retried, "valid_json": valid, "role": agent_name, "task": task.get("title")},
+    )
     return raw_text, {"retried": retried, "valid_json": valid}
