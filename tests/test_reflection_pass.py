@@ -1,9 +1,12 @@
 import json
+
 from core import orchestrator, router
+
 
 def test_reflection_adds_followups(monkeypatch):
     # Enable reflection
     import config.feature_flags as ff
+
     monkeypatch.setattr(ff, "REFLECTION_ENABLED", True)
 
     class Dummy:
@@ -47,6 +50,8 @@ def test_reflection_adds_followups(monkeypatch):
     monkeypatch.setattr(orchestrator, "_invoke_agent", fake_invoke)
 
     tasks = [{"role": "Research Scientist", "title": "Initial", "description": ""}]
-    out = orchestrator.execute_plan("idea", tasks, save_evidence=False, save_decision_log=False)
+    out = orchestrator.execute_plan(
+        "idea", tasks, agents={}, save_evidence=False, save_decision_log=False
+    )
     assert "Research Scientist" in out
     assert "HRM" in out

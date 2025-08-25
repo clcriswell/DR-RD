@@ -2,12 +2,12 @@ import json
 import os
 from unittest.mock import patch
 
-os.environ.setdefault("OPENAI_API_KEY", "test")
-
 from core.agents.hrm_agent import HRMAgent
 from core.agents.planner_agent import PlannerAgent
 from core.agents.reflection_agent import ReflectionAgent
 from core.orchestrator import orchestrate
+
+os.environ.setdefault("OPENAI_API_KEY", "test")
 
 
 def _res(text):
@@ -22,7 +22,10 @@ def test_hrm_returns_roles_json(mock_complete):
     assert isinstance(data.get("roles"), list)
 
 
-@patch("core.agents.planner_agent.run_planner", return_value=({"tasks":[{"task":"T","domain":"D"}]}, {}))
+@patch(
+    "core.agents.planner_agent.run_planner",
+    return_value=({"tasks": [{"task": "T", "domain": "D"}]}, {}),
+)
 def test_planner_returns_tasks_json(mock_run):
     agent = PlannerAgent("gpt-5")
     out = agent.run("idea", "task")
@@ -39,23 +42,21 @@ def test_reflection_returns_list(mock_complete):
     assert isinstance(data, list)
 
 
-@patch("core.agents.base_agent.complete", return_value=_res('no further tasks'))
+@patch("core.agents.base_agent.complete", return_value=_res("no further tasks"))
 def test_reflection_returns_no_tasks(mock_complete):
     agent = ReflectionAgent("Reflection", "gpt-5")
     out = agent.act("sys", "summary")
     assert out.strip().lower() == "no further tasks"
 
 
+@patch("core.orchestrator.compose_final_proposal", return_value="final plan")
+@patch("core.orchestrator.execute_plan", return_value={"Research Scientist": "result"})
 @patch(
-    "core.agents.base_agent.complete",
-    side_effect=[
-        _res('{"roles":["ResearchScientist"]}'),
-        _res("result"),
-        _res("no further tasks"),
-        _res("final plan"),
+    "core.orchestrator.generate_plan",
+    return_value=[
+        {"role": "Research Scientist", "title": "do research", "description": "do research"}
     ],
 )
-@patch("core.agents.planner_agent.run_planner", return_value=({"tasks":[{"task":"do research","domain":"research"}]}, {}))
-def test_orchestrate_smoke(mock_run, mock_complete):
+def test_orchestrate_smoke(mock_plan, mock_exec, mock_comp):
     result = orchestrate("Microscope that uses quantum entanglement")
     assert isinstance(result, str) and result

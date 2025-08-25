@@ -3,7 +3,7 @@
 - agents: UI-only wrappers (PlannerAgent, SynthesizerAgent) and any view helpers.
 - legacy agents directory: deprecated shim removed after migration to core.agents.
 
-The app builds agents via core/agents/unified_registry.build_agents_unified(...). The HRM “Pro” loop runs through orchestrators/router + orchestrators/plan_utils.
+The app builds agents via core/agents/unified_registry.build_agents_unified(...). The orchestrator now executes a single "Planner → Router/Registry → Executor → Synthesizer" pipeline with no mode-specific branches. The HRM “Pro” loop runs through orchestrators/router + orchestrators/plan_utils.
 
 ## Modes and cost tracking
 
