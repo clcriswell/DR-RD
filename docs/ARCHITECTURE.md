@@ -3,7 +3,7 @@
 - agents: UI-only wrappers (PlannerAgent, SynthesizerAgent) and any view helpers.
 - legacy agents directory: deprecated shim removed after migration to core.agents.
 
-The app builds agents via core/agents/unified_registry.build_agents_unified(...). The orchestrator executes a single "Planner → Router/Registry → Executor → Synthesizer" pipeline regardless of profile. Runtime knobs are exposed as feature-flag toggles rather than separate modes.
+The app builds agents via core/agents/unified_registry.build_agents_unified(...). The orchestrator executes a single "Planner → Router/Registry → Executor → Evaluation → Synthesizer" pipeline regardless of profile. Runtime knobs are exposed as feature-flag toggles rather than separate modes. The Evaluation stage scores clarity, completeness, and grounding of agent outputs and may spawn follow‑up tasks before synthesis.
 
 ## Runtime toggles and cost tracking
 

@@ -769,6 +769,28 @@ def main():
         "live_search_max_calls": int(live_search_max_calls),
         "live_search_summary_tokens": int(live_search_summary_tokens),
     }
+    with _safe_expander(sidebar, "Quality & Evaluation", expanded=False):
+        checkbox = getattr(st, "checkbox", lambda label, value=False, **k: value)
+        number_input = getattr(st, "number_input", lambda label, value=0, **k: value)
+        evaluation_enabled = checkbox("Enable evaluation", value=cfg.get("evaluation_enabled", False))
+        evaluation_max_rounds = number_input(
+            "Evaluation max rounds",
+            min_value=0,
+            max_value=2,
+            value=int(cfg.get("evaluation_max_rounds", 1)),
+            step=1,
+        )
+        evaluation_human_review = checkbox(
+            "Require human review",
+            value=cfg.get("evaluation_human_review", True),
+        )
+    overrides.update(
+        {
+            "evaluation_enabled": evaluation_enabled,
+            "evaluation_max_rounds": int(evaluation_max_rounds),
+            "evaluation_human_review": evaluation_human_review,
+        }
+    )
     cfg.update(overrides)
     apply_overrides({k: v for k, v in overrides.items() if v is not None})
     rbudget.RETRIEVAL_BUDGET = rbudget.RetrievalBudget(cfg.get("live_search_max_calls", 0))
@@ -1158,6 +1180,27 @@ def main():
                     )
                     st.session_state["answers"] = results
                     render_cost_summary(st.session_state.get("plan"))
+                    if st.session_state.get("awaiting_approval"):
+                        pending = st.session_state.get("pending_followups", [])
+                        st.info("Evaluation suggests follow-ups:")
+                        for fu in pending:
+                            st.markdown(f"- **{fu.get('role','')}**: {fu.get('title','')}")
+                        if st.button("Approve follow-ups", key="approve_followups"):
+                            tasks2 = st.session_state.pop("pending_followups", [])
+                            st.session_state["awaiting_approval"] = False
+                            more = execute_plan(
+                                idea,
+                                tasks2,
+                                project_id=get_project_id(),
+                                save_decision_log=st.session_state.get("save_decision_log", False),
+                                save_evidence=st.session_state.get("save_evidence_coverage", False),
+                                project_name=st.session_state.get("project_name"),
+                                ui_model=ui_model,
+                            )
+                            st.session_state["answers"].update(more)
+                        if st.button("Reject follow-ups", key="reject_followups"):
+                            st.session_state["awaiting_approval"] = False
+                            st.session_state.pop("pending_followups", None)
                 except openai.OpenAIError as e:
                     logging.exception("OpenAI error during plan execution: %s", e)
                     getattr(st, "error", lambda *a, **k: None)(

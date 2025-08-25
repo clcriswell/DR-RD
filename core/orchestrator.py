@@ -9,6 +9,7 @@ from utils.logging import logger, safe_exc
 
 import config.feature_flags as ff
 from core.agents.unified_registry import AGENT_REGISTRY
+from core.agents.evaluation_agent import EvaluationAgent
 from core.evaluation.self_check import validate_and_retry
 from core.llm import complete, select_model
 from core.llm_client import responses_json_schema_for
@@ -393,72 +394,135 @@ def execute_plan(
             pass
 
     norm_tasks = list(normalize_tasks(tasks))
-    if ff.PARALLEL_EXEC_ENABLED:
-        from types import SimpleNamespace
+    eval_round = 0
+    evaluations: List[dict] = []
+    while True:
+        if ff.PARALLEL_EXEC_ENABLED:
+            from types import SimpleNamespace
+            from core.engine.executor import run_tasks
 
-        from core.engine.executor import run_tasks
+            exec_tasks: List[Dict[str, str]] = []
+            for i, t in enumerate(norm_tasks, 1):
+                tmp = dict(t)
+                tmp.setdefault("id", f"T{i:02d}")
+                tmp.setdefault("task", tmp.get("description", ""))
+                exec_tasks.append(tmp)
 
-        exec_tasks: List[Dict[str, str]] = []
-        for i, t in enumerate(norm_tasks, 1):
-            tmp = dict(t)
-            tmp.setdefault("id", f"T{i:02d}")
-            tmp.setdefault("task", tmp.get("description", ""))
-            exec_tasks.append(tmp)
+            class _State:
+                def __init__(self):
+                    self.ws = SimpleNamespace(
+                        read=lambda: {"results": {}},
+                        save_result=lambda _id, _res, _score: None,
+                    )
 
-        class _State:
-            def __init__(self):
-                self.ws = SimpleNamespace(
-                    read=lambda: {"results": {}},
-                    save_result=lambda _id, _res, _score: None,
-                )
+                def _execute(self, task: Dict[str, str]):
+                    _run_task(task)
+                    return None, 0.0
 
-            def _execute(self, task: Dict[str, str]):
-                _run_task(task)
-                return None, 0.0
-
-        run_tasks(exec_tasks, max_workers=min(4, len(exec_tasks)), state=_State())
-    else:
-        for t in norm_tasks:
-            _run_task(t)
-
-    follow_ups: List[Dict[str, str]] = []
-    if ff.REFLECTION_ENABLED and role_to_findings:
-        reflection_cls = AGENT_REGISTRY.get("Reflection")
-        if reflection_cls:
-            reflection_agent = agents.get("Reflection") or reflection_cls(
-                select_model("agent", ui_model, agent_name="Reflection")
-            )
-            agents["Reflection"] = reflection_agent
-            ref_task = {
-                "role": "Reflection",
-                "title": "Review",
-                "description": json.dumps(role_to_findings),
-            }
-            try:
-                ref_out = _invoke_agent(reflection_agent, idea, ref_task)
-            except Exception as e:
-                safe_exc(logger, idea, "invoke_agent[Reflection]", e)
-                ref_out = "no further tasks"
-            ref_text = ref_out if isinstance(ref_out, str) else json.dumps(ref_out)
-            if "no further tasks" not in ref_text.lower():
-                try:
-                    follow_ups = json.loads(extract_json_block(ref_text) or ref_text)
-                except Exception:
-                    follow_ups = []
-                if not isinstance(follow_ups, list):
-                    follow_ups = []
-
-    for ft in follow_ups:
-        if isinstance(ft, str):
-            m = re.match(r"\[(?P<role>[^]]+)\]:\s*(?P<title>.*)", ft)
-            role_hint = m.group("role") if m else None
-            title = m.group("title") if m else ft
-            task = {"role": role_hint, "title": title, "description": title}
-        elif isinstance(ft, dict):
-            task = ft
+            run_tasks(exec_tasks, max_workers=min(4, len(exec_tasks)), state=_State())
         else:
-            continue
-        _run_task(task)
+            for t in norm_tasks:
+                _run_task(t)
+
+        follow_ups: List[Dict[str, str]] = []
+        if ff.REFLECTION_ENABLED and role_to_findings:
+            reflection_cls = AGENT_REGISTRY.get("Reflection")
+            if reflection_cls:
+                reflection_agent = agents.get("Reflection") or reflection_cls(
+                    select_model("agent", ui_model, agent_name="Reflection")
+                )
+                agents["Reflection"] = reflection_agent
+                ref_task = {
+                    "role": "Reflection",
+                    "title": "Review",
+                    "description": json.dumps(role_to_findings),
+                }
+                try:
+                    ref_out = _invoke_agent(reflection_agent, idea, ref_task)
+                except Exception as e:
+                    safe_exc(logger, idea, "invoke_agent[Reflection]", e)
+                    ref_out = "no further tasks"
+                ref_text = ref_out if isinstance(ref_out, str) else json.dumps(ref_out)
+                if "no further tasks" not in ref_text.lower():
+                    try:
+                        follow_ups = json.loads(extract_json_block(ref_text) or ref_text)
+                    except Exception:
+                        follow_ups = []
+                    if not isinstance(follow_ups, list):
+                        follow_ups = []
+
+        for ft in follow_ups:
+            if isinstance(ft, str):
+                m = re.match(r"\[(?P<role>[^]]+)\]:\s*(?P<title>.*)", ft)
+                role_hint = m.group("role") if m else None
+                title = m.group("title") if m else ft
+                task = {"role": role_hint, "title": title, "description": title}
+            elif isinstance(ft, dict):
+                task = ft
+            else:
+                continue
+            _run_task(task)
+
+        if not ff.EVALUATION_ENABLED:
+            break
+
+        eval_cls = AGENT_REGISTRY.get("Evaluation")
+        eval_agent = agents.get("Evaluation") if agents else None
+        if eval_cls and eval_agent is None:
+            eval_agent = eval_cls(select_model("agent", agent_name="Evaluation"))
+            agents["Evaluation"] = eval_agent  # type: ignore
+        elif eval_agent is None:
+            eval_agent = EvaluationAgent()
+        handle = collector.start_item(
+            {"id": f"E{eval_round+1:02d}", "title": "Evaluation"},
+            "Evaluation",
+            "",
+        )
+        collector.append_event(handle, "call", {"attempt": 1})
+        context = {
+            "rag_enabled": ff.RAG_ENABLED,
+            "live_search_enabled": ff.ENABLE_LIVE_SEARCH,
+        }
+        result = eval_agent.run(idea, answers, role_to_findings, context=context)
+        collector.append_event(handle, "evaluation", result.get("score", {}))
+        collector.finalize_item(handle, "; ".join(result.get("findings", [])), result, 0, 0, 0.0, [], [])
+        evaluations.append(result)
+        if save_decision_log:
+            log_decision(
+                project_id,
+                "evaluation",
+                {
+                    "scores": result.get("score"),
+                    "insufficient": result.get("insufficient"),
+                    "followups": len(result.get("followups", [])),
+                },
+            )
+        if not result.get("insufficient") or eval_round >= ff.EVALUATION_MAX_ROUNDS:
+            break
+        followups = list(result.get("followups", []) or [])[:3]
+        if not followups:
+            break
+        if ff.EVALUATION_HUMAN_REVIEW:
+            try:
+                st.session_state["pending_followups"] = followups
+                st.session_state["awaiting_approval"] = True
+            except Exception:
+                pass
+            break
+        for fu in followups:
+            collector.append_event(handle, "spawn_followup", fu)
+        norm_tasks = followups
+        eval_round += 1
+        continue
+
+    if evaluations and save_evidence:
+        out_dir = os.path.join("audits", project_id)
+        os.makedirs(out_dir, exist_ok=True)
+        try:
+            with open(os.path.join(out_dir, "evaluation.json"), "w", encoding="utf-8") as f:
+                json.dump(evaluations, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
 
     if save_evidence and evidence is not None:
         import csv

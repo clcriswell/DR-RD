@@ -12,7 +12,16 @@ def _now() -> str:
 
 
 class TraceEvent(BaseModel):
-    type: Literal["route", "call", "retry", "validate", "save_evidence", "complete"]
+    type: Literal[
+        "route",
+        "call",
+        "retry",
+        "validate",
+        "save_evidence",
+        "complete",
+        "evaluation",
+        "spawn_followup",
+    ]
     ts: str = Field(default_factory=_now)
     meta: Dict[str, Any] = Field(default_factory=dict)
 

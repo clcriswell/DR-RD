@@ -1,7 +1,7 @@
 # Repository Map
 
 ## Overview & Flow Diagram
-User idea → Planner → Router/Registry → Executor → Summarization → Synthesizer → UI
+User idea → Planner → Router/Registry → Executor → Evaluation → Synthesizer → UI
 
 ## Entry Points & Run Modes
 
@@ -31,6 +31,7 @@ Deprecated aliases: test, deep
 | Reflection | `core/agents/reflection_agent.py` | JSON |
 | Chief Scientist | `core/agents/chief_scientist_agent.py` | JSON |
 | Regulatory Specialist | `core/agents/regulatory_specialist_agent.py` | JSON |
+| Evaluation | `core/agents/evaluation_agent.py` | JSON |
 
 
 ## Orchestrator & Executor Responsibilities
@@ -50,4 +51,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-08-25T22:54:51.646146Z from commit 65bd9c0_
+_Last generated at 2025-08-25T23:27:11.560811Z from commit 6eca588_
