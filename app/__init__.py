@@ -37,6 +37,9 @@ from dr_rd.core.config_snapshot import build_resolved_config_snapshot
 from dr_rd.knowledge.bootstrap import bootstrap_vector_index
 from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
+from core.summarization import two_pass_enabled
+from core.summarization.integrator import integrate
+from core.summarization.schemas import RoleSummary
 
 
 class _DummyCtx:
@@ -1306,6 +1309,19 @@ def main():
                     logging.exception("Error during final proposal synthesis: %s", e)
                     st.stop()
             st.session_state["final_doc"] = final_report_text
+            if two_pass_enabled():
+                try:
+                    summaries: List[RoleSummary] = []
+                    for role, content in st.session_state.get("answers", {}).items():
+                        bullets = [
+                            line.strip("- ").strip()
+                            for line in content.splitlines()
+                            if line.strip()
+                        ][:5]
+                        summaries.append(RoleSummary(role=role, bullets=bullets))
+                    st.session_state["integrated_summary"] = integrate(summaries)
+                except Exception as e:
+                    logging.warning("Summary integration failed: %s", e)
             if use_firestore:
                 try:
                     doc_id = get_project_id()
@@ -1333,6 +1349,17 @@ def main():
                 file_name="R&D_Report.pdf",
                 mime="application/pdf",
             )
+        summary = st.session_state.get("integrated_summary")
+        if summary and summary.contradictions:
+            exp_fn = getattr(st, "expander", None)
+            container = (
+                exp_fn("⚠️ Cross-role contradictions & resolutions", expanded=False)
+                if callable(exp_fn)
+                else st
+            )
+            with container:
+                for item in summary.contradictions:
+                    st.markdown(f"- {item}")
 
         slug = get_project_id()
         build_dir = os.path.join("audits", slug, "build") if slug else None

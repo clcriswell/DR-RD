@@ -72,6 +72,18 @@ def build_repo_map() -> dict:
                 "invokes": [],
             }
         )
+    for path in (ROOT / "core" / "summarization").glob("*.py"):
+        modules.append(
+            {
+                "path": f"core/summarization/{path.name}",
+                "role": "Summarization",
+                "responsibilities": [],
+                "inputs": [],
+                "outputs": [],
+                "invoked_by": [],
+                "invokes": [],
+            }
+        )
     for path in ["app.py", "app/__init__.py"]:
         modules.append(
             {
@@ -93,7 +105,7 @@ def build_repo_map() -> dict:
             {"name": "streamlit_app", "path": "app.py"},
             {"name": "package_init", "path": "app/__init__.py:main"},
         ],
-        "architecture": "Planner → Router/Registry → Executor → Synthesizer",
+        "architecture": "Planner → Router/Registry → Executor → Summarization → Synthesizer",
         "runtime_modes": modes,
         "env_flags": [
             "DRRD_MODE",
@@ -111,7 +123,7 @@ def build_repo_map() -> dict:
         "tests_dir": "tests",
         "orchestrators_dir": "orchestrators",
         "ui_files": ["app.py", "app/__init__.py"],
-        "execution_flow": "User idea → Planner → Router/Registry → Executor → Synthesizer → UI",
+        "execution_flow": "User idea → Planner → Router/Registry → Executor → Summarization → Synthesizer → UI",
         "rules_ref": "docs/REPO_RULES.md",
     }
     return data

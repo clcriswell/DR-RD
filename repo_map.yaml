@@ -1,12 +1,13 @@
 version: 1
-generated_at: '2025-08-24T07:16:22.258739Z'
-git_sha: c6ed7e58af96c30518f93cdad87b41b18501a99e
+generated_at: '2025-08-25T02:50:06.796824Z'
+git_sha: 435f9a9b3108cff54736e006047512ad92f88790
 entry_points:
 - name: streamlit_app
   path: app.py
 - name: package_init
   path: app/__init__.py:main
-architecture: "Planner \u2192 Router/Registry \u2192 Executor \u2192 Synthesizer"
+architecture: "Planner \u2192 Router/Registry \u2192 Executor \u2192 Summarization\
+  \ \u2192 Synthesizer"
 runtime_modes:
   test:
     target_cost_usd: 2.5
@@ -102,7 +103,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/app_builder.py
+- path: orchestrators/router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -116,14 +117,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/router.py
+- path: orchestrators/app_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/qa_router.py
+- path: orchestrators/plan_utils.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -137,8 +138,36 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/plan_utils.py
+- path: orchestrators/qa_router.py
   role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/integrator.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/schemas.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/__init__.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/role_summarizer.py
+  role: Summarization
   responsibilities: []
   inputs: []
   outputs: []
@@ -180,5 +209,5 @@ ui_files:
 - app.py
 - app/__init__.py
 execution_flow: "User idea \u2192 Planner \u2192 Router/Registry \u2192 Executor \u2192\
-  \ Synthesizer \u2192 UI"
+  \ Summarization \u2192 Synthesizer \u2192 UI"
 rules_ref: docs/REPO_RULES.md

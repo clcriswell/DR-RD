@@ -1,7 +1,7 @@
 # Repository Map
 
 ## Overview & Flow Diagram
-User idea → Planner → Router/Registry → Executor → Synthesizer → UI
+User idea → Planner → Router/Registry → Executor → Summarization → Synthesizer → UI
 
 ## Entry Points & Run Modes
 
@@ -43,4 +43,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-08-24T07:16:22.258739Z from commit c6ed7e5_
+_Last generated at 2025-08-25T02:50:06.796824Z from commit 435f9a9_
