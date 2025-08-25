@@ -16,8 +16,8 @@ from utils.logging import logger, safe_exc
 from utils.paths import new_run_dir
 
 from core.agents.planner_agent import PlannerAgent
-from core.agents.registry import AGENT_REGISTRY, build_agents, load_mode_models
-from core.agents_registry import agents_dict
+from core.agents.unified_registry import AGENT_REGISTRY, build_agents_unified
+from config.agent_models import AGENT_MODEL_MAP
 from core.dossier import Dossier, Finding
 from core.llm import complete, select_model
 from core.llm_client import responses_json_schema_for
@@ -557,14 +557,9 @@ def run_poc(project_id: str, test_plan):
 
 
 def orchestrate(user_idea: str) -> str:
-    """Orchestrate the multi-agent R&D process for a given idea.
+    """Orchestrate the multi-agent R&D process for a given idea."""
 
-    This function expects a global ``agents_dict`` mapping role names to
-    agent instances. Each agent must implement ``act(system_prompt, user_prompt)``.
-    The function will coordinate the HR manager, planner, specialists, a
-    reflection step, and finally the chief scientist who synthesizes results
-    into a final plan.
-    """
+    agents = build_agents_unified(AGENT_MODEL_MAP, os.getenv("DRRD_OPENAI_MODEL", "gpt-4o-mini"))
 
     logger.info("[User] Idea submitted: %s", user_idea)
 
@@ -581,7 +576,7 @@ def orchestrate(user_idea: str) -> str:
             "You are a Reflection agent analyzing the team's outputs. "
             "Determine if any additional follow-up tasks are required based on the results so far."
         ),
-        "ChiefScientist": (
+        "Chief Scientist": (
             "You are the Chief Scientist overseeing this project. "
             "Integrate all contributions into a comprehensive final R&D plan."
         ),
@@ -590,24 +585,24 @@ def orchestrate(user_idea: str) -> str:
             "focusing on technical strategy and feasibility. "
             "Address architecture, potential technical risks, and ensure coherence across domains in the plan."
         ),
-        "ResearchScientist": (
+        "Research Scientist": (
             "You are a Research Scientist with expertise in the project's field. "
             "Research the state-of-the-art and summarize key findings, "
             "relevant studies, and gaps related to the idea."
         ),
-        "MaterialsEngineer": (
+        "Materials Engineer": (
             "You are a Materials Engineer specialized in material selection and engineering feasibility. "
             "Evaluate material and engineering aspects of the idea "
             "and suggest solutions to any challenges."
         ),
-        "RegulatorySpecialist": (
+        "Regulatory Specialist": (
             "You are a Regulatory Compliance Specialist. "
             "Review the idea for any regulatory or safety requirements "
             "and highlight compliance issues to address."
         ),
     }
 
-    hrm_output = agents_dict["HRM"].act(role_personas["HRM"], user_idea)
+    hrm_output = agents["HRM"].act(role_personas["HRM"], user_idea)
 
     roles_needed: List[str] = []
     if isinstance(hrm_output, str):
@@ -629,7 +624,7 @@ def orchestrate(user_idea: str) -> str:
             roles_needed = [str(hrm_output)]
     logger.info("[HRM] Roles needed: %s", roles_needed)
 
-    planner_output = agents_dict["Planner"].act(role_personas["Planner"], user_idea)
+    planner_output = agents["Planner"].act(role_personas["Planner"], user_idea)
 
     tasks: List[Dict[str, Any]] = []
     if isinstance(planner_output, str):
@@ -664,10 +659,10 @@ def orchestrate(user_idea: str) -> str:
         direct_input = (
             f"Roles: {roles_needed}. Idea: {user_idea}. Provide a comprehensive R&D plan."
         )
-        final_plan = agents_dict["ChiefScientist"].act(
-            role_personas["ChiefScientist"], direct_input
+        final_plan = agents["Chief Scientist"].act(
+            role_personas["Chief Scientist"], direct_input
         )
-        logger.info("[ChiefScientist] Final plan (direct synthesis) ready.")
+        logger.info("[Chief Scientist] Final plan (direct synthesis) ready.")
         return final_plan
 
     def assign_role(task: Dict[str, Any]) -> str:
@@ -675,37 +670,37 @@ def orchestrate(user_idea: str) -> str:
         task_desc = task.get("task", "")
         if domain:
             dom_lower = str(domain).lower()
-            for role_name in agents_dict.keys():
+            for role_name in agents.keys():
                 if dom_lower in role_name.lower():
                     return role_name
             if "material" in dom_lower:
-                return "MaterialsEngineer"
+                return "Materials Engineer"
             if "regulator" in dom_lower or "compliance" in dom_lower:
-                return "RegulatorySpecialist"
+                return "Regulatory Specialist"
             if "science" in dom_lower or "research" in dom_lower:
-                return "ResearchScientist"
+                return "Research Scientist"
             if "tech" in dom_lower or "engineer" in dom_lower:
                 return "CTO"
         desc_lower = task_desc.lower()
         if any(word in desc_lower for word in ["material", "materials"]):
             return (
-                "MaterialsEngineer" if "MaterialsEngineer" in agents_dict else "MaterialsScientist"
+                "Materials Engineer" if "Materials Engineer" in agents else "Materials Scientist"
             )
         if any(word in desc_lower for word in ["regulatory", "regulation", "compliance"]):
-            return "RegulatorySpecialist"
+            return "Regulatory Specialist"
         if any(word in desc_lower for word in ["research", "analysis", "study"]):
-            return "ResearchScientist"
+            return "Research Scientist"
         if any(word in desc_lower for word in ["technical", "architecture", "system design"]):
             return "CTO"
         if roles_needed:
             return roles_needed[0]
-        return "ResearchScientist"
+        return "Research Scientist"
 
     all_outputs: Dict[str, List[Dict[str, Any]]] = {}
     for task in tasks:
         task_desc = task.get("task", "")
         role_assigned = assign_role(task)
-        agent = agents_dict.get(role_assigned)
+        agent = agents.get(role_assigned)
         if agent is None:
             logger.info(
                 "[Warning] No agent found for role %s, skipping task: %s",
@@ -730,7 +725,7 @@ def orchestrate(user_idea: str) -> str:
         "If yes, list the new tasks (as a JSON list of task descriptions or task dicts with domains if applicable); "
         "if not, respond with 'no further tasks'."
     )
-    reflection_output = agents_dict["Reflection"].act(
+    reflection_output = agents["Reflection"].act(
         role_personas["Reflection"], reflection_user_prompt
     )
 
@@ -777,7 +772,7 @@ def orchestrate(user_idea: str) -> str:
                 ftask = {"task": ftask}
             ftask_desc = ftask.get("task", "")
             role_assigned = assign_role(ftask)
-            agent = agents_dict.get(role_assigned)
+            agent = agents.get(role_assigned)
             if agent is None:
                 logger.info(
                     "[Warning] No agent for follow-up role %s, skipping task: %s",
@@ -807,10 +802,10 @@ def orchestrate(user_idea: str) -> str:
         "As the Chief Scientist, please synthesize these contributions "
         "into a final comprehensive R&D plan."
     )
-    final_plan = agents_dict["ChiefScientist"].act(
-        role_personas["ChiefScientist"], chief_user_prompt
+    final_plan = agents["Chief Scientist"].act(
+        role_personas["Chief Scientist"], chief_user_prompt
     )
-    logger.info("[ChiefScientist] Final R&D plan synthesized.")
+    logger.info("[Chief Scientist] Final R&D plan synthesized.")
     return final_plan
 
 
@@ -830,12 +825,11 @@ def run_pipeline(
         policy = load_policy(cfg.get("redaction", {}).get("policy_file", "config/redaction.yaml"))
     dossier = Dossier(policy=policy)
 
-    models = load_mode_models(mode)
-    planner_model = models.get(
-        "Planner", models.get("default", os.getenv("DRRD_OPENAI_MODEL", "gpt-4.1-mini"))
-    )
+    models = AGENT_MODEL_MAP
+    default_model = os.getenv("DRRD_OPENAI_MODEL", "gpt-4o-mini")
+    planner_model = models.get("Planner", default_model)
     planner = PlannerAgent(planner_model)
-    agents = build_agents(mode, models=models)
+    agents = build_agents_unified(models, default_model)
 
     max_loops = int(st.session_state.get("MODE_CFG", {}).get("max_loops", 5))
     cycle = 0
@@ -898,6 +892,6 @@ def run_pipeline(
         if cycle >= max_loops and not task_queue:
             break
 
-    final = synthesize(idea, results_by_role, model_id=models.get("synth", planner_model))
+    final = synthesize(idea, results_by_role, model_id=models.get("Synthesizer", planner_model))
     dossier.save(run_dir / "dossier.json")
     return final, results_by_role, trace

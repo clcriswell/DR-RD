@@ -17,6 +17,12 @@ The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in 
 configuration. `load_mode()` is deprecated and forwards to `load_profile()` for
 one release.
 
+## Agent registry
+
+The canonical agent registry lives in `core.agents.unified_registry`. Legacy
+modules `core.agents.registry` and `core.agents_registry` re-export this API for
+one release and emit deprecation warnings.
+
 ## Runtime profile
 
 `standard` is the only supported runtime profile going forward. Legacy

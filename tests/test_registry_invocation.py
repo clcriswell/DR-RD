@@ -2,7 +2,7 @@ import logging
 import pytest
 
 import core.router as router
-import core.agents.registry as registry
+import core.agents.unified_registry as registry
 from core.agents.invoke import resolve_invoker
 
 
@@ -53,7 +53,10 @@ def test_resolve_invoker_precedence():
 
 
 def test_validate_registry_reports_errors_and_strict(monkeypatch):
-    monkeypatch.setattr(registry, "AGENTS", {"OK": DummyRun, "Bad": DummyNoCallable})
+    monkeypatch.setattr(
+        registry, "AGENT_REGISTRY", {"OK": DummyRun, "Bad": DummyNoCallable}
+    )
+    monkeypatch.setattr(registry, "AGENTS", registry.AGENT_REGISTRY)
     monkeypatch.setattr(registry, "select_model", lambda *a, **k: "m")
     registry.CACHE.clear()
     summary = registry.validate_registry(strict=False)

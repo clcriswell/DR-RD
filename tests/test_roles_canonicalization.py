@@ -1,5 +1,5 @@
 from core.router import choose_agent_for_task
-from core.agents.registry import AGENT_REGISTRY
+from core.agents.unified_registry import AGENT_REGISTRY
 
 
 def _check(role, expected):

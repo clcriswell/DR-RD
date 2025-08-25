@@ -1,5 +1,5 @@
 from core.router import choose_agent_for_task
-from core.agents.registry import AGENT_REGISTRY
+from core.agents.unified_registry import AGENT_REGISTRY
 
 
 def test_keyword_routing():
@@ -14,5 +14,5 @@ def test_default_role():
     role, cls, _ = choose_agent_for_task(
         None, "Investigate", "quantum entanglement"
     )
-    assert role == "Synthesizer"
-    assert cls is AGENT_REGISTRY["Synthesizer"]
+    assert role == "Research Scientist"
+    assert cls is AGENT_REGISTRY["Research Scientist"]

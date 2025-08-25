@@ -1,5 +1,5 @@
 from core.router import choose_agent_for_task
-from core.agents.registry import AGENT_REGISTRY
+from core.agents.unified_registry import AGENT_REGISTRY
 
 
 def test_agent_mapping_cto():
@@ -13,7 +13,7 @@ def test_agent_mapping_research():
     role, cls, _ = choose_agent_for_task(
         None, "Survey materials and physics literature", ""
     )
-    assert role == "Synthesizer" and cls is AGENT_REGISTRY["Synthesizer"]
+    assert role == "Research Scientist" and cls is AGENT_REGISTRY["Research Scientist"]
 
 
 def test_agent_mapping_regulatory():
@@ -39,4 +39,4 @@ def test_agent_exact_role_over_keyword():
 
 def test_agent_mapping_default():
     role, cls, _ = choose_agent_for_task(None, "Unrecognized task", "")
-    assert role == "Synthesizer" and cls is AGENT_REGISTRY["Synthesizer"]
+    assert role == "Research Scientist" and cls is AGENT_REGISTRY["Research Scientist"]
