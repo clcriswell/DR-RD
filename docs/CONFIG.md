@@ -11,6 +11,10 @@ The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in 
 - `live_search_summary_tokens`: cap for web-summary tokens.
 - `enable_images`: allow image generation (default `false` for `test` and `deep`).
 
+## Runtime profile
+
+`standard` is the only supported runtime profile going forward. `test` and `deep` are temporary aliases to `standard` and will be removed in an upcoming release. Behavioural knobs are controlled by feature flags and toggles (details to follow).
+
 **Model defaults with OpenAI web search**
 
 When `LIVE_SEARCH_BACKEND=openai`, the default model is `gpt-4o-mini` so that the

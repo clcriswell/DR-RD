@@ -1,4 +1,4 @@
-test:
+standard: &standard
   target_cost_usd: 2.50
   enforce_caps: false
   models: { plan: gpt-4o-mini, exec: gpt-4o-mini, synth: gpt-4o-mini }
@@ -15,21 +15,7 @@ test:
   faiss_bootstrap_mode: skip
   faiss_index_uri: ""
   enable_images: false
-deep:
-  target_cost_usd: 2.50
-  enforce_caps: false
-  models: { plan: gpt-4o-mini, exec: gpt-4o-mini, synth: gpt-4o-mini }
-  k_search: 6
-  max_loops: 5
-  stage_weights: { plan: 0.20, exec: 0.50, synth: 0.30 }
-  rag_enabled: true
-  rag_top_k: 5
-  live_search_enabled: true
-  live_search_backend: openai
-  live_search_max_calls: 3
-  live_search_summary_tokens: 256
-  faiss_index_local_dir: .faiss_index
-  faiss_bootstrap_mode: skip
-  faiss_index_uri: ""
-  enable_images: false
+
+test: *standard  # DEPRECATED: alias to 'standard'; will be removed next release
+deep: *standard  # DEPRECATED: alias to 'standard'; will be removed next release
 # redaction time
