@@ -28,11 +28,27 @@ KEYWORDS: Dict[str, str] = {
     "iso": "Regulatory",
     "budget": "Finance",
     "architecture": "CTO",
+    # Expanded coverage
+    "quantum": "Research Scientist",
+    "physics": "Research Scientist",
+    "physicist": "Research Scientist",
+    "materials": "Materials Engineer",
+    "manufacturing": "Materials Engineer",
+    "prototype": "Materials Engineer",
+    "hr": "HRM",
+    "human resources": "HRM",
+    "hiring": "HRM",
+    "org design": "HRM",
+    "qa": "Reflection",
+    "quality assurance": "Reflection",
+    "consistency review": "Reflection",
+    "postmortem": "Reflection",
 }
 
 # Common role aliases to canonical registry roles
 ALIASES: Dict[str, str] = {
     "manufacturing technician": "Research Scientist",
+    "quantum physicist": "Research Scientist",
 }
 
 
@@ -88,11 +104,11 @@ def choose_agent_for_task(
             model = select_model("agent", ui_model, agent_name=role)
             return role, AGENT_REGISTRY[role], model
 
-    # 3) Fallback to Synthesizer with info log
+    # 3) Fallback to Research Scientist with info log
     if planned_role:
-        logger.info("Fallback routing %r → Synthesizer", planned_role)
-    model = select_model("agent", ui_model, agent_name="Synthesizer")
-    return "Synthesizer", AGENT_REGISTRY["Synthesizer"], model
+        logger.info("Fallback routing %r → Research Scientist", planned_role)
+    model = select_model("agent", ui_model, agent_name="Research Scientist")
+    return "Research Scientist", AGENT_REGISTRY["Research Scientist"], model
 
 
 def route_task(
@@ -112,15 +128,15 @@ def dispatch(task: Dict[str, str], ui_model: str | None = None):
     """Dispatch ``task`` to the appropriate agent instance.
 
     The task's ``role`` is normalised via ``ALIASES`` and ``ROLE_SYNONYMS``
-    before lookup.  Unknown roles fall back to ``Synthesizer``.  If the resolved
-    agent lacks a callable interface, a single warning is logged and the task is
-    rerouted to ``Synthesizer``.
+    before lookup.  Unknown roles fall back to ``Research Scientist``.  If the
+    resolved agent lacks a callable interface, a single warning is logged and the
+    task is rerouted to ``Research Scientist``.
     """
 
     role = canonicalize(_alias(task.get("role")))
     if role:
         role = ROLE_SYNONYMS.get(role, role)
-    canonical = role if role in AGENT_REGISTRY else "Synthesizer"
+    canonical = role if role in AGENT_REGISTRY else "Research Scientist"
 
     model = select_model("agent", ui_model, agent_name=canonical)
     meta = {"purpose": "agent", "agent": canonical, "role": task.get("role")}
@@ -128,11 +144,11 @@ def dispatch(task: Dict[str, str], ui_model: str | None = None):
     try:
         return invoke_agent(agent, task=task, model=model, meta=meta)
     except TypeError as e:
-        if canonical != "Synthesizer":
+        if canonical != "Research Scientist":
             logger.warning("Uncallable agent %s: %s", canonical, e)
-            fb = get_agent("Synthesizer")
-            fb_model = select_model("agent", ui_model, agent_name="Synthesizer")
-            fb_meta = {**meta, "agent": "Synthesizer", "fallback_from": canonical}
+            fb = get_agent("Research Scientist")
+            fb_model = select_model("agent", ui_model, agent_name="Research Scientist")
+            fb_meta = {**meta, "agent": "Research Scientist", "fallback_from": canonical}
             return invoke_agent(fb, task=task, model=fb_model, meta=fb_meta)
         raise
 

@@ -5,7 +5,8 @@ class ResearchScientistAgent(LLMRoleAgent):
     def act(self, idea, task=None, **kwargs) -> str:
         if isinstance(task, dict):
             system_prompt = (
-                "You are the Research Scientist. Provide specific, non-generic analysis with concrete details."
+                "You are the Research Scientist. Provide specific, non-generic analysis with concrete details. "
+                "Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
             )
             user_prompt = (
                 f"Project Idea:\n{idea}\n\n"

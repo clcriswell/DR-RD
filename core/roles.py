@@ -24,6 +24,10 @@ CANON = {
     "ip analyst": "IP Analyst",
     "intellectual property": "IP Analyst",
     "ip": "IP Analyst",
+    "hrm": "HRM",
+    "human resources": "HRM",
+    "materials engineer": "Materials Engineer",
+    "reflection": "Reflection",
 }
 
 # Additional explicit role remappings to stop Synthesizer fallbacks. The keys
@@ -43,6 +47,11 @@ CANONICAL = {
     "Quality Assurance": "Regulatory",
     # Materials research is handled by the Mechanical Systems Lead today.
     "Materials Scientist": "Mechanical Systems Lead",
+    # Quality assurance and consistency review maps to Reflection agent.
+    "QA": "Reflection",
+    "Quality Assurance": "Reflection",
+    # HR related planning maps to HRM agent
+    "Human Resources": "HRM",
 }
 
 logger = logging.getLogger(__name__)
@@ -73,4 +82,14 @@ def canonicalize(role: str | None) -> str | None:
 
 
 def canonical_roles() -> Set[str]:
-    return {"CTO", "Research Scientist", "Regulatory", "Finance", "Marketing Analyst", "IP Analyst"}
+    return {
+        "CTO",
+        "Research Scientist",
+        "Regulatory",
+        "Finance",
+        "Marketing Analyst",
+        "IP Analyst",
+        "HRM",
+        "Materials Engineer",
+        "Reflection",
+    }

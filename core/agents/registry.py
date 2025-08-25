@@ -17,6 +17,9 @@ from .ip_analyst_agent import IPAnalystAgent
 from .planner_agent import PlannerAgent
 from .synthesizer_agent import SynthesizerAgent
 from .mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
+from .hrm_agent import HRMAgent
+from .materials_engineer_agent import MaterialsEngineerAgent
+from .reflection_agent import ReflectionAgent
 from .invoke import resolve_invoker
 from config.agent_models import AGENT_MODEL_MAP
 from core.llm import select_model
@@ -37,6 +40,9 @@ AGENTS: Dict[str, Type[BaseAgent]] = {
     "Planner": PlannerAgent,
     "Synthesizer": SynthesizerAgent,
     "Mechanical Systems Lead": MechanicalSystemsLeadAgent,
+    "HRM": HRMAgent,
+    "Materials Engineer": MaterialsEngineerAgent,
+    "Reflection": ReflectionAgent,
 }
 
 # Backwards compatibility alias
@@ -48,7 +54,7 @@ CACHE: Dict[str, object] = {}
 def get_agent(name: str) -> object:
     """Return a cached agent instance by canonical ``name``.
 
-    Unknown names fall back to ``Synthesizer``.
+    Unknown names fall back to ``Research Scientist``.
     """
 
     if name in CACHE:
@@ -56,9 +62,9 @@ def get_agent(name: str) -> object:
 
     cls = AGENTS.get(name)
     if cls is None:
-        logger.info("Unknown agent %r; using Synthesizer", name)
-        cls = AGENTS["Synthesizer"]
-        name = "Synthesizer"
+        logger.info("Unknown agent %r; using Research Scientist", name)
+        cls = AGENTS["Research Scientist"]
+        name = "Research Scientist"
 
     inst = cls(select_model("agent", agent_name=name))
     CACHE[name] = inst
