@@ -775,7 +775,7 @@ def main():
         image_toggle_fn = getattr(
             sidebar, "toggle", getattr(sidebar, "checkbox", lambda *a, **k: False)
         )
-        default_images_on = not ff.DISABLE_IMAGES_BY_DEFAULT.get(selected_mode, True)
+        default_images_on = ff.ENABLE_IMAGES
         st.session_state["disable_images"] = not image_toggle_fn(
             "Generate images",
             value=default_images_on,
