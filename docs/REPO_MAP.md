@@ -31,6 +31,7 @@ Deprecated aliases: test, deep
 | Reflection | `core/agents/reflection_agent.py` | JSON |
 | Chief Scientist | `core/agents/chief_scientist_agent.py` | JSON |
 | Regulatory Specialist | `core/agents/regulatory_specialist_agent.py` | JSON |
+| UI Helpers | `app/agent_trace_ui.py` | JSON |
 
 
 ## Orchestrator & Executor Responsibilities
