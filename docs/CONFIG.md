@@ -11,9 +11,18 @@ The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in 
 - `live_search_summary_tokens`: cap for web-summary tokens.
 - `enable_images`: allow image generation (default `false`).
 
+## Loader
+
+`load_profile("standard")` is the canonical entry point for loading runtime
+configuration. `load_mode()` is deprecated and forwards to `load_profile()` for
+one release.
+
 ## Runtime profile
 
-`standard` is the only supported runtime profile going forward. `test` and `deep` are temporary aliases to `standard` and will be removed in an upcoming release. Behavioural knobs are controlled by feature flags and toggles (details to follow).
+`standard` is the only supported runtime profile going forward. Legacy
+`test` and `deep` selections map to `standard` and emit a deprecation warning.
+Behavioural knobs are controlled by feature flags and toggles (details to
+follow).
 
 ## Model routing
 
@@ -58,8 +67,8 @@ SERPAPI_KEY=your_key
 
 Environment variables remain the baseline source of truth. The active runtime
 profile (`standard` from `modes.yaml`) may override selected flags at startup via
-`apply_overrides(cfg)`. The legacy function name `apply_mode_overrides` is
-deprecated and will be removed; code should migrate to `apply_overrides`.
+`config.feature_flags.apply_overrides(cfg)`. The legacy name
+`apply_mode_overrides` is deprecated and will be removed.
 
 Config keys that can be overridden:
 
