@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-25T19:56:23.964861Z'
-git_sha: 8128beb743dedd42ea9c933b7ce2d84ce2733fa0
+generated_at: '2025-08-25T20:10:11.875833Z'
+git_sha: 5066854baa897c64a22527942f8d0d7bfe4822ef
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -40,49 +40,28 @@ env_flags:
 - ENABLE_LIVE_SEARCH
 - SERPAPI_KEY
 modules:
-- path: core/agents/hrm_agent.py
-  role: Agent[HRM]
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/agents/planner_agent.py
-  role: Agent[Planner]
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/agents/reflection_agent.py
-  role: Agent[Reflection]
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/agents/chief_scientist_agent.py
-  role: Agent[ChiefScientist]
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/agents/materials_engineer_agent.py
-  role: Agent[MaterialsEngineer]
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/agents/regulatory_specialist_agent.py
-  role: Agent[RegulatorySpecialist]
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
 - path: orchestrators/app_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/__init__.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/spec_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -98,34 +77,6 @@ modules:
   invokes: []
 - path: orchestrators/qa_router.py
   role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/__init__.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/router.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/spec_builder.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/summarization/role_summarizer.py
-  role: Summarization
   responsibilities: []
   inputs: []
   outputs: []
@@ -152,6 +103,13 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
+- path: core/summarization/role_summarizer.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
 - path: app.py
   role: UI
   responsibilities: []
@@ -166,13 +124,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-agent_registry:
-  HRM: core/agents/hrm_agent.py
-  Planner: core/agents/planner_agent.py
-  Reflection: core/agents/reflection_agent.py
-  ChiefScientist: core/agents/chief_scientist_agent.py
-  MaterialsEngineer: core/agents/materials_engineer_agent.py
-  RegulatorySpecialist: core/agents/regulatory_specialist_agent.py
+agent_registry: {}
 config_files:
 - path: config/modes.yaml
   required_keys:

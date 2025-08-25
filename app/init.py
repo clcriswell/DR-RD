@@ -1,5 +1,6 @@
 import logging
 import core
+from config.agent_models import AGENT_MODEL_MAP
 from core.agents.unified_registry import build_agents_unified, ensure_canonical_agent_keys
 from core.router import choose_agent_for_task
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_agents():
-    agents = build_agents_unified()
+    agents = build_agents_unified(AGENT_MODEL_MAP, "gpt-4o-mini")
     agents = ensure_canonical_agent_keys(agents)
     logger.info("Registered agents (unified): %s", sorted(core.agents.keys()))
     return agents

@@ -19,12 +19,6 @@ User idea → Planner → Router/Registry → Executor → Summarization → Syn
 ## Agent Roster
 | Role | Module | Contract |
 | --- | --- | --- |
-| HRM | `core/agents/hrm_agent.py` | JSON |
-| Planner | `core/agents/planner_agent.py` | JSON |
-| Reflection | `core/agents/reflection_agent.py` | JSON |
-| ChiefScientist | `core/agents/chief_scientist_agent.py` | JSON |
-| MaterialsEngineer | `core/agents/materials_engineer_agent.py` | JSON |
-| RegulatorySpecialist | `core/agents/regulatory_specialist_agent.py` | JSON |
 
 
 ## Orchestrator & Executor Responsibilities
@@ -44,4 +38,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-08-25T19:56:23.964861Z from commit 8128beb_
+_Last generated at 2025-08-25T20:10:11.875833Z from commit 5066854_

@@ -24,7 +24,11 @@ from config.mode_profiles import UI_PRESETS, apply_profile
 from core.agents.planner_agent import PlannerAgent
 from core.agents.simulation_agent import SimulationAgent
 from core.agents.synthesizer_agent import SynthesizerAgent
-from core.agents.unified_registry import build_agents_unified
+from core.agents.unified_registry import (
+    AGENT_REGISTRY,
+    build_agents_unified,
+    validate_registry,
+)
 from core.llm_client import BUDGET, METER, call_openai, set_budget_manager
 from core.llm import select_model
 from core.model_router import CallHints, difficulty_from_signals, pick_model
@@ -72,7 +76,6 @@ def _str_env(name: str, default: str = "") -> str:
     v = os.getenv(name)
     return default if v is None else str(v).strip()
 
-from core.agents.registry import validate_registry
 
 try:
     from orchestrators.app_builder import build_app_from_idea
