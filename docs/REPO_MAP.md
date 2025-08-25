@@ -11,6 +11,7 @@ User idea → Planner → Router/Registry → Executor → Summarization → Syn
 
 
 ### Runtime Modes
+- **standard**: target cost USD 2.5
 - **test**: target cost USD 2.5
 - **deep**: target cost USD 2.5
 
@@ -43,4 +44,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-08-25T06:02:34.222187Z from commit 24a7d45_
+_Last generated at 2025-08-25T19:05:12.676314Z from commit 8beda76_

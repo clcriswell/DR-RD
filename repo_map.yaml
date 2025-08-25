@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-25T06:02:34.222187Z'
-git_sha: 24a7d45433868a35aff282f2dd63e9e2d64cec85
+generated_at: '2025-08-25T19:05:12.676314Z'
+git_sha: 8beda769ee788c11011583a41b965eea28fdb6c7
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -9,7 +9,7 @@ entry_points:
 architecture: "Planner \u2192 Router/Registry \u2192 Executor \u2192 Summarization\
   \ \u2192 Synthesizer"
 runtime_modes:
-  test:
+  standard: &id001
     target_cost_usd: 2.5
     enforce_caps: false
     models:
@@ -32,29 +32,8 @@ runtime_modes:
     faiss_bootstrap_mode: skip
     faiss_index_uri: ''
     enable_images: false
-  deep:
-    target_cost_usd: 2.5
-    enforce_caps: false
-    models:
-      plan: gpt-4o-mini
-      exec: gpt-4o-mini
-      synth: gpt-4o-mini
-    k_search: 6
-    max_loops: 5
-    stage_weights:
-      plan: 0.2
-      exec: 0.5
-      synth: 0.3
-    rag_enabled: true
-    rag_top_k: 5
-    live_search_enabled: true
-    live_search_backend: openai
-    live_search_max_calls: 3
-    live_search_summary_tokens: 256
-    faiss_index_local_dir: .faiss_index
-    faiss_bootstrap_mode: skip
-    faiss_index_uri: ''
-    enable_images: false
+  test: *id001
+  deep: *id001
 env_flags:
 - DRRD_MODE
 - RAG_ENABLED
@@ -103,7 +82,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/spec_builder.py
+- path: orchestrators/qa_router.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/app_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -124,21 +110,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
+- path: orchestrators/spec_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
 - path: orchestrators/plan_utils.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/app_builder.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/qa_router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
