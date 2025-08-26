@@ -56,3 +56,8 @@ The Streamlit sidebar exposes per-tool enable toggles and cap inputs. The main a
 provides Code I/O, Simulation, and Vision panels for manual invocations. All tool calls
 respect these settings and surface errors for disabled tools or open circuits. A
 tool-call trace can be downloaded via the "Exports" tab.
+
+## Evaluator Integration
+When enabled, agent outputs are scored and attached under the `evaluation` key in
+each task answer. Toggle evaluator usage from the Orchestration section in the
+UI sidebar.

@@ -1,10 +1,62 @@
+"""LangGraph orchestration with parallel fan-out and evaluator-gated retries."""
 from __future__ import annotations
 
-from functools import partial
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+import time
 
-from .state import GraphState
-from .nodes import plan_node, route_node, agent_node, tool_node, collect_node, synth_node
+import config.feature_flags as ff
+from .state import GraphState, GraphTask
+from .nodes import (
+    plan_node,
+    route_node,
+    agent_node,
+    tool_node,
+    collect_node,
+    synth_node,
+    attach_evaluation,
+)
+from .hooks import agent_attempt
+from .scheduler import ParallelLimiter, ExponentialBackoff
+from dr_rd.evaluation.scorecard import evaluate
+
+
+def _process_task(
+    base_state: GraphState,
+    task: GraphTask,
+    ui_model: str | None,
+    max_retries: int,
+    backoff_cfg: Dict[str, float],
+) -> tuple[str, Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    state = GraphState(
+        idea=base_state.idea,
+        constraints=base_state.constraints,
+        risk_posture=base_state.risk_posture,
+        tasks=[task],
+        cursor=0,
+        answers={},
+        trace=[],
+        tool_trace=[],
+    )
+    backoff = ExponentialBackoff(**backoff_cfg)
+    attempt = 0
+    while True:
+        attempt += 1
+        agent_node(state, ui_model)
+        payload = state.answers.get(task.id, {})
+        content = payload.get("content", "")
+        context = {"tool_result": payload.get("tool_result")}
+        scorecard = evaluate(content, context)
+        attach_evaluation(state, task.id, scorecard)
+        retry = scorecard.overall < ff.EVALUATOR_MIN_OVERALL and attempt <= max_retries
+        agent_attempt(state, task.id, attempt, scorecard.overall, retry)
+        if not retry:
+            break
+        time.sleep(backoff.next())
+    if task.tool_request:
+        tool_node(state)
+    collect_node(state)
+    answer = state.answers.get(task.id, {})
+    return task.id, answer, state.trace, state.tool_trace
 
 
 def run_langgraph(
@@ -12,23 +64,15 @@ def run_langgraph(
     constraints: Optional[List[str]] = None,
     risk_posture: Optional[str] = None,
     ui_model: Optional[str] = None,
+    *,
+    max_concurrency: int = 1,
+    max_retries: int = 0,
+    retry_backoff: Optional[Dict[str, float]] = None,
+    evaluators_enabled: Optional[bool] = None,
 ) -> tuple[str, dict, dict]:
-    """Execute the LangGraph orchestration pipeline.
-
-    Returns
-    -------
-    tuple
-        (final_markdown, answers, {"trace": trace, "tool_trace": tool_trace})
-    """
-
-    try:
-        from langgraph.graph import END, START, StateGraph
-    except Exception as e:  # pragma: no cover - optional dependency
-        raise RuntimeError(
-            "LangGraph is required for graph orchestration. Install with `pip install langgraph`."
-        ) from e
-
-    import config.feature_flags as ff
+    """Execute the LangGraph orchestration pipeline."""
+    if evaluators_enabled is not None:
+        ff.EVALUATORS_ENABLED = evaluators_enabled
 
     state = GraphState(
         idea=idea,
@@ -40,39 +84,36 @@ def run_langgraph(
         trace=[],
         tool_trace=[],
     )
+    plan_node(state, ui_model)
+    for idx in range(len(state.tasks)):
+        state.cursor = idx
+        route_node(state, ui_model)
 
-    g = StateGraph(GraphState)
-    g.add_node("plan", partial(plan_node, ui_model=ui_model))
-    g.add_node("route", partial(route_node, ui_model=ui_model))
-    g.add_node("agent", partial(agent_node, ui_model=ui_model))
-    g.add_node("tool", tool_node)
-    g.add_node("collect", collect_node)
-    g.add_node("synth", partial(synth_node, ui_model=ui_model))
+    limiter = ParallelLimiter(max_concurrency if ff.PARALLEL_EXEC_ENABLED else 1)
+    backoff_cfg = retry_backoff or {}
+    futures = [
+        limiter.submit(
+            _process_task,
+            state,
+            t,
+            ui_model,
+            max_retries,
+            backoff_cfg,
+        )
+        for t in state.tasks
+    ]
 
-    g.add_edge("plan", "route")
-    g.add_edge("route", "agent")
-    g.add_conditional_edges(
-        "agent",
-        lambda s: bool(getattr(s.tasks[s.cursor], "tool_request", None)),
-        {True: "tool", False: "collect"},
-    )
-    g.add_edge("tool", "collect")
-    g.add_conditional_edges(
-        "collect",
-        lambda s: s.cursor < len(s.tasks),
-        {True: "route", False: "synth"},
-    )
-    g.add_edge("synth", END)
-    g.add_edge(START, "plan")
+    answers: Dict[str, Any] = {}
+    trace: List[Dict[str, Any]] = []
+    tool_trace: List[Dict[str, Any]] = []
+    for fut in futures:
+        task_id, ans, tr, tt = fut.result()
+        answers[task_id] = ans
+        trace.extend(tr)
+        tool_trace.extend(tt)
 
-    app = g.compile()
-    invoke_kwargs = {"max_steps": ff.GRAPH_MAX_STEPS}
-    if ff.PARALLEL_EXEC_ENABLED:
-        invoke_kwargs["parallelism"] = ff.GRAPH_PARALLELISM
-    final_state = app.invoke(state, **invoke_kwargs)
-
-    return (
-        final_state.get("final", ""),
-        final_state.get("answers", {}),
-        {"trace": final_state.get("trace", []), "tool_trace": final_state.get("tool_trace", [])},
-    )
+    state.answers = answers
+    state.trace = trace
+    state.tool_trace = tool_trace
+    synth_node(state, ui_model)
+    return state.final or "", answers, {"trace": trace, "tool_trace": tool_trace}

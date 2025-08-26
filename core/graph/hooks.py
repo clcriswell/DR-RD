@@ -16,3 +16,17 @@ def node_start(state: GraphState, node: str, task_id: Optional[str] = None) -> N
 
 def node_end(state: GraphState, node: str, task_id: Optional[str] = None) -> None:
     _append_trace(state, "end", node, task_id)
+
+
+def agent_attempt(state: GraphState, task_id: str, attempt: int, score: float, retry: bool) -> None:
+    state.trace.append(
+        {
+            "event": "attempt",
+            "node": "agent",
+            "task_id": task_id,
+            "attempt": attempt,
+            "score": score,
+            "retry": retry,
+            "ts": time.time(),
+        }
+    )
