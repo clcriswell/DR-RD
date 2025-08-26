@@ -43,7 +43,7 @@ def call_tool(agent: str, tool_name: str, params: Dict[str, Any]) -> Any:
     while dq and now - dq[0] > window_s:
         dq.popleft()
     if len(dq) >= max_errors:
-        raise RuntimeError("circuit_open")
+        return {"error": "circuit_open"}
 
     start = time.time()
     if key == "CODE_IO":

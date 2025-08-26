@@ -47,3 +47,31 @@ Tool invocations are captured by `core.tool_router` and exposed alongside the
 per‑node trace. The Streamlit UI writes the bundle to
 `audits/<project_id>/graph_trace.json` and exposes a download button for manual
 inspection.
+
+## Retries & Backoff
+
+Agent calls are wrapped with evaluator‑gated retries. Each attempt is scored
+via `dr_rd.evaluation.scorecard`. If the overall score falls below
+`EVALUATOR_MIN_OVERALL` the system waits using an exponential backoff schedule
+and retries until the limit is reached. Attempt metadata is appended to the
+graph trace.
+
+## Evaluator Gating
+
+Evaluators are toggled by the `EVALUATORS_ENABLED` flag. When enabled the
+scorecard is attached to each task's answer under the `evaluation` key. The UI
+exposes a concise row of metric scores and an expander with per‑attempt
+rationales.
+
+## Parallel Fan Out
+
+When `PARALLEL_EXEC_ENABLED` is true the graph fans out independent tasks using
+`core.graph.scheduler.ParallelLimiter`. The `max_concurrency` setting bounds the
+number of simultaneous agent executions.
+
+## AutoGen Mode
+
+An experimental AutoGen orchestrator lives under `core.autogen.run`. Enable it
+via the `AUTOGEN_ENABLED` flag and select "AutoGen" in the UI's orchestration
+controls. The implementation mirrors the LangGraph tool surface but remains
+sandboxed and optional.

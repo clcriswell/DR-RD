@@ -57,6 +57,9 @@ EVALUATOR_WEIGHTS = json.loads(
 )
 EVALUATOR_MIN_OVERALL: float = float(os.getenv("EVALUATOR_MIN_OVERALL", "0.6"))
 
+# Optional AutoGen orchestration
+AUTOGEN_ENABLED = _flag("AUTOGEN_ENABLED")
+
 # Parameters for Tree-of-Thoughts planning. These remain inexpensive to
 # access even when the feature flag is disabled.
 TOT_K: int = int(os.getenv("TOT_K", "3"))
@@ -94,6 +97,7 @@ def get_env_defaults() -> dict:
         "GRAPH_ENABLED": GRAPH_ENABLED,
         "GRAPH_MAX_STEPS": GRAPH_MAX_STEPS,
         "GRAPH_PARALLELISM": GRAPH_PARALLELISM,
+        "AUTOGEN_ENABLED": AUTOGEN_ENABLED,
         "SIM_OPTIMIZER_ENABLED": SIM_OPTIMIZER_ENABLED,
         "SIM_OPTIMIZER_STRATEGY": SIM_OPTIMIZER_STRATEGY,
         "SIM_OPTIMIZER_MAX_EVALS": SIM_OPTIMIZER_MAX_EVALS,

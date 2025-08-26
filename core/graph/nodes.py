@@ -48,6 +48,11 @@ def agent_node(state: GraphState, ui_model: str | None = None) -> GraphState:
         payload = raw
     else:
         payload = {"content": str(raw)}
+
+    existing = state.answers.get(task.id, {})
+    if isinstance(existing, dict) and existing.get("tool_result") and "tool_result" not in payload:
+        payload["tool_result"] = existing["tool_result"]
+
     state.answers[task.id] = payload
     tool_req = payload.get("tool_request") if isinstance(payload, dict) else None
     if isinstance(tool_req, dict) and tool_req.get("tool") != "apply_patch":
@@ -97,3 +102,10 @@ def synth_node(state: GraphState, ui_model: str | None = None) -> GraphState:
         state.final = str(result)
     node_end(state, "synth")
     return state
+
+
+def attach_evaluation(state: GraphState, task_id: str, scorecard) -> None:
+    """Attach ``scorecard`` under ``answers[task_id]['evaluation']``."""
+    if task_id not in state.answers:
+        state.answers[task_id] = {}
+    state.answers[task_id]["evaluation"] = getattr(scorecard, "__dict__", scorecard)

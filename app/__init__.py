@@ -27,6 +27,7 @@ from app.ui_presets import UI_PRESETS
 from collaboration import agent_chat
 from config.agent_models import AGENT_MODEL_MAP
 from config.feature_flags import apply_overrides, get_env_defaults
+import config.feature_flags as ff
 from core.agents.planner_agent import PlannerAgent
 from core.agents.simulation_agent import SimulationAgent
 from core.agents.synthesizer_agent import SynthesizerAgent, compose_final_proposal
@@ -51,6 +52,10 @@ try:  # optional LangGraph pipeline
     from core.graph import run_langgraph
 except Exception:  # pragma: no cover - optional dependency
     run_langgraph = None
+try:  # optional AutoGen pipeline
+    from core.autogen.run import run_autogen
+except Exception:  # pragma: no cover - optional dependency
+    run_autogen = None
 from dr_rd.core.config_snapshot import build_resolved_config_snapshot
 from dr_rd.knowledge.bootstrap import bootstrap_vector_index
 from memory import audit_logger  # import the audit logger
@@ -735,12 +740,31 @@ def main():
 
     # Orchestration -------------------------------------------------------------
     with _safe_expander(sidebar, "Orchestration", expanded=False):
+        radio = getattr(st, "radio", lambda label, options, index=0, **k: options[index])
+        number_input = getattr(st, "number_input", lambda label, value=0, **k: value)
         checkbox = getattr(st, "checkbox", lambda label, value=False, **k: value)
-        graph_enabled = checkbox(
-            "Enable Graph Orchestration (LangGraph)",
-            value=st.session_state.get("graph_enabled", False),
-        )
-    st.session_state["graph_enabled"] = graph_enabled
+        default_engine = st.session_state.get("engine", "Classic")
+        engines = ["Classic", "LangGraph", "AutoGen"]
+        if not getattr(ff, "AUTOGEN_ENABLED", False):
+            engines.remove("AutoGen")
+        engine = radio("Engine", engines, index=engines.index(default_engine))
+        st.session_state["engine"] = engine
+        st.session_state["graph_enabled"] = engine == "LangGraph"
+        max_conc = number_input("Max concurrency", min_value=1, value=int(st.session_state.get("max_concurrency", 1)), step=1)
+        max_retries = number_input("Max retries", min_value=0, value=int(st.session_state.get("max_retries", 0)), step=1)
+        backoff_base = number_input("Backoff base (s)", min_value=0.0, value=float(st.session_state.get("backoff_base", 1.0)), step=0.5)
+        backoff_factor = number_input("Backoff factor", min_value=1.0, value=float(st.session_state.get("backoff_factor", 2.0)), step=0.5)
+        backoff_max = number_input("Backoff max (s)", min_value=0.0, value=float(st.session_state.get("backoff_max", 30.0)), step=1.0)
+        eval_toggle = checkbox("Enable evaluators", value=ff.EVALUATORS_ENABLED)
+    st.session_state.update({
+        "max_concurrency": int(max_conc),
+        "max_retries": int(max_retries),
+        "backoff_base": float(backoff_base),
+        "backoff_factor": float(backoff_factor),
+        "backoff_max": float(backoff_max),
+        "evaluators_enabled": bool(eval_toggle),
+    })
+    ff.EVALUATORS_ENABLED = bool(eval_toggle)
 
     # Retrieval feature toggles -------------------------------------------------
     cfg = st.session_state["MODE_CFG"]
@@ -1243,20 +1267,27 @@ def main():
                 try:
                     tasks = st.session_state.get("plan", [])
                     ui_model = st.session_state.get("model")
-                    if st.session_state.get("graph_enabled"):
+                    engine = st.session_state.get("engine", "Classic")
+                    if engine == "LangGraph":
                         if run_langgraph is None:
                             st.error("LangGraph not installed")
                             raise RuntimeError("LangGraph unavailable")
                         constraints = st.session_state.get("constraints", [])
                         if isinstance(constraints, str):
-                            constraints = [
-                                c.strip() for c in constraints.splitlines() if c.strip()
-                            ]
+                            constraints = [c.strip() for c in constraints.splitlines() if c.strip()]
                         final, answers, trace_bundle = run_langgraph(
                             idea,
                             constraints,
                             st.session_state.get("risk_posture", "medium"),
                             ui_model=ui_model,
+                            max_concurrency=st.session_state.get("max_concurrency", 1),
+                            max_retries=st.session_state.get("max_retries", 0),
+                            retry_backoff={
+                                "base_s": st.session_state.get("backoff_base", 1.0),
+                                "factor": st.session_state.get("backoff_factor", 2.0),
+                                "max_s": st.session_state.get("backoff_max", 30.0),
+                            },
+                            evaluators_enabled=st.session_state.get("evaluators_enabled", False),
                         )
                         st.session_state["answers"] = answers
                         st.session_state["final_doc"] = final
@@ -1265,6 +1296,21 @@ def main():
                         outdir = Path("audits") / slug
                         outdir.mkdir(parents=True, exist_ok=True)
                         (outdir / "graph_trace.json").write_text(
+                            json.dumps(trace_bundle, indent=2), encoding="utf-8"
+                        )
+                        render_cost_summary(tasks)
+                    elif engine == "AutoGen":
+                        if run_autogen is None:
+                            st.error("AutoGen not installed")
+                            raise RuntimeError("AutoGen unavailable")
+                        final, answers, trace_bundle = run_autogen(idea)
+                        st.session_state["answers"] = answers
+                        st.session_state["final_doc"] = final
+                        st.session_state["graph_trace_bundle"] = trace_bundle
+                        slug = get_project_id() or "default"
+                        outdir = Path("audits") / slug
+                        outdir.mkdir(parents=True, exist_ok=True)
+                        (outdir / "autogen_trace.json").write_text(
                             json.dumps(trace_bundle, indent=2), encoding="utf-8"
                         )
                         render_cost_summary(tasks)
@@ -1285,7 +1331,7 @@ def main():
                         st.session_state["answers"] = results
                         render_cost_summary(st.session_state.get("plan"))
                     if (
-                        not st.session_state.get("graph_enabled")
+                        engine == "Classic"
                         and st.session_state.get("awaiting_approval")
                     ):
                         pending = st.session_state.get("pending_followups", [])
