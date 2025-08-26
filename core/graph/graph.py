@@ -10,8 +10,10 @@ from .nodes import (
     plan_node,
     route_node,
     retrieval_node,
+    ip_node,
     agent_node,
     tool_node,
+    compliance_node,
     collect_node,
     synth_node,
     attach_evaluation,
@@ -43,6 +45,7 @@ def _process_task(
     while True:
         attempt += 1
         retrieval_node(state, ui_model)
+        ip_node(state, ui_model)
         agent_node(state, ui_model)
         payload = state.answers.get(task.id, {})
         content = payload.get("content", "")
@@ -56,6 +59,7 @@ def _process_task(
         time.sleep(backoff.next())
     if task.tool_request:
         tool_node(state)
+    compliance_node(state, ui_model)
     collect_node(state)
     answer = state.answers.get(task.id, {})
     return task.id, answer, state.trace, state.tool_trace

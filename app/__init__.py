@@ -958,6 +958,79 @@ def main():
     st.session_state["TOOL_CFG"] = tool_cfg
     tool_router.TOOL_CONFIG.update(tool_cfg)
 
+    # IP & Compliance ---------------------------------------------------------
+    with _safe_expander(sidebar, "IP & Compliance", expanded=False):
+        checkbox = getattr(st, "checkbox", lambda label, value=False, **k: value)
+        text_input = getattr(st, "text_input", lambda label, value="", **k: value)
+        multiselect = getattr(st, "multiselect", lambda label, options, default=None, **k: default or [])
+        number_input = getattr(st, "number_input", lambda label, value=0.0, **k: value)
+        patent_toggle = checkbox("Enable Patent APIs", value=ff.PATENT_APIS_ENABLED)
+        regulatory_toggle = checkbox("Enable Regulatory APIs", value=ff.REGULATORY_APIS_ENABLED)
+        compliance_toggle = checkbox("Enable Compliance Checks", value=ff.COMPLIANCE_ENABLED)
+        ip_query = text_input("Query", value=st.session_state.get("ip_query", ""))
+        ip_cpc = text_input("CPC", value=st.session_state.get("ip_cpc", ""))
+        ip_assignee = text_input("Assignee", value=st.session_state.get("ip_assignee", ""))
+        ip_date = text_input("Date range", value=st.session_state.get("ip_date", ""))
+        profiles = multiselect(
+            "Compliance profiles",
+            ["us_federal", "eu_general", "california"],
+            default=st.session_state.get("profiles", ["us_federal"]),
+        )
+        min_cov = number_input(
+            "Min citation coverage",
+            min_value=0.0,
+            max_value=1.0,
+            step=0.1,
+            value=float(st.session_state.get("min_cov", 0.6)),
+        )
+    ff.PATENT_APIS_ENABLED = bool(patent_toggle)
+    ff.REGULATORY_APIS_ENABLED = bool(regulatory_toggle)
+    ff.COMPLIANCE_ENABLED = bool(compliance_toggle)
+    st.session_state.update(
+        {
+            "ip_query": ip_query,
+            "ip_cpc": ip_cpc,
+            "ip_assignee": ip_assignee,
+            "ip_date": ip_date,
+            "profiles": profiles,
+            "min_cov": float(min_cov),
+        }
+    )
+
+    with st.expander("Patent Search", expanded=False):
+        if st.button("Run Patent Search"):
+            params = {
+                k: v
+                for k, v in {
+                    "q": st.session_state.get("ip_query"),
+                    "cpc": st.session_state.get("ip_cpc"),
+                    "assignee": st.session_state.get("ip_assignee"),
+                    "date_range": st.session_state.get("ip_date"),
+                }.items()
+                if v
+            }
+            st.session_state["patent_results"] = tool_router.call_tool(
+                "UI", "patent_search", params
+            )
+        if st.session_state.get("patent_results"):
+            getattr(st, "dataframe", lambda d, **k: None)(
+                st.session_state["patent_results"]
+            )
+
+    with st.expander("Compliance Check", expanded=False):
+        if st.button("Run Compliance Check") and st.session_state.get("final_doc"):
+            from dr_rd.compliance import checker
+
+            pids = st.session_state.get("profiles", ["us_federal"])
+            profile = checker.load_profile(pids[0]) if pids else None
+            if profile:
+                rep = checker.check(
+                    st.session_state.get("final_doc", ""), profile, {}
+                )
+                st.session_state["compliance_report"] = rep.model_dump()
+        if st.session_state.get("compliance_report"):
+            st.json(st.session_state["compliance_report"])
+
     project_names = []
     project_doc_ids = {}
     if db:

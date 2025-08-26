@@ -1,0 +1,28 @@
+id: california
+name: California State
+items:
+  - id: ca1
+    text: Prop 65 labeling
+    required: true
+    jurisdiction: CA
+    tag: prop65
+  - id: ca2
+    text: CCPA privacy rules
+    required: true
+    jurisdiction: CA
+    tag: ccpa
+  - id: ca3
+    text: CARB emissions
+    required: false
+    jurisdiction: CA
+    tag: carb
+  - id: ca4
+    text: Water usage reporting
+    required: true
+    jurisdiction: CA
+    tag: water
+  - id: ca5
+    text: Energy efficiency standards
+    required: false
+    jurisdiction: CA
+    tag: energy
