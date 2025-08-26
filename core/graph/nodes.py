@@ -14,6 +14,8 @@ def plan_node(state: GraphState, ui_model: str | None = None) -> GraphState:
 
     constraint_text = "\n".join(state.constraints or [])
     tasks = generate_plan(state.idea, constraint_text, state.risk_posture, ui_model=ui_model)
+    for idx, t in enumerate(tasks, 1):
+        t.setdefault("id", f"T{idx:02d}")
     state.tasks = [GraphTask(**t) for t in tasks]
     state.cursor = 0
     node_end(state, "plan")
