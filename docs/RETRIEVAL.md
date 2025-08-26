@@ -12,3 +12,7 @@ provenance.  Feature flags in `config/feature_flags.py` control behaviour:
 Caps are enforced through `core.retrieval.budget.RetrievalBudget`.  The
 retrieval trace can be exported from the UI and is returned alongside the graph
 trace.
+
+Patent and regulatory searches invoked through the tool router are also recorded
+under `core.retrieval.provenance`, allowing citation links to authoritative
+sources.

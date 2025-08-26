@@ -14,6 +14,11 @@ CONFIG_FILE = ROOT / "config" / "tools.yaml"
 with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
     TOOL_CONFIG = yaml.safe_load(fh) or {}
 
+APIS_FILE = ROOT / "config" / "apis.yaml"
+if APIS_FILE.exists():
+    with open(APIS_FILE, "r", encoding="utf-8") as fh:
+        TOOL_CONFIG.update(yaml.safe_load(fh) or {})
+
 _REGISTRY: Dict[str, tuple[Callable, str]] = {}
 _PROVENANCE: list[Dict[str, Any]] = []
 _ERROR_LOG: Dict[str, deque[float]] = defaultdict(deque)
@@ -93,6 +98,20 @@ from dr_rd.tools import (
     analyze_video,
 )
 from dr_rd.tools.simulations import simulate
+from dr_rd.integrations.patents import adapters as patent_adapters
+from dr_rd.integrations.regulatory import adapters as reg_adapters
+
+
+def patent_search(**params):
+    cfg = TOOL_CONFIG.get("PATENTS", {})
+    caps = {k: cfg.get(k) for k in ("backends", "max_results", "timeouts_s")}
+    return patent_adapters.search_patents(params, caps)
+
+
+def regulatory_search(**params):
+    cfg = TOOL_CONFIG.get("REGULATIONS", {})
+    caps = {k: cfg.get(k) for k in ("backends", "max_results", "timeouts_s")}
+    return reg_adapters.search_regulations(params, caps)
 
 register_tool("read_repo", read_repo, "CODE_IO")
 register_tool("plan_patch", plan_patch, "CODE_IO")
@@ -100,3 +119,5 @@ register_tool("apply_patch", apply_patch, "CODE_IO")
 register_tool("simulate", simulate, "SIMULATION")
 register_tool("analyze_image", analyze_image, "VISION")
 register_tool("analyze_video", analyze_video, "VISION")
+register_tool("patent_search", patent_search, "PATENTS")
+register_tool("regulatory_search", regulatory_search, "REGULATIONS")

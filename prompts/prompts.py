@@ -5,6 +5,7 @@ PLANNER_SYSTEM_PROMPT = (
     "Prefer assigning tasks to these roles where appropriate: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst, HRM, Materials Engineer, Reflection, Synthesizer. "
     "If a task clearly needs repository reading/patch planning, numerical simulation/Monte Carlo, or image/video analysis, you may include an optional tool_request object with the tool name (read_repo | plan_patch | simulate | analyze_image | analyze_video) and minimal params. "
     "When background research is required, you may also add \"retrieval_request\": true and/or \"queries\": [\"...\"] to hint the orchestrator. "
+    "For patent or regulatory needs, tasks may include optional ip_request {\"query\":str,...} and/or compliance_request {\"profile_ids\":[...],\"min_coverage\":float}. "
     'Output ONLY JSON matching this schema: {"tasks":[{"id":"T01","role":"Role","title":"Task title","summary":"Short","tool_request":{"tool":"simulate","params":{"inputs":{"a":1.0},"monte_carlo":10,"seed":42}}}]}.'
 )
 

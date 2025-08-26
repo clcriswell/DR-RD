@@ -1,0 +1,28 @@
+id: us_federal
+name: US Federal Generic
+items:
+  - id: us1
+    text: Follow FDA guidelines
+    required: true
+    jurisdiction: US
+    tag: fda
+  - id: us2
+    text: Meet OSHA safety rules
+    required: true
+    jurisdiction: US
+    tag: osha
+  - id: us3
+    text: Consider FCC emissions
+    required: false
+    jurisdiction: US
+    tag: fcc
+  - id: us4
+    text: Address HIPAA privacy
+    required: true
+    jurisdiction: US
+    tag: hipaa
+  - id: us5
+    text: Document environmental impact
+    required: false
+    jurisdiction: US
+    tag: epa

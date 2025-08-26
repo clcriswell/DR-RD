@@ -1,6 +1,6 @@
 # Tools
 
-This repository exposes three pluggable tools used by agents.
+This repository exposes several pluggable tools used by agents.
 
 ## Code I/O
 - **read_repo(globs: list[str]) -> dict**: return `{results: [{path, text}], truncated: bool}`.
@@ -43,6 +43,12 @@ Backend is lightweight and pluggable.
 ## Vision
 - **analyze_image(file_or_bytes, tasks) -> dict** where tasks ⊆ `{ocr, classify, detect}`.
 - **analyze_video(file_path: str, sample_rate_fps: int, tasks) -> dict**.
+
+## Patent & Regulatory Search
+- **patent_search(params) -> list[PatentDoc]** – query PatentsView or EPO OPS
+  and return normalised metadata.
+- **regulatory_search(params) -> list[RegDoc]** – query Federal Register,
+  eCFR or EUR‑Lex for notices and rules.
 
 Dependencies (Pillow, OpenCV, pytesseract) are optional; functions degrade gracefully.
 

@@ -1,0 +1,28 @@
+id: eu_general
+name: EU General
+items:
+  - id: eu1
+    text: GDPR data protection
+    required: true
+    jurisdiction: EU
+    tag: gdpr
+  - id: eu2
+    text: CE marking requirements
+    required: true
+    jurisdiction: EU
+    tag: ce
+  - id: eu3
+    text: REACH chemical registration
+    required: false
+    jurisdiction: EU
+    tag: reach
+  - id: eu4
+    text: WEEE disposal rules
+    required: true
+    jurisdiction: EU
+    tag: weee
+  - id: eu5
+    text: RoHS restrictions
+    required: false
+    jurisdiction: EU
+    tag: rohs

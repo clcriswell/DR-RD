@@ -1,0 +1,19 @@
+PATENTS:
+  enabled: true
+  backends: ["patentsview", "epo_ops"]
+  timeouts_s: 10
+  max_results: 50
+REGULATIONS:
+  enabled: true
+  backends: ["federal_register", "ecfr", "eur_lex"]
+  timeouts_s: 10
+  max_results: 50
+CITATIONS:
+  allow_domains:
+    - federalregister.gov
+    - ecfr.gov
+    - govinfo.gov
+    - uspto.gov
+    - epo.org
+    - eur-lex.europa.eu
+  min_coverage: 0.6

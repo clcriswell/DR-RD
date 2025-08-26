@@ -70,6 +70,72 @@ def retrieval_node(state: GraphState, ui_model: str | None = None) -> GraphState
     return state
 
 
+def ip_node(state: GraphState, ui_model: str | None = None) -> GraphState:
+    task = state.tasks[state.cursor]
+    node_start(state, "ip", task.id)
+    from config import feature_flags as ff
+    from core import tool_router
+    from core.retrieval import provenance
+
+    run = ff.PATENT_APIS_ENABLED and (
+        task.ip_request is not None
+        or any(k in (task.description or "").lower() for k in ["patent", "prior art", "cpc", "novelty"])
+    )
+    if not run:
+        node_end(state, "ip", task.id)
+        return state
+    params = task.ip_request or {}
+    try:
+        results = tool_router.call_tool(task.role or "", "patent_search", params)
+    except Exception as e:  # pragma: no cover
+        results = {"error": str(e)}
+    if task.id not in state.answers:
+        state.answers[task.id] = {}
+    state.answers[task.id]["patents"] = results
+    if isinstance(results, list):
+        provenance.record_sources(task.id, results)
+        state.retrieved.setdefault(task.id, []).extend(results)
+    node_end(state, "ip", task.id)
+    return state
+
+
+def compliance_node(state: GraphState, ui_model: str | None = None) -> GraphState:
+    task = state.tasks[state.cursor]
+    node_start(state, "compliance", task.id)
+    from config import feature_flags as ff
+    from dr_rd.compliance import checker, citation
+    from core import tool_router
+
+    if not ff.COMPLIANCE_ENABLED:
+        node_end(state, "compliance", task.id)
+        return state
+    req = task.compliance_request or {}
+    profiles = req.get("profile_ids") if isinstance(req, dict) else None
+    if not profiles and not (task.role and "regulatory" in task.role.lower()):
+        node_end(state, "compliance", task.id)
+        return state
+    profile_ids = profiles or ["us_federal"]
+    profile = checker.load_profile(profile_ids[0])
+    content = state.answers.get(task.id, {}).get("content", "")
+    sources = state.answers.get(task.id, {}).get("retrieval_sources", [])
+    report = checker.check(content, profile, {"sources": sources})
+    allow_domains = tool_router.TOOL_CONFIG.get("CITATIONS", {}).get("allow_domains", [])
+    min_cov = req.get("min_coverage", tool_router.TOOL_CONFIG.get("CITATIONS", {}).get("min_coverage", 0.0)) if isinstance(req, dict) else tool_router.TOOL_CONFIG.get("CITATIONS", {}).get("min_coverage", 0.0)
+    citations, cmap = citation.build_citation_graph(report.notes.get("claims", []), sources)
+    val = citation.validate_citations(citations, allow_domains, float(min_cov))
+    report.citations = citations
+    report.coverage = val.get("coverage", 0.0)
+    report.notes["citation_map"] = cmap
+    report.notes["validation"] = val
+    if task.id not in state.answers:
+        state.answers[task.id] = {}
+    state.answers[task.id]["compliance"] = report.model_dump()
+    if val.get("coverage", 0.0) < float(min_cov):
+        state.answers[task.id]["compliance_hint"] = "insufficient citation coverage"
+    node_end(state, "compliance", task.id)
+    return state
+
+
 def agent_node(state: GraphState, ui_model: str | None = None) -> GraphState:
     task = state.tasks[state.cursor]
     node_start(state, "agent", task.id)

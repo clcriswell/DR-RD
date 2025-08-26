@@ -13,6 +13,8 @@ class GraphTask(BaseModel):
     description: str
     stop_rules: Optional[List[str]] = None
     tool_request: Optional[Dict[str, Any]] = None
+    ip_request: Optional[Dict[str, Any]] = None
+    compliance_request: Optional[Dict[str, Any]] = None
 
 
 class GraphState(BaseModel):
