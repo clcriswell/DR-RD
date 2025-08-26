@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-26T00:03:33.757374Z'
-git_sha: 5013eabb346d0b280345547d53887f7ac49b23a4
+generated_at: '2025-08-26T00:15:55.672821Z'
+git_sha: 0025a54f69a2a20e3153b3edb5a6aa5439b533b8
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -32,6 +32,7 @@ runtime_modes:
     faiss_bootstrap_mode: skip
     faiss_index_uri: ''
     enable_images: false
+    graph_enabled: false
 mode_aliases:
 - test
 - deep
@@ -148,14 +149,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/app_builder.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/spec_builder.py
+- path: orchestrators/qa_router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -176,7 +170,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/qa_router.py
+- path: orchestrators/spec_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/app_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []

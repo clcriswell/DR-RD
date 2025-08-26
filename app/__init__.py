@@ -47,6 +47,10 @@ from core.summarization import two_pass_enabled
 from core.summarization.integrator import integrate
 from core.summarization.schemas import RoleSummary
 from core import tool_router
+try:  # optional LangGraph pipeline
+    from core.graph import run_langgraph
+except Exception:  # pragma: no cover - optional dependency
+    run_langgraph = None
 from dr_rd.core.config_snapshot import build_resolved_config_snapshot
 from dr_rd.knowledge.bootstrap import bootstrap_vector_index
 from memory import audit_logger  # import the audit logger
@@ -729,6 +733,15 @@ def main():
             + f"Simulations={'on' if ui_preset['simulate_enabled'] else 'off'}"
         )
 
+    # Orchestration -------------------------------------------------------------
+    with _safe_expander(sidebar, "Orchestration", expanded=False):
+        checkbox = getattr(st, "checkbox", lambda label, value=False, **k: value)
+        graph_enabled = checkbox(
+            "Enable Graph Orchestration (LangGraph)",
+            value=st.session_state.get("graph_enabled", False),
+        )
+    st.session_state["graph_enabled"] = graph_enabled
+
     # Retrieval feature toggles -------------------------------------------------
     cfg = st.session_state["MODE_CFG"]
     with _safe_expander(sidebar, "Retrieval", expanded=False):
@@ -1230,18 +1243,51 @@ def main():
                 try:
                     tasks = st.session_state.get("plan", [])
                     ui_model = st.session_state.get("model")
-                    results = execute_plan(
-                        idea,
-                        tasks,
-                        project_id=get_project_id(),
-                        save_decision_log=st.session_state.get("save_decision_log", False),
-                        save_evidence=st.session_state.get("save_evidence_coverage", False),
-                        project_name=st.session_state.get("project_name"),
-                        ui_model=ui_model,
-                    )
-                    st.session_state["answers"] = results
-                    render_cost_summary(st.session_state.get("plan"))
-                    if st.session_state.get("awaiting_approval"):
+                    if st.session_state.get("graph_enabled"):
+                        if run_langgraph is None:
+                            st.error("LangGraph not installed")
+                            raise RuntimeError("LangGraph unavailable")
+                        constraints = st.session_state.get("constraints", [])
+                        if isinstance(constraints, str):
+                            constraints = [
+                                c.strip() for c in constraints.splitlines() if c.strip()
+                            ]
+                        final, answers, trace_bundle = run_langgraph(
+                            idea,
+                            constraints,
+                            st.session_state.get("risk_posture", "medium"),
+                            ui_model=ui_model,
+                        )
+                        st.session_state["answers"] = answers
+                        st.session_state["final_doc"] = final
+                        st.session_state["graph_trace_bundle"] = trace_bundle
+                        slug = get_project_id() or "default"
+                        outdir = Path("audits") / slug
+                        outdir.mkdir(parents=True, exist_ok=True)
+                        (outdir / "graph_trace.json").write_text(
+                            json.dumps(trace_bundle, indent=2), encoding="utf-8"
+                        )
+                        render_cost_summary(tasks)
+                    else:
+                        results = execute_plan(
+                            idea,
+                            tasks,
+                            project_id=get_project_id(),
+                            save_decision_log=st.session_state.get(
+                                "save_decision_log", False
+                            ),
+                            save_evidence=st.session_state.get(
+                                "save_evidence_coverage", False
+                            ),
+                            project_name=st.session_state.get("project_name"),
+                            ui_model=ui_model,
+                        )
+                        st.session_state["answers"] = results
+                        render_cost_summary(st.session_state.get("plan"))
+                    if (
+                        not st.session_state.get("graph_enabled")
+                        and st.session_state.get("awaiting_approval")
+                    ):
                         pending = st.session_state.get("pending_followups", [])
                         st.info("Evaluation suggests follow-ups:")
                         for fu in pending:
@@ -1282,31 +1328,41 @@ def main():
         render_exports(get_project_id() or "", agent_trace)
     render_role_summaries(st.session_state.get("answers", {}))
     if st.button("3⃣ Compile Final Proposal"):
-            logging.info("User compiled final proposal")
-            with st.spinner("🚀 Synthesizing final R&D proposal..."):
-                try:
+        logging.info("User compiled final proposal")
+        with st.spinner("🚀 Synthesizing final R&D proposal..."):
+            try:
+                if st.session_state.get("graph_enabled") and st.session_state.get(
+                    "final_doc"
+                ):
+                    final_report_text = st.session_state["final_doc"]
+                    images: List[str] = []
+                else:
                     result = compose_final_proposal(
                         idea,
                         st.session_state["answers"],
                     )
                     final_report_text = result.get("document", "")
-                    update_cost()
-                    memory_manager.store_project(
-                        st.session_state.get("project_name", ""),
-                        idea,
-                        st.session_state.get("plan_tasks", st.session_state.get("plan", {})),
-                        st.session_state["answers"],
-                        final_report_text,
-                        result.get("images", []),
-                        constraints=st.session_state.get("constraints", ""),
-                        risk_posture=st.session_state.get("risk_posture", "Medium"),
-                    )
-                except Exception as e:  # pylint: disable=broad-except
-                    getattr(st, "error", lambda *a, **k: None)(
-                        f"Final proposal synthesis failed: {e}"
-                    )
-                    logging.exception("Error during final proposal synthesis: %s", e)
-                    st.stop()
+                    images = result.get("images", [])
+                update_cost()
+                memory_manager.store_project(
+                    st.session_state.get("project_name", ""),
+                    idea,
+                    st.session_state.get(
+                        "plan_tasks", st.session_state.get("plan", {})
+                    ),
+                    st.session_state["answers"],
+                    final_report_text,
+                    images,
+                    constraints=st.session_state.get("constraints", ""),
+                    risk_posture=st.session_state.get("risk_posture", "Medium"),
+                )
+                st.session_state["final_doc"] = final_report_text
+            except Exception as e:  # pylint: disable=broad-except
+                getattr(st, "error", lambda *a, **k: None)(
+                    f"Final proposal synthesis failed: {e}"
+                )
+                logging.exception("Error during final proposal synthesis: %s", e)
+                st.stop()
             st.session_state["final_doc"] = final_report_text
             if two_pass_enabled():
                 try:
@@ -1628,6 +1684,12 @@ def main():
             fp.write_text(json.dumps(trace, indent=2), encoding="utf-8")
             st.download_button(
                 "tool_trace.json", json.dumps(trace, indent=2), file_name="tool_trace.json"
+            )
+        if st.session_state.get("graph_enabled") and st.session_state.get("graph_trace_bundle"):
+            st.download_button(
+                "Download Graph Trace (JSON)",
+                json.dumps(st.session_state["graph_trace_bundle"], indent=2),
+                file_name="graph_trace.json",
             )
 
     st.subheader("💬 Project Chat")

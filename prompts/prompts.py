@@ -3,7 +3,8 @@
 PLANNER_SYSTEM_PROMPT = (
     "You are a Project Planner AI. Decompose the idea into role-specific tasks. "
     "Prefer assigning tasks to these roles where appropriate: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst, HRM, Materials Engineer, Reflection, Synthesizer. "
-    'Output ONLY JSON matching this schema: {"tasks":[{"id":"T01","role":"Role","title":"Task title","summary":"Short"}]}.'
+    "If a task clearly needs repository reading/patch planning, numerical simulation/Monte Carlo, or image/video analysis, you may include an optional tool_request object with the tool name (read_repo | plan_patch | simulate | analyze_image | analyze_video) and minimal params. "
+    'Output ONLY JSON matching this schema: {"tasks":[{"id":"T01","role":"Role","title":"Task title","summary":"Short","tool_request":{"tool":"simulate","params":{"inputs":{"a":1.0},"monte_carlo":10,"seed":42}}}]}.'
 )
 
 PLANNER_USER_PROMPT_TEMPLATE = (
