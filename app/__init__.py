@@ -18,9 +18,7 @@ from app.config_loader import load_profile
 from app.logging_setup import init_gcp_logging
 from app.ui_cost_meter import render_cost_summary
 from app.agent_trace_ui import (
-    render_agent_trace,
     render_live_status,
-    render_exports,
     render_role_summaries,
 )
 from app.ui_presets import UI_PRESETS
@@ -28,6 +26,17 @@ from collaboration import agent_chat
 from config.agent_models import AGENT_MODEL_MAP
 from config.feature_flags import apply_overrides, get_env_defaults
 import config.feature_flags as ff
+from core.trace.merge import merge_traces, summarize
+from core.trace.viz import to_rows, durations_series
+from core.sim.summary import summarize_runs
+from dr_rd.tools.code_io import summarize_diff, within_patch_limits
+from datetime import datetime
+import numpy as np
+
+try:  # optional altair for charts
+    import altair as alt  # type: ignore
+except Exception:  # pragma: no cover - optional
+    alt = None
 from core.agents.planner_agent import PlannerAgent
 from core.agents.simulation_agent import SimulationAgent
 from core.agents.synthesizer_agent import SynthesizerAgent, compose_final_proposal
@@ -1465,10 +1474,104 @@ def main():
                     getattr(st, "success", lambda *a, **k: None)("✅ Domain experts complete!")
 
     render_live_status(st.session_state.get("live_status", {}))
-    agent_trace = st.session_state.get("agent_trace")
-    if agent_trace:
-        render_agent_trace(agent_trace, st.session_state.get("answers", {}))
-        render_exports(get_project_id() or "", agent_trace)
+
+    trace_src = st.session_state.get("graph_trace_bundle")
+    if trace_src:
+        bundle = merge_traces(
+            trace_src.get("trace"),
+            trace_src.get("tool_trace"),
+            trace_src.get("retrieval_trace"),
+            trace_src.get("autogen_trace"),
+        )
+        rows = to_rows(bundle)
+        if rows:
+            st.subheader("Agent Trace")
+            tasks = sorted({r["task_id"] for r in rows if r.get("task_id")})
+            agents = sorted({r["agent"] for r in rows if r.get("agent")})
+            tools = sorted({r["tool"] for r in rows if r.get("tool")})
+            sel_tasks = st.multiselect("Task", tasks, default=tasks)
+            sel_agents = st.multiselect("Agent", agents, default=agents)
+            sel_tools = st.multiselect("Tool", tools, default=tools)
+            retries_only = st.checkbox("Show retries only")
+            ts_values = [r["ts"] for r in rows]
+            ts_min, ts_max = min(ts_values), max(ts_values)
+            ts_range = st.slider(
+                "Timestamp range",
+                min_value=float(ts_min),
+                max_value=float(ts_max),
+                value=(float(ts_min), float(ts_max)),
+            )
+            filtered = [
+                r
+                for r in rows
+                if (not sel_tasks or r.get("task_id") in sel_tasks)
+                and (not sel_agents or r.get("agent") in sel_agents)
+                and (not sel_tools or r.get("tool") in sel_tools)
+                and ts_range[0] <= r["ts"] <= ts_range[1]
+                and (not retries_only or (r.get("attempt", 0) or 0) > 1)
+            ]
+            if len(filtered) > ff.TRACE_MAX_ROWS:
+                st.caption(
+                    f"Showing first {ff.TRACE_MAX_ROWS} of {len(filtered)} events (cap)."
+                )
+                filtered = filtered[: ff.TRACE_MAX_ROWS]
+            df = pd.DataFrame(filtered)
+            st.dataframe(df, use_container_width=True)
+
+            dur_df = durations_series(bundle)
+            if not dur_df.empty:
+                if len(dur_df) > ff.CHART_MAX_POINTS:
+                    dur_df = dur_df.iloc[:: max(1, len(dur_df) // ff.CHART_MAX_POINTS)]
+                    st.caption(
+                        f"Downsampled to {ff.CHART_MAX_POINTS} points for display."
+                    )
+                if alt:
+                    chart = (
+                        alt.Chart(dur_df)
+                        .mark_line()
+                        .encode(x="ts", y="duration_s", color="node")
+                    )
+                    st.altair_chart(chart, use_container_width=True)
+                else:
+                    pivot = dur_df.pivot(index="ts", columns="node", values="duration_s")
+                    st.line_chart(pivot)
+
+            summary = summarize(bundle).get("task", {})
+            if summary:
+                sum_df = pd.DataFrame(
+                    [
+                        {
+                            "task_id": k,
+                            "duration_s": v["duration_s"],
+                            "tokens": v["tokens"],
+                            "cost_usd": v["cost_usd"],
+                            "count": v["count"],
+                        }
+                        for k, v in summary.items()
+                    ]
+                )
+                st.table(sum_df)
+
+            col_json, col_csv = st.columns(2)
+            trace_json = bundle.model_dump_json(indent=2)
+            col_json.download_button(
+                "Download Trace (JSON)",
+                data=trace_json,
+                file_name="trace.json",
+                mime="application/json",
+            )
+            try:
+                col_csv.download_button(
+                    "Download Trace (CSV)",
+                    data=pd.DataFrame(rows).to_csv(index=False),
+                    file_name="trace.csv",
+                    mime="text/csv",
+                )
+            except Exception:
+                col_csv.caption("CSV export unavailable")
+    else:
+        st.info("No trace available for this run")
+
     render_role_summaries(st.session_state.get("answers", {}))
     if st.button("3⃣ Compile Final Proposal"):
         logging.info("User compiled final proposal")
@@ -1728,36 +1831,63 @@ def main():
                     st.info("Results truncated")
             except Exception as e:
                 st.error(str(e))
-        diff = st.text_area("Unified diff (preview)")
-        if st.button(
-            "Preview Patch", disabled=not tool_cfg.get("CODE_IO", {}).get("enabled", True)
-        ):
-            try:
-                plan = tool_router.call_tool("UI", "plan_patch", {"diff_spec": diff})
-                st.code(plan)
-            except Exception as e:
-                st.error(str(e))
-        if st.button(
-            "Apply Patch", disabled=not tool_cfg.get("CODE_IO", {}).get("enabled", True)
-        ):
-            st.session_state["pending_patch"] = diff
-        if st.session_state.get("pending_patch"):
-            st.warning("Apply patch? This cannot be undone.")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("Confirm Apply"):
-                    try:
-                        tool_router.call_tool(
-                            "UI",
-                            "apply_patch",
-                            {"diff": st.session_state.pop("pending_patch"), "dry_run": False},
-                        )
-                        st.success("Patch applied")
-                    except Exception as e:
-                        st.error(str(e))
-            with col2:
-                if st.button("Cancel"):
-                    st.session_state.pop("pending_patch", None)
+        diff = st.text_area("Unified diff")
+        if st.button("Preview Patch") and diff:
+            st.session_state["patch_preview"] = diff
+        if st.session_state.get("patch_preview"):
+            diff = st.session_state["patch_preview"]
+            summary = summarize_diff(diff)
+            df = pd.DataFrame(summary["files"])
+            if not df.empty:
+                df["status"] = ["DENY" if f["path"] in summary["denied"] else "OK" for f in summary["files"]]
+                st.table(df)
+            st.code(diff, language="diff")
+            st.download_button(
+                "Download .patch",
+                data=diff,
+                file_name="changes.patch",
+                mime="text/x-diff",
+            )
+            can_apply = not summary["denied"] and within_patch_limits(
+                diff, ff.PATCH_MAX_FILES, ff.PATCH_MAX_BYTES
+            )
+            if summary["denied"]:
+                st.error(f"Denied paths: {', '.join(summary['denied'])}")
+            if summary["changed_files"] > ff.PATCH_MAX_FILES:
+                st.error(
+                    f"Patch touches {summary['changed_files']} files, exceeds cap of {ff.PATCH_MAX_FILES}"
+                )
+                can_apply = False
+            if len(diff.encode('utf-8')) > ff.PATCH_MAX_BYTES:
+                st.error(
+                    f"Patch size {len(diff.encode('utf-8'))} bytes exceeds cap of {ff.PATCH_MAX_BYTES}"
+                )
+                can_apply = False
+            if can_apply and st.button("Apply Patch"):
+                st.session_state["confirm_patch"] = diff
+        if st.session_state.get("confirm_patch"):
+            st.warning("Type APPLY to confirm patch application")
+            confirm = st.text_input("Confirm", key="apply_confirm")
+            if st.button("Confirm Apply", disabled=confirm.strip().upper() != "APPLY"):
+                try:
+                    tool_router.call_tool(
+                        "UI",
+                        "apply_patch",
+                        {"diff": st.session_state.pop("confirm_patch"), "dry_run": False},
+                    )
+                    st.success("Patch applied")
+                    slug = get_project_id() or "default"
+                    outdir = Path("audits") / slug / "patches"
+                    outdir.mkdir(parents=True, exist_ok=True)
+                    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+                    (outdir / f"{ts}.patch").write_text(diff, encoding="utf-8")
+                except Exception as e:
+                    st.error(str(e))
+                st.session_state.pop("apply_confirm", None)
+                st.session_state.pop("patch_preview", None)
+            if st.button("Cancel"):
+                st.session_state.pop("confirm_patch", None)
+                st.session_state.pop("apply_confirm", None)
     with tab_sim:
         params_text = st.text_area("Params (JSON)", value="{}")
         run_single = st.button(
@@ -1777,7 +1907,44 @@ def main():
                 elif run_mc:
                     params.setdefault("monte_carlo", 10)
                 result = tool_router.call_tool("UI", "simulate", params)
-                st.json(result)
+                if isinstance(result, list):
+                    summary = summarize_runs(result, ff.CHART_MAX_POINTS)
+                    if summary["sweep_key"]:
+                        key = summary["sweep_key"]
+                        series = pd.DataFrame(
+                            {key: [r.get(key) for r in summary["sampled"]],
+                             "output": [r.get("output") for r in summary["sampled"]]}
+                        )
+                        if summary["downsampled"]:
+                            st.caption(
+                                f"Downsampled to {ff.CHART_MAX_POINTS} points for display."
+                            )
+                        st.line_chart(series.set_index(key))
+                    else:
+                        outputs = [r.get("output") for r in summary["sampled"]]
+                        if summary["downsampled"]:
+                            st.caption(
+                                f"Downsampled to {ff.CHART_MAX_POINTS} points for display."
+                            )
+                        hist, bins = np.histogram(outputs, bins=20)
+                        st.bar_chart(pd.DataFrame({"count": hist}, index=bins[:-1]))
+                        stats = {
+                            "mean": summary["mean"],
+                            "median": summary["median"],
+                            "std": summary["std"],
+                            "p5": summary["p5"],
+                            "p50": summary["p50"],
+                            "p95": summary["p95"],
+                        }
+                        st.json(stats)
+                elif isinstance(result, dict):
+                    if all(isinstance(v, (int, float)) for v in result.values()):
+                        for k, v in result.items():
+                            st.metric(k, v)
+                    else:
+                        st.json(result)
+                else:
+                    st.write(result)
             except Exception as e:
                 st.error(str(e))
     with tab_vis:
