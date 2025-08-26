@@ -37,3 +37,8 @@ class ResearchScientistAgent(LLMRoleAgent):
             except Exception:
                 pass
         return result
+
+    def __call__(self, *, task: dict, model: str | None = None, meta: dict | None = None) -> str:
+        """Invoke the agent with the standard dispatcher signature."""
+        idea = task.get("idea", "")
+        return self.act(idea, task, model=model)
