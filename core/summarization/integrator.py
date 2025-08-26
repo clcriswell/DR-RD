@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import Dict, List
 
 from .schemas import IntegratedSummary, RoleSummary
 from . import cross_reference_enabled
@@ -50,3 +50,29 @@ def integrate(role_summaries: List[RoleSummary]) -> IntegratedSummary:
         key_findings=key_findings,
         contradictions=contradictions,
     )
+
+
+def render_references(text: str, sources: List[Dict[str, str]]) -> str:
+    """Append a References section for ``sources`` to ``text``.
+
+    Sources are deduplicated by their ``source_id`` and rendered in numeric order.
+    """
+
+    if not sources:
+        return text
+    unique: Dict[str, Dict[str, str]] = {}
+    for src in sources:
+        sid = src.get("source_id") or f"S{len(unique) + 1}"
+        if sid not in unique:
+            unique[sid] = src
+    ordered = [unique[k] for k in sorted(unique, key=lambda x: int(str(x).lstrip("S")))]
+    lines = ["\n\n## References"]
+    for src in ordered:
+        sid = src.get("source_id")
+        title = src.get("title") or src.get("url", "")
+        url = src.get("url", "")
+        lines.append(f"[{sid}] {title} ({url})".strip())
+    return text + "\n" + "\n".join(lines)
+
+
+__all__ = ["integrate", "render_references"]

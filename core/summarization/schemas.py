@@ -1,7 +1,23 @@
 from __future__ import annotations
 
 from typing import List
-from pydantic import BaseModel, Field, field_validator
+try:  # pragma: no cover - runtime import may vary
+    from pydantic import BaseModel, Field, field_validator
+except Exception:  # pydantic not available or old version
+    try:
+        from pydantic import BaseModel, Field, validator as field_validator
+    except Exception:  # very minimal fallback for tooling
+        class BaseModel:  # type: ignore
+            pass
+
+        def Field(**kwargs):  # type: ignore
+            return None
+
+        def field_validator(*args, **kwargs):  # type: ignore
+            def _wrap(fn):
+                return fn
+
+            return _wrap
 
 
 class RoleSummary(BaseModel):

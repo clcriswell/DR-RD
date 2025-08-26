@@ -26,4 +26,5 @@ class GraphState(BaseModel):
     answers: Dict[str, Any] = {}
     trace: List[Dict[str, Any]] = []
     tool_trace: List[Dict[str, Any]] = []
+    retrieved: Dict[str, List[Dict[str, Any]]] = {}
     final: Optional[str] = None

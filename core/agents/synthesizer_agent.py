@@ -24,6 +24,7 @@ from prompts.prompts import (
     SYNTHESIZER_TEMPLATE,
     SYNTHESIZER_BUILD_GUIDE_TEMPLATE,
 )
+from core.summarization.integrator import render_references
 
 def synthesize(idea: str, answers: Dict[str, str], model: str | None = None) -> str:
     findings_md = "\n".join(f"### {d}\n{answers[d]}" for d in answers)
@@ -105,6 +106,13 @@ def compose_final_proposal(
             final_document += f"\n**Figure {i}. {img['caption']}**\n"
             if img.get("url"):
                 final_document += f"\n![]({img['url']})\n"
+
+    sources = []
+    for val in answers.values():
+        if isinstance(val, dict):
+            sources.extend(val.get("retrieval_sources", []))
+    if sources:
+        final_document = render_references(final_document, sources)
 
     result_payload = {"document": final_document, "images": images}
     if not getattr(compose_final_proposal, "_budget_logged", False):

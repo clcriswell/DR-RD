@@ -809,6 +809,28 @@ def main():
         "live_search_max_calls": int(live_search_max_calls),
         "live_search_summary_tokens": int(live_search_summary_tokens),
     }
+
+    with _safe_expander(sidebar, "Sources & KB", expanded=False):
+        sources = st.session_state.get("session_sources", [])
+        if sources:
+            rows = [
+                {
+                    "title": s.get("title", ""),
+                    "url": s.get("url", ""),
+                    "date": s.get("when", ""),
+                    "len": len(s.get("text", "")),
+                }
+                for s in sources
+            ]
+            getattr(st, "dataframe", lambda *a, **k: None)(rows)
+        if st.button("Add selected to KB"):
+            pass
+        if st.button("Summarize & Store"):
+            pass
+        if st.button("Rebuild Vector Index"):
+            pass
+        auto = st.checkbox("Auto save cited sources to KB", value=False)
+        st.session_state["auto_save_kb"] = auto
     with _safe_expander(sidebar, "Quality & Evaluation", expanded=False):
         checkbox = getattr(st, "checkbox", lambda label, value=False, **k: value)
         number_input = getattr(st, "number_input", lambda label, value=0, **k: value)
@@ -1292,6 +1314,7 @@ def main():
                         st.session_state["answers"] = answers
                         st.session_state["final_doc"] = final
                         st.session_state["graph_trace_bundle"] = trace_bundle
+                        st.session_state["session_sources"] = trace_bundle.get("retrieval_trace", [])
                         slug = get_project_id() or "default"
                         outdir = Path("audits") / slug
                         outdir.mkdir(parents=True, exist_ok=True)
@@ -1307,6 +1330,7 @@ def main():
                         st.session_state["answers"] = answers
                         st.session_state["final_doc"] = final
                         st.session_state["graph_trace_bundle"] = trace_bundle
+                        st.session_state["session_sources"] = trace_bundle.get("retrieval_trace", [])
                         slug = get_project_id() or "default"
                         outdir = Path("audits") / slug
                         outdir.mkdir(parents=True, exist_ok=True)
@@ -1736,6 +1760,28 @@ def main():
                 "Download Graph Trace (JSON)",
                 json.dumps(st.session_state["graph_trace_bundle"], indent=2),
                 file_name="graph_trace.json",
+            )
+        if st.button("Download Sources (JSONL)"):
+            from core.retrieval import provenance
+
+            sources = provenance.get_trace()
+            payload = "\n".join(json.dumps(s) for s in sources)
+            slug = get_project_id() or "default"
+            outdir = Path("audits") / slug
+            outdir.mkdir(parents=True, exist_ok=True)
+            fp = outdir / "sources.jsonl"
+            fp.write_text(payload, encoding="utf-8")
+            st.download_button("sources.jsonl", payload, file_name="sources.jsonl")
+        if st.button("Download Final Report (Markdown)") and st.session_state.get("final_doc"):
+            slug = get_project_id() or "default"
+            outdir = Path("audits") / slug
+            outdir.mkdir(parents=True, exist_ok=True)
+            fp = outdir / "final_report.md"
+            fp.write_text(st.session_state["final_doc"], encoding="utf-8")
+            st.download_button(
+                "final_report.md",
+                st.session_state["final_doc"],
+                file_name="final_report.md",
             )
 
     st.subheader("💬 Project Chat")

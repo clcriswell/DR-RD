@@ -51,6 +51,13 @@ Dependencies (Pillow, OpenCV, pytesseract) are optional; functions degrade grace
 Each call logs provenance: `{agent, tool, inputs_hash, outputs_digest, tokens, wall_time}`.
 Retrieve logs with `get_provenance()`.
 
+### Retrieval Interaction
+Prior to agent execution the LangGraph pipeline may run a retrieval step which
+queries a vector index and live web search.  Retrieved sources are logged under
+`core.retrieval.provenance` and can be exported from the UI alongside the
+tool-call trace.  Evaluator feedback and final reports reference these sources
+with numeric citations `[S1]`, `[S2]`, etc.
+
 ### UI toggles
 The Streamlit sidebar exposes per-tool enable toggles and cap inputs. The main app
 provides Code I/O, Simulation, and Vision panels for manual invocations. All tool calls
