@@ -34,40 +34,55 @@ def _coerce_to_list(raw: Any) -> List[Dict[str, Any]]:
                     "role": role,
                     "title": (it or {}).get("title", ""),
                     "description": (it or {}).get("description", ""),
+                    "tool_request": (it or {}).get("tool_request"),
                 })
         return out
     if isinstance(raw, list):
         return list(raw)
     return []
 
-def normalize_plan_to_tasks(raw: Any) -> List[Dict[str, str]]:
+def normalize_plan_to_tasks(raw: Any) -> List[Dict[str, Any]]:
     items = _coerce_to_list(raw)
-    out: List[Dict[str, str]] = []
+    out: List[Dict[str, Any]] = []
     for it in items:
         role = canonicalize(normalize_role((it or {}).get("role")))
-        title = (it or {}).get("title","") or ""
-        desc = (it or {}).get("description","") or ""
+        title = (it or {}).get("title", "") or ""
+        desc = (it or {}).get("description", "") or ""
         # Filter out the “exploded char stream” and junk:
         if not role:
             continue  # e.g., "role"/"title"/"description" as role -> drop
         if len(title.strip()) < 3 or len(desc.strip()) < 3:
             continue
-        out.append({"role": role, "title": title.strip(), "description": desc.strip()})
+        out.append(
+            {
+                "role": role,
+                "title": title.strip(),
+                "description": desc.strip(),
+                "tool_request": it.get("tool_request"),
+            }
+        )
     return out
 
-def normalize_tasks(tasks: List[Dict[str, str]]) -> List[Dict[str, str]]:
+def normalize_tasks(tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Canonicalize roles and deduplicate tasks."""
     seen = set()
-    deduped: List[Dict[str, str]] = []
+    deduped: List[Dict[str, Any]] = []
     for t in tasks:
         role = canonicalize(normalize_role((t or {}).get("role")))
         title = (t or {}).get("title", "")
         desc = (t or {}).get("description", "")
         if not role:
             continue
-        key = (role, title, desc)
+        key = (role, title, desc, json.dumps(t.get("tool_request", {}), sort_keys=True))
         if key in seen:
             continue
         seen.add(key)
-        deduped.append({"role": role, "title": title, "description": desc})
+        deduped.append(
+            {
+                "role": role,
+                "title": title,
+                "description": desc,
+                "tool_request": t.get("tool_request"),
+            }
+        )
     return deduped

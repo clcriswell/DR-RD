@@ -27,6 +27,9 @@ ENABLE_IMAGES = _flag("ENABLE_IMAGES")
 CODE_IO_ENABLED = _flag("CODE_IO_ENABLED")
 SIM_ENABLED = _flag("SIM_ENABLED")
 VISION_ENABLED = _flag("VISION_ENABLED")
+GRAPH_ENABLED = _flag("GRAPH_ENABLED")
+GRAPH_MAX_STEPS: int = int(os.getenv("GRAPH_MAX_STEPS", "100"))
+GRAPH_PARALLELISM: int = int(os.getenv("GRAPH_PARALLELISM", "4"))
 FAISS_INDEX_URI: str | None = os.getenv("FAISS_INDEX_URI")
 FAISS_INDEX_DIR: str = os.getenv("FAISS_INDEX_DIR", ".faiss_index")
 FAISS_BOOTSTRAP_MODE: str = os.getenv("FAISS_BOOTSTRAP_MODE", "download")
@@ -88,6 +91,9 @@ def get_env_defaults() -> dict:
         "CODE_IO_ENABLED": CODE_IO_ENABLED,
         "SIM_ENABLED": SIM_ENABLED,
         "VISION_ENABLED": VISION_ENABLED,
+        "GRAPH_ENABLED": GRAPH_ENABLED,
+        "GRAPH_MAX_STEPS": GRAPH_MAX_STEPS,
+        "GRAPH_PARALLELISM": GRAPH_PARALLELISM,
         "SIM_OPTIMIZER_ENABLED": SIM_OPTIMIZER_ENABLED,
         "SIM_OPTIMIZER_STRATEGY": SIM_OPTIMIZER_STRATEGY,
         "SIM_OPTIMIZER_MAX_EVALS": SIM_OPTIMIZER_MAX_EVALS,
@@ -108,6 +114,7 @@ def apply_overrides(cfg: dict) -> None:
     global FAISS_BOOTSTRAP_MODE, VECTOR_INDEX_PATH, FAISS_INDEX_URI, ENABLE_IMAGES
     global EVALUATION_ENABLED, EVALUATION_MAX_ROUNDS, EVALUATION_HUMAN_REVIEW
     global EVALUATION_USE_LLM_RUBRIC, EVAL_MIN_OVERALL, EVAL_WEIGHTS
+    global GRAPH_ENABLED, GRAPH_MAX_STEPS, GRAPH_PARALLELISM
     if "rag_enabled" in cfg:
         RAG_ENABLED = bool(cfg.get("rag_enabled"))
     if "rag_top_k" in cfg:
@@ -145,6 +152,12 @@ def apply_overrides(cfg: dict) -> None:
             EVAL_WEIGHTS = dict(cfg.get("evaluation_weights", EVAL_WEIGHTS))
         except Exception:
             pass
+    if "graph_enabled" in cfg:
+        GRAPH_ENABLED = bool(cfg.get("graph_enabled"))
+    if "graph_max_steps" in cfg:
+        GRAPH_MAX_STEPS = int(cfg.get("graph_max_steps", GRAPH_MAX_STEPS))
+    if "graph_parallelism" in cfg:
+        GRAPH_PARALLELISM = int(cfg.get("graph_parallelism", GRAPH_PARALLELISM))
 
 
 def apply_mode_overrides(cfg: dict) -> None:

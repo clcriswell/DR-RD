@@ -15,6 +15,7 @@ standard: &standard
   faiss_bootstrap_mode: skip
   faiss_index_uri: ""
   enable_images: false
+  graph_enabled: false
 
 test: *standard  # DEPRECATED: alias to 'standard'; will be removed next release
 deep: *standard  # DEPRECATED: alias to 'standard'; will be removed next release

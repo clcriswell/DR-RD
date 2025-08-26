@@ -28,6 +28,7 @@ class Task(BaseModel):
     dependencies: List[str] = Field(default_factory=list)
     stop_rules: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
+    tool_request: Optional[Dict[str, Any]] = None
 
 
 class Plan(BaseModel):
