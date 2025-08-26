@@ -3,7 +3,7 @@
 This repository exposes three pluggable tools used by agents.
 
 ## Code I/O
-- **read_repo(globs: list[str]) -> list[dict]**: return `[{path, text}]` for matching files.
+- **read_repo(globs: list[str]) -> dict**: return `{results: [{path, text}], truncated: bool}`.
 - **plan_patch(diff_spec: str) -> str**: pass-through diff preview.
 - **apply_patch(diff: str, dry_run: bool = True) -> dict**: validate or apply unified diffs.
 
@@ -12,7 +12,25 @@ Guardrails:
 - Only text files with extensions: `.py`, `.md`, `.txt`, `.yaml`, `.yml`, `.json`, `.toml`, `.cfg`.
 - Denylist patterns from `config/secret_paths.yaml` plus common binaries.
 
-Caps (from `config/tools.yaml`): `max_files`, runtime, token budget.
+Caps (from `config/tools.yaml`): `max_files`, runtime, token budget. Each tool also has a
+`circuit` block with `max_errors` in `window_s` seconds; exceeding this opens the circuit
+and further calls raise `circuit_open`.
+
+### Agent usage
+
+Agents may request tools by including a `tool_request` in their task dictionary:
+
+```json
+{
+  "title": "Inspect repo",
+  "description": "read code",
+  "tool_request": {"tool": "read_repo", "params": {"globs": ["src/**/*.py"]}}
+}
+```
+
+If no explicit request is provided, agents heuristically infer intent from the task
+description (keywords: code, simulate, image/video). Results are added under
+`tool_result` in the agent's JSON response.
 
 ## Digital Twin Simulation
 - **simulate(params: dict) -> dict**
@@ -32,3 +50,9 @@ Dependencies (Pillow, OpenCV, pytesseract) are optional; functions degrade grace
 `core/tool_router.py` registers tools and enforces config caps.
 Each call logs provenance: `{agent, tool, inputs_hash, outputs_digest, tokens, wall_time}`.
 Retrieve logs with `get_provenance()`.
+
+### UI toggles
+The Streamlit sidebar exposes per-tool enable toggles and cap inputs. The main app
+provides Code I/O, Simulation, and Vision panels for manual invocations. All tool calls
+respect these settings and surface errors for disabled tools or open circuits. A
+tool-call trace can be downloaded via the "Exports" tab.

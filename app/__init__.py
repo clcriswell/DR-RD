@@ -46,10 +46,13 @@ from core.role_normalizer import normalize_tasks as normalize_roles_tasks
 from core.summarization import two_pass_enabled
 from core.summarization.integrator import integrate
 from core.summarization.schemas import RoleSummary
+from core import tool_router
 from dr_rd.core.config_snapshot import build_resolved_config_snapshot
 from dr_rd.knowledge.bootstrap import bootstrap_vector_index
 from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
+from pathlib import Path
+import tempfile
 
 
 class _DummyCtx:
@@ -838,6 +841,64 @@ def main():
                 if BUDGET:
                     BUDGET.stage_weights = stage_weights
 
+    # Tools configuration -------------------------------------------------------
+    tool_cfg = st.session_state.get("TOOL_CFG", tool_router.TOOL_CONFIG.copy())
+    with _safe_expander(sidebar, "Tools", expanded=False):
+        checkbox = getattr(st, "checkbox", lambda label, value=False, **k: value)
+        number_input = getattr(st, "number_input", lambda label, value=0, **k: value)
+        code_enabled = checkbox(
+            "Enable Code I/O", value=tool_cfg.get("CODE_IO", {}).get("enabled", True)
+        )
+        code_max_files = number_input(
+            "Code I/O max_files",
+            min_value=1,
+            value=int(tool_cfg.get("CODE_IO", {}).get("max_files", 20)),
+            step=1,
+        )
+        code_max_runtime = number_input(
+            "Code I/O max_runtime_s",
+            min_value=1,
+            value=int(tool_cfg.get("CODE_IO", {}).get("max_runtime_s", 10)),
+            step=1,
+        )
+        sim_enabled = checkbox(
+            "Enable Simulation", value=tool_cfg.get("SIMULATION", {}).get("enabled", True)
+        )
+        sim_max_runtime = number_input(
+            "Simulation max_runtime_s",
+            min_value=1,
+            value=int(tool_cfg.get("SIMULATION", {}).get("max_runtime_s", 30)),
+            step=1,
+        )
+        vision_enabled = checkbox(
+            "Enable Vision", value=tool_cfg.get("VISION", {}).get("enabled", True)
+        )
+        vision_max_runtime = number_input(
+            "Vision max_runtime_s",
+            min_value=1,
+            value=int(tool_cfg.get("VISION", {}).get("max_runtime_s", 60)),
+            step=1,
+        )
+
+    tool_cfg.setdefault("CODE_IO", {})
+    tool_cfg.setdefault("SIMULATION", {})
+    tool_cfg.setdefault("VISION", {})
+    tool_cfg["CODE_IO"].update(
+        {
+            "enabled": bool(code_enabled),
+            "max_files": int(code_max_files),
+            "max_runtime_s": int(code_max_runtime),
+        }
+    )
+    tool_cfg["SIMULATION"].update(
+        {"enabled": bool(sim_enabled), "max_runtime_s": int(sim_max_runtime)}
+    )
+    tool_cfg["VISION"].update(
+        {"enabled": bool(vision_enabled), "max_runtime_s": int(vision_max_runtime)}
+    )
+    st.session_state["TOOL_CFG"] = tool_cfg
+    tool_router.TOOL_CONFIG.update(tool_cfg)
+
     project_names = []
     project_doc_ids = {}
     if db:
@@ -1447,6 +1508,127 @@ def main():
             df = df.sort_values("tokens", ascending=False)
             getattr(st, "caption", lambda *a, **k: None)("Token breakdown by stage")
             getattr(st, "dataframe", lambda *a, **k: None)(df, use_container_width=True)
+
+    # Tool panels ---------------------------------------------------------------
+    tool_cfg = st.session_state.get("TOOL_CFG", tool_router.TOOL_CONFIG)
+    st.subheader("🛠 Tools")
+    tab_code, tab_sim, tab_vis, tab_exp = getattr(st, "tabs", lambda labels: [st] * len(labels))(
+        ["Code I/O", "Simulation", "Vision", "Exports"]
+    )
+    with tab_code:
+        globs = st.text_input("Globs (comma-sep)")
+        if st.button("Read Repo", disabled=not tool_cfg.get("CODE_IO", {}).get("enabled", True)):
+            try:
+                patterns = [g.strip() for g in globs.split(",") if g.strip()]
+                res = tool_router.call_tool("UI", "read_repo", {"globs": patterns})
+                files = res.get("results", []) if isinstance(res, dict) else res
+                for item in files:
+                    st.write(f"**{item.get('path','')}**")
+                    st.code(item.get("text", ""), language="markdown")
+                if res.get("truncated"):
+                    st.info("Results truncated")
+            except Exception as e:
+                st.error(str(e))
+        diff = st.text_area("Unified diff (preview)")
+        if st.button(
+            "Preview Patch", disabled=not tool_cfg.get("CODE_IO", {}).get("enabled", True)
+        ):
+            try:
+                plan = tool_router.call_tool("UI", "plan_patch", {"diff_spec": diff})
+                st.code(plan)
+            except Exception as e:
+                st.error(str(e))
+        if st.button(
+            "Apply Patch", disabled=not tool_cfg.get("CODE_IO", {}).get("enabled", True)
+        ):
+            st.session_state["pending_patch"] = diff
+        if st.session_state.get("pending_patch"):
+            st.warning("Apply patch? This cannot be undone.")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Confirm Apply"):
+                    try:
+                        tool_router.call_tool(
+                            "UI",
+                            "apply_patch",
+                            {"diff": st.session_state.pop("pending_patch"), "dry_run": False},
+                        )
+                        st.success("Patch applied")
+                    except Exception as e:
+                        st.error(str(e))
+            with col2:
+                if st.button("Cancel"):
+                    st.session_state.pop("pending_patch", None)
+    with tab_sim:
+        params_text = st.text_area("Params (JSON)", value="{}")
+        run_single = st.button(
+            "Run Simulation", disabled=not tool_cfg.get("SIMULATION", {}).get("enabled", True)
+        )
+        run_sweep = st.button(
+            "Run Sweep", disabled=not tool_cfg.get("SIMULATION", {}).get("enabled", True)
+        )
+        run_mc = st.button(
+            "Run Monte Carlo", disabled=not tool_cfg.get("SIMULATION", {}).get("enabled", True)
+        )
+        if run_single or run_sweep or run_mc:
+            try:
+                params = json.loads(params_text or "{}")
+                if run_sweep:
+                    params = {"sweep": params if isinstance(params, list) else [params]}
+                elif run_mc:
+                    params.setdefault("monte_carlo", 10)
+                result = tool_router.call_tool("UI", "simulate", params)
+                st.json(result)
+            except Exception as e:
+                st.error(str(e))
+    with tab_vis:
+        tasks = st.multiselect("Tasks", ["ocr", "classify", "detect"])
+        image_file = st.file_uploader("Image", type=["png", "jpg", "jpeg"])
+        video_file = st.file_uploader("Video", type=["mp4", "mov", "avi"])
+        sample_rate = st.number_input("sample_rate_fps", min_value=1, value=1)
+        if st.button(
+            "Analyze Image", disabled=not tool_cfg.get("VISION", {}).get("enabled", True)
+        ) and image_file:
+            try:
+                result = tool_router.call_tool(
+                    "UI", "analyze_image", {"file_or_bytes": image_file.getvalue(), "tasks": tasks}
+                )
+                st.json(result)
+            except Exception as e:
+                st.error(str(e))
+        if st.button(
+            "Analyze Video", disabled=not tool_cfg.get("VISION", {}).get("enabled", True)
+        ) and video_file:
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=Path(video_file.name).suffix) as tmp:
+                    tmp.write(video_file.getvalue())
+                    tmp_path = tmp.name
+                try:
+                    result = tool_router.call_tool(
+                        "UI",
+                        "analyze_video",
+                        {
+                            "file_path": tmp_path,
+                            "sample_rate_fps": int(sample_rate),
+                            "tasks": tasks,
+                        },
+                    )
+                    st.json(result)
+                finally:
+                    os.unlink(tmp_path)
+            except Exception as e:
+                st.error(str(e))
+    with tab_exp:
+        if st.button("Download Tool-Call Trace (JSON)"):
+            trace = tool_router.get_provenance()
+            slug = get_project_id() or "default"
+            outdir = Path("audits") / slug
+            outdir.mkdir(parents=True, exist_ok=True)
+            fp = outdir / "tool_trace.json"
+            fp.write_text(json.dumps(trace, indent=2), encoding="utf-8")
+            st.download_button(
+                "tool_trace.json", json.dumps(trace, indent=2), file_name="tool_trace.json"
+            )
 
     st.subheader("💬 Project Chat")
     doc_id = get_project_id()
