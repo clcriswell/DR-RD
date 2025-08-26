@@ -3,11 +3,20 @@ CODE_IO:
   max_files: 20
   max_runtime_s: 10
   max_tokens: 10000
+  circuit:
+    max_errors: 3
+    window_s: 60
 SIMULATION:
   enabled: true
   max_runtime_s: 30
   max_tokens: 5000
+  circuit:
+    max_errors: 3
+    window_s: 60
 VISION:
   enabled: true
   max_runtime_s: 60
   max_tokens: 5000
+  circuit:
+    max_errors: 3
+    window_s: 60

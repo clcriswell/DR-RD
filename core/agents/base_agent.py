@@ -22,10 +22,11 @@ from core.prompt_utils import coerce_user_content
 from dr_rd.retrieval.context import fetch_context
 from dr_rd.retrieval.vector_store import Retriever, build_retriever
 from core.retrieval import budget as rbudget
+from core.agents.tool_use import ToolUseMixin
 
 
 @dataclass(init=False)
-class LLMRoleAgent:
+class LLMRoleAgent(ToolUseMixin):
     """Minimal LLM-backed agent used by the new orchestrator."""
 
     name: str

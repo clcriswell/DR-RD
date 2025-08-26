@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Callable, Any, Dict
+from collections import defaultdict, deque
 import time
 import json
 import hashlib
@@ -15,6 +16,7 @@ with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
 
 _REGISTRY: Dict[str, tuple[Callable, str]] = {}
 _PROVENANCE: list[Dict[str, Any]] = []
+_ERROR_LOG: Dict[str, deque[float]] = defaultdict(deque)
 
 
 def register_tool(name: str, fn: Callable, config_key: str) -> None:
@@ -33,19 +35,38 @@ def call_tool(agent: str, tool_name: str, params: Dict[str, Any]) -> Any:
     if not cfg.get("enabled", False):
         raise ValueError(f"Tool {tool_name} disabled")
 
+    circuit = cfg.get("circuit", {})
+    max_errors = int(circuit.get("max_errors", 3))
+    window_s = int(circuit.get("window_s", 60))
+    dq = _ERROR_LOG[tool_name]
+    now = time.time()
+    while dq and now - dq[0] > window_s:
+        dq.popleft()
+    if len(dq) >= max_errors:
+        raise RuntimeError("circuit_open")
+
     start = time.time()
     if key == "CODE_IO":
         max_files = cfg.get("max_files", 0)
-        if tool_name == "read_repo":
-            if max_files and len(params.get("globs", [])) > max_files:
-                raise ValueError("Too many files requested")
-        elif tool_name == "apply_patch":
+        if tool_name == "apply_patch":
             diff = params.get("diff", "")
             files = [line[6:] for line in diff.splitlines() if line.startswith("+++ b/")]
             if max_files and len(files) > max_files:
                 raise ValueError("Too many files in patch")
 
-    result = fn(**params)
+    try:
+        result = fn(**params)
+    except Exception:
+        dq.append(time.time())
+        raise
+
+    if key == "CODE_IO" and tool_name == "read_repo":
+        max_files = cfg.get("max_files", 0)
+        truncated = False
+        if isinstance(result, list) and max_files and len(result) > max_files:
+            result = result[:max_files]
+            truncated = True
+        result = {"results": result, "truncated": truncated}
     wall = time.time() - start
     prov = {
         "agent": agent,
