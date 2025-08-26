@@ -70,6 +70,10 @@ TRACE_MAX_ROWS = 5000
 CHART_MAX_POINTS = 5000
 PATCH_MAX_FILES = 50
 PATCH_MAX_BYTES = 200000
+REPORT_MAX_BYTES = 2000000
+PDF_MAX_PAGES = 50
+DASHBOARD_MAX_PROJECTS = 200
+DASHBOARD_MAX_COMPARE = 5
 try:
     with open(UI_CFG_PATH, "r", encoding="utf-8") as fh:
         _ui = yaml.safe_load(fh) or {}
@@ -77,6 +81,14 @@ try:
         CHART_MAX_POINTS = int(_ui.get("CHART_MAX_POINTS", CHART_MAX_POINTS))
         PATCH_MAX_FILES = int(_ui.get("PATCH_MAX_FILES", PATCH_MAX_FILES))
         PATCH_MAX_BYTES = int(_ui.get("PATCH_MAX_BYTES", PATCH_MAX_BYTES))
+        REPORT_MAX_BYTES = int(_ui.get("REPORT_MAX_BYTES", REPORT_MAX_BYTES))
+        PDF_MAX_PAGES = int(_ui.get("PDF_MAX_PAGES", PDF_MAX_PAGES))
+        DASHBOARD_MAX_PROJECTS = int(
+            _ui.get("DASHBOARD_MAX_PROJECTS", DASHBOARD_MAX_PROJECTS)
+        )
+        DASHBOARD_MAX_COMPARE = int(
+            _ui.get("DASHBOARD_MAX_COMPARE", DASHBOARD_MAX_COMPARE)
+        )
 except Exception:  # pragma: no cover - optional config
     pass
 
@@ -137,6 +149,10 @@ def get_env_defaults() -> dict:
         "CHART_MAX_POINTS": CHART_MAX_POINTS,
         "PATCH_MAX_FILES": PATCH_MAX_FILES,
         "PATCH_MAX_BYTES": PATCH_MAX_BYTES,
+        "REPORT_MAX_BYTES": REPORT_MAX_BYTES,
+        "PDF_MAX_PAGES": PDF_MAX_PAGES,
+        "DASHBOARD_MAX_PROJECTS": DASHBOARD_MAX_PROJECTS,
+        "DASHBOARD_MAX_COMPARE": DASHBOARD_MAX_COMPARE,
     }
 
 

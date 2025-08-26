@@ -28,8 +28,16 @@ from config.feature_flags import apply_overrides, get_env_defaults
 import config.feature_flags as ff
 from core.trace.merge import merge_traces, summarize
 from core.trace.viz import to_rows, durations_series
+from core.trace.filters import apply_filters, group_stats
+from core.reporting.builder import build_report
+from core.reporting.pdf import to_pdf
+from core.dashboard.aggregate import (
+    list_projects,
+    collect_project_metrics,
+    compare_projects,
+)
 from core.sim.summary import summarize_runs
-from dr_rd.tools.code_io import summarize_diff, within_patch_limits
+from dr_rd.tools.code_io import summarize_diff, within_patch_limits, estimate_risk
 from datetime import datetime
 import numpy as np
 
@@ -1841,6 +1849,9 @@ def main():
             if not df.empty:
                 df["status"] = ["DENY" if f["path"] in summary["denied"] else "OK" for f in summary["files"]]
                 st.table(df)
+            risk = estimate_risk([f["path"] for f in summary["files"]])
+            if risk["risky"]:
+                st.warning(f"Risky paths: {', '.join(risk['risky'])}")
             st.code(diff, language="diff")
             st.download_button(
                 "Download .patch",
