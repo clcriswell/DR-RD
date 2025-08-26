@@ -91,3 +91,51 @@ def apply_patch(diff: str, dry_run: bool = True) -> Dict[str, str]:
     if proc.returncode != 0:
         return {"status": "error", "message": proc.stderr.decode()}
     return {"status": "validated" if dry_run else "applied"}
+
+
+def summarize_diff(diff: str) -> Dict[str, object]:
+    """Return a summary of a unified diff."""
+
+    files: Dict[str, Dict[str, int]] = {}
+    current: Dict[str, int] | None = None
+    for line in diff.splitlines():
+        if line.startswith("+++ b/"):
+            path = line[6:]
+            current = files.setdefault(path, {"path": path, "adds": 0, "dels": 0})
+        elif line.startswith("+++ "):
+            current = None
+        elif line.startswith("+") and not line.startswith("+++"):
+            if current:
+                current["adds"] += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            if current:
+                current["dels"] += 1
+    changed_files = len(files)
+    additions = sum(f["adds"] for f in files.values())
+    deletions = sum(f["dels"] for f in files.values())
+    denied: List[str] = []
+    ok: List[str] = []
+    for path in files:
+        if _is_allowed(Path(path)):
+            ok.append(path)
+        else:
+            denied.append(path)
+    return {
+        "changed_files": changed_files,
+        "additions": additions,
+        "deletions": deletions,
+        "files": list(files.values()),
+        "denied": denied,
+        "ok": ok,
+    }
+
+
+def within_patch_limits(diff: str, max_files: int, max_bytes: int) -> bool:
+    """Check patch against file and byte caps."""
+
+    summary = summarize_diff(diff)
+    if summary["changed_files"] > max_files:
+        return False
+    if len(diff.encode("utf-8")) > max_bytes:
+        return False
+    return True

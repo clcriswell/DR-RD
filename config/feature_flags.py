@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
+
+import yaml
 
 
 def _flag(name: str) -> bool:
@@ -61,6 +64,22 @@ EVALUATOR_WEIGHTS = json.loads(
 )
 EVALUATOR_MIN_OVERALL: float = float(os.getenv("EVALUATOR_MIN_OVERALL", "0.6"))
 
+# UI caps ---------------------------------------------------------------------
+UI_CFG_PATH = Path(__file__).resolve().parent / "ui.yaml"
+TRACE_MAX_ROWS = 5000
+CHART_MAX_POINTS = 5000
+PATCH_MAX_FILES = 50
+PATCH_MAX_BYTES = 200000
+try:
+    with open(UI_CFG_PATH, "r", encoding="utf-8") as fh:
+        _ui = yaml.safe_load(fh) or {}
+        TRACE_MAX_ROWS = int(_ui.get("TRACE_MAX_ROWS", TRACE_MAX_ROWS))
+        CHART_MAX_POINTS = int(_ui.get("CHART_MAX_POINTS", CHART_MAX_POINTS))
+        PATCH_MAX_FILES = int(_ui.get("PATCH_MAX_FILES", PATCH_MAX_FILES))
+        PATCH_MAX_BYTES = int(_ui.get("PATCH_MAX_BYTES", PATCH_MAX_BYTES))
+except Exception:  # pragma: no cover - optional config
+    pass
+
 # Optional AutoGen orchestration
 AUTOGEN_ENABLED = _flag("AUTOGEN_ENABLED")
 
@@ -114,6 +133,10 @@ def get_env_defaults() -> dict:
         "EVALUATION_USE_LLM_RUBRIC": EVALUATION_USE_LLM_RUBRIC,
         "EVAL_MIN_OVERALL": EVAL_MIN_OVERALL,
         "EVAL_WEIGHTS": EVAL_WEIGHTS,
+        "TRACE_MAX_ROWS": TRACE_MAX_ROWS,
+        "CHART_MAX_POINTS": CHART_MAX_POINTS,
+        "PATCH_MAX_FILES": PATCH_MAX_FILES,
+        "PATCH_MAX_BYTES": PATCH_MAX_BYTES,
     }
 
 

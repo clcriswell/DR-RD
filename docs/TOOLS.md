@@ -6,6 +6,7 @@ This repository exposes several pluggable tools used by agents.
 - **read_repo(globs: list[str]) -> dict**: return `{results: [{path, text}], truncated: bool}`.
 - **plan_patch(diff_spec: str) -> str**: pass-through diff preview.
 - **apply_patch(diff: str, dry_run: bool = True) -> dict**: validate or apply unified diffs.
+- **summarize_diff(diff: str) -> dict**: count additions/deletions per file and flag denylist violations.
 
 Guardrails:
 - Access limited to repository root.
