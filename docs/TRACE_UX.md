@@ -34,6 +34,10 @@ computed with `core.trace.merge.summarize`.
 - Timeline table limited to `TRACE_MAX_ROWS`
 - Duration line chart (`CHART_MAX_POINTS` cap)
 - Per-task summary table
+- Search box over node/agent/tool/meta
+- Saved views (store & recall filter sets)
+- Compare two saved runs side-by-side
 - Export merged trace as JSON or CSV
+- Export duration chart as PNG/SVG
 
 If no trace is available for a run an informative message is shown.

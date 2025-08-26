@@ -130,6 +130,21 @@ def summarize_diff(diff: str) -> Dict[str, object]:
     }
 
 
+def estimate_risk(files: List[str]) -> Dict[str, List[str]]:
+    """Heuristic risk estimation for patched files.
+
+    Any path under ``core/`` or ``config/`` is flagged as risky which allows
+    the UI to surface a warning badge.  The implementation is intentionally
+    simple and does not attempt deep semantic analysis.
+    """
+
+    risky = [f for f in files if f.startswith("core/") or f.startswith("config/")]
+    notes: List[str] = []
+    if risky:
+        notes.append("core/ and config/ changes may require extra review")
+    return {"risky": risky, "notes": notes}
+
+
 def within_patch_limits(diff: str, max_files: int, max_bytes: int) -> bool:
     """Check patch against file and byte caps."""
 
