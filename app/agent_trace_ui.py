@@ -11,10 +11,23 @@ import pandas as pd  # type: ignore
 import streamlit as st  # type: ignore
 
 
-def _format_summary(text: str, max_chars: int = 200) -> str:
-    """Return a shortened summary of the given text for display."""
+def _format_summary(text: Any, max_chars: int = 200) -> str:
+    """Return a shortened summary of the given text for display.
+
+    ``answers`` values may be either plain strings or structured dictionaries
+    (e.g., with a ``content`` field).  This helper now defensively handles both
+    cases by extracting a representative string before truncating.
+    """
     if not text:
         return ""
+
+    if isinstance(text, dict):
+        # Prefer an explicit content/summary field if available; otherwise
+        # fall back to a JSON representation so something meaningful is shown.
+        text = text.get("content") or text.get("summary") or json.dumps(text, ensure_ascii=False)
+    elif not isinstance(text, str):
+        text = str(text)
+
     for line in text.splitlines():
         stripped = line.strip()
         if stripped:
