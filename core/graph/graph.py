@@ -9,6 +9,7 @@ from .state import GraphState, GraphTask
 from .nodes import (
     plan_node,
     route_node,
+    retrieval_node,
     agent_node,
     tool_node,
     collect_node,
@@ -41,6 +42,7 @@ def _process_task(
     attempt = 0
     while True:
         attempt += 1
+        retrieval_node(state, ui_model)
         agent_node(state, ui_model)
         payload = state.answers.get(task.id, {})
         content = payload.get("content", "")
@@ -83,6 +85,7 @@ def run_langgraph(
         answers={},
         trace=[],
         tool_trace=[],
+        retrieved={},
     )
     plan_node(state, ui_model)
     for idx in range(len(state.tasks)):
@@ -116,4 +119,10 @@ def run_langgraph(
     state.trace = trace
     state.tool_trace = tool_trace
     synth_node(state, ui_model)
-    return state.final or "", answers, {"trace": trace, "tool_trace": tool_trace}
+    from core.retrieval import provenance
+
+    return state.final or "", answers, {
+        "trace": trace,
+        "tool_trace": tool_trace,
+        "retrieval_trace": provenance.get_trace(),
+    }
