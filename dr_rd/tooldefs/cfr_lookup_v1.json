@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "input": {
+    "type": "object",
+    "properties": {
+      "title": {"type": "string"},
+      "part": {"type": "string"},
+      "section": {"type": "string"}
+    },
+    "required": ["title", "part", "section"],
+    "additionalProperties": false
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "title": {"type": "string"},
+      "part": {"type": "string"},
+      "section": {"type": "string"},
+      "text": {"type": ["string", "null"]},
+      "url": {"type": ["string", "null"]}
+    },
+    "required": ["title", "part", "section", "text"],
+    "additionalProperties": false
+  }
+}

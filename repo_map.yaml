@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-28T21:34:56.975407Z'
-git_sha: 9f23f75f64ffb64a1468d2f6ffbf7fc929fa7674
+generated_at: '2025-08-28T21:50:01.531802Z'
+git_sha: fdfa95a8dc4022c5cec5043aeebcb6a7d81b2f49
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -191,21 +191,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/spec_builder.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
 - path: orchestrators/plan_utils.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/qa_router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -219,6 +205,20 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
+- path: orchestrators/spec_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/qa_router.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
 - path: core/summarization/__init__.py
   role: Summarization
   responsibilities: []
@@ -226,14 +226,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/integrator.py
+- path: core/summarization/role_summarizer.py
   role: Summarization
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/role_summarizer.py
+- path: core/summarization/integrator.py
   role: Summarization
   responsibilities: []
   inputs: []

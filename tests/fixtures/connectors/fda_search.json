@@ -1,0 +1,12 @@
+{
+  "results": [
+    {
+      "k_number": "K123456",
+      "device_name": "Widget Device",
+      "applicant": "Device Co",
+      "decision_date": "2021-06-01",
+      "regulation_number": "1234",
+      "url": "https://fda.gov/device/K123456"
+    }
+  ]
+}

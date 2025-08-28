@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "input": {
+    "type": "object",
+    "properties": {
+      "docket_id": {"type": ["string", "null"]},
+      "document_id": {"type": ["string", "null"]}
+    },
+    "additionalProperties": false
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "record": {"$ref": "#/definitions/reg"}
+    },
+    "required": ["record"],
+    "additionalProperties": false
+  },
+  "definitions": {
+    "reg": {
+      "type": "object",
+      "properties": {
+        "authority": {"type": "string"},
+        "agency": {"type": "string"},
+        "docket_id": {"type": ["string", "null"]},
+        "cfr_refs": {"type": "array", "items": {"type": "string"}},
+        "rule_stage": {"type": ["string", "null"]},
+        "effective_date": {"type": ["string", "null"]},
+        "summary": {"type": ["string", "null"]},
+        "url": {"type": "string"}
+      },
+      "required": ["authority", "agency", "summary", "url"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Tuple, Type, Any
+from pathlib import Path
+from typing import Any, Dict, Tuple, Type
 
 import yaml
-from config import feature_flags
-from pathlib import Path
 
-from core.agents.unified_registry import AGENT_REGISTRY, get_agent
-from core.roles import canonicalize
+from config import feature_flags
 from core.agents.invoke import invoke_agent
+from core.agents.unified_registry import AGENT_REGISTRY, get_agent
 from core.llm import select_model
+from core.roles import canonicalize
 
 logger = logging.getLogger(__name__)
 BUDGETS: Dict[str, Any] | None = None
@@ -27,6 +27,7 @@ def _load_budgets() -> Dict[str, Any]:
     profile = feature_flags.BUDGET_PROFILE
     return BUDGETS.get(profile, {})
 
+
 # ---------------------------------------------------------------------------
 # Lightweight keyword heuristics
 # ---------------------------------------------------------------------------
@@ -40,6 +41,18 @@ KEYWORDS: Dict[str, str] = {
     "regulatory": "Regulatory",
     "compliance": "Regulatory",
     "fda": "Regulatory",
+    "prior art": "IP Analyst",
+    "cpc": "IP Analyst",
+    "ipc": "IP Analyst",
+    "publication": "IP Analyst",
+    "claims": "IP Analyst",
+    "assignee": "IP Analyst",
+    "cfr": "Regulatory",
+    "docket": "Regulatory",
+    "final rule": "Regulatory",
+    "510(k)": "Regulatory",
+    "pma": "Regulatory",
+    "regulations.gov": "Regulatory",
     "iso": "Regulatory",
     "budget": "Finance",
     "architecture": "CTO",
@@ -215,4 +228,3 @@ __all__ = [
     "route_task",
     "dispatch",
 ]
-

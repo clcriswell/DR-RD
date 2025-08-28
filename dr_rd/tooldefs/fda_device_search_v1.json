@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "input": {
+    "type": "object",
+    "properties": {"query": {"type": "string"}},
+    "required": ["query"],
+    "additionalProperties": false
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "items": {"type": "array", "items": {"$ref": "#/definitions/device"}}
+    },
+    "required": ["items"],
+    "additionalProperties": false
+  },
+  "definitions": {
+    "device": {
+      "type": "object",
+      "properties": {
+        "k_number": {"type": "string"},
+        "device_name": {"type": "string"},
+        "applicant": {"type": ["string", "null"]},
+        "decision_date": {"type": ["string", "null"]},
+        "regulation_number": {"type": ["string", "null"]},
+        "url": {"type": ["string", "null"]}
+      },
+      "required": ["k_number", "device_name"],
+      "additionalProperties": false
+    }
+  }
+}

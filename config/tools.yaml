@@ -32,3 +32,33 @@ FINANCE:
   enabled: true
   max_calls: 5
   max_runtime_ms: 1000
+PATENT_SEARCH:
+  enabled: true
+  max_calls: 5
+  max_runtime_ms: 1000
+  ttl_s: 86400
+PATENT_FETCH:
+  enabled: true
+  max_calls: 5
+  max_runtime_ms: 1000
+  ttl_s: 86400
+REG_SEARCH:
+  enabled: true
+  max_calls: 5
+  max_runtime_ms: 1000
+  ttl_s: 86400
+REG_FETCH:
+  enabled: true
+  max_calls: 5
+  max_runtime_ms: 1000
+  ttl_s: 86400
+CFR_LOOKUP:
+  enabled: true
+  max_calls: 5
+  max_runtime_ms: 1000
+  ttl_s: 86400
+FDA_DEVICE_SEARCH:
+  enabled: true
+  max_calls: 5
+  max_runtime_ms: 1000
+  ttl_s: 86400

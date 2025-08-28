@@ -1,0 +1,19 @@
+{
+  "results": [
+    {
+      "publication_number": "US1234567A",
+      "application_number": "US09876543",
+      "title": "Widget",
+      "abstract": "An improved widget.",
+      "assignees": ["Widgets Inc"],
+      "inventors": ["Alice", "Bob"],
+      "cpcs": ["A01B"],
+      "ipcs": ["A01C"],
+      "publication_date": "2020-01-01",
+      "priority_date": "2019-01-01",
+      "cited_by_count": 2,
+      "citations": ["US7654321A"],
+      "url": "https://patents.example/US1234567A"
+    }
+  ]
+}

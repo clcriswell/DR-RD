@@ -87,6 +87,11 @@ EVAL_MIN_OVERALL=0.0..1.0
 EVALUATION_USE_LLM_RUBRIC=true|false
 PROVENANCE_ENABLED=true|false
 PROVENANCE_LOG_DIR=path/to/logs  # default 'runs'
+USPTO_API_KEY=your_key
+EPO_OPS_KEY=your_key
+REG_GOV_API_KEY=your_key
+GOVINFO_API_KEY=your_key
+FDA_API_KEY=your_key
 ```
 
 ### Provenance logging

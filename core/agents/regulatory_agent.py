@@ -5,9 +5,19 @@ from typing import Any
 from core.agents.prompt_agent import PromptFactoryAgent
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 
+COMPLIANCE_KEYWORDS = ["compliance", "cfr", "docket", "regulations.gov"]
+
 
 class RegulatoryAgent(PromptFactoryAgent):
     def act(self, idea: str, task: Any = None, **kwargs) -> str:
+        text = ""
+        if isinstance(task, dict):
+            text = f"{task.get('description', '')} {task.get('role', '')}"
+        else:
+            text = str(task or "")
+        policy = RetrievalPolicy.LIGHT
+        if any(k in text.lower() for k in COMPLIANCE_KEYWORDS):
+            policy = RetrievalPolicy.AGGRESSIVE
         spec = {
             "role": "Regulatory",
             "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
@@ -15,10 +25,10 @@ class RegulatoryAgent(PromptFactoryAgent):
                 "idea": idea,
                 "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
             },
-            "io_schema_ref": "dr_rd/schemas/regulatory_v1.json",
-            "retrieval_policy": RetrievalPolicy.LIGHT,
+            "io_schema_ref": "dr_rd/schemas/regulatory_evidence_v1.json",
+            "retrieval_policy": policy,
             "capabilities": "compliance analysis",
-            "evaluation_hooks": ["self_check_minimal"],
+            "evaluation_hooks": ["reg_citation_check"],
         }
         return super().run_with_spec(spec, **kwargs)
 

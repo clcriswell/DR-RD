@@ -1,0 +1,13 @@
+{
+  "data": [
+    {
+      "agency": "EPA",
+      "docket_id": "EPA-123",
+      "cfr_references": ["40 CFR 60"],
+      "rule_stage": "Final Rule",
+      "effective_date": "2022-01-01",
+      "summary": "Rule summary",
+      "url": "https://regulations.gov/docket/EPA-123"
+    }
+  ]
+}
