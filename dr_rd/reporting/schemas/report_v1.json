@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["report_id", "title", "executive_summary", "sections", "sources", "metadata", "generated_ts"],
+  "properties": {
+    "report_id": {"type": "string"},
+    "title": {"type": "string"},
+    "executive_summary": {"type": "string"},
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["heading", "body_md"],
+        "properties": {
+          "heading": {"type": "string"},
+          "body_md": {"type": "string"}
+        }
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "columns", "rows"],
+        "properties": {
+          "title": {"type": "string"},
+          "columns": {"type": "array", "items": {"type": "string"}},
+          "rows": {"type": "array", "items": {"type": "array", "items": {"type": "string"}}}
+        }
+      }
+    },
+    "figures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "path", "caption"],
+        "properties": {
+          "title": {"type": "string"},
+          "path": {"type": "string"},
+          "caption": {"type": "string"}
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "url", "kind"],
+        "properties": {
+          "id": {"type": "string"},
+          "title": {"type": "string"},
+          "url": {"type": ["string", "null"]},
+          "kind": {"type": "string"}
+        }
+      }
+    },
+    "appendices": {"type": "array"},
+    "metadata": {"type": "object"},
+    "generated_ts": {"type": "string"}
+  }
+}

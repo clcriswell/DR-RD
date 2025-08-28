@@ -371,6 +371,18 @@ def execute_plan(
             norm.get("quotes", []),
             norm.get("citations", []),
         )
+        try:  # optional KB persistence
+            from core.reporting_bridge import kb_ingest
+
+            kb_ingest(
+                role,
+                routed,
+                payload if isinstance(payload, dict) else {},
+                {"model": model},
+                norm.get("citations", []),
+            )
+        except Exception:
+            pass
         try:
             st.session_state["live_status"][tid] = {
                 "done": True,
