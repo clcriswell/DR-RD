@@ -1,0 +1,51 @@
+import pytest
+
+from dr_rd.prompting import PromptFactory
+from dr_rd.prompting.prompt_registry import registry as default_registry
+from config import feature_flags
+
+
+def test_template_resolution_and_provider_hints(monkeypatch):
+    monkeypatch.setattr(feature_flags, "RAG_ENABLED", True)
+    monkeypatch.setattr(feature_flags, "ENABLE_LIVE_SEARCH", True)
+    factory = PromptFactory(default_registry)
+    spec = {
+        "role": "Planner",
+        "task": "design a drone",
+        "inputs": {"task": "design a drone"},
+    }
+    result = factory.build_prompt(spec)
+    assert result["io_schema_ref"].endswith("planner_v1.json")
+    assert result["retrieval"]["enabled"] is True
+    assert result["retrieval"]["policy"] == "LIGHT"
+    assert "json" in result["system"].lower()
+    assert "citation" in result["system"].lower()
+    assert "openai" in result["llm_hints"]
+
+
+def test_retrieval_disabled(monkeypatch):
+    monkeypatch.setattr(feature_flags, "RAG_ENABLED", False)
+    monkeypatch.setattr(feature_flags, "ENABLE_LIVE_SEARCH", False)
+    factory = PromptFactory(default_registry)
+    spec = {
+        "role": "Planner",
+        "task": "design a drone",
+        "inputs": {"task": "design a drone"},
+    }
+    result = factory.build_prompt(spec)
+    assert result["retrieval"]["enabled"] is False
+    assert "citation" not in result["system"].lower()
+
+
+def test_fallback_when_missing(monkeypatch):
+    factory = PromptFactory(default_registry)
+    spec = {
+        "role": "Unknown",
+        "task": "do something",
+        "inputs": {"task": "do something"},
+        "io_schema_ref": "dr_rd/schemas/custom.json",
+    }
+    result = factory.build_prompt(spec)
+    assert result["io_schema_ref"] == "dr_rd/schemas/custom.json"
+    assert result["retrieval"]["policy"] == "NONE"
+    assert "unknown" in result["system"].lower()

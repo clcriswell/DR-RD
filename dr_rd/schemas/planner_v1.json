@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Planner V1",
+  "type": "object",
+  "properties": {
+    "plan_id": {"type": "string"},
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string"},
+          "desc": {"type": "string"},
+          "role_hint": {"type": "string"}
+        },
+        "required": ["title", "desc"],
+        "additionalProperties": false
+      }
+    },
+    "constraints": {"type": "string"},
+    "assumptions": {"type": "string"},
+    "metrics": {"type": "string"},
+    "next_steps": {"type": "string"}
+  },
+  "required": ["plan_id", "tasks"],
+  "additionalProperties": false
+}
