@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-28T20:29:14.493707Z'
-git_sha: 9e7fb171c0902fddee4791ffe81bfecdcb4ef73a
+generated_at: '2025-08-28T20:44:39.991057Z'
+git_sha: 1ef4c747e0372da96d5aa4dcfc5ec7fa590399f4
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -149,7 +149,42 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/app_builder.py
+- path: core/agents/materials_agent.py
+  role: Agent[Materials]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/qa_agent.py
+  role: Agent[QA]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/finance_specialist_agent.py
+  role: Agent[Finance Specialist]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/agents/dynamic_agent_wrapper.py
+  role: Agent[Dynamic Specialist]
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/spec_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/qa_router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -163,7 +198,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/spec_builder.py
+- path: orchestrators/app_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -171,13 +206,6 @@ modules:
   invoked_by: []
   invokes: []
 - path: orchestrators/__init__.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/qa_router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -242,6 +270,10 @@ agent_registry:
   Chief Scientist: core/agents/chief_scientist_agent.py
   Regulatory Specialist: core/agents/regulatory_specialist_agent.py
   Evaluation: core/agents/evaluation_agent.py
+  Materials: core/agents/materials_agent.py
+  QA: core/agents/qa_agent.py
+  Finance Specialist: core/agents/finance_specialist_agent.py
+  Dynamic Specialist: core/agents/dynamic_agent_wrapper.py
 config_files:
 - path: config/modes.yaml
   required_keys:

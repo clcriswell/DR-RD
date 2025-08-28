@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["role", "task", "requirements_matrix", "coverage", "defect_stats", "risks", "next_steps", "sources"],
+  "properties": {
+    "role": {"type": "string"},
+    "task": {"type": "string"},
+    "requirements_matrix": {
+      "type": "object",
+      "required": ["total", "covered", "uncovered"],
+      "properties": {
+        "total": {"type": "integer"},
+        "covered": {"type": "array", "items": {"type": "string"}},
+        "uncovered": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["coverage", "uncovered"],
+      "properties": {
+        "coverage": {"type": "number"},
+        "uncovered": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "defect_stats": {
+      "type": "object",
+      "required": ["critical", "major", "minor"],
+      "properties": {
+        "critical": {"type": "array"},
+        "major": {"type": "array"},
+        "minor": {"type": "array"}
+      }
+    },
+    "risks": {"type": "array", "items": {"type": "string"}},
+    "next_steps": {"type": "array", "items": {"type": "string"}},
+    "sources": {"type": "array", "items": {"type": "string"}}
+  }
+}

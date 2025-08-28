@@ -39,10 +39,25 @@ KEYWORDS: Dict[str, str] = {
     "human resources": "HRM",
     "hiring": "HRM",
     "org design": "HRM",
-    "qa": "Reflection",
-    "quality assurance": "Reflection",
+    "qa": "QA",
+    "quality assurance": "QA",
     "consistency review": "Reflection",
     "postmortem": "Reflection",
+    "material": "Materials",
+    "alloy": "Materials",
+    "polymer": "Materials",
+    "tensile": "Materials",
+    "modulus": "Materials",
+    "test plan": "QA",
+    "requirement": "QA",
+    "coverage": "QA",
+    "defect": "QA",
+    "quality": "QA",
+    "unit economics": "Finance Specialist",
+    "npv": "Finance Specialist",
+    "irr": "Finance Specialist",
+    "pricing": "Finance Specialist",
+    "margin": "Finance Specialist",
 }
 
 # Common role aliases to canonical registry roles
@@ -104,11 +119,9 @@ def choose_agent_for_task(
             model = select_model("agent", ui_model, agent_name=role)
             return role, AGENT_REGISTRY[role], model
 
-    # 3) Fallback to Research Scientist with info log
-    if planned_role:
-        logger.info("Fallback routing %r → Research Scientist", planned_role)
-    model = select_model("agent", ui_model, agent_name="Research Scientist")
-    return "Research Scientist", AGENT_REGISTRY["Research Scientist"], model
+    # 3) Fallback to Dynamic Specialist
+    model = select_model("agent", ui_model, agent_name="Dynamic Specialist")
+    return "Dynamic Specialist", AGENT_REGISTRY["Dynamic Specialist"], model
 
 
 def route_task(

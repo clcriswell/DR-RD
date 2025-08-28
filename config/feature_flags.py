@@ -33,6 +33,7 @@ VISION_ENABLED = _flag("VISION_ENABLED")
 GRAPH_ENABLED = _flag("GRAPH_ENABLED")
 GRAPH_MAX_STEPS: int = int(os.getenv("GRAPH_MAX_STEPS", "100"))
 GRAPH_PARALLELISM: int = int(os.getenv("GRAPH_PARALLELISM", "4"))
+PROVENANCE_ENABLED = os.getenv("PROVENANCE_ENABLED", "true").lower() == "true"
 FAISS_INDEX_URI: str | None = os.getenv("FAISS_INDEX_URI")
 FAISS_INDEX_DIR: str = os.getenv("FAISS_INDEX_DIR", ".faiss_index")
 FAISS_BOOTSTRAP_MODE: str = os.getenv("FAISS_BOOTSTRAP_MODE", "download")
@@ -83,12 +84,8 @@ try:
         PATCH_MAX_BYTES = int(_ui.get("PATCH_MAX_BYTES", PATCH_MAX_BYTES))
         REPORT_MAX_BYTES = int(_ui.get("REPORT_MAX_BYTES", REPORT_MAX_BYTES))
         PDF_MAX_PAGES = int(_ui.get("PDF_MAX_PAGES", PDF_MAX_PAGES))
-        DASHBOARD_MAX_PROJECTS = int(
-            _ui.get("DASHBOARD_MAX_PROJECTS", DASHBOARD_MAX_PROJECTS)
-        )
-        DASHBOARD_MAX_COMPARE = int(
-            _ui.get("DASHBOARD_MAX_COMPARE", DASHBOARD_MAX_COMPARE)
-        )
+        DASHBOARD_MAX_PROJECTS = int(_ui.get("DASHBOARD_MAX_PROJECTS", DASHBOARD_MAX_PROJECTS))
+        DASHBOARD_MAX_COMPARE = int(_ui.get("DASHBOARD_MAX_COMPARE", DASHBOARD_MAX_COMPARE))
 except Exception:  # pragma: no cover - optional config
     pass
 
@@ -132,6 +129,7 @@ def get_env_defaults() -> dict:
         "GRAPH_ENABLED": GRAPH_ENABLED,
         "GRAPH_MAX_STEPS": GRAPH_MAX_STEPS,
         "GRAPH_PARALLELISM": GRAPH_PARALLELISM,
+        "PROVENANCE_ENABLED": PROVENANCE_ENABLED,
         "PATENT_APIS_ENABLED": PATENT_APIS_ENABLED,
         "REGULATORY_APIS_ENABLED": REGULATORY_APIS_ENABLED,
         "COMPLIANCE_ENABLED": COMPLIANCE_ENABLED,
@@ -228,7 +226,8 @@ def apply_mode_overrides(cfg: dict) -> None:
 class _DeprecatedImagesDefault(dict):
     def __getitem__(self, key):  # pragma: no cover - compatibility shim
         logging.warning(
-            "config.feature_flags.DISABLE_IMAGES_BY_DEFAULT is deprecated; use ENABLE_IMAGES instead."
+            "config.feature_flags.DISABLE_IMAGES_BY_DEFAULT is deprecated; "
+            "use ENABLE_IMAGES instead."
         )
         return super().__getitem__(key)
 

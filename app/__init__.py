@@ -3,9 +3,11 @@ import json
 import logging
 import os
 import re
+from datetime import datetime
 from typing import Dict, List, Optional
 
 import fitz
+import numpy as np
 import openai
 import pandas as pd
 import streamlit as st
@@ -13,38 +15,34 @@ from markdown_pdf import MarkdownPdf, Section
 from utils.firestore_workspace import FirestoreWorkspace as WS
 from utils.refinement import refine_agent_output
 
+import config.feature_flags as ff
 import core
+from app.agent_trace_ui import render_live_status, render_role_summaries
 from app.config_loader import load_profile
 from app.logging_setup import init_gcp_logging
 from app.ui_cost_meter import render_cost_summary
-from app.agent_trace_ui import (
-    render_live_status,
-    render_role_summaries,
-)
 from app.ui_presets import UI_PRESETS
 from collaboration import agent_chat
 from config.agent_models import AGENT_MODEL_MAP
 from config.feature_flags import apply_overrides, get_env_defaults
-import config.feature_flags as ff
-from core.trace.merge import merge_traces, summarize
-from core.trace.viz import to_rows, durations_series
-from core.trace.filters import apply_filters, group_stats
-from core.reporting.builder import build_report
-from core.reporting.pdf import to_pdf
 from core.dashboard.aggregate import (
-    list_projects,
     collect_project_metrics,
     compare_projects,
+    list_projects,
 )
+from core.reporting.builder import build_report
+from core.reporting.pdf import to_pdf
 from core.sim.summary import summarize_runs
-from dr_rd.tools.code_io import summarize_diff, within_patch_limits, estimate_risk
-from datetime import datetime
-import numpy as np
+from core.trace.filters import apply_filters, group_stats
+from core.trace.merge import merge_traces, summarize
+from core.trace.viz import durations_series, to_rows
+from dr_rd.tools.code_io import estimate_risk, summarize_diff, within_patch_limits
 
 try:  # optional altair for charts
     import altair as alt  # type: ignore
 except Exception:  # pragma: no cover - optional
     alt = None
+from core import tool_router
 from core.agents.planner_agent import PlannerAgent
 from core.agents.simulation_agent import SimulationAgent
 from core.agents.synthesizer_agent import SynthesizerAgent, compose_final_proposal
@@ -64,7 +62,7 @@ from core.role_normalizer import normalize_tasks as normalize_roles_tasks
 from core.summarization import two_pass_enabled
 from core.summarization.integrator import integrate
 from core.summarization.schemas import RoleSummary
-from core import tool_router
+
 try:  # optional LangGraph pipeline
     from core.graph import run_langgraph
 except Exception:  # pragma: no cover - optional dependency
@@ -73,12 +71,13 @@ try:  # optional AutoGen pipeline
     from core.autogen.run import run_autogen
 except Exception:  # pragma: no cover - optional dependency
     run_autogen = None
+import tempfile
+from pathlib import Path
+
 from dr_rd.core.config_snapshot import build_resolved_config_snapshot
 from dr_rd.knowledge.bootstrap import bootstrap_vector_index
 from memory import audit_logger  # import the audit logger
 from memory.memory_manager import MemoryManager
-from pathlib import Path
-import tempfile
 
 
 class _DummyCtx:
@@ -716,7 +715,6 @@ def main():
     _mode_cfg["vector_index_source"] = bootstrap.get("source", "none")
     _mode_cfg["vector_index_reason"] = bootstrap.get("reason", "")
 
-    import config.feature_flags as ff
     from core.retrieval import budget as rbudget
 
     cap = rbudget.get_web_max_calls(os.environ, _mode_cfg)
@@ -767,20 +765,44 @@ def main():
         engine = radio("Engine", engines, index=engines.index(default_engine))
         st.session_state["engine"] = engine
         st.session_state["graph_enabled"] = engine == "LangGraph"
-        max_conc = number_input("Max concurrency", min_value=1, value=int(st.session_state.get("max_concurrency", 1)), step=1)
-        max_retries = number_input("Max retries", min_value=0, value=int(st.session_state.get("max_retries", 0)), step=1)
-        backoff_base = number_input("Backoff base (s)", min_value=0.0, value=float(st.session_state.get("backoff_base", 1.0)), step=0.5)
-        backoff_factor = number_input("Backoff factor", min_value=1.0, value=float(st.session_state.get("backoff_factor", 2.0)), step=0.5)
-        backoff_max = number_input("Backoff max (s)", min_value=0.0, value=float(st.session_state.get("backoff_max", 30.0)), step=1.0)
+        max_conc = number_input(
+            "Max concurrency",
+            min_value=1,
+            value=int(st.session_state.get("max_concurrency", 1)),
+            step=1,
+        )
+        max_retries = number_input(
+            "Max retries", min_value=0, value=int(st.session_state.get("max_retries", 0)), step=1
+        )
+        backoff_base = number_input(
+            "Backoff base (s)",
+            min_value=0.0,
+            value=float(st.session_state.get("backoff_base", 1.0)),
+            step=0.5,
+        )
+        backoff_factor = number_input(
+            "Backoff factor",
+            min_value=1.0,
+            value=float(st.session_state.get("backoff_factor", 2.0)),
+            step=0.5,
+        )
+        backoff_max = number_input(
+            "Backoff max (s)",
+            min_value=0.0,
+            value=float(st.session_state.get("backoff_max", 30.0)),
+            step=1.0,
+        )
         eval_toggle = checkbox("Enable evaluators", value=ff.EVALUATORS_ENABLED)
-    st.session_state.update({
-        "max_concurrency": int(max_conc),
-        "max_retries": int(max_retries),
-        "backoff_base": float(backoff_base),
-        "backoff_factor": float(backoff_factor),
-        "backoff_max": float(backoff_max),
-        "evaluators_enabled": bool(eval_toggle),
-    })
+    st.session_state.update(
+        {
+            "max_concurrency": int(max_conc),
+            "max_retries": int(max_retries),
+            "backoff_base": float(backoff_base),
+            "backoff_factor": float(backoff_factor),
+            "backoff_max": float(backoff_max),
+            "evaluators_enabled": bool(eval_toggle),
+        }
+    )
     ff.EVALUATORS_ENABLED = bool(eval_toggle)
 
     # Retrieval feature toggles -------------------------------------------------
@@ -851,7 +873,9 @@ def main():
     with _safe_expander(sidebar, "Quality & Evaluation", expanded=False):
         checkbox = getattr(st, "checkbox", lambda label, value=False, **k: value)
         number_input = getattr(st, "number_input", lambda label, value=0, **k: value)
-        evaluation_enabled = checkbox("Enable evaluation", value=cfg.get("evaluation_enabled", False))
+        evaluation_enabled = checkbox(
+            "Enable evaluation", value=cfg.get("evaluation_enabled", False)
+        )
         evaluation_max_rounds = number_input(
             "Evaluation max rounds",
             min_value=0,
@@ -979,7 +1003,9 @@ def main():
     with _safe_expander(sidebar, "IP & Compliance", expanded=False):
         checkbox = getattr(st, "checkbox", lambda label, value=False, **k: value)
         text_input = getattr(st, "text_input", lambda label, value="", **k: value)
-        multiselect = getattr(st, "multiselect", lambda label, options, default=None, **k: default or [])
+        multiselect = getattr(
+            st, "multiselect", lambda label, options, default=None, **k: default or []
+        )
         number_input = getattr(st, "number_input", lambda label, value=0.0, **k: value)
         patent_toggle = checkbox("Enable Patent APIs", value=ff.PATENT_APIS_ENABLED)
         regulatory_toggle = checkbox("Enable Regulatory APIs", value=ff.REGULATORY_APIS_ENABLED)
@@ -1030,9 +1056,7 @@ def main():
                 "UI", "patent_search", params
             )
         if st.session_state.get("patent_results"):
-            getattr(st, "dataframe", lambda d, **k: None)(
-                st.session_state["patent_results"]
-            )
+            getattr(st, "dataframe", lambda d, **k: None)(st.session_state["patent_results"])
 
     with st.expander("Compliance Check", expanded=False):
         if st.button("Run Compliance Check") and st.session_state.get("final_doc"):
@@ -1041,9 +1065,7 @@ def main():
             pids = st.session_state.get("profiles", ["us_federal"])
             profile = checker.load_profile(pids[0]) if pids else None
             if profile:
-                rep = checker.check(
-                    st.session_state.get("final_doc", ""), profile, {}
-                )
+                rep = checker.check(st.session_state.get("final_doc", ""), profile, {})
                 st.session_state["compliance_report"] = rep.model_dump()
         if st.session_state.get("compliance_report"):
             st.json(st.session_state["compliance_report"])
@@ -1161,6 +1183,37 @@ def main():
         index=1,
         key="risk_posture",
     )
+
+    with st.expander("Specialists", expanded=False):
+        sel_mat = st.checkbox("Materials", key="spec_mat")
+        sel_qa = st.checkbox("QA", key="spec_qa")
+        sel_fin = st.checkbox("Finance Specialist", key="spec_fin")
+        if st.button("Run", key="run_specialists"):
+            chosen = [
+                r
+                for r, v in {
+                    "Materials": sel_mat,
+                    "QA": sel_qa,
+                    "Finance Specialist": sel_fin,
+                }.items()
+                if v
+            ]
+            st.write({"dispatch": chosen})
+
+    with st.expander("Dynamic Agent", expanded=False):
+        spec_text = st.text_area("Spec", "{}", key="dyn_spec")
+        if st.button("Compose & Run", key="run_dynamic"):
+            try:
+                payload = json.loads(spec_text or "{}")
+                st.write(payload)
+            except Exception as e:
+                st.error(str(e))
+
+    if ff.PROVENANCE_ENABLED:
+        prov = tool_router.get_provenance()
+        if prov:
+            df = pd.DataFrame(prov)
+            st.dataframe(df["agent tool elapsed_ms".split()], use_container_width=True)
 
     if hasattr(st, "expander"):
         with st.expander("PoC", expanded=False):
@@ -1404,7 +1457,9 @@ def main():
                         st.session_state["answers"] = answers
                         st.session_state["final_doc"] = final
                         st.session_state["graph_trace_bundle"] = trace_bundle
-                        st.session_state["session_sources"] = trace_bundle.get("retrieval_trace", [])
+                        st.session_state["session_sources"] = trace_bundle.get(
+                            "retrieval_trace", []
+                        )
                         slug = get_project_id() or "default"
                         outdir = Path("audits") / slug
                         outdir.mkdir(parents=True, exist_ok=True)
@@ -1420,7 +1475,9 @@ def main():
                         st.session_state["answers"] = answers
                         st.session_state["final_doc"] = final
                         st.session_state["graph_trace_bundle"] = trace_bundle
-                        st.session_state["session_sources"] = trace_bundle.get("retrieval_trace", [])
+                        st.session_state["session_sources"] = trace_bundle.get(
+                            "retrieval_trace", []
+                        )
                         slug = get_project_id() or "default"
                         outdir = Path("audits") / slug
                         outdir.mkdir(parents=True, exist_ok=True)
@@ -1433,21 +1490,14 @@ def main():
                             idea,
                             tasks,
                             project_id=get_project_id(),
-                            save_decision_log=st.session_state.get(
-                                "save_decision_log", False
-                            ),
-                            save_evidence=st.session_state.get(
-                                "save_evidence_coverage", False
-                            ),
+                            save_decision_log=st.session_state.get("save_decision_log", False),
+                            save_evidence=st.session_state.get("save_evidence_coverage", False),
                             project_name=st.session_state.get("project_name"),
                             ui_model=ui_model,
                         )
                         st.session_state["answers"] = results
                         render_cost_summary(st.session_state.get("plan"))
-                    if (
-                        engine == "Classic"
-                        and st.session_state.get("awaiting_approval")
-                    ):
+                    if engine == "Classic" and st.session_state.get("awaiting_approval"):
                         pending = st.session_state.get("pending_followups", [])
                         st.info("Evaluation suggests follow-ups:")
                         for fu in pending:
@@ -1519,9 +1569,7 @@ def main():
                 and (not retries_only or (r.get("attempt", 0) or 0) > 1)
             ]
             if len(filtered) > ff.TRACE_MAX_ROWS:
-                st.caption(
-                    f"Showing first {ff.TRACE_MAX_ROWS} of {len(filtered)} events (cap)."
-                )
+                st.caption(f"Showing first {ff.TRACE_MAX_ROWS} of {len(filtered)} events (cap).")
                 filtered = filtered[: ff.TRACE_MAX_ROWS]
             df = pd.DataFrame(filtered)
             st.dataframe(df, use_container_width=True)
@@ -1530,14 +1578,10 @@ def main():
             if not dur_df.empty:
                 if len(dur_df) > ff.CHART_MAX_POINTS:
                     dur_df = dur_df.iloc[:: max(1, len(dur_df) // ff.CHART_MAX_POINTS)]
-                    st.caption(
-                        f"Downsampled to {ff.CHART_MAX_POINTS} points for display."
-                    )
+                    st.caption(f"Downsampled to {ff.CHART_MAX_POINTS} points for display.")
                 if alt:
                     chart = (
-                        alt.Chart(dur_df)
-                        .mark_line()
-                        .encode(x="ts", y="duration_s", color="node")
+                        alt.Chart(dur_df).mark_line().encode(x="ts", y="duration_s", color="node")
                     )
                     st.altair_chart(chart, use_container_width=True)
                 else:
@@ -1585,9 +1629,7 @@ def main():
         logging.info("User compiled final proposal")
         with st.spinner("🚀 Synthesizing final R&D proposal..."):
             try:
-                if st.session_state.get("graph_enabled") and st.session_state.get(
-                    "final_doc"
-                ):
+                if st.session_state.get("graph_enabled") and st.session_state.get("final_doc"):
                     final_report_text = st.session_state["final_doc"]
                     images: List[str] = []
                 else:
@@ -1601,9 +1643,7 @@ def main():
                 memory_manager.store_project(
                     st.session_state.get("project_name", ""),
                     idea,
-                    st.session_state.get(
-                        "plan_tasks", st.session_state.get("plan", {})
-                    ),
+                    st.session_state.get("plan_tasks", st.session_state.get("plan", {})),
                     st.session_state["answers"],
                     final_report_text,
                     images,
@@ -1612,9 +1652,7 @@ def main():
                 )
                 st.session_state["final_doc"] = final_report_text
             except Exception as e:  # pylint: disable=broad-except
-                getattr(st, "error", lambda *a, **k: None)(
-                    f"Final proposal synthesis failed: {e}"
-                )
+                getattr(st, "error", lambda *a, **k: None)(f"Final proposal synthesis failed: {e}")
                 logging.exception("Error during final proposal synthesis: %s", e)
                 st.stop()
             st.session_state["final_doc"] = final_report_text
@@ -1847,7 +1885,9 @@ def main():
             summary = summarize_diff(diff)
             df = pd.DataFrame(summary["files"])
             if not df.empty:
-                df["status"] = ["DENY" if f["path"] in summary["denied"] else "OK" for f in summary["files"]]
+                df["status"] = [
+                    "DENY" if f["path"] in summary["denied"] else "OK" for f in summary["files"]
+                ]
                 st.table(df)
             risk = estimate_risk([f["path"] for f in summary["files"]])
             if risk["risky"]:
@@ -1869,7 +1909,7 @@ def main():
                     f"Patch touches {summary['changed_files']} files, exceeds cap of {ff.PATCH_MAX_FILES}"
                 )
                 can_apply = False
-            if len(diff.encode('utf-8')) > ff.PATCH_MAX_BYTES:
+            if len(diff.encode("utf-8")) > ff.PATCH_MAX_BYTES:
                 st.error(
                     f"Patch size {len(diff.encode('utf-8'))} bytes exceeds cap of {ff.PATCH_MAX_BYTES}"
                 )
@@ -1923,20 +1963,18 @@ def main():
                     if summary["sweep_key"]:
                         key = summary["sweep_key"]
                         series = pd.DataFrame(
-                            {key: [r.get(key) for r in summary["sampled"]],
-                             "output": [r.get("output") for r in summary["sampled"]]}
+                            {
+                                key: [r.get(key) for r in summary["sampled"]],
+                                "output": [r.get("output") for r in summary["sampled"]],
+                            }
                         )
                         if summary["downsampled"]:
-                            st.caption(
-                                f"Downsampled to {ff.CHART_MAX_POINTS} points for display."
-                            )
+                            st.caption(f"Downsampled to {ff.CHART_MAX_POINTS} points for display.")
                         st.line_chart(series.set_index(key))
                     else:
                         outputs = [r.get("output") for r in summary["sampled"]]
                         if summary["downsampled"]:
-                            st.caption(
-                                f"Downsampled to {ff.CHART_MAX_POINTS} points for display."
-                            )
+                            st.caption(f"Downsampled to {ff.CHART_MAX_POINTS} points for display.")
                         hist, bins = np.histogram(outputs, bins=20)
                         st.bar_chart(pd.DataFrame({"count": hist}, index=bins[:-1]))
                         stats = {
@@ -1963,9 +2001,10 @@ def main():
         image_file = st.file_uploader("Image", type=["png", "jpg", "jpeg"])
         video_file = st.file_uploader("Video", type=["mp4", "mov", "avi"])
         sample_rate = st.number_input("sample_rate_fps", min_value=1, value=1)
-        if st.button(
-            "Analyze Image", disabled=not tool_cfg.get("VISION", {}).get("enabled", True)
-        ) and image_file:
+        if (
+            st.button("Analyze Image", disabled=not tool_cfg.get("VISION", {}).get("enabled", True))
+            and image_file
+        ):
             try:
                 result = tool_router.call_tool(
                     "UI", "analyze_image", {"file_or_bytes": image_file.getvalue(), "tasks": tasks}
@@ -1973,11 +2012,14 @@ def main():
                 st.json(result)
             except Exception as e:
                 st.error(str(e))
-        if st.button(
-            "Analyze Video", disabled=not tool_cfg.get("VISION", {}).get("enabled", True)
-        ) and video_file:
+        if (
+            st.button("Analyze Video", disabled=not tool_cfg.get("VISION", {}).get("enabled", True))
+            and video_file
+        ):
             try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=Path(video_file.name).suffix) as tmp:
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=Path(video_file.name).suffix
+                ) as tmp:
                     tmp.write(video_file.getvalue())
                     tmp_path = tmp.name
                 try:

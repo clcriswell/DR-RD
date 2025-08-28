@@ -85,6 +85,7 @@ EVALUATION_MAX_ROUNDS=0..2
 EVALUATION_HUMAN_REVIEW=true|false
 EVAL_MIN_OVERALL=0.0..1.0
 EVALUATION_USE_LLM_RUBRIC=true|false
+PROVENANCE_ENABLED=true|false
 ```
 
 ## Feature flags
@@ -106,6 +107,7 @@ Config keys that can be overridden:
 - `faiss_index_local_dir`
 - `faiss_index_uri`
 - `enable_images`
+- `provenance_enabled`
 
 ### Budget cap normalization
 

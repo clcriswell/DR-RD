@@ -20,3 +20,15 @@ VISION:
   circuit:
     max_errors: 3
     window_s: 60
+MATERIALS_DB:
+  enabled: true
+  max_calls: 5
+  max_runtime_ms: 1000
+QA_CHECKS:
+  enabled: true
+  max_calls: 5
+  max_runtime_ms: 1000
+FINANCE:
+  enabled: true
+  max_calls: 5
+  max_runtime_ms: 1000
