@@ -86,7 +86,12 @@ EVALUATION_HUMAN_REVIEW=true|false
 EVAL_MIN_OVERALL=0.0..1.0
 EVALUATION_USE_LLM_RUBRIC=true|false
 PROVENANCE_ENABLED=true|false
+PROVENANCE_LOG_DIR=path/to/logs  # default 'runs'
 ```
+
+### Provenance logging
+
+`PROVENANCE_ENABLED` toggles lightweight provenance logging for tool calls. Logs are written as JSONL files under `PROVENANCE_LOG_DIR` (default `runs/`). Each run creates a subdirectory containing `provenance.jsonl`.
 
 ## Feature flags
 
