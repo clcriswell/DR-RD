@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, Dict, Optional
+
+import yaml
+
+from dr_rd.examples import safety_filters
+from dr_rd.prompting import example_selectors
+
+CONFIG_PATH = Path("config/reporting.yaml")
+CONFIG = yaml.safe_load(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
 
 from .prompt_registry import (
     PromptRegistry,
@@ -75,8 +85,7 @@ class PromptFactory:
 
         llm_hints = {"provider": "auto", "json_strict": True, "tool_use": "prefer"}
         llm_hints.update(provider_hints)
-
-        return {
+        prompt = {
             "system": system.strip(),
             "user": user_prompt.strip(),
             "io_schema_ref": io_schema_ref,
@@ -84,3 +93,35 @@ class PromptFactory:
             "llm_hints": llm_hints,
             "evaluation_hooks": evaluation_hooks,
         }
+
+        if getattr(feature_flags, "EXAMPLES_ENABLED", True) and template and template.example_policy:
+            pol = {
+                "topk": CONFIG.get("EXAMPLE_TOPK_PER_ROLE", 0),
+                "max_tokens": CONFIG.get("EXAMPLE_MAX_TOKENS", 0),
+                "diversity_min": CONFIG.get("EXAMPLE_DIVERSITY_MIN", 0),
+            }
+            pol.update(template.example_policy or {})
+            provider = llm_hints.get("provider", "openai")
+            if provider == "auto":
+                provider = "openai"
+            k_hint = pol.get("topk", 0)
+            max_tokens = pol.get("max_tokens", 0)
+            cands = example_selectors.score_candidates(
+                role, spec.get("task_sig", ""), provider, k_hint, max_tokens
+            )
+            policies = safety_filters.load_policies()
+            cands = safety_filters.filter_and_redact(cands, policies)
+            total = 0
+            trimmed = []
+            for c in cands:
+                est = len(json.dumps(c)) // 4
+                if total + est > max_tokens:
+                    continue
+                trimmed.append(c)
+                total += est
+            pack = example_selectors.pack_for_provider(
+                trimmed, provider, llm_hints.get("json_mode") or llm_hints.get("json_only")
+            )
+            prompt["few_shots"] = pack
+
+        return prompt

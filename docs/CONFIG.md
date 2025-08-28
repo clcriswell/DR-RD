@@ -79,6 +79,7 @@ RAG_ENABLED=true|false
 ENABLE_LIVE_SEARCH=true|false
 LIVE_SEARCH_BACKEND=openai|serpapi
 ENABLE_IMAGES=true|false
+EXAMPLES_ENABLED=true|false
 SERPAPI_KEY=your_key
 EVALUATION_ENABLED=true|false
 EVALUATION_MAX_ROUNDS=0..2
@@ -230,4 +231,4 @@ The Planner uses the same retrieval layer as execution agents. When the vector
 index is missing or returns no results and live search is enabled, it performs a
 web search and injects a `# Web Search Results` section into the prompt. The
 planner JSON schema remains unchanged.
-\n### Reporting\n\n`KB_ENABLED` toggles persistence of agent outputs to `.dr_rd/kb`. `REPORTING_ENABLED` gates report generation. Paths and defaults live in `config/reporting.yaml`.\n
+\n### Reporting\n\n`KB_ENABLED` toggles persistence of agent outputs to `.dr_rd/kb`. `REPORTING_ENABLED` gates report generation. `EXAMPLES_ENABLED` controls few-shot example injection from the Example Bank. Paths and defaults live in `config/reporting.yaml`.\n

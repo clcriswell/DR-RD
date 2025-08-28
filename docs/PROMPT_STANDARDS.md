@@ -6,7 +6,7 @@
 - **system** and **user_template** provide the base messages used by the model. `user_template` is formatted with runtime `inputs`.
 - **io_schema_ref** points to a JSON schema contract the model must follow.
 - **retrieval_policy** controls how aggressively the model should fetch external context.
-- **evaluation_hooks**, **safety_notes**, **provider_hints**, **examples_ref** are optional metadata.
+- **evaluation_hooks**, **safety_notes**, **provider_hints**, **examples_ref**, **example_policy** are optional metadata.
 
 Registering a new version requires an explicit call to `PromptRegistry.register`. The latest registered version wins.
 
@@ -39,6 +39,9 @@ Agents request prompts through `PromptFactory.build_prompt` providing:
 }
 ```
 Future agents should reference `io_schema_ref` and use `PromptFactory` instead of hardcoded prompts.
+
+## Few Shot Examples
+Templates may supply an `example_policy` and `examples_ref` to enable automatic few-shot selection. When `EXAMPLES_ENABLED` is true the `PromptFactory` injects provider-formatted examples under `few_shots` and reports the number of examples and estimated tokens. Examples contain JSON I/O pairs only and omit chain-of-thought reasoning.
 
 ## Provider Hints
 Templates may supply `provider_hints` to steer provider specific behaviour:
