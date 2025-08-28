@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Sequence
 import pandas as pd  # type: ignore
 import streamlit as st  # type: ignore
 from core import trace_export
+from core import ui_bridge
 
 
 def _format_summary(text: Any, max_chars: int = 200) -> str:
@@ -175,6 +176,25 @@ def render_exports(project_id: str, agent_trace: Sequence[Dict[str, Any]]) -> No
         st.code(share_path, language=None)
         console_base = os.getenv("CONSOLE_BASE_URL", "").strip()
         if console_base:
-            st.markdown(
-                f"[Open in Console]({console_base.rstrip('/')}/{project_id})"
-            )
+        st.markdown(
+            f"[Open in Console]({console_base.rstrip('/')}/{project_id})"
+        )
+
+
+def render_trace_diff_panel() -> None:
+    """Render cross-run diff and incident bundle controls."""
+    runs = ui_bridge.list_runs()
+    if len(runs) < 2:
+        return
+    st.subheader("Run Diff")
+    base = st.selectbox("Base Run", runs, format_func=lambda r: f"{r['id']}" )
+    cand = st.selectbox("Candidate Run", runs, format_func=lambda r: f"{r['id']}")
+    if st.button("Diff Runs"):
+        diff = ui_bridge.diff_runs(base["path"], cand["path"])
+        st.json(diff)
+        red = ui_bridge.redaction_summary(cand["path"])
+        with st.expander("Redaction Summary", expanded=False):
+            st.json(red)
+    if st.button("Export Incident Bundle"):
+        path = ui_bridge.make_incident_bundle(base["path"], cand["path"], "incident_bundles")
+        st.success(f"Bundle created: {path}")

@@ -15,6 +15,15 @@ Retrieval flows in two stages: the FAISS vector index is queried when `rag_enabl
 Safety thresholds and patterns are defined in `config/safety.yaml` and apply
 globally when `SAFETY_ENABLED` is true.
 
+Diagnostics for trace diffing read thresholds from `config/diagnostics.yaml`:
+
+- `latency.warn_ms` / `latency.fail_ms`
+- `failure_rate.warn_delta` / `failure_rate.fail_delta`
+- `token_spike.warn_ratio` / `token_spike.fail_ratio`
+- `missing_citations.enabled`
+- `redaction_regressions.enabled`
+- `redaction_regressions.fail_on_new_secrets`
+
 ## Loader
 
 `load_profile("standard")` is the canonical entry point for loading runtime
