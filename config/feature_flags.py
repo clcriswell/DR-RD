@@ -53,6 +53,12 @@ KB_ENABLED = _flag("KB_ENABLED") or os.getenv("KB_ENABLED", "true").lower() == "
 REPORTING_ENABLED = os.getenv("REPORTING_ENABLED", "true").lower() == "true"
 EXAMPLES_ENABLED = os.getenv("EXAMPLES_ENABLED", "true").lower() == "true"
 
+# Safety & governance ---------------------------------------------------------
+SAFETY_ENABLED = os.getenv("SAFETY_ENABLED", "true").lower() == "true"
+FILTERS_STRICT_MODE = os.getenv("FILTERS_STRICT_MODE", "true").lower() == "true"
+REDTEAM_ENABLED = os.getenv("REDTEAM_ENABLED", "true").lower() == "true"
+POLICY_AWARE_PLANNING = os.getenv("POLICY_AWARE_PLANNING", "true").lower() == "true"
+
 EVALUATION_ENABLED = _flag("EVALUATION_ENABLED")
 EVALUATION_MAX_ROUNDS: int = int(os.getenv("EVALUATION_MAX_ROUNDS", "1"))
 EVALUATION_HUMAN_REVIEW = _flag("EVALUATION_HUMAN_REVIEW")
@@ -147,6 +153,10 @@ def get_env_defaults() -> dict:
         "KB_ENABLED": KB_ENABLED,
         "REPORTING_ENABLED": REPORTING_ENABLED,
         "EXAMPLES_ENABLED": EXAMPLES_ENABLED,
+        "SAFETY_ENABLED": SAFETY_ENABLED,
+        "FILTERS_STRICT_MODE": FILTERS_STRICT_MODE,
+        "REDTEAM_ENABLED": REDTEAM_ENABLED,
+        "POLICY_AWARE_PLANNING": POLICY_AWARE_PLANNING,
         "AUTOGEN_ENABLED": AUTOGEN_ENABLED,
         "SIM_OPTIMIZER_ENABLED": SIM_OPTIMIZER_ENABLED,
         "SIM_OPTIMIZER_STRATEGY": SIM_OPTIMIZER_STRATEGY,
@@ -179,6 +189,7 @@ def apply_overrides(cfg: dict) -> None:
     global GRAPH_ENABLED, GRAPH_MAX_STEPS, GRAPH_PARALLELISM
     global COST_GOVERNANCE_ENABLED, BUDGET_PROFILE
     global MODEL_ROUTING_ENABLED, FAILOVER_ENABLED
+    global SAFETY_ENABLED, FILTERS_STRICT_MODE, REDTEAM_ENABLED, POLICY_AWARE_PLANNING
     if "rag_enabled" in cfg:
         RAG_ENABLED = bool(cfg.get("rag_enabled"))
     if "rag_top_k" in cfg:
@@ -230,6 +241,14 @@ def apply_overrides(cfg: dict) -> None:
         MODEL_ROUTING_ENABLED = bool(cfg.get("model_routing_enabled"))
     if "failover_enabled" in cfg:
         FAILOVER_ENABLED = bool(cfg.get("failover_enabled"))
+    if "safety_enabled" in cfg:
+        SAFETY_ENABLED = bool(cfg.get("safety_enabled"))
+    if "filters_strict_mode" in cfg:
+        FILTERS_STRICT_MODE = bool(cfg.get("filters_strict_mode"))
+    if "redteam_enabled" in cfg:
+        REDTEAM_ENABLED = bool(cfg.get("redteam_enabled"))
+    if "policy_aware_planning" in cfg:
+        POLICY_AWARE_PLANNING = bool(cfg.get("policy_aware_planning"))
 
 
 def apply_mode_overrides(cfg: dict) -> None:

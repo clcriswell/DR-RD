@@ -6,6 +6,8 @@ import json
 from core.agents.prompt_agent import PromptFactoryAgent
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 from core.llm import select_model
+from config import feature_flags
+from core.safety_gate import preflight
 
 
 class PlannerAgent(PromptFactoryAgent):
@@ -25,6 +27,13 @@ class PlannerAgent(PromptFactoryAgent):
             text = json.dumps(data).lower()
             if any(k in text for k in ["simulate", "model", "digital twin"]):
                 data.setdefault("hints", {})["simulation_domain"] = "generic"
+            if feature_flags.POLICY_AWARE_PLANNING:
+                risks = preflight(str(task))
+                data["risk_register"] = [
+                    {"class": r, "likelihood": "low", "mitigation": "sanitize"}
+                    for r in risks
+                ]
+                data["policy_flags"] = {"policy_aware": True}
             return json.dumps(data)
         except Exception:
             return raw
