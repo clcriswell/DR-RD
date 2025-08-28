@@ -1,34 +1,26 @@
-from core.agents.base_agent import BaseAgent
+from __future__ import annotations
 
-"""Mechanical Systems Lead Agent for mechanical design tasks."""
+from typing import Any
+
+from core.agents.prompt_agent import PromptFactoryAgent
+from dr_rd.prompting.prompt_registry import RetrievalPolicy
 
 
-class MechanicalSystemsLeadAgent(BaseAgent):
-    """Agent responsible for mechanical system layout and design."""
+class MechanicalSystemsLeadAgent(PromptFactoryAgent):
+    def act(self, idea: str, task: Any = None, **kwargs) -> str:
+        spec = {
+            "role": "Mechanical Systems Lead",
+            "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
+            "inputs": {
+                "idea": idea,
+                "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
+            },
+            "io_schema_ref": "dr_rd/schemas/mechanical_systems_lead_v1.json",
+            "retrieval_policy": RetrievalPolicy.LIGHT,
+            "capabilities": "mechanical design",
+            "evaluation_hooks": ["self_check_minimal"],
+        }
+        return super().run_with_spec(spec, **kwargs)
 
-    def __init__(self, model):
-        super().__init__(
-            name="Mechanical Systems Lead",
-            model=model,
-            system_message=(
-                # Schema: dr_rd/schemas/mechanical_systems_lead_agent.json
-                "You are a mechanical systems lead with expertise in mechanical engineering and CAD design. "
-                "You specialize in creating and iterating on mechanical layouts (e.g., manifolds, brackets, enclosures) "
-                "quickly using generative design. You consider structural integrity, materials, and manufacturing "
-                "constraints in your proposals."
-            ),
-            user_prompt_template=(
-                # Schema: dr_rd/schemas/mechanical_systems_lead_agent.json
-                "Project Idea: {idea}\nAs the Mechanical Systems Lead, your task is {task}. "
-                "Provide a detailed mechanical design plan in Markdown, including suggested layouts or schematics for components like channels, frames, or brackets. "
-                "Discuss design alternatives and how quickly different configurations could be prototyped. Include reasoning for material choices and structural decisions. "
-                "Conclude with a JSON list of key mechanical components and design parameters.\n\n"
-                "As the Mechanical Systems Lead, provide a step-by-step assembly guide for the mechanical components in Markdown. \n"
-                "For each step:\n"
-                "  1. Describe the action (e.g., \"Attach the base frame...\").\n"
-                "  2. Explain the reasoning or tip in a short sentence.\n"
-                "Include diagram placeholders (e.g., \"![Figure 1: Mechanical Layout](images/mechanical_layout.png)\") where needed.\n"
-                "Conclude with a JSON-formatted bill of materials:\n"
-                "```json\n[{{\"name\":\"Part\",\"quantity\":1,\"specs\":\"...\"}}, ...]\n```"
-            ),
-        )
+    def run(self, idea: str, task: Any, **kwargs) -> str:
+        return self.act(idea, task, **kwargs)

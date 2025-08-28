@@ -1,11 +1,23 @@
-from core.agents.base_agent import LLMRoleAgent
+from __future__ import annotations
 
-ROLE_PROMPT = (
-    "You are a Materials Engineer specialized in material selection and engineering feasibility. "
-    "Evaluate material choices and manufacturing considerations. "
-    "Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
-)
+from typing import Any
 
-class MaterialsEngineerAgent(LLMRoleAgent):
-    def act(self, system_prompt: str = ROLE_PROMPT, user_prompt: str = "", **kwargs) -> str:
-        return super().act(system_prompt, user_prompt, **kwargs)
+from core.agents.prompt_agent import PromptFactoryAgent
+from dr_rd.prompting.prompt_registry import RetrievalPolicy
+
+
+class MaterialsEngineerAgent(PromptFactoryAgent):
+    def act(self, idea: str, task: Any = None, **kwargs) -> str:
+        spec = {
+            "role": "Materials Engineer",
+            "task": str(task or ""),
+            "inputs": {"idea": idea, "task": str(task or "")},
+            "io_schema_ref": "dr_rd/schemas/materials_engineer_v1.json",
+            "retrieval_policy": RetrievalPolicy.LIGHT,
+            "capabilities": "materials selection",
+            "evaluation_hooks": ["self_check_minimal"],
+        }
+        return super().run_with_spec(spec, **kwargs)
+
+    def run(self, idea: str, task: Any, **kwargs) -> str:
+        return self.act(idea, task, **kwargs)

@@ -1,17 +1,26 @@
-from core.agents.base_agent import BaseAgent
-from prompts.prompts import (
-    FINANCE_SYSTEM_PROMPT,
-    FINANCE_USER_PROMPT_TEMPLATE,
-)
+from __future__ import annotations
 
-class FinanceAgent(BaseAgent):
-    """Financial analyst for budgeting and cost estimates."""
+from typing import Any
 
-    def __init__(self, model: str):
-        super().__init__(
-            name="Finance",
-            model=model,
-            system_message=FINANCE_SYSTEM_PROMPT,
-            user_prompt_template=FINANCE_USER_PROMPT_TEMPLATE,
-                # Schema: dr_rd/schemas/finance_agent.json
-        )
+from core.agents.prompt_agent import PromptFactoryAgent
+from dr_rd.prompting.prompt_registry import RetrievalPolicy
+
+
+class FinanceAgent(PromptFactoryAgent):
+    def act(self, idea: str, task: Any = None, **kwargs) -> str:
+        spec = {
+            "role": "Finance",
+            "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
+            "inputs": {
+                "idea": idea,
+                "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
+            },
+            "io_schema_ref": "dr_rd/schemas/finance_v1.json",
+            "retrieval_policy": RetrievalPolicy.LIGHT,
+            "capabilities": "budgeting and costs",
+            "evaluation_hooks": ["self_check_minimal"],
+        }
+        return super().run_with_spec(spec, **kwargs)
+
+    def run(self, idea: str, task: Any, **kwargs) -> str:
+        return self.act(idea, task, **kwargs)

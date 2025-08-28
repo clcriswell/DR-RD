@@ -39,3 +39,30 @@ Agents request prompts through `PromptFactory.build_prompt` providing:
 }
 ```
 Future agents should reference `io_schema_ref` and use `PromptFactory` instead of hardcoded prompts.
+
+## Provider Hints
+Templates may supply `provider_hints` to steer provider specific behaviour:
+- **openai**: `{"json_mode": true, "tool_choice": "auto"}`
+- **anthropic**: `{"tool_choice": "auto"}`
+- **gemini**: `{"function_declarations": "auto"}`
+`PromptFactory.build_prompt` surfaces these under `llm_hints` for the executor.
+
+## Evaluator Flow
+Agents validate model JSON against the referenced schema. On failure, a single
+retry is issued with a "fix-to-schema" instruction. When
+`EVALUATORS_ENABLED=true`, a lightweight self critique checks for missing
+citations or incompleteness and gates one additional retry. Evaluator summaries
+are logged for debugging but not exposed to end users.
+
+## RAG and Citation Rules
+Retrieval behaviour follows `RAG_ENABLED` / `ENABLE_LIVE_SEARCH` flags. If both
+are false, prompts avoid retrieval language and sources are optional. When
+enabled and the template `retrieval_policy` is not `NONE`, prompts demand inline
+evidence markers and a non empty `sources` array of `{id,title,url}` objects.
+Agents returning empty sources in this mode trigger the evaluator retry.
+
+## Migration Notes
+Roles now powered by `PromptFactory`: CTO, Research Scientist, Regulatory,
+Finance, Marketing Analyst, IP Analyst, Planner, Synthesizer, Mechanical
+Systems Lead, HRM, Materials Engineer, Reflection, Chief Scientist, Regulatory
+Specialist.
