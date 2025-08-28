@@ -23,6 +23,7 @@ class PromptTemplate:
     safety_notes: Optional[str] = None
     provider_hints: Optional[Dict] = None
     examples_ref: Optional[str] = None
+    example_policy: Optional[Dict] = None
 
 
 class RetrievalPolicy(Enum):
@@ -103,6 +104,13 @@ registry.register(
             "anthropic": {"tool_choice": "auto"},
             "gemini": {"function_declarations": "auto"},
         },
+        examples_ref="Planner",
+        example_policy={
+            "topk": 6,
+            "max_tokens": 600,
+            "diversity_min": 2,
+            "provider_overrides": {"openai": {"json_only": True}},
+        },
     )
 )
 
@@ -121,6 +129,13 @@ registry.register(
             "anthropic": {"tool_choice": "auto"},
             "gemini": {"function_declarations": "auto"},
         },
+        examples_ref="Research Scientist",
+        example_policy={
+            "topk": 6,
+            "max_tokens": 600,
+            "diversity_min": 2,
+            "provider_overrides": {"openai": {"json_only": True}},
+        },
     )
 )
 
@@ -138,6 +153,13 @@ registry.register(
             "openai": {"json_mode": True, "tool_choice": "auto"},
             "anthropic": {"tool_choice": "auto"},
             "gemini": {"function_declarations": "auto"},
+        },
+        examples_ref="Synthesizer",
+        example_policy={
+            "topk": 6,
+            "max_tokens": 600,
+            "diversity_min": 2,
+            "provider_overrides": {"openai": {"json_only": True}},
         },
     )
 )
@@ -176,6 +198,13 @@ registry.register(
             "anthropic": {"tool_choice": "auto"},
             "gemini": {"function_declarations": "auto"},
         },
+        examples_ref="Regulatory",
+        example_policy={
+            "topk": 6,
+            "max_tokens": 600,
+            "diversity_min": 2,
+            "provider_overrides": {"openai": {"json_only": True}},
+        },
     )
 )
 
@@ -193,6 +222,13 @@ registry.register(
             "openai": {"json_mode": True, "tool_choice": "auto"},
             "anthropic": {"tool_choice": "auto"},
             "gemini": {"function_declarations": "auto"},
+        },
+        examples_ref="Finance",
+        example_policy={
+            "topk": 6,
+            "max_tokens": 600,
+            "diversity_min": 2,
+            "provider_overrides": {"openai": {"json_only": True}},
         },
     )
 )
@@ -229,6 +265,13 @@ registry.register(
             "openai": {"json_mode": True, "tool_choice": "auto"},
             "anthropic": {"tool_choice": "auto"},
             "gemini": {"function_declarations": "auto"},
+        },
+        examples_ref="IP Analyst",
+        example_policy={
+            "topk": 6,
+            "max_tokens": 600,
+            "diversity_min": 2,
+            "provider_overrides": {"openai": {"json_only": True}},
         },
     )
 )

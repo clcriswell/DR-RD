@@ -1,0 +1,10 @@
+blocklist:
+  pii:
+    - "@example.com"
+    - "555-123-4567"
+  secrets:
+    - "sk-"
+  copyright:
+    - "All rights reserved"
+allow_domains:
+  - example.com

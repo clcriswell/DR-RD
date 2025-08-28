@@ -1,5 +1,20 @@
 KB_ENABLED: true
 KNOWLEDGE_BASE_DIR: .dr_rd/kb
 KB_INDEX_ENABLED: true
+EXAMPLES_ENABLED: true
 EXAMPLE_TOPK_PER_ROLE: 12
+EXAMPLE_MAX_TOKENS: 1200
+EXAMPLE_DIVERSITY_MIN: 3
+EXAMPLE_RECENCY_WEIGHT: 0.2
+EXAMPLE_PROVIDER_RULES:
+  openai:
+    cot: false
+    json_only: true
+    prefer_tools: true
+  anthropic:
+    tool_choice: 'auto'
+    long_system_ok: true
+  gemini:
+    function_decls_ok: true
+    parallel_tools_ok: true
 EXAMPLE_MIN_SCORE: 0.7
