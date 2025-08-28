@@ -13,6 +13,7 @@ from dr_rd.prompting import example_selectors
 
 CONFIG_PATH = Path("config/reporting.yaml")
 CONFIG = yaml.safe_load(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
+RAG_CFG = yaml.safe_load(Path("config/rag.yaml").read_text()) if Path("config/rag.yaml").exists() else {}
 
 from .prompt_registry import (
     PromptRegistry,
@@ -72,17 +73,18 @@ class PromptFactory:
             retrieval_policy, RETRIEVAL_POLICY_META[RetrievalPolicy.NONE]
         )
 
-        retrieval_dict = {
+        topk_map = RAG_CFG.get("topk_defaults", {})
+        plan_topk = topk_map.get(retrieval_policy.name, meta["top_k"])
+        retrieval_plan = {
             "policy": retrieval_policy.name,
-            "top_k": meta["top_k"],
-            "source_types": meta["source_types"],
+            "top_k": plan_topk,
+            "domains": meta["source_types"],
             "budget_hint": meta["budget_hint"],
-            "enabled": retrieval_enabled,
         }
 
         if retrieval_enabled and retrieval_policy != RetrievalPolicy.NONE:
             retrieval_text = (
-                f" Retrieval policy {retrieval_policy.name}: use up to {meta['top_k']} items from "
+                f" Retrieval policy {retrieval_policy.name}: use up to {plan_topk} items from "
                 f"{', '.join(meta['source_types'])}; budget {meta['budget_hint']}."
                 " Provide inline numbered citations and a final sources list."
             )
@@ -94,7 +96,7 @@ class PromptFactory:
             "system": system.strip(),
             "user": user_prompt.strip(),
             "io_schema_ref": io_schema_ref,
-            "retrieval": retrieval_dict,
+            "retrieval_plan": retrieval_plan,
             "llm_hints": llm_hints,
             "evaluation_hooks": evaluation_hooks,
         }

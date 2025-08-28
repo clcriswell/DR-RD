@@ -12,11 +12,19 @@ class SynthesizerAgent(PromptFactoryAgent):
         materials = "\n".join(f"### {k}\n{v}" for k, v in answers.items())
         sources: List[Any] = []
         safety: List[Any] = []
-        for val in answers.values():
+        missing_sources: List[str] = []
+        seen = set()
+        for key, val in answers.items():
             if isinstance(val, dict):
+                if val.get("retrieval_plan") and not val.get("sources"):
+                    missing_sources.append(key)
                 for src in val.get("sources", []):
-                    if src not in sources:
-                        sources.append(src)
+                    url = src.get("url", "")
+                    canon = url.split("#")[0].rstrip("/")
+                    if canon in seen:
+                        continue
+                    seen.add(canon)
+                    sources.append(src)
                 if "safety_meta" in val:
                     safety.append(val["safety_meta"])
         spec = {
@@ -29,17 +37,22 @@ class SynthesizerAgent(PromptFactoryAgent):
             "evaluation_hooks": ["self_check_minimal"],
         }
         result = super().run_with_spec(spec, **kwargs)
-        if sources or safety:
+        if sources or safety or missing_sources:
             import json
             data = json.loads(result)
             if sources:
                 data.setdefault("sources", [])
-                data["sources"].extend(src for src in sources if src not in data["sources"])
+                for src in sources:
+                    if src not in data["sources"]:
+                        data["sources"].append(src)
             if safety:
                 data["safety_meta"] = safety
                 if any(m.get("decision", {}).get("allowed") is False for m in safety):
                     data.setdefault("contradictions", []).append("blocked content removed")
                     data["confidence"] = min(data.get("confidence", 1.0), 0.5)
+            if missing_sources:
+                data.setdefault("contradictions", []).append("missing sources for " + ", ".join(missing_sources))
+                data["confidence"] = min(data.get("confidence", 1.0), 0.7)
             result = json.dumps(data)
         return result
 

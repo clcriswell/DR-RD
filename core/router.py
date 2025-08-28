@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, Tuple, Type
 
@@ -16,6 +17,7 @@ from core.roles import canonicalize
 
 logger = logging.getLogger(__name__)
 BUDGETS: Dict[str, Any] | None = None
+RAG_CFG = yaml.safe_load(Path("config/rag.yaml").read_text()) if Path("config/rag.yaml").exists() else {}
 
 
 def _load_budgets() -> Dict[str, Any]:
@@ -177,10 +179,14 @@ def route_task(
         exec_cfg = budgets.get("exec", {})
         route_cfg = budgets.get("route", {})
         retrieval_level = exec_cfg.get("retrieval_policy_default", "AGGRESSIVE")
+        topk_map = RAG_CFG.get("topk_defaults", {})
         route_decision.update(
             {
                 "budget_profile": feature_flags.BUDGET_PROFILE,
                 "retrieval_level": retrieval_level,
+                "top_k_applied": topk_map.get(retrieval_level, 0),
+                "per_doc_cap_tokens": RAG_CFG.get("per_doc_cap_tokens", 400),
+                "dense_enabled": bool(os.getenv("OPENAI_API_KEY")),
                 "caps": {
                     "max_tool_calls": exec_cfg.get("max_tool_calls"),
                     "max_parallel_tools": route_cfg.get("max_parallel_tools"),

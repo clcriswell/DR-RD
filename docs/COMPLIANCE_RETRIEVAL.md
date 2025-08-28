@@ -15,3 +15,5 @@ policies are tuned for compliance tasks:
 Agents default to conservative retrieval but may upgrade to aggressive mode when
 compliance keywords are detected. Cached results are reused when possible to
 stay within budget.
+
+Domain reputation scores from `dr_rd/rag/domain_reputation.yaml` favour `.gov` and `.edu` sources. Regulatory and IP tasks therefore start with policy `LIGHT` and trusted domains to reduce risk. The router may downshift if budgets tighten.

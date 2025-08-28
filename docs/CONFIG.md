@@ -1,6 +1,7 @@
 # Configuration
 
-The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in two stages: the FAISS vector index is queried when `rag_enabled` is true; if no retriever is available or the index returns zero hits and `live_search_enabled` is true, a live web search (OpenAI or SerpAPI) is performed under a call budget. Modes expose:
+The system reads per-mode settings from `config/modes.yaml`. Retrieval weights and budgets are further tuned in `config/rag.yaml` which provides component weights, per-document caps and default `top_k` for retrieval policies.
+Retrieval flows in two stages: the FAISS vector index is queried when `rag_enabled` is true; if no retriever is available or the index returns zero hits and `live_search_enabled` is true, a live web search (OpenAI or SerpAPI) is performed under a call budget. Modes expose:
 
 - `rag_enabled`: toggle vector store lookup.
 - `rag_top_k`: number of snippets to retrieve.
@@ -84,6 +85,8 @@ LIVE_SEARCH_BACKEND=openai|serpapi
 ENABLE_IMAGES=true|false
 EXAMPLES_ENABLED=true|false
 SERPAPI_KEY=your_key
+OPENAI_API_KEY=your_key  # for dense embeddings
+BING_API_KEY=your_key  # optional web search
 EVALUATION_ENABLED=true|false
 EVALUATION_MAX_ROUNDS=0..2
 EVALUATION_HUMAN_REVIEW=true|false
