@@ -36,6 +36,8 @@ GRAPH_PARALLELISM: int = int(os.getenv("GRAPH_PARALLELISM", "4"))
 PROVENANCE_ENABLED = os.getenv("PROVENANCE_ENABLED", "true").lower() == "true"
 COST_GOVERNANCE_ENABLED = os.getenv("COST_GOVERNANCE_ENABLED", "true").lower() == "true"
 BUDGET_PROFILE: str = os.getenv("BUDGET_PROFILE", "standard")
+MODEL_ROUTING_ENABLED = os.getenv("MODEL_ROUTING_ENABLED", "true").lower() == "true"
+FAILOVER_ENABLED = os.getenv("FAILOVER_ENABLED", "true").lower() == "true"
 FAISS_INDEX_URI: str | None = os.getenv("FAISS_INDEX_URI")
 FAISS_INDEX_DIR: str = os.getenv("FAISS_INDEX_DIR", ".faiss_index")
 FAISS_BOOTSTRAP_MODE: str = os.getenv("FAISS_BOOTSTRAP_MODE", "download")
@@ -136,6 +138,8 @@ def get_env_defaults() -> dict:
         "GRAPH_PARALLELISM": GRAPH_PARALLELISM,
         "PROVENANCE_ENABLED": PROVENANCE_ENABLED,
         "COST_GOVERNANCE_ENABLED": COST_GOVERNANCE_ENABLED,
+        "MODEL_ROUTING_ENABLED": MODEL_ROUTING_ENABLED,
+        "FAILOVER_ENABLED": FAILOVER_ENABLED,
         "BUDGET_PROFILE": BUDGET_PROFILE,
         "PATENT_APIS_ENABLED": PATENT_APIS_ENABLED,
         "REGULATORY_APIS_ENABLED": REGULATORY_APIS_ENABLED,
@@ -174,6 +178,7 @@ def apply_overrides(cfg: dict) -> None:
     global EVALUATION_USE_LLM_RUBRIC, EVAL_MIN_OVERALL, EVAL_WEIGHTS
     global GRAPH_ENABLED, GRAPH_MAX_STEPS, GRAPH_PARALLELISM
     global COST_GOVERNANCE_ENABLED, BUDGET_PROFILE
+    global MODEL_ROUTING_ENABLED, FAILOVER_ENABLED
     if "rag_enabled" in cfg:
         RAG_ENABLED = bool(cfg.get("rag_enabled"))
     if "rag_top_k" in cfg:
@@ -221,6 +226,10 @@ def apply_overrides(cfg: dict) -> None:
         COST_GOVERNANCE_ENABLED = bool(cfg.get("cost_governance_enabled"))
     if "budget_profile" in cfg:
         BUDGET_PROFILE = str(cfg.get("budget_profile") or BUDGET_PROFILE)
+    if "model_routing_enabled" in cfg:
+        MODEL_ROUTING_ENABLED = bool(cfg.get("model_routing_enabled"))
+    if "failover_enabled" in cfg:
+        FAILOVER_ENABLED = bool(cfg.get("failover_enabled"))
 
 
 def apply_mode_overrides(cfg: dict) -> None:
