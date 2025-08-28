@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Tuple, Type
+from typing import Dict, Tuple, Type, Any
+
+import yaml
+from config import feature_flags
+from pathlib import Path
 
 from core.agents.unified_registry import AGENT_REGISTRY, get_agent
 from core.roles import canonicalize
@@ -11,6 +15,17 @@ from core.agents.invoke import invoke_agent
 from core.llm import select_model
 
 logger = logging.getLogger(__name__)
+BUDGETS: Dict[str, Any] | None = None
+
+
+def _load_budgets() -> Dict[str, Any]:
+    global BUDGETS
+    if BUDGETS is None:
+        cfg_path = Path(__file__).resolve().parents[1] / "config" / "budgets.yaml"
+        with open(cfg_path, "r", encoding="utf-8") as fh:
+            BUDGETS = yaml.safe_load(fh) or {}
+    profile = feature_flags.BUDGET_PROFILE
+    return BUDGETS.get(profile, {})
 
 # ---------------------------------------------------------------------------
 # Lightweight keyword heuristics
@@ -58,6 +73,11 @@ KEYWORDS: Dict[str, str] = {
     "irr": "Finance Specialist",
     "pricing": "Finance Specialist",
     "margin": "Finance Specialist",
+    "simulate": "Simulation",
+    "model": "Simulation",
+    "digital twin": "Simulation",
+    "param sweep": "Simulation",
+    "monte carlo": "Simulation",
 }
 
 # Common role aliases to canonical registry roles
@@ -128,12 +148,33 @@ def route_task(
     task: Dict[str, str], ui_model: str | None = None
 ) -> Tuple[str, Type, str, Dict[str, str]]:
     """Resolve role/agent for a task dict without dropping fields."""
+    planned = task.get("role")
+    if task.get("hints", {}).get("simulation_domain"):
+        planned = "Simulation"
     role, cls, model = choose_agent_for_task(
-        task.get("role"), task.get("title", ""), task.get("description", ""), ui_model
+        planned, task.get("title", ""), task.get("description", ""), ui_model
     )
     out = dict(task)
     out["role"] = role
     out.setdefault("stop_rules", task.get("stop_rules", []))
+
+    route_decision: Dict[str, Any] = {"selected_role": role}
+    if feature_flags.COST_GOVERNANCE_ENABLED:
+        budgets = _load_budgets()
+        exec_cfg = budgets.get("exec", {})
+        route_cfg = budgets.get("route", {})
+        retrieval_level = exec_cfg.get("retrieval_policy_default", "AGGRESSIVE")
+        route_decision.update(
+            {
+                "budget_profile": feature_flags.BUDGET_PROFILE,
+                "retrieval_level": retrieval_level,
+                "caps": {
+                    "max_tool_calls": exec_cfg.get("max_tool_calls"),
+                    "max_parallel_tools": route_cfg.get("max_parallel_tools"),
+                },
+            }
+        )
+    out["route_decision"] = route_decision
     return role, cls, model, out
 
 

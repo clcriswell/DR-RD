@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Sequence
 
 import pandas as pd  # type: ignore
 import streamlit as st  # type: ignore
+from core import trace_export
 
 
 def _format_summary(text: Any, max_chars: int = 200) -> str:
@@ -74,6 +75,8 @@ def render_agent_trace(agent_trace: Sequence[Dict[str, Any]], answers: Dict[str,
                 st.json(item.get("raw_json", {}))
             with st.expander("📄 Full Output", expanded=False):
                 st.write(item.get("finding", "") or "")
+        with st.expander("Span Tree", expanded=False):
+            st.json(trace_export.to_tree(agent_trace))
 
 
 def render_role_summaries(answers: Dict[str, str]) -> None:
@@ -123,6 +126,19 @@ def render_exports(project_id: str, agent_trace: Sequence[Dict[str, Any]]) -> No
         )
     except Exception:
         col_csv.caption("CSV export unavailable for this trace.")
+    col_speed, col_chrome = st.columns(2)
+    col_speed.download_button(
+        "Speedscope JSON",
+        data=json.dumps(trace_export.to_speedscope(agent_trace), indent=2),
+        file_name="trace.speedscope.json",
+        mime="application/json",
+    )
+    col_chrome.download_button(
+        "Chrome Trace JSON",
+        data=json.dumps(trace_export.to_chrometrace(agent_trace), indent=2),
+        file_name="trace.chrome.json",
+        mime="application/json",
+    )
     evidence_path = Path("audits") / project_id / "evidence.json"
     coverage_path = Path("audits") / project_id / "coverage.csv"
     if evidence_path.exists():

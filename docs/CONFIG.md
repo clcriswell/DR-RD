@@ -113,6 +113,8 @@ Config keys that can be overridden:
 - `faiss_index_uri`
 - `enable_images`
 - `provenance_enabled`
+- `cost_governance_enabled`
+- `budget_profile`
 
 ### Budget cap normalization
 

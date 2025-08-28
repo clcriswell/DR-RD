@@ -20,6 +20,7 @@ from core.agents.materials_engineer_agent import MaterialsEngineerAgent
 from core.agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
 from core.agents.planner_agent import PlannerAgent
 from core.agents.qa_agent import QAAgent
+from core.agents.simulation_agent import SimulationAgent
 from core.agents.reflection_agent import ReflectionAgent
 from core.agents.regulatory_agent import RegulatoryAgent
 from core.agents.regulatory_specialist_agent import RegulatorySpecialistAgent
@@ -51,6 +52,7 @@ AGENT_REGISTRY: Dict[str, Type[BaseAgent]] = {
     "Materials": MaterialsAgent,
     "QA": QAAgent,
     "Finance Specialist": FinanceSpecialistAgent,
+    "Simulation": SimulationAgent,
     "Dynamic Specialist": DynamicAgentWrapper,
 }
 

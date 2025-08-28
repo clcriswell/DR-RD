@@ -35,6 +35,7 @@ Deprecated aliases: test, deep
 | Materials | `core/agents/materials_agent.py` | JSON |
 | QA | `core/agents/qa_agent.py` | JSON |
 | Finance Specialist | `core/agents/finance_specialist_agent.py` | JSON |
+| Simulation | `core/agents/simulation_agent.py` | JSON |
 | Dynamic Specialist | `core/agents/dynamic_agent_wrapper.py` | JSON |
 
 
@@ -55,4 +56,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-08-28T21:08:36.949693Z from commit 1a56720_
+_Last generated at 2025-08-28T21:23:20.053908Z from commit 6fdf6e2_

@@ -1,0 +1,15 @@
+low:
+  plan: {max_tokens: 200, max_time_ms: 1000}
+  route: {max_parallel_tools: 1, max_depth: 1}
+  exec: {retrieval_policy_default: "LIGHT", top_k: 2, max_tool_calls: 1, max_runtime_ms: 1000}
+  synth: {max_tokens: 200}
+standard:
+  plan: {max_tokens: 500, max_time_ms: 2000}
+  route: {max_parallel_tools: 4, max_depth: 3}
+  exec: {retrieval_policy_default: "AGGRESSIVE", top_k: 5, max_tool_calls: 5, max_runtime_ms: 5000}
+  synth: {max_tokens: 500}
+high:
+  plan: {max_tokens: 1000, max_time_ms: 4000}
+  route: {max_parallel_tools: 8, max_depth: 5}
+  exec: {retrieval_policy_default: "AGGRESSIVE", top_k: 10, max_tool_calls: 10, max_runtime_ms: 10000}
+  synth: {max_tokens: 1000}

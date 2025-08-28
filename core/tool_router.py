@@ -8,6 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
+import time
 
 import yaml
 
@@ -66,7 +67,7 @@ def _hash_dict(d: Dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()
 
 
-def call_tool(agent: str, tool_name: str, params: Dict[str, Any]) -> Any:
+def call_tool(agent: str, tool_name: str, params: Dict[str, Any], budget: Optional[Dict[str, Any]] = None) -> Any:
     if tool_name not in _REGISTRY:
         raise KeyError(f"Tool {tool_name} not registered")
     if tool_name not in _ALLOWLIST.get(agent, set()):
@@ -76,18 +77,21 @@ def call_tool(agent: str, tool_name: str, params: Dict[str, Any]) -> Any:
     if not cfg.get("enabled", True):
         raise ValueError(f"Tool {tool_name} disabled")
     max_calls = cfg.get("max_calls")
+    if budget and budget.get("max_tool_calls") is not None:
+        max_calls = min(int(max_calls or 1e9), int(budget["max_tool_calls"]))
     if max_calls is not None and meta.calls >= int(max_calls):
-        raise ValueError("max_calls exceeded")
-    start = provenance.start_span()
+        return {"ok": False, "error": "max_tool_calls exceeded"}
+    span_id = provenance.start_span(tool_name, {"agent": agent, "tool": tool_name, "args_digest": _hash_dict(params)})
+    start = time.time()
     result = meta.fn(**params)
-    elapsed_ms = provenance.end_span(start)
+    elapsed_ms = int((time.time() - start) * 1000)
+    provenance.end_span(span_id, meta={"output_digest": _hash_dict(result if isinstance(result, dict) else {"result": result}), "elapsed_ms": elapsed_ms})
     meta.calls += 1
-    args_digest = _hash_dict(params)
-    out_digest = _hash_dict(result if isinstance(result, dict) else {"result": result})
-    provenance.record_tool_provenance(agent, tool_name, args_digest, out_digest, None, elapsed_ms)
     max_runtime = cfg.get("max_runtime_ms")
+    if budget and budget.get("max_runtime_ms") is not None:
+        max_runtime = min(int(max_runtime or 1e9), int(budget["max_runtime_ms"]))
     if max_runtime is not None and elapsed_ms > int(max_runtime):
-        raise TimeoutError("max_runtime_ms exceeded")
+        return {"ok": False, "error": "max_runtime_ms exceeded"}
     return result
 
 
