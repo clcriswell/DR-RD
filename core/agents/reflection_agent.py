@@ -1,10 +1,23 @@
-from core.agents.base_agent import LLMRoleAgent
+from __future__ import annotations
 
-ROLE_PROMPT = (
-    "You are a Reflection agent analyzing the team's outputs. "
-    "Determine if follow-up tasks are required. Respond with either a JSON array of follow-up task strings or the exact string 'no further tasks'."
-)
+from typing import Any
 
-class ReflectionAgent(LLMRoleAgent):
-    def act(self, system_prompt: str = ROLE_PROMPT, user_prompt: str = "", **kwargs) -> str:
-        return super().act(system_prompt, user_prompt, **kwargs)
+from core.agents.prompt_agent import PromptFactoryAgent
+from dr_rd.prompting.prompt_registry import RetrievalPolicy
+
+
+class ReflectionAgent(PromptFactoryAgent):
+    def act(self, idea: str, task: Any = None, **kwargs) -> str:
+        spec = {
+            "role": "Reflection",
+            "task": str(task or ""),
+            "inputs": {"idea": idea, "task": str(task or "")},
+            "io_schema_ref": "dr_rd/schemas/reflection_v1.json",
+            "retrieval_policy": RetrievalPolicy.NONE,
+            "capabilities": "self critique",
+            "evaluation_hooks": ["self_check_minimal"],
+        }
+        return super().run_with_spec(spec, **kwargs)
+
+    def run(self, idea: str, task: Any, **kwargs) -> str:
+        return self.act(idea, task, **kwargs)

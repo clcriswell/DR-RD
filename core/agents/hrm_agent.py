@@ -1,12 +1,23 @@
-from core.agents.base_agent import LLMRoleAgent
+from __future__ import annotations
 
-ROLE_PROMPT = (
-# Schema: dr_rd/schemas/hrm_agent.json
-    "You are an HR Manager specializing in R&D projects. "
-    "Identify the expert roles needed for the following idea. "
-    "Conclude with a JSON summary using keys: role, task, findings, risks, next_steps, sources."
-)
+from typing import Any
 
-class HRMAgent(LLMRoleAgent):
-    def act(self, system_prompt: str = ROLE_PROMPT, user_prompt: str = "", **kwargs) -> str:
-        return super().act(system_prompt, user_prompt, **kwargs)
+from core.agents.prompt_agent import PromptFactoryAgent
+from dr_rd.prompting.prompt_registry import RetrievalPolicy
+
+
+class HRMAgent(PromptFactoryAgent):
+    def act(self, idea: str, task: Any = None, **kwargs) -> str:
+        spec = {
+            "role": "HRM",
+            "task": str(task or ""),
+            "inputs": {"idea": idea, "task": str(task or "")},
+            "io_schema_ref": "dr_rd/schemas/hrm_v1.json",
+            "retrieval_policy": RetrievalPolicy.NONE,
+            "capabilities": "role mapping",
+            "evaluation_hooks": ["self_check_minimal"],
+        }
+        return super().run_with_spec(spec, **kwargs)
+
+    def run(self, idea: str, task: Any, **kwargs) -> str:
+        return self.act(idea, task, **kwargs)

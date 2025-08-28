@@ -1,10 +1,23 @@
-from core.agents.base_agent import LLMRoleAgent
+from __future__ import annotations
 
-ROLE_PROMPT = (
-    "You are the Chief Scientist overseeing this project. "
-    "Integrate all contributions into a comprehensive R&D plan."
-)
+from typing import Any
 
-class ChiefScientistAgent(LLMRoleAgent):
-    def act(self, system_prompt: str = ROLE_PROMPT, user_prompt: str = "", **kwargs) -> str:
-        return super().act(system_prompt, user_prompt, **kwargs)
+from core.agents.prompt_agent import PromptFactoryAgent
+from dr_rd.prompting.prompt_registry import RetrievalPolicy
+
+
+class ChiefScientistAgent(PromptFactoryAgent):
+    def act(self, idea: str, task: Any = None, **kwargs) -> str:
+        spec = {
+            "role": "Chief Scientist",
+            "task": str(task or ""),
+            "inputs": {"idea": idea, "task": str(task or "")},
+            "io_schema_ref": "dr_rd/schemas/chief_scientist_v1.json",
+            "retrieval_policy": RetrievalPolicy.LIGHT,
+            "capabilities": "integrate findings",
+            "evaluation_hooks": ["self_check_minimal"],
+        }
+        return super().run_with_spec(spec, **kwargs)
+
+    def run(self, idea: str, task: Any, **kwargs) -> str:
+        return self.act(idea, task, **kwargs)

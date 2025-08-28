@@ -101,6 +101,7 @@ registry.register(
         provider_hints={
             "openai": {"json_mode": True, "tool_choice": "auto"},
             "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
         },
     )
 )
@@ -118,6 +119,7 @@ registry.register(
         provider_hints={
             "openai": {"json_mode": True, "tool_choice": "auto"},
             "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
         },
     )
 )
@@ -129,12 +131,212 @@ registry.register(
         role="Synthesizer",
         task_key=None,
         system="You synthesize plans and findings into coherent summaries.",
-        user_template="Summarize the following materials: {task}",
+        user_template="Summarize the following materials: {materials}",
         io_schema_ref="dr_rd/schemas/synthesizer_v1.json",
         retrieval_policy=RetrievalPolicy.NONE,
         provider_hints={
             "openai": {"json_mode": True, "tool_choice": "auto"},
             "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+# Additional role templates
+registry.register(
+    PromptTemplate(
+        id="cto",
+        version="v1",
+        role="CTO",
+        task_key=None,
+        system="You are the CTO providing technical strategy and guidance.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/cto_v1.json",
+        retrieval_policy=RetrievalPolicy.LIGHT,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="regulatory",
+        version="v1",
+        role="Regulatory",
+        task_key=None,
+        system="You ensure projects meet regulatory and compliance requirements.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/regulatory_v1.json",
+        retrieval_policy=RetrievalPolicy.LIGHT,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="finance",
+        version="v1",
+        role="Finance",
+        task_key=None,
+        system="You are a financial analyst preparing budgets and cost estimates.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/finance_v1.json",
+        retrieval_policy=RetrievalPolicy.LIGHT,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="marketing",
+        version="v1",
+        role="Marketing Analyst",
+        task_key=None,
+        system="You perform market analysis and competitive research.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/marketing_v1.json",
+        retrieval_policy=RetrievalPolicy.LIGHT,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="ip_analyst",
+        version="v1",
+        role="IP Analyst",
+        task_key=None,
+        system="You investigate prior art and intellectual property strategy.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/ip_analyst_v1.json",
+        retrieval_policy=RetrievalPolicy.AGGRESSIVE,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="mechanical_systems_lead",
+        version="v1",
+        role="Mechanical Systems Lead",
+        task_key=None,
+        system="You design mechanical systems and assemblies.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/mechanical_systems_lead_v1.json",
+        retrieval_policy=RetrievalPolicy.LIGHT,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="hrm",
+        version="v1",
+        role="HRM",
+        task_key=None,
+        system="You identify human resource needs for the project.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/hrm_v1.json",
+        retrieval_policy=RetrievalPolicy.NONE,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="materials_engineer",
+        version="v1",
+        role="Materials Engineer",
+        task_key=None,
+        system="You evaluate material choices and manufacturing considerations.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/materials_engineer_v1.json",
+        retrieval_policy=RetrievalPolicy.LIGHT,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="reflection",
+        version="v1",
+        role="Reflection",
+        task_key=None,
+        system="You critique prior outputs and identify gaps.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/reflection_v1.json",
+        retrieval_policy=RetrievalPolicy.NONE,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="chief_scientist",
+        version="v1",
+        role="Chief Scientist",
+        task_key=None,
+        system="You integrate all domain findings into a cohesive plan.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/chief_scientist_v1.json",
+        retrieval_policy=RetrievalPolicy.LIGHT,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
+        },
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="regulatory_specialist",
+        version="v1",
+        role="Regulatory Specialist",
+        task_key=None,
+        system="You review ideas for safety and regulatory compliance.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/regulatory_specialist_v1.json",
+        retrieval_policy=RetrievalPolicy.LIGHT,
+        provider_hints={
+            "openai": {"json_mode": True, "tool_choice": "auto"},
+            "anthropic": {"tool_choice": "auto"},
+            "gemini": {"function_declarations": "auto"},
         },
     )
 )
