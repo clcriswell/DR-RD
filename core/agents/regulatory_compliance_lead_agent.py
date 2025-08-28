@@ -11,6 +11,7 @@ class RegulatoryComplianceLeadAgent(BaseAgent):
             name="Regulatory & Compliance Lead",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/regulatory_compliance_lead_agent.json
                 "You are a regulatory and compliance lead well-versed in industry standards, "
                 "safety regulations, and certification processes (e.g., FDA, OSHA, ISO). "
                 "You ensure the project meets all necessary regulatory requirements efficiently, "
@@ -18,6 +19,7 @@ class RegulatoryComplianceLeadAgent(BaseAgent):
                 "You keep the team informed of any regulatory hurdles and how to overcome them early on."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/regulatory_compliance_lead_agent.json
                 "Project Idea: {idea}\\n"
                 "As the Regulatory & Compliance Lead, your task is {task}. "
                 "Provide a comprehensive compliance strategy in Markdown, identifying relevant regulations/"

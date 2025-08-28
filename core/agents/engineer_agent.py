@@ -8,11 +8,13 @@ class EngineerAgent(BaseAgent):
             name="Engineer",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/engineer_agent.json
                 "You are a seasoned engineer knowledgeable in implementation details and system design. "
                 "You produce detailed designs (with system/block diagrams and component specifications) and justify each major technical choice. "
                 "You are open to revising the design based on simulation test results."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/engineer_agent.json
                 "Project Idea: {idea}\nAs the Engineer, your task is {task}. "
                 "Provide a detailed implementation plan in Markdown format, including system architecture diagrams, detailed development tasks, component/material specs, and a realistic timeline. "
                 "Include reasoning/justification for each major design decision (e.g., technology stack, components chosen). "

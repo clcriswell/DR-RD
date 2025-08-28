@@ -19,6 +19,7 @@ class MarketingAgent(BaseAgent):
             model=model,
             system_message=MARKETING_SYSTEM_PROMPT,
             user_prompt_template=MARKETING_USER_PROMPT_TEMPLATE,
+                # Schema: dr_rd/schemas/marketing_agent.json
             retriever=retriever,
         )
 

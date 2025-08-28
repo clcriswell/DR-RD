@@ -1,0 +1,41 @@
+prompt_location,agent_or_role,input_fields,output_schema_ref,uses_tools,retrieval_policy,citations_required,safety_notes,dependencies,detected_issues,recommended_fix,tests_coverage_found
+core/agents/mechanical_precision_motion_engineer_agent.py:L17,Mechanical Precision Motion Engineer,idea;task,dr_rd/schemas/mechanical_precision_motion_engineer_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/software_image_processing_specialist_agent.py:L18,Software Image Processing Specialist,idea;task,dr_rd/schemas/software_image_processing_specialist_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/base_agent.py,Base,,dr_rd/schemas/base_agent.json,no,RAG_ENABLED,no,,RAG_ENABLED;ENABLE_LIVE_SEARCH,,Add schema enforcement,no
+core/agents/cto_agent.py,Cto,,dr_rd/schemas/cto_agent.json,yes,none,no,,,,Add schema enforcement,no
+core/agents/documentation_agent.py:L16,Documentation,idea;task,dr_rd/schemas/documentation_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/materials_process_engineer_agent.py:L18,Materials Process Engineer,idea;task,dr_rd/schemas/materials_process_engineer_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/photonics_electronics_engineer_agent.py:L18,Photonics Electronics Engineer,idea;task,dr_rd/schemas/photonics_electronics_engineer_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/ai_rd_coordinator_agent.py:L19,Ai Rd Coordinator,idea;task,dr_rd/schemas/ai_rd_coordinator_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/evaluation_agent.py,Evaluation,,dr_rd/schemas/evaluation_agent.json,no,none,no,,,,Add schema enforcement,yes
+core/agents/chief_scientist_agent.py,Chief Scientist,,dr_rd/schemas/chief_scientist_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/regulatory_specialist_agent.py,Regulatory Specialist,,dr_rd/schemas/regulatory_specialist_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/materials_engineer_agent.py,Materials Engineer,,dr_rd/schemas/materials_engineer_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/hrm_role_agent.py,Hrm Role,,dr_rd/schemas/hrm_role_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/data_scientist_analytics_engineer_agent.py:L19,Data Scientist Analytics Engineer,idea;task,dr_rd/schemas/data_scientist_analytics_engineer_agent.json,no,none,yes,,,,Add schema enforcement,no
+core/agents/planner_agent.py,Planner,,dr_rd/schemas/planner_agent.json,no,RAG_ENABLED,no,,RAG_ENABLED;ENABLE_LIVE_SEARCH,,Add schema enforcement,yes
+core/agents/patent_agent.py,Patent,,dr_rd/schemas/patent_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/sustainability_agent.py:L15,Sustainability,idea;task,dr_rd/schemas/sustainability_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/synthesizer_agent.py,Synthesizer,,dr_rd/schemas/synthesizer_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/regulatory_agent.py,Regulatory,,dr_rd/schemas/regulatory_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/generic_domain_agent.py,Generic Domain,,dr_rd/schemas/generic_domain_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/research_scientist_agent.py,Research Scientist,,dr_rd/schemas/research_scientist_agent.json,yes,none,no,,,,Add schema enforcement,no
+core/agents/ip_analyst_agent.py,Ip Analyst,,dr_rd/schemas/ip_analyst_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/nonlinear_optics_engineer_agent.py:L18,Nonlinear Optics Engineer,idea;task,dr_rd/schemas/nonlinear_optics_engineer_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/hrm_agent.py,Hrm,,dr_rd/schemas/hrm_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/fluorescence_biological_sample_expert_agent.py:L18,Fluorescence Biological Sample Expert,idea;task,dr_rd/schemas/fluorescence_biological_sample_expert_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/simulation_agent.py,Simulation,,dr_rd/schemas/simulation_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/engineer_agent.py:L15,Engineer,idea;task,dr_rd/schemas/engineer_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/systems_integration_validation_engineer_agent.py:L20,Systems Integration Validation Engineer,idea;task,dr_rd/schemas/systems_integration_validation_engineer_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/mechanical_systems_lead_agent.py:L19,Mechanical Systems Lead,idea;task,dr_rd/schemas/mechanical_systems_lead_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/finance_agent.py,Finance,,dr_rd/schemas/finance_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/electronics_embedded_controls_engineer_agent.py:L18,Electronics Embedded Controls Engineer,idea;task,dr_rd/schemas/electronics_embedded_controls_engineer_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/project_manager_principal_investigator_agent.py:L19,Project Manager Principal Investigator,idea;task,dr_rd/schemas/project_manager_principal_investigator_agent.json,no,none,yes,,,,Add schema enforcement,no
+core/agents/quantum_optics_physicist_agent.py:L18,Quantum Optics Physicist,idea;task,dr_rd/schemas/quantum_optics_physicist_agent.json,no,none,yes,,,,Add schema enforcement,no
+core/agents/chemical_surface_science_specialist_agent.py:L18,Chemical Surface Science Specialist,idea;task,dr_rd/schemas/chemical_surface_science_specialist_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/regulatory_compliance_lead_agent.py:L20,Regulatory Compliance Lead,idea;task,dr_rd/schemas/regulatory_compliance_lead_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/marketing_agent.py,Marketing,,dr_rd/schemas/marketing_agent.json,no,RAG_ENABLED,no,,RAG_ENABLED,,Add schema enforcement,no
+core/agents/product_manager_translational_lead_agent.py:L19,Product Manager Translational Lead,idea;task,dr_rd/schemas/product_manager_translational_lead_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/reflection_agent.py,Reflection,,dr_rd/schemas/reflection_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/prototyping_test_lab_manager_agent.py:L20,Prototyping Test Lab Manager,idea;task,dr_rd/schemas/prototyping_test_lab_manager_agent.json,no,none,no,,,,Add schema enforcement,no
+core/agents/optical_systems_engineer_agent.py:L18,Optical Systems Engineer,idea;task,dr_rd/schemas/optical_systems_engineer_agent.json,no,none,no,,,,Add schema enforcement,no

@@ -13,4 +13,5 @@ class FinanceAgent(BaseAgent):
             model=model,
             system_message=FINANCE_SYSTEM_PROMPT,
             user_prompt_template=FINANCE_USER_PROMPT_TEMPLATE,
+                # Schema: dr_rd/schemas/finance_agent.json
         )

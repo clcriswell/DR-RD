@@ -11,12 +11,14 @@ class ProductManagerTranslationalLeadAgent(BaseAgent):
             name="Product Manager / Translational Lead",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/product_manager_translational_lead_agent.json
                 "You are the product manager and translational lead, focused on connecting the project's technology "
                 "to real-world needs and ensuring it delivers user value. You perform market analysis, define user "
                 "requirements, and plan how the prototype can be turned into a viable product. You also consider "
                 "regulatory approval pathways and business model implications, bridging the gap between R&D and market deployment."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/product_manager_translational_lead_agent.json
                 "Project Idea: {idea}\n"
                 "As the Product Manager / Translational Lead, your task is {task}. "
                 "Provide a detailed plan in Markdown that ties the technical project to end-user needs and market viability. "

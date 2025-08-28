@@ -14,6 +14,7 @@ Rules:
 - Include cross-cutting roles only when critical (e.g., Regulatory, IP) but avoid repeating the same generic set every time.
 - Example roles style: "Quantum Optics Physicist", "Nonlinear Optics / Crystal Engineer", "Photonics Electronics Engineer", "Software & Image-Processing Specialist", "AI R&D Coordinator", "Systems Integration & Validation Manager", "Electronics & Embedded Controls Engineer".
 """
+# Schema: dr_rd/schemas/hrm_role_agent.json
 
 HRM_USER_FMT = """Project Idea:
 {idea}
@@ -25,6 +26,7 @@ class HRMRoleAgent(BaseAgent):
     def __init__(self, **kwargs):
         model = kwargs.pop("model", os.getenv("DRRD_PLAN_MODEL", "gpt-4.1-mini"))
         super().__init__(name="HRM Role Agent", model=model, system_message="", user_prompt_template="", **kwargs)
+            # Schema: dr_rd/schemas/hrm_role_agent.json
 
     def discover_roles(self, idea: str) -> list[str]:
         user_prompt = HRM_USER_FMT.format(idea=idea)

@@ -10,6 +10,7 @@ class DataScientistAnalyticsEngineerAgent(BaseAgent):
             name="Data Scientist / Analytics Engineer",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/data_scientist_analytics_engineer_agent.json
                 "You are a data scientist and analytics engineer who excels in handling large datasets "
                 "and extracting insights. You design data collection strategies and build models "
                 "(statistical or ML) to analyze experimental results or predict outcomes. "
@@ -17,6 +18,7 @@ class DataScientistAnalyticsEngineerAgent(BaseAgent):
                 "deployment of analytical tools."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/data_scientist_analytics_engineer_agent.json
                 "Project Idea: {idea}\n"
                 "As the Data Scientist / Analytics Engineer, your task is {task}. "
                 "Provide a detailed data and analytics plan in Markdown, including what data will be "

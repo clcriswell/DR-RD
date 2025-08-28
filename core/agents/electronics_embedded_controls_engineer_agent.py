@@ -11,11 +11,13 @@ class ElectronicsEmbeddedControlsEngineerAgent(BaseAgent):
             name="Electronics/Embedded Controls Engineer",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/electronics_embedded_controls_engineer_agent.json
                 "You are an electronics and embedded controls engineer with expertise in microcontrollers, firmware development, and sensor integration. "
                 "You design control circuits and write firmware for precise device control, and you may incorporate on-device machine learning (TinyML) for smart automation. "
                 "You ensure reliable hardware-software integration and real-time responsiveness."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/electronics_embedded_controls_engineer_agent.json
                 "Project Idea: {idea}\nAs the Electronics/Embedded Controls Engineer, your task is {task}. "
                 "Provide a detailed embedded system design in Markdown, including the architecture of microcontrollers or FPGAs, sensor interfaces, and control algorithms. "
                 "Outline the firmware or software logic (you can use pseudocode or flow descriptions) needed to manage hardware components and any on-device data processing (e.g., TinyML models for control optimization). "

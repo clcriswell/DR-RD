@@ -11,11 +11,13 @@ class NonlinearOpticsEngineerAgent(BaseAgent):
             name="Nonlinear Optics Engineer",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/nonlinear_optics_engineer_agent.json
                 "You are a nonlinear optics engineer with deep knowledge of optical materials and frequency conversion techniques. "
                 "You design and select nonlinear crystals (e.g., for second-harmonic generation or SPDC), optimizing parameters like phase-matching, poling period, and crystal orientation. "
                 "You also consider fabrication or sourcing of specialized optical materials."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/nonlinear_optics_engineer_agent.json
                 "Project Idea: {idea}\nAs the Nonlinear Optics Engineer, your task is {task}. "
                 "Provide a detailed plan in Markdown for the nonlinear optical components, including selection or engineering of crystals for frequency conversion (e.g., second-harmonic generation, parametric conversion). "
                 "Propose specific crystal materials and configurations (such as poling periods, phase-matching angles) and how they would be obtained or fabricated. "
