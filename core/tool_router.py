@@ -1,117 +1,101 @@
-"""In-process tool router with provenance logging."""
+"""In-process tool router with provenance logging and allowlists."""
+
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Callable, Any, Dict
-from collections import defaultdict, deque
-import time
-import json
 import hashlib
+import json
+from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional
+
 import yaml
+
+from core import provenance
+from dr_rd.tools import (
+    analyze_image,
+    analyze_video,
+    apply_patch,
+    build_requirements_matrix,
+    calc_unit_economics,
+    classify_defects,
+    compute_test_coverage,
+    lookup_materials,
+    monte_carlo,
+    npv,
+    plan_patch,
+    read_repo,
+    simulate,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_FILE = ROOT / "config" / "tools.yaml"
 with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
     TOOL_CONFIG = yaml.safe_load(fh) or {}
 
-APIS_FILE = ROOT / "config" / "apis.yaml"
-if APIS_FILE.exists():
-    with open(APIS_FILE, "r", encoding="utf-8") as fh:
-        TOOL_CONFIG.update(yaml.safe_load(fh) or {})
 
-_REGISTRY: Dict[str, tuple[Callable, str]] = {}
-_PROVENANCE: list[Dict[str, Any]] = []
-_ERROR_LOG: Dict[str, deque[float]] = defaultdict(deque)
+@dataclass
+class ToolMeta:
+    fn: Callable
+    config_key: str
+    module_path: str
+    input_schema: Optional[dict] = None
+    calls: int = 0
 
 
-def register_tool(name: str, fn: Callable, config_key: str) -> None:
-    _REGISTRY[name] = (fn, config_key)
+_REGISTRY: Dict[str, ToolMeta] = {}
+_ALLOWLIST: Dict[str, set[str]] = defaultdict(set)
+
+
+def register_tool(
+    name: str, fn: Callable, config_key: str, input_schema: Optional[dict] = None
+) -> None:
+    _REGISTRY[name] = ToolMeta(
+        fn=fn,
+        config_key=config_key,
+        module_path=f"{fn.__module__}.{fn.__name__}",
+        input_schema=input_schema,
+    )
+
+
+def allow_tools(agent: str, tools: list[str]) -> None:
+    _ALLOWLIST[agent].update(tools)
 
 
 def _hash_dict(d: Dict[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def call_tool(agent: str, tool_name: str, params: Dict[str, Any]) -> Any:
     if tool_name not in _REGISTRY:
         raise KeyError(f"Tool {tool_name} not registered")
-    fn, key = _REGISTRY[tool_name]
-    cfg = TOOL_CONFIG.get(key, {})
-    if not cfg.get("enabled", False):
+    if tool_name not in _ALLOWLIST.get(agent, set()):
+        raise PermissionError(f"Tool {tool_name} not allowed for {agent}")
+    meta = _REGISTRY[tool_name]
+    cfg = TOOL_CONFIG.get(meta.config_key, {})
+    if not cfg.get("enabled", True):
         raise ValueError(f"Tool {tool_name} disabled")
-
-    circuit = cfg.get("circuit", {})
-    max_errors = int(circuit.get("max_errors", 3))
-    window_s = int(circuit.get("window_s", 60))
-    dq = _ERROR_LOG[tool_name]
-    now = time.time()
-    while dq and now - dq[0] > window_s:
-        dq.popleft()
-    if len(dq) >= max_errors:
-        return {"error": "circuit_open"}
-
-    start = time.time()
-    if key == "CODE_IO":
-        max_files = cfg.get("max_files", 0)
-        if tool_name == "apply_patch":
-            diff = params.get("diff", "")
-            files = [line[6:] for line in diff.splitlines() if line.startswith("+++ b/")]
-            if max_files and len(files) > max_files:
-                raise ValueError("Too many files in patch")
-
-    try:
-        result = fn(**params)
-    except Exception:
-        dq.append(time.time())
-        raise
-
-    if key == "CODE_IO" and tool_name == "read_repo":
-        max_files = cfg.get("max_files", 0)
-        truncated = False
-        if isinstance(result, list) and max_files and len(result) > max_files:
-            result = result[:max_files]
-            truncated = True
-        result = {"results": result, "truncated": truncated}
-    wall = time.time() - start
-    prov = {
-        "agent": agent,
-        "tool": tool_name,
-        "inputs_hash": _hash_dict(params),
-        "outputs_digest": hashlib.sha256(str(result).encode()).hexdigest()[:12],
-        "tokens": 0,
-        "wall_time": wall,
-    }
-    _PROVENANCE.append(prov)
+    max_calls = cfg.get("max_calls")
+    if max_calls is not None and meta.calls >= int(max_calls):
+        raise ValueError("max_calls exceeded")
+    start = provenance.start_span()
+    result = meta.fn(**params)
+    elapsed_ms = provenance.end_span(start)
+    meta.calls += 1
+    args_digest = _hash_dict(params)
+    out_digest = _hash_dict(result if isinstance(result, dict) else {"result": result})
+    provenance.record_tool_provenance(agent, tool_name, args_digest, out_digest, None, elapsed_ms)
+    max_runtime = cfg.get("max_runtime_ms")
+    if max_runtime is not None and elapsed_ms > int(max_runtime):
+        raise TimeoutError("max_runtime_ms exceeded")
     return result
 
 
 def get_provenance() -> list[Dict[str, Any]]:
-    return list(_PROVENANCE)
+    return provenance.get_events()
 
 
 # Register built-in tools on import
-from dr_rd.tools import (
-    read_repo,
-    plan_patch,
-    apply_patch,
-    analyze_image,
-    analyze_video,
-)
-from dr_rd.tools.simulations import simulate
-from dr_rd.integrations.patents import adapters as patent_adapters
-from dr_rd.integrations.regulatory import adapters as reg_adapters
-
-
-def patent_search(**params):
-    cfg = TOOL_CONFIG.get("PATENTS", {})
-    caps = {k: cfg.get(k) for k in ("backends", "max_results", "timeouts_s")}
-    return patent_adapters.search_patents(params, caps)
-
-
-def regulatory_search(**params):
-    cfg = TOOL_CONFIG.get("REGULATIONS", {})
-    caps = {k: cfg.get(k) for k in ("backends", "max_results", "timeouts_s")}
-    return reg_adapters.search_regulations(params, caps)
 
 register_tool("read_repo", read_repo, "CODE_IO")
 register_tool("plan_patch", plan_patch, "CODE_IO")
@@ -119,5 +103,10 @@ register_tool("apply_patch", apply_patch, "CODE_IO")
 register_tool("simulate", simulate, "SIMULATION")
 register_tool("analyze_image", analyze_image, "VISION")
 register_tool("analyze_video", analyze_video, "VISION")
-register_tool("patent_search", patent_search, "PATENTS")
-register_tool("regulatory_search", regulatory_search, "REGULATIONS")
+register_tool("lookup_materials", lookup_materials, "MATERIALS_DB")
+register_tool("build_requirements_matrix", build_requirements_matrix, "QA_CHECKS")
+register_tool("compute_test_coverage", compute_test_coverage, "QA_CHECKS")
+register_tool("classify_defects", classify_defects, "QA_CHECKS")
+register_tool("calc_unit_economics", calc_unit_economics, "FINANCE")
+register_tool("npv", npv, "FINANCE")
+register_tool("monte_carlo", monte_carlo, "FINANCE")

@@ -5,23 +5,27 @@ import os
 from typing import Dict, Optional, Tuple, Type
 
 from core.agents.base_agent import LLMRoleAgent as BaseAgent
-from core.agents.cto_agent import CTOAgent
-from core.agents.research_scientist_agent import ResearchScientistAgent
-from core.agents.regulatory_agent import RegulatoryAgent
-from core.agents.finance_agent import FinanceAgent
-from core.agents.marketing_agent import MarketingAgent
-from core.agents.ip_analyst_agent import IPAnalystAgent
-from core.agents.planner_agent import PlannerAgent
-from core.agents.synthesizer_agent import SynthesizerAgent
-from core.agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
-from core.agents.hrm_agent import HRMAgent
-from core.agents.materials_engineer_agent import MaterialsEngineerAgent
-from core.agents.reflection_agent import ReflectionAgent
 from core.agents.chief_scientist_agent import ChiefScientistAgent
-from core.agents.regulatory_specialist_agent import RegulatorySpecialistAgent
-from core.agents.invoke import resolve_invoker
-from core.llm import select_model
+from core.agents.cto_agent import CTOAgent
+from core.agents.dynamic_agent_wrapper import DynamicAgentWrapper
 from core.agents.evaluation_agent import EvaluationAgent
+from core.agents.finance_agent import FinanceAgent
+from core.agents.finance_specialist_agent import FinanceSpecialistAgent
+from core.agents.hrm_agent import HRMAgent
+from core.agents.invoke import resolve_invoker
+from core.agents.ip_analyst_agent import IPAnalystAgent
+from core.agents.marketing_agent import MarketingAgent
+from core.agents.materials_agent import MaterialsAgent
+from core.agents.materials_engineer_agent import MaterialsEngineerAgent
+from core.agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
+from core.agents.planner_agent import PlannerAgent
+from core.agents.qa_agent import QAAgent
+from core.agents.reflection_agent import ReflectionAgent
+from core.agents.regulatory_agent import RegulatoryAgent
+from core.agents.regulatory_specialist_agent import RegulatorySpecialistAgent
+from core.agents.research_scientist_agent import ResearchScientistAgent
+from core.agents.synthesizer_agent import SynthesizerAgent
+from core.llm import select_model
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +48,10 @@ AGENT_REGISTRY: Dict[str, Type[BaseAgent]] = {
     "Chief Scientist": ChiefScientistAgent,
     "Regulatory Specialist": RegulatorySpecialistAgent,
     "Evaluation": EvaluationAgent,
+    "Materials": MaterialsAgent,
+    "QA": QAAgent,
+    "Finance Specialist": FinanceSpecialistAgent,
+    "Dynamic Specialist": DynamicAgentWrapper,
 }
 
 # Backwards compatibility alias
@@ -68,6 +76,7 @@ def get_agent(name: str) -> BaseAgent:
 # ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
+
 
 def validate_registry(strict: bool | None = None) -> dict:
     ok: list[str] = []
@@ -130,6 +139,7 @@ def choose_agent_for_task(
 # Model selection (legacy resolver used by tests)
 # ---------------------------------------------------------------------------
 
+
 def resolve_model(role: str, purpose: str = "exec") -> str:
     profile = os.getenv("DRRD_PROFILE", "standard").lower()
     if profile in {"test", "deep"}:
@@ -143,4 +153,3 @@ def resolve_model(role: str, purpose: str = "exec") -> str:
     if profile == "pro":
         return os.getenv("DRRD_MODEL_EXEC_PRO") or "gpt-5"
     return os.getenv("DRRD_MODEL_EXEC_EFFICIENT") or default_model
-

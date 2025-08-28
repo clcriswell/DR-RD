@@ -32,6 +32,10 @@ Deprecated aliases: test, deep
 | Chief Scientist | `core/agents/chief_scientist_agent.py` | JSON |
 | Regulatory Specialist | `core/agents/regulatory_specialist_agent.py` | JSON |
 | Evaluation | `core/agents/evaluation_agent.py` | JSON |
+| Materials | `core/agents/materials_agent.py` | JSON |
+| QA | `core/agents/qa_agent.py` | JSON |
+| Finance Specialist | `core/agents/finance_specialist_agent.py` | JSON |
+| Dynamic Specialist | `core/agents/dynamic_agent_wrapper.py` | JSON |
 
 
 ## Orchestrator & Executor Responsibilities
@@ -51,4 +55,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-08-28T20:29:14.493707Z from commit 9e7fb17_
+_Last generated at 2025-08-28T20:44:39.991057Z from commit 1ef4c74_

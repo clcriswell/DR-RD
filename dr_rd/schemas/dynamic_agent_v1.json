@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["role", "task", "result", "sources"],
+  "properties": {
+    "role": {"type": "string"},
+    "task": {"type": "string"},
+    "result": {},
+    "notes": {"type": "string"},
+    "sources": {"type": "array", "items": {"type": "string"}}
+  }
+}
