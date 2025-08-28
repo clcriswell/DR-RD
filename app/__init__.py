@@ -37,6 +37,7 @@ from core.trace.filters import apply_filters, group_stats
 from core.trace.merge import merge_traces, summarize
 from core.trace.viz import durations_series, to_rows
 from dr_rd.tools.code_io import estimate_risk, summarize_diff, within_patch_limits
+from core import ui_bridge
 
 try:  # optional altair for charts
     import altair as alt  # type: ignore
@@ -689,6 +690,18 @@ def main():
     else:
         st.markdown("## Configuration")
 
+    with _safe_expander(sidebar, "Feature Flags", expanded=False):
+        rag = st.checkbox("RAG_ENABLED", value=ff.RAG_ENABLED)
+        live = st.checkbox("ENABLE_LIVE_SEARCH", value=ff.ENABLE_LIVE_SEARCH)
+        evaluators = st.checkbox("EVALUATORS_ENABLED", value=ff.EVALUATORS_ENABLED)
+        prov = st.checkbox("PROVENANCE_ENABLED", value=ff.PROVENANCE_ENABLED)
+    flag_overrides = {
+        "RAG_ENABLED": rag,
+        "ENABLE_LIVE_SEARCH": live,
+        "EVALUATORS_ENABLED": evaluators,
+        "PROVENANCE_ENABLED": prov,
+    }
+
     # Install a BudgetManager with the standard profile
     try:
         _mode_cfg, _budget = load_profile()
@@ -1184,36 +1197,86 @@ def main():
         key="risk_posture",
     )
 
-    with st.expander("Specialists", expanded=False):
-        sel_mat = st.checkbox("Materials", key="spec_mat")
-        sel_qa = st.checkbox("QA", key="spec_qa")
-        sel_fin = st.checkbox("Finance Specialist", key="spec_fin")
-        if st.button("Run", key="run_specialists"):
-            chosen = [
-                r
-                for r, v in {
-                    "Materials": sel_mat,
-                    "QA": sel_qa,
-                    "Finance Specialist": sel_fin,
-                }.items()
-                if v
-            ]
-            st.write({"dispatch": chosen})
+    st.subheader("Specialists")
+    with st.form("specialist_form"):
+        sel_mat = st.checkbox("Materials")
+        sel_qa = st.checkbox("QA")
+        sel_fin = st.checkbox("Finance Specialist")
+        task_title = st.text_input("Task Title")
+        task_desc = st.text_area("Task Description")
+        inputs_text = st.text_area("Inputs (JSON)", value="{}")
+        run_clicked = st.form_submit_button("Run Selected Specialists")
+    if run_clicked:
+        try:
+            inputs_obj = json.loads(inputs_text or "{}")
+        except Exception as e:
+            st.warning(f"Invalid JSON: {e}")
+            inputs_obj = {}
+        for role, selected in {
+            "Materials": sel_mat,
+            "QA": sel_qa,
+            "Finance Specialist": sel_fin,
+        }.items():
+            if not selected:
+                continue
+            res = ui_bridge.run_specialist(role, task_title, task_desc, inputs_obj, flag_overrides)
+            with st.expander(f"{role} – result", expanded=False):
+                st.json(res)
+                sources = res.get("sources") or []
+                if sources:
+                    try:
+                        df = pd.DataFrame(sources)
+                        st.table(df[["id", "title", "url"]])
+                    except Exception:
+                        st.table(sources)
+                elif flag_overrides.get("RAG_ENABLED") or flag_overrides.get("ENABLE_LIVE_SEARCH"):
+                    st.warning("Retrieval policy active but no sources returned.")
+                fb = res.get("evaluation", {}).get("feedback") or res.get("evaluation_feedback")
+                if fb:
+                    st.caption(fb)
 
-    with st.expander("Dynamic Agent", expanded=False):
-        spec_text = st.text_area("Spec", "{}", key="dyn_spec")
+    with st.expander("Dynamic Agent (ad hoc)", expanded=False):
+        template = "{\n  \"role_name\": \"Ad-Hoc Specialist\",\n  \"task_brief\": \"What to do...\",\n  \"io_schema_ref\": \"dr_rd/schemas/dynamic_agent_v1.json\",\n  \"retrieval_policy\": \"LIGHT\",\n  \"tool_allowlist\": [],\n  \"capabilities\": \"short text\",\n  \"evaluation_hooks\": [\"self_check_minimal\"]\n}"
+        spec_text = st.text_area("JSON Spec", template, key="dyn_spec")
         if st.button("Compose & Run", key="run_dynamic"):
             try:
-                payload = json.loads(spec_text or "{}")
-                st.write(payload)
+                spec = json.loads(spec_text or "{}")
+                dyn_res = ui_bridge.run_dynamic(spec, flag_overrides)
+                st.json(dyn_res)
+                src = dyn_res.get("sources") or []
+                if src:
+                    try:
+                        df = pd.DataFrame(src)
+                        st.table(df[["id", "title", "url"]])
+                    except Exception:
+                        st.table(src)
             except Exception as e:
                 st.error(str(e))
 
-    if ff.PROVENANCE_ENABLED:
-        prov = tool_router.get_provenance()
-        if prov:
-            df = pd.DataFrame(prov)
-            st.dataframe(df["agent tool elapsed_ms".split()], use_container_width=True)
+    with st.expander("Agent Trace (Provenance)", expanded=False):
+        log_dir = st.text_input("log_dir", os.getenv("PROVENANCE_LOG_DIR", "runs"))
+        limit = st.number_input("limit", min_value=1, max_value=10000, value=500)
+        if st.button("Refresh", key="prov_refresh"):
+            st.session_state["prov_entries"] = ui_bridge.load_provenance(log_dir, int(limit))
+        entries = st.session_state.get("prov_entries") or ui_bridge.load_provenance(log_dir, int(limit))
+        if entries:
+            df = pd.DataFrame(entries)
+            agents = st.multiselect("Agent", sorted(df["agent"].unique()))
+            if agents:
+                df = df[df["agent"].isin(agents)]
+            if "ts" in df.columns:
+                min_ts, max_ts = float(df["ts"].min()), float(df["ts"].max())
+                start, end = st.slider("Time range", min_ts, max_ts, (min_ts, max_ts))
+                df = df[(df["ts"] >= start) & (df["ts"] <= end)]
+            st.dataframe(
+                df[["ts", "agent", "tool", "args_digest", "output_digest", "elapsed_ms", "tokens"]],
+                use_container_width=True,
+            )
+            st.caption("Tool caps in config/tools.yaml may block repeated tool calls.")
+            csv = df.to_csv(index=False)
+            st.download_button("Download CSV", csv, file_name="provenance.csv", mime="text/csv")
+        else:
+            st.info("No provenance entries.")
 
     if hasattr(st, "expander"):
         with st.expander("PoC", expanded=False):
