@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {"type": "string"},
+          "text": {"type": "string"},
+          "applicable": {"type": "boolean"},
+          "rationale": {"type": ["string", "null"]}
+        },
+        "required": ["ref", "text", "applicable"],
+        "additionalProperties": false
+      }
+    },
+    "gaps": {"type": "array", "items": {"type": "string"}},
+    "risks": {"type": "array", "items": {"type": "string"}},
+    "next_steps": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["requirements"],
+  "additionalProperties": false
+}
