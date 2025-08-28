@@ -88,6 +88,8 @@ EVAL_MIN_OVERALL=0.0..1.0
 EVALUATION_USE_LLM_RUBRIC=true|false
 PROVENANCE_ENABLED=true|false
 PROVENANCE_LOG_DIR=path/to/logs  # default 'runs'
+MODEL_ROUTING_ENABLED=true|false
+FAILOVER_ENABLED=true|false
 USPTO_API_KEY=your_key
 EPO_OPS_KEY=your_key
 REG_GOV_API_KEY=your_key
@@ -121,6 +123,8 @@ Config keys that can be overridden:
 - `provenance_enabled`
 - `cost_governance_enabled`
 - `budget_profile`
+- `model_routing_enabled`
+- `failover_enabled`
 
 ### Budget cap normalization
 

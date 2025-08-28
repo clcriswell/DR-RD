@@ -1,0 +1,57 @@
+providers:
+  openai:
+    endpoint_env: OPENAI_API_BASE
+    api_key_env: OPENAI_API_KEY
+    models:
+      - name: gpt-4.1-mini
+        purpose: [plan, exec, synth]
+        ctx: 128000
+        speed_class: fast
+        price_per_1k_in: 0.150
+        price_per_1k_out: 0.600
+      - name: gpt-4o
+        purpose: [exec, vision]
+        ctx: 128000
+        speed_class: fast
+        price_per_1k_in: 0.500
+        price_per_1k_out: 1.500
+  anthropic:
+    endpoint_env: ANTHROPIC_API_BASE
+    api_key_env: ANTHROPIC_API_KEY
+    models:
+      - name: claude-3-5-sonnet
+        purpose: [exec, synth]
+        ctx: 200000
+        speed_class: medium
+        price_per_1k_in: 3.00
+        price_per_1k_out: 15.00
+  google:
+    endpoint_env: GEMINI_API_BASE
+    api_key_env: GEMINI_API_KEY
+    models:
+      - name: gemini-1.5-pro
+        purpose: [exec, vision]
+        ctx: 1000000
+        speed_class: medium
+        price_per_1k_in: 1.25
+        price_per_1k_out: 5.00
+
+routing:
+  defaults:
+    plan: {preferred: [openai/gpt-4.1-mini], backups: [anthropic/claude-3-5-sonnet]}
+    exec: {preferred: [openai/gpt-4.1-mini, openai/gpt-4o], backups: [google/gemini-1.5-pro]}
+    synth: {preferred: [openai/gpt-4.1-mini], backups: [anthropic/claude-3-5-sonnet]}
+  role_overrides:
+    "Research Scientist": {exec: {preferred: [anthropic/claude-3-5-sonnet, openai/gpt-4o]}}
+    "Regulatory":        {exec: {preferred: [openai/gpt-4.1-mini], backups: [google/gemini-1.5-pro]}}
+    "IP Analyst":        {exec: {preferred: [openai/gpt-4o], backups: [anthropic/claude-3-5-sonnet]}}
+
+slos:
+  target_latency_ms: {plan: 2000, exec: 3500, synth: 2500}
+  max_latency_ms:    {plan: 4000, exec: 6000, synth: 5000}
+  gray_routing_ratio: 0.05
+
+caching:
+  enabled: true
+  ttl_s: 300
+  max_bytes: 25000000

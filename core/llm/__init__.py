@@ -5,9 +5,11 @@ from dataclasses import dataclass
 
 from utils.logging import logger, safe_exc
 
+from config import feature_flags
 from core.llm_client import call_openai
 from core.prompt_utils import coerce_user_content
 from core.privacy import redact_for_logging
+from .model_router import RouteContext, choose_model
 
 
 def select_model(
@@ -35,6 +37,14 @@ def select_model(
         if env_global:
             model = env_global.strip()
 
+    if (
+        not model
+        and feature_flags.MODEL_ROUTING_ENABLED
+        and purpose in {"plan", "exec", "synth"}
+    ):
+        ctx = RouteContext(role=agent_name, purpose=purpose, budget_profile=feature_flags.BUDGET_PROFILE)
+        decision = choose_model(ctx)
+        model = decision.model
     if not model:
         model = "gpt-4o-mini"
 
