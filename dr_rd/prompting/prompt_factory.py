@@ -51,12 +51,17 @@ class PromptFactory:
 
         evaluation_hooks = evaluation_hooks or ["self_check_minimal"]
 
-        guardrail = (
-            f" You must reply only with a JSON object matching the schema: {io_schema_ref}."
-        )
-        system = system.strip() + guardrail
+        system = system.strip()
 
         from config import feature_flags
+        from dr_rd.policy.engine import load_policies
+
+        if getattr(feature_flags, "SAFETY_ENABLED", True):
+            pol = load_policies()
+            summary = ", ".join(f"{k}:{v['action']}" for k, v in pol.items())
+            system += f" Policies: {summary}. Sanitize or refuse."
+            if getattr(feature_flags, "FILTERS_STRICT_MODE", True):
+                system += " Redact PII/secrets."
 
         retrieval_enabled = bool(
             getattr(feature_flags, "RAG_ENABLED", False)

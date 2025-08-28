@@ -1,0 +1,20 @@
+pii_patterns:
+  email: '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+  phone: '\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'
+  ssn: '\b\d{3}-\d{2}-\d{4}\b'
+  address: '\d+\s+[A-Za-z]+\s+(Street|St|Avenue|Ave|Road|Rd)'
+  api_key: '\b[A-Za-z0-9]{32,}\b'
+secrets_patterns:
+  openai: 'sk-[A-Za-z0-9]{20,}'
+  slack: 'xox[baprs]-[A-Za-z0-9-]{10,}'
+  aws: 'AKIA[0-9A-Z]{16}'
+  gcp: 'AIza[0-9A-Za-z-_]{35}'
+toxicity_threshold: 0.5
+license_max_quote_words: 20
+allowed_link_domains:
+  - example.com
+  - openai.com
+blocked_keywords:
+  - badword1
+  - badword2
+repair_max_attempts: 1

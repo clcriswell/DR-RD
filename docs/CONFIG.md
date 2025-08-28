@@ -11,6 +11,9 @@ The system reads per-mode settings from `config/modes.yaml`. Retrieval flows in 
 - `live_search_summary_tokens`: cap for web-summary tokens.
 - `enable_images`: allow image generation (default `false`).
 
+Safety thresholds and patterns are defined in `config/safety.yaml` and apply
+globally when `SAFETY_ENABLED` is true.
+
 ## Loader
 
 `load_profile("standard")` is the canonical entry point for loading runtime
@@ -90,6 +93,10 @@ PROVENANCE_ENABLED=true|false
 PROVENANCE_LOG_DIR=path/to/logs  # default 'runs'
 MODEL_ROUTING_ENABLED=true|false
 FAILOVER_ENABLED=true|false
+SAFETY_ENABLED=true|false
+FILTERS_STRICT_MODE=true|false
+REDTEAM_ENABLED=true|false
+POLICY_AWARE_PLANNING=true|false
 USPTO_API_KEY=your_key
 EPO_OPS_KEY=your_key
 REG_GOV_API_KEY=your_key
@@ -125,6 +132,10 @@ Config keys that can be overridden:
 - `budget_profile`
 - `model_routing_enabled`
 - `failover_enabled`
+- `safety_enabled`
+- `filters_strict_mode`
+- `redteam_enabled`
+- `policy_aware_planning`
 
 ### Budget cap normalization
 

@@ -1,0 +1,18 @@
+pii:
+  action: redact
+  notes: "Redact personal data"
+secrets:
+  action: block
+  notes: "Secrets must never be exposed"
+toxicity:
+  action: block
+  notes: "Toxic content is disallowed"
+license:
+  action: redact
+  notes: "Respect license limits"
+brand:
+  action: allow
+  notes: "Brand references allowed"
+compliance:
+  action: allow
+  notes: "Compliance checks informational"

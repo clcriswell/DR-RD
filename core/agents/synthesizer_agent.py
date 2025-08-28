@@ -11,11 +11,14 @@ class SynthesizerAgent(PromptFactoryAgent):
     def act(self, idea: str, answers: Dict[str, Any], **kwargs) -> str:
         materials = "\n".join(f"### {k}\n{v}" for k, v in answers.items())
         sources: List[Any] = []
+        safety: List[Any] = []
         for val in answers.values():
             if isinstance(val, dict):
                 for src in val.get("sources", []):
                     if src not in sources:
                         sources.append(src)
+                if "safety_meta" in val:
+                    safety.append(val["safety_meta"])
         spec = {
             "role": "Synthesizer",
             "task": "compose final report",
@@ -26,11 +29,17 @@ class SynthesizerAgent(PromptFactoryAgent):
             "evaluation_hooks": ["self_check_minimal"],
         }
         result = super().run_with_spec(spec, **kwargs)
-        if sources:
+        if sources or safety:
             import json
             data = json.loads(result)
-            data.setdefault("sources", [])
-            data["sources"].extend(src for src in sources if src not in data["sources"])
+            if sources:
+                data.setdefault("sources", [])
+                data["sources"].extend(src for src in sources if src not in data["sources"])
+            if safety:
+                data["safety_meta"] = safety
+                if any(m.get("decision", {}).get("allowed") is False for m in safety):
+                    data.setdefault("contradictions", []).append("blocked content removed")
+                    data["confidence"] = min(data.get("confidence", 1.0), 0.5)
             result = json.dumps(data)
         return result
 
