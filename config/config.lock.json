@@ -1,0 +1,704 @@
+{
+  "config": {
+    "apis.yaml": {
+      "CITATIONS": {
+        "allow_domains": [
+          "federalregister.gov",
+          "ecfr.gov",
+          "govinfo.gov",
+          "uspto.gov",
+          "epo.org",
+          "eur-lex.europa.eu"
+        ],
+        "min_coverage": 0.6
+      },
+      "PATENTS": {
+        "backends": [
+          "patentsview",
+          "epo_ops"
+        ],
+        "enabled": true,
+        "max_results": 50,
+        "timeouts_s": 10
+      },
+      "REGULATIONS": {
+        "backends": [
+          "federal_register",
+          "ecfr",
+          "eur_lex"
+        ],
+        "enabled": true,
+        "max_results": 50,
+        "timeouts_s": 10
+      }
+    },
+    "budgets.yaml": {
+      "high": {
+        "exec": {
+          "max_runtime_ms": 10000,
+          "max_tool_calls": 10,
+          "retrieval_policy_default": "AGGRESSIVE",
+          "top_k": 10
+        },
+        "plan": {
+          "max_time_ms": 4000,
+          "max_tokens": 1000
+        },
+        "route": {
+          "max_depth": 5,
+          "max_parallel_tools": 8
+        },
+        "synth": {
+          "max_tokens": 1000
+        }
+      },
+      "low": {
+        "exec": {
+          "max_runtime_ms": 1000,
+          "max_tool_calls": 1,
+          "retrieval_policy_default": "LIGHT",
+          "top_k": 2
+        },
+        "plan": {
+          "max_time_ms": 1000,
+          "max_tokens": 200
+        },
+        "route": {
+          "max_depth": 1,
+          "max_parallel_tools": 1
+        },
+        "synth": {
+          "max_tokens": 200
+        }
+      },
+      "standard": {
+        "exec": {
+          "max_runtime_ms": 5000,
+          "max_tool_calls": 5,
+          "retrieval_policy_default": "AGGRESSIVE",
+          "top_k": 5
+        },
+        "plan": {
+          "max_time_ms": 2000,
+          "max_tokens": 500
+        },
+        "route": {
+          "max_depth": 3,
+          "max_parallel_tools": 4
+        },
+        "synth": {
+          "max_tokens": 500
+        }
+      }
+    },
+    "defaults.yaml": {
+      "dry_run": {
+        "enabled": false,
+        "fixtures_dir": "tests/fixtures"
+      },
+      "logging": {
+        "runs_dir": "runs"
+      },
+      "memory": {
+        "ttl_seconds": 86400
+      },
+      "qa_routing": {
+        "enabled": true
+      },
+      "redaction": {
+        "enabled": true,
+        "policy_file": "config/redaction.yaml"
+      }
+    },
+    "diagnostics.yaml": {
+      "failure_rate": {
+        "fail_delta": 0.1,
+        "warn_delta": 0.05
+      },
+      "latency": {
+        "fail_ms": 1200,
+        "warn_ms": 500
+      },
+      "missing_citations": {
+        "enabled": true
+      },
+      "redaction_regressions": {
+        "enabled": true,
+        "fail_on_new_secrets": true
+      },
+      "token_spike": {
+        "fail_ratio": 1.5,
+        "warn_ratio": 1.25
+      }
+    },
+    "dry_run.yaml": {
+      "dry_run": {
+        "enabled": false,
+        "fixtures_dir": "tests/fixtures"
+      }
+    },
+    "environment_matrix.yaml": {
+      "cuda": [
+        "optional"
+      ],
+      "hardware": [
+        "cpu",
+        "gpu"
+      ],
+      "os": [
+        "ubuntu-latest",
+        "macos-latest"
+      ],
+      "python": [
+        "3.10",
+        "3.11"
+      ]
+    },
+    "feature_flags.py": {
+      "AUTOGEN_ENABLED": false,
+      "BUDGET_PROFILE": "standard",
+      "CHART_MAX_POINTS": 5000,
+      "CODE_IO_ENABLED": false,
+      "COMPLIANCE_ENABLED": false,
+      "COST_GOVERNANCE_ENABLED": true,
+      "DASHBOARD_MAX_COMPARE": 5,
+      "DASHBOARD_MAX_PROJECTS": 200,
+      "DISABLE_IMAGES_BY_DEFAULT": {
+        "deep": true,
+        "standard": true,
+        "test": true
+      },
+      "ENABLE_IMAGES": false,
+      "ENABLE_LIVE_SEARCH": false,
+      "EVALUATION_ENABLED": false,
+      "EVALUATION_HUMAN_REVIEW": false,
+      "EVALUATION_MAX_ROUNDS": 1,
+      "EVALUATION_USE_LLM_RUBRIC": false,
+      "EVALUATORS_ENABLED": false,
+      "EVALUATOR_MIN_OVERALL": 0.6,
+      "EVALUATOR_WEIGHTS": {
+        "compliance": 0.15,
+        "cost": 0.25,
+        "feasibility": 0.35,
+        "novelty": 0.25
+      },
+      "EVAL_MIN_OVERALL": 0.65,
+      "EVAL_WEIGHTS": {
+        "clarity": 0.3,
+        "completeness": 0.5,
+        "grounding": 0.2
+      },
+      "EXAMPLES_ENABLED": true,
+      "FAILOVER_ENABLED": true,
+      "FAISS_BOOTSTRAP_MODE": "download",
+      "FAISS_INDEX_DIR": ".faiss_index",
+      "FAISS_INDEX_URI": null,
+      "FILTERS_STRICT_MODE": true,
+      "GRAPH_ENABLED": false,
+      "GRAPH_MAX_STEPS": 100,
+      "GRAPH_PARALLELISM": 4,
+      "KB_ENABLED": true,
+      "LIVE_SEARCH_BACKEND": "openai",
+      "LIVE_SEARCH_MAX_CALLS": 3,
+      "LIVE_SEARCH_SUMMARY_TOKENS": 256,
+      "MODEL_ROUTING_ENABLED": true,
+      "PARALLEL_EXEC_ENABLED": false,
+      "PATCH_MAX_BYTES": 200000,
+      "PATCH_MAX_FILES": 50,
+      "PATENT_APIS_ENABLED": false,
+      "PDF_MAX_PAGES": 50,
+      "POLICY_AWARE_PLANNING": true,
+      "PROVENANCE_ENABLED": true,
+      "RAG_ENABLED": false,
+      "RAG_TOPK": 5,
+      "REDTEAM_ENABLED": true,
+      "REFLECTION_ENABLED": false,
+      "REFLECTION_MAX_ATTEMPTS": 1,
+      "REFLECTION_PATIENCE": 2,
+      "REGULATORY_APIS_ENABLED": false,
+      "REPORTING_ENABLED": true,
+      "REPORT_MAX_BYTES": 2000000,
+      "SAFETY_ENABLED": true,
+      "SERPAPI_KEY": "",
+      "SIM_ENABLED": false,
+      "SIM_OPTIMIZER_ENABLED": false,
+      "SIM_OPTIMIZER_MAX_EVALS": 50,
+      "SIM_OPTIMIZER_STRATEGY": "random",
+      "TOT_BEAM": 2,
+      "TOT_K": 3,
+      "TOT_MAX_DEPTH": 2,
+      "TOT_PLANNING_ENABLED": false,
+      "TRACE_MAX_ROWS": 5000,
+      "UI_CFG_PATH": "/workspace/DR-RD/config/ui.yaml",
+      "VECTOR_INDEX_PATH": "",
+      "VECTOR_INDEX_PRESENT": false,
+      "VECTOR_INDEX_REASON": "",
+      "VECTOR_INDEX_SOURCE": "none",
+      "VISION_ENABLED": false
+    },
+    "models.yaml": {
+      "caching": {
+        "enabled": true,
+        "max_bytes": 25000000,
+        "ttl_s": 300
+      },
+      "providers": {
+        "anthropic": {
+          "api_key_env": "ANTHROPIC_API_KEY",
+          "endpoint_env": "ANTHROPIC_API_BASE",
+          "models": [
+            {
+              "ctx": 200000,
+              "name": "claude-3-5-sonnet",
+              "price_per_1k_in": 3.0,
+              "price_per_1k_out": 15.0,
+              "purpose": [
+                "exec",
+                "synth"
+              ],
+              "speed_class": "medium"
+            }
+          ]
+        },
+        "google": {
+          "api_key_env": "GEMINI_API_KEY",
+          "endpoint_env": "GEMINI_API_BASE",
+          "models": [
+            {
+              "ctx": 1000000,
+              "name": "gemini-1.5-pro",
+              "price_per_1k_in": 1.25,
+              "price_per_1k_out": 5.0,
+              "purpose": [
+                "exec",
+                "vision"
+              ],
+              "speed_class": "medium"
+            }
+          ]
+        },
+        "openai": {
+          "api_key_env": "OPENAI_API_KEY",
+          "endpoint_env": "OPENAI_API_BASE",
+          "models": [
+            {
+              "ctx": 128000,
+              "name": "gpt-4.1-mini",
+              "price_per_1k_in": 0.15,
+              "price_per_1k_out": 0.6,
+              "purpose": [
+                "plan",
+                "exec",
+                "synth"
+              ],
+              "speed_class": "fast"
+            },
+            {
+              "ctx": 128000,
+              "name": "gpt-4o",
+              "price_per_1k_in": 0.5,
+              "price_per_1k_out": 1.5,
+              "purpose": [
+                "exec",
+                "vision"
+              ],
+              "speed_class": "fast"
+            }
+          ]
+        }
+      },
+      "routing": {
+        "defaults": {
+          "exec": {
+            "backups": [
+              "google/gemini-1.5-pro"
+            ],
+            "preferred": [
+              "openai/gpt-4.1-mini",
+              "openai/gpt-4o"
+            ]
+          },
+          "plan": {
+            "backups": [
+              "anthropic/claude-3-5-sonnet"
+            ],
+            "preferred": [
+              "openai/gpt-4.1-mini"
+            ]
+          },
+          "synth": {
+            "backups": [
+              "anthropic/claude-3-5-sonnet"
+            ],
+            "preferred": [
+              "openai/gpt-4.1-mini"
+            ]
+          }
+        },
+        "role_overrides": {
+          "IP Analyst": {
+            "exec": {
+              "backups": [
+                "anthropic/claude-3-5-sonnet"
+              ],
+              "preferred": [
+                "openai/gpt-4o"
+              ]
+            }
+          },
+          "Regulatory": {
+            "exec": {
+              "backups": [
+                "google/gemini-1.5-pro"
+              ],
+              "preferred": [
+                "openai/gpt-4.1-mini"
+              ]
+            }
+          },
+          "Research Scientist": {
+            "exec": {
+              "preferred": [
+                "anthropic/claude-3-5-sonnet",
+                "openai/gpt-4o"
+              ]
+            }
+          }
+        }
+      },
+      "slos": {
+        "gray_routing_ratio": 0.05,
+        "max_latency_ms": {
+          "exec": 6000,
+          "plan": 4000,
+          "synth": 5000
+        },
+        "target_latency_ms": {
+          "exec": 3500,
+          "plan": 2000,
+          "synth": 2500
+        }
+      }
+    },
+    "modes.yaml": {
+      "deep": {
+        "enable_images": false,
+        "enforce_caps": false,
+        "faiss_bootstrap_mode": "skip",
+        "faiss_index_local_dir": ".faiss_index",
+        "faiss_index_uri": "",
+        "graph_enabled": false,
+        "k_search": 6,
+        "live_search_backend": "openai",
+        "live_search_enabled": true,
+        "live_search_max_calls": 3,
+        "live_search_summary_tokens": 256,
+        "max_loops": 5,
+        "models": {
+          "exec": "gpt-4o-mini",
+          "plan": "gpt-4o-mini",
+          "synth": "gpt-4o-mini"
+        },
+        "rag_enabled": true,
+        "rag_top_k": 5,
+        "stage_weights": {
+          "exec": 0.5,
+          "plan": 0.2,
+          "synth": 0.3
+        },
+        "target_cost_usd": 2.5
+      },
+      "standard": {
+        "enable_images": false,
+        "enforce_caps": false,
+        "faiss_bootstrap_mode": "skip",
+        "faiss_index_local_dir": ".faiss_index",
+        "faiss_index_uri": "",
+        "graph_enabled": false,
+        "k_search": 6,
+        "live_search_backend": "openai",
+        "live_search_enabled": true,
+        "live_search_max_calls": 3,
+        "live_search_summary_tokens": 256,
+        "max_loops": 5,
+        "models": {
+          "exec": "gpt-4o-mini",
+          "plan": "gpt-4o-mini",
+          "synth": "gpt-4o-mini"
+        },
+        "rag_enabled": true,
+        "rag_top_k": 5,
+        "stage_weights": {
+          "exec": 0.5,
+          "plan": 0.2,
+          "synth": 0.3
+        },
+        "target_cost_usd": 2.5
+      },
+      "test": {
+        "enable_images": false,
+        "enforce_caps": false,
+        "faiss_bootstrap_mode": "skip",
+        "faiss_index_local_dir": ".faiss_index",
+        "faiss_index_uri": "",
+        "graph_enabled": false,
+        "k_search": 6,
+        "live_search_backend": "openai",
+        "live_search_enabled": true,
+        "live_search_max_calls": 3,
+        "live_search_summary_tokens": 256,
+        "max_loops": 5,
+        "models": {
+          "exec": "gpt-4o-mini",
+          "plan": "gpt-4o-mini",
+          "synth": "gpt-4o-mini"
+        },
+        "rag_enabled": true,
+        "rag_top_k": 5,
+        "stage_weights": {
+          "exec": 0.5,
+          "plan": 0.2,
+          "synth": 0.3
+        },
+        "target_cost_usd": 2.5
+      }
+    },
+    "prices.yaml": {
+      "models": {
+        "default": {
+          "in_per_1k": 0.0,
+          "out_per_1k": 0.0
+        },
+        "gpt-4-turbo": {
+          "in_per_1k": 0.00125,
+          "out_per_1k": 0.01
+        },
+        "gpt-4o-mini": {
+          "in_per_1k": 0.0,
+          "out_per_1k": 0.0
+        },
+        "gpt-5": {
+          "in_per_1k": 0.01,
+          "out_per_1k": 0.03
+        }
+      }
+    },
+    "rag.yaml": {
+      "allow_live_search": true,
+      "domain_reputation_file": "dr_rd/rag/domain_reputation.yaml",
+      "per_doc_cap_tokens": 400,
+      "topk_defaults": {
+        "AGGRESSIVE": 12,
+        "LIGHT": 5
+      },
+      "weights": {
+        "bm25": 0.45,
+        "dense": 0.35,
+        "quality": 0.2
+      }
+    },
+    "redaction.yaml": {
+      "credit_card": {
+        "enabled": true,
+        "pattern": "\\b(?:\\d[ -]?){13,16}\\b",
+        "token": "[REDACTED:CREDIT_CARD]"
+      },
+      "email": {
+        "enabled": true,
+        "pattern": "\\b[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}\\b",
+        "token": "[REDACTED:EMAIL]"
+      },
+      "ipv4": {
+        "enabled": true,
+        "pattern": "\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b",
+        "token": "[REDACTED:IPV4]"
+      },
+      "ipv6": {
+        "enabled": true,
+        "pattern": "\\b(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\\b",
+        "token": "[REDACTED:IPV6]"
+      },
+      "person_name": {
+        "enabled": true,
+        "pattern": "\\b[A-Z][a-z]+\\s[A-Z][a-z]+\\b",
+        "token": "[REDACTED:NAME]"
+      },
+      "phone": {
+        "enabled": true,
+        "pattern": "\\b(?:\\d{3}[ -]?){2}\\d{4}\\b",
+        "token": "[REDACTED:PHONE]"
+      },
+      "ssn": {
+        "enabled": true,
+        "pattern": "\\b\\d{3}-\\d{2}-\\d{4}\\b",
+        "token": "[REDACTED:SSN]"
+      },
+      "street_address": {
+        "enabled": true,
+        "pattern": "\\b\\d+\\s+[A-Za-z0-9.\\s]+\\b",
+        "token": "[REDACTED:ADDRESS]"
+      }
+    },
+    "reporting.yaml": {
+      "EXAMPLES_ENABLED": true,
+      "EXAMPLE_DIVERSITY_MIN": 3,
+      "EXAMPLE_MAX_TOKENS": 1200,
+      "EXAMPLE_MIN_SCORE": 0.7,
+      "EXAMPLE_PROVIDER_RULES": {
+        "anthropic": {
+          "long_system_ok": true,
+          "tool_choice": "auto"
+        },
+        "gemini": {
+          "function_decls_ok": true,
+          "parallel_tools_ok": true
+        },
+        "openai": {
+          "cot": false,
+          "json_only": true,
+          "prefer_tools": true
+        }
+      },
+      "EXAMPLE_RECENCY_WEIGHT": 0.2,
+      "EXAMPLE_TOPK_PER_ROLE": 12,
+      "KB_ENABLED": true,
+      "KB_INDEX_ENABLED": true,
+      "KNOWLEDGE_BASE_DIR": ".dr_rd/kb"
+    },
+    "retrieval.yaml": {
+      "max_queries_per_task": 8,
+      "max_snippets_per_source": 3,
+      "similarity_threshold": 0.85
+    },
+    "safety.yaml": {
+      "allowed_link_domains": [
+        "example.com",
+        "openai.com"
+      ],
+      "blocked_keywords": [
+        "badword1",
+        "badword2"
+      ],
+      "license_max_quote_words": 20,
+      "pii_patterns": {
+        "address": "\\d+\\s+[A-Za-z]+\\s+(Street|St|Avenue|Ave|Road|Rd)",
+        "api_key": "\\b[A-Za-z0-9]{32,}\\b",
+        "email": "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}",
+        "phone": "\\b\\d{3}[-.]?\\d{3}[-.]?\\d{4}\\b",
+        "ssn": "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+      },
+      "repair_max_attempts": 1,
+      "secrets_patterns": {
+        "aws": "AKIA[0-9A-Z]{16}",
+        "gcp": "AIza[0-9A-Za-z-_]{35}",
+        "openai": "sk-[A-Za-z0-9]{20,}",
+        "slack": "xox[baprs]-[A-Za-z0-9-]{10,}"
+      },
+      "toxicity_threshold": 0.5
+    },
+    "secret_paths.yaml": [
+      ".git/**",
+      "node_modules/**",
+      "env/**",
+      "__pycache__/**",
+      "*.pyc",
+      "*.pyo",
+      "*.exe",
+      "*.dll",
+      "*.so",
+      "*.dylib"
+    ],
+    "tools.yaml": {
+      "CFR_LOOKUP": {
+        "enabled": true,
+        "max_calls": 5,
+        "max_runtime_ms": 1000,
+        "ttl_s": 86400
+      },
+      "CODE_IO": {
+        "circuit": {
+          "max_errors": 3,
+          "window_s": 60
+        },
+        "enabled": true,
+        "max_files": 20,
+        "max_runtime_s": 10,
+        "max_tokens": 10000
+      },
+      "FDA_DEVICE_SEARCH": {
+        "enabled": true,
+        "max_calls": 5,
+        "max_runtime_ms": 1000,
+        "ttl_s": 86400
+      },
+      "FINANCE": {
+        "enabled": true,
+        "max_calls": 5,
+        "max_runtime_ms": 1000
+      },
+      "MATERIALS_DB": {
+        "enabled": true,
+        "max_calls": 5,
+        "max_runtime_ms": 1000
+      },
+      "PATENT_FETCH": {
+        "enabled": true,
+        "max_calls": 5,
+        "max_runtime_ms": 1000,
+        "ttl_s": 86400
+      },
+      "PATENT_SEARCH": {
+        "enabled": true,
+        "max_calls": 5,
+        "max_runtime_ms": 1000,
+        "ttl_s": 86400
+      },
+      "QA_CHECKS": {
+        "enabled": true,
+        "max_calls": 5,
+        "max_runtime_ms": 1000
+      },
+      "REG_FETCH": {
+        "enabled": true,
+        "max_calls": 5,
+        "max_runtime_ms": 1000,
+        "ttl_s": 86400
+      },
+      "REG_SEARCH": {
+        "enabled": true,
+        "max_calls": 5,
+        "max_runtime_ms": 1000,
+        "ttl_s": 86400
+      },
+      "SIMULATION": {
+        "circuit": {
+          "max_errors": 3,
+          "window_s": 60
+        },
+        "enabled": true,
+        "max_runtime_s": 30,
+        "max_tokens": 5000
+      },
+      "VISION": {
+        "circuit": {
+          "max_errors": 3,
+          "window_s": 60
+        },
+        "enabled": true,
+        "max_runtime_s": 60,
+        "max_tokens": 5000
+      }
+    },
+    "ui.yaml": {
+      "CHART_MAX_POINTS": 5000,
+      "DASHBOARD_MAX_COMPARE": 5,
+      "DASHBOARD_MAX_PROJECTS": 200,
+      "PATCH_MAX_BYTES": 200000,
+      "PATCH_MAX_FILES": 50,
+      "PDF_MAX_PAGES": 50,
+      "REPORT_MAX_BYTES": 2000000,
+      "TRACE_MAX_ROWS": 5000
+    }
+  },
+  "sha256": "72c8b892f5ce3cdcc5f734ce1ede1efd1e93c01f5e7087da6684c635b5ef0a04"
+}
