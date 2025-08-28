@@ -19,6 +19,7 @@ class IPAnalystAgent(BaseAgent):
             model=model,
             system_message=IP_ANALYST_SYSTEM_PROMPT,
             user_prompt_template=IP_ANALYST_USER_PROMPT_TEMPLATE,
+                # Schema: dr_rd/schemas/ip_analyst_agent.json
             retriever=retriever,
         )
 

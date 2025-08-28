@@ -11,11 +11,13 @@ class FluorescenceBiologicalSampleExpertAgent(BaseAgent):
             name="Fluorescence / Biological Sample Expert",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/fluorescence_biological_sample_expert_agent.json
                 "You are a fluorescence and biological sample expert with experience in biochemistry and microscopy. "
                 "You know how to prepare and handle fluorescent samples, select appropriate fluorophores or biomarkers, and optimize imaging protocols. "
                 "You consider factors like excitation/emission spectra, photobleaching, and biosafety in experimental design."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/fluorescence_biological_sample_expert_agent.json
                 "Project Idea: {idea}\nAs the Fluorescence / Biological Sample Expert, your task is {task}. "
                 "Provide a detailed plan in Markdown for the biological and fluorescence aspects of the project. "
                 "Recommend fluorescent markers or assays to use, including their excitation/emission wavelengths and why they suit the project goals. "

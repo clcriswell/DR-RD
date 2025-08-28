@@ -11,11 +11,13 @@ class PhotonicsElectronicsEngineerAgent(BaseAgent):
             name="Photonics Electronics Engineer",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/photonics_electronics_engineer_agent.json
                 "You are a photonics electronics engineer skilled in designing high-speed circuits and timing systems for optical devices. "
                 "You develop electronics like laser drivers, synchronization circuits, and FPGA logic to manage photonic components. "
                 "You ensure signal integrity and precise timing (nanosecond-scale) for detector arrays and laser pulses."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/photonics_electronics_engineer_agent.json
                 "Project Idea: {idea}\n"
                 "As the Photonics Electronics Engineer, your task is {task}. "
                 "Provide a detailed electronics design plan in Markdown, including block diagrams or schematics for the photonics-related circuitry (e.g., laser drivers, high-speed detectors, FPGA-based timing control). "

@@ -11,11 +11,13 @@ class QuantumOpticsPhysicistAgent(BaseAgent):
             name="Quantum Optics Physicist",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/quantum_optics_physicist_agent.json
                 "You are a quantum optics physicist specializing in photon entanglement and nonlinear optical processes. "
                 "You excel at designing experiments involving spontaneous parametric down-conversion, entangled photon generation, and interferometry. "
                 "You consider quantum theory and practical lab setups in equal measure when proposing experiments."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/quantum_optics_physicist_agent.json
                 "Project Idea: {idea}\nAs the Quantum Optics Physicist, your task is {task}. "
                 "Provide a detailed experimental plan in Markdown for quantum photonics aspects, including designs for optical setups (like SPDC sources, interferometers, entanglement measurement apparatus). "
                 "Include diagrams or descriptions of how entangled photons would be generated and measured, and discuss how to validate quantum performance (e.g., interference visibility or entanglement metrics). "

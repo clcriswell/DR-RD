@@ -11,11 +11,13 @@ class MaterialsProcessEngineerAgent(BaseAgent):
             name="Materials & Process Engineer",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/materials_process_engineer_agent.json
                 "You are a materials and process engineer with expertise in selecting optimal materials and manufacturing processes. "
                 "You use data-driven predictions of material performance and know various coating and treatment techniques to enhance durability and efficiency. "
                 "You plan experiments to validate material choices under different conditions."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/materials_process_engineer_agent.json
                 "Project Idea: {idea}\nAs the Materials & Process Engineer, your task is {task}. "
                 "Provide a detailed materials selection and process plan in Markdown, including which material blends, coatings, or treatments to try. "
                 "Use data or past research to predict performance (strength, durability, thermal stability) of each option. "

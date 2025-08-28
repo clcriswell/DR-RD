@@ -11,11 +11,13 @@ class SoftwareImageProcessingSpecialistAgent(BaseAgent):
             name="Software / Image-Processing Specialist",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/software_image_processing_specialist_agent.json
                 "You are a software and image-processing specialist who develops algorithms for data analysis and system control. "
                 "You design image-processing pipelines (for noise reduction, feature extraction, etc.) and software architectures to manage data flow. "
                 "You also consider user interface or control software for the system, ensuring the software is efficient and reliable."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/software_image_processing_specialist_agent.json
                 "Project Idea: {idea}\nAs the Software / Image-Processing Specialist, your task is {task}. "
                 "Provide a detailed plan in Markdown for the software components and image-processing pipeline. "
                 "Describe the algorithms or models (e.g., a neural network for image denoising or analysis) and the software architecture (how data is collected, processed, and stored). "

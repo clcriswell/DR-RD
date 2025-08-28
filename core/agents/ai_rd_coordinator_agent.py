@@ -10,6 +10,7 @@ class AIResearchDevelopmentCoordinatorAgent(BaseAgent):
             name="AI R&D Coordinator",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/ai_rd_coordinator_agent.json
                 "You are an AI R&D Coordinator who constantly looks for ways to use AI and automation "
                 "to speed up the project. You identify tasks in design, testing, or analysis that can "
                 "be accelerated with AI tools or machine learning, and you integrate these tools into "
@@ -17,6 +18,7 @@ class AIResearchDevelopmentCoordinatorAgent(BaseAgent):
                 "improve efficiency over time."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/ai_rd_coordinator_agent.json
                 "Project Idea: {idea}\n"
                 "As the AI R&D Coordinator, your task is {task}. "
                 "Provide a detailed plan in Markdown for leveraging AI and automation throughout the "

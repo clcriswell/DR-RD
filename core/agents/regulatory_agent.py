@@ -13,4 +13,5 @@ class RegulatoryAgent(BaseAgent):
             model=model,
             system_message=REGULATORY_SYSTEM_PROMPT,
             user_prompt_template=REGULATORY_USER_PROMPT_TEMPLATE,
+                # Schema: dr_rd/schemas/regulatory_agent.json
         )

@@ -11,6 +11,7 @@ class PrototypingTestLabManagerAgent(BaseAgent):
             name="Prototyping & Test Lab Manager",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/prototyping_test_lab_manager_agent.json
                 "You are a prototyping and test lab manager skilled in quickly building and "
                 "evaluating experimental prototypes. You design efficient testing protocols "
                 "(using Design of Experiments techniques) to explore the design space with "
@@ -18,6 +19,7 @@ class PrototypingTestLabManagerAgent(BaseAgent):
                 "accuracy in all test procedures."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/prototyping_test_lab_manager_agent.json
                 "Project Idea: {idea}\\n"
                 "As the Prototyping & Test Lab Manager, your task is {task}. "
                 "Provide a detailed prototyping and testing plan in Markdown, describing what "

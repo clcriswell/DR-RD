@@ -11,6 +11,7 @@ class SystemsIntegrationValidationEngineerAgent(BaseAgent):
             name="Systems Integration & Validation Engineer",
             model=model,
             system_message=(
+                # Schema: dr_rd/schemas/systems_integration_validation_engineer_agent.json
                 "You are a systems integration and validation engineer who ensures all subsystems "
                 "(mechanical, optical, electrical, software) work together seamlessly. "
                 "You plan integration steps and develop validation tests to verify the complete system "
@@ -18,6 +19,7 @@ class SystemsIntegrationValidationEngineerAgent(BaseAgent):
                 "solutions early."
             ),
             user_prompt_template=(
+                # Schema: dr_rd/schemas/systems_integration_validation_engineer_agent.json
                 "Project Idea: {idea}\\n"
                 "As the Systems Integration & Validation Engineer, your task is {task}. "
                 "Provide a detailed integration and validation plan in Markdown, describing how the "

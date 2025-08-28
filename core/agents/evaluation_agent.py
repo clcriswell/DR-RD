@@ -148,4 +148,3 @@ class EvaluationAgent:
             "notes": "heuristic",
             "metrics": metrics,
         }
-
