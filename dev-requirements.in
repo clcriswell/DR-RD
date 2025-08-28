@@ -1,0 +1,10 @@
+-r requirements.in
+pip-tools
+pip-audit
+pip-licenses
+black
+ruff
+pytest
+build
+wheel
+setuptools
