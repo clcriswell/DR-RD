@@ -225,3 +225,4 @@ The Planner uses the same retrieval layer as execution agents. When the vector
 index is missing or returns no results and live search is enabled, it performs a
 web search and injects a `# Web Search Results` section into the prompt. The
 planner JSON schema remains unchanged.
+\n### Reporting\n\n`KB_ENABLED` toggles persistence of agent outputs to `.dr_rd/kb`. `REPORTING_ENABLED` gates report generation. Paths and defaults live in `config/reporting.yaml`.\n

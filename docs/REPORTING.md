@@ -1,15 +1,6 @@
-# Reporting & Provenance
+# Reporting
 
-Agent outputs may include citations like `[S1]` referring to retrieved
-sources.  The final synthesised report appends a **References** section that
-lists each source in order and links to the original URL or document title.
+Reports are composed from planner specs, agent outputs and synthesizer summaries. The canonical schema lives in `dr_rd/reporting/schemas/report_v1.json`. `dr_rd.reporting.compose()` builds a strict JSON structure and exporters render Markdown and HTML.
 
-The Streamlit UI exposes export buttons under the *Exports* tab:
-
-- **Download Sources (JSONL):** writes `audits/<project>/sources.jsonl` using
-  `core.retrieval.provenance.export_jsonl`.
-- **Download Final Report (Markdown):** saves the current report with the
-  rendered reference list.
-
-These exports enable external auditing of both tool usage and information
-provenance.
+Use `scripts/build_report.py --plan plan.json --agents agents.jsonl --synth synth.json --out out_dir` to generate artifacts.
+\n## Where it fits\n\nPlanner → Router → Executor → Synthesizer → KB & Reports completes the loop for durable artifacts.
