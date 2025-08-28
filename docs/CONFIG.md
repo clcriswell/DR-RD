@@ -259,3 +259,15 @@ index is missing or returns no results and live search is enabled, it performs a
 web search and injects a `# Web Search Results` section into the prompt. The
 planner JSON schema remains unchanged.
 \n### Reporting\n\n`KB_ENABLED` toggles persistence of agent outputs to `.dr_rd/kb`. `REPORTING_ENABLED` gates report generation. `EXAMPLES_ENABLED` controls few-shot example injection from the Example Bank. Paths and defaults live in `config/reporting.yaml`.\n
+
+## Configuration Lock
+
+The snapshot `config/config.lock.json` records a hash of all files in `config/` and
+`config/feature_flags.py`. CI validates this file via `scripts/validate_config_lock.py`.
+To intentionally update configuration, run:
+
+```
+python scripts/freeze_config.py
+```
+
+and commit the regenerated lock file.

@@ -7,7 +7,9 @@ A public Streamlit application that masks a user’s idea, decomposes it into
 multi-disciplinary research tasks, and orchestrates AI agents to synthesize a
 prototype or development plan.
 
-_Current repo state_  
+See the docs index in [docs/INDEX.md](docs/INDEX.md) for more information.
+
+_Current repo state_
 **Step 1:** Minimal Streamlit front-end + “Creation Planner” prompt.
 
 The planner now uses OpenAI's JSON mode for reliable parsing.
@@ -22,50 +24,3 @@ pip install -r requirements.txt
 export OPENAI_API_KEY="sk-..."
 streamlit run app.py
 ```
-
-## Multi-agent execution
-
-DR-RD now performs a three stage pipeline:
-
-1. **Planner** decomposes your idea into specialist tasks.
-2. Each task is routed to a matching agent (CTO, Research, Regulatory, Finance, Marketing Analyst or IP Analyst) which replies using a JSON contract:
-
-```json
-{"role": "...", "task": "...", "findings": [], "risks": [], "next_steps": [], "sources": []}
-```
-
-3. A synthesizer combines the findings into a unified plan.
-
-Model selections and **budget caps** live in `config/modes.yaml`.
-The single **Standard** profile specifies a `target_cost_usd`, default models for the planning/execution/synthesis stages,
-and limits such as `k_search` and `max_loops`.
-
-Schemas live in `core/schemas.py`; segmentation utility in `planning/segmenter.py`.
-
-Token pricing lives in `config/prices.yaml` (override via `PRICES_PATH`).
-
-The interface exposes runtime toggles for retrieval (RAG and Live Search), a numeric budget, and design depth presets.
-`DRRD_MODE` is ignored and maps to the Standard profile.
-
-See [MIGRATION.md](MIGRATION.md) for details on the consolidation of legacy Test/Deep modes.
-
-## Quick Start
-1) `pip install -r requirements.txt`
-2) Copy `.env.example` to `.env` and set `OPENAI_API_KEY`.
-3) `streamlit run app.py`
-4) (Optional) Build a RAG index: `python scripts/build_faiss_index.py`
-   Then enable `RAG_ENABLED=true` in your environment so agents like Marketing and IP can cite supporting snippets.
-
-### Live Web Search (optional)
-
-Set `ENABLE_LIVE_SEARCH=true` and provide a `SERPAPI_KEY` to allow the Research Scientist, IP Analyst, and Regulatory agents to query the live web when local RAG hits are missing or too short. When web results are used, these agents add a `sources` array with short titles or URLs to their JSON output.
-
-The application always runs with the Standard profile. Lower the budget or choose cheaper models to simulate low‑cost runs.
-
-### Dry-run for CI
-
-Set `DRRD_DRY_RUN=true` to bypass external model calls with a deterministic stub. This is useful for testing or continuous integration environments.
-
-### Coverage
-
-Continuous integration enforces a minimum coverage of 80%.

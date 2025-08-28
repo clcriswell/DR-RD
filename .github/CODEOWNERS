@@ -1,3 +1,6 @@
 repo_map.yaml @dr-rd-maintainers
 docs/REPO_MAP.md @dr-rd-maintainers
 docs/REPO_RULES.md @dr-rd-maintainers
+core/ @dr-rd-maintainers
+dr_rd/ @dr-rd-maintainers
+docs/ @dr-rd-maintainers

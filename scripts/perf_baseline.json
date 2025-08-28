@@ -1,0 +1,8 @@
+{
+  "latency_ms": {
+    "research": 1000,
+    "regulatory": 1000,
+    "finance": 1000
+  },
+  "tokens_est": 1000
+}
