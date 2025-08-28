@@ -34,6 +34,8 @@ GRAPH_ENABLED = _flag("GRAPH_ENABLED")
 GRAPH_MAX_STEPS: int = int(os.getenv("GRAPH_MAX_STEPS", "100"))
 GRAPH_PARALLELISM: int = int(os.getenv("GRAPH_PARALLELISM", "4"))
 PROVENANCE_ENABLED = os.getenv("PROVENANCE_ENABLED", "true").lower() == "true"
+COST_GOVERNANCE_ENABLED = os.getenv("COST_GOVERNANCE_ENABLED", "true").lower() == "true"
+BUDGET_PROFILE: str = os.getenv("BUDGET_PROFILE", "standard")
 FAISS_INDEX_URI: str | None = os.getenv("FAISS_INDEX_URI")
 FAISS_INDEX_DIR: str = os.getenv("FAISS_INDEX_DIR", ".faiss_index")
 FAISS_BOOTSTRAP_MODE: str = os.getenv("FAISS_BOOTSTRAP_MODE", "download")
@@ -130,6 +132,8 @@ def get_env_defaults() -> dict:
         "GRAPH_MAX_STEPS": GRAPH_MAX_STEPS,
         "GRAPH_PARALLELISM": GRAPH_PARALLELISM,
         "PROVENANCE_ENABLED": PROVENANCE_ENABLED,
+        "COST_GOVERNANCE_ENABLED": COST_GOVERNANCE_ENABLED,
+        "BUDGET_PROFILE": BUDGET_PROFILE,
         "PATENT_APIS_ENABLED": PATENT_APIS_ENABLED,
         "REGULATORY_APIS_ENABLED": REGULATORY_APIS_ENABLED,
         "COMPLIANCE_ENABLED": COMPLIANCE_ENABLED,
@@ -163,6 +167,7 @@ def apply_overrides(cfg: dict) -> None:
     global EVALUATION_ENABLED, EVALUATION_MAX_ROUNDS, EVALUATION_HUMAN_REVIEW
     global EVALUATION_USE_LLM_RUBRIC, EVAL_MIN_OVERALL, EVAL_WEIGHTS
     global GRAPH_ENABLED, GRAPH_MAX_STEPS, GRAPH_PARALLELISM
+    global COST_GOVERNANCE_ENABLED, BUDGET_PROFILE
     if "rag_enabled" in cfg:
         RAG_ENABLED = bool(cfg.get("rag_enabled"))
     if "rag_top_k" in cfg:
@@ -206,6 +211,10 @@ def apply_overrides(cfg: dict) -> None:
         GRAPH_MAX_STEPS = int(cfg.get("graph_max_steps", GRAPH_MAX_STEPS))
     if "graph_parallelism" in cfg:
         GRAPH_PARALLELISM = int(cfg.get("graph_parallelism", GRAPH_PARALLELISM))
+    if "cost_governance_enabled" in cfg:
+        COST_GOVERNANCE_ENABLED = bool(cfg.get("cost_governance_enabled"))
+    if "budget_profile" in cfg:
+        BUDGET_PROFILE = str(cfg.get("budget_profile") or BUDGET_PROFILE)
 
 
 def apply_mode_overrides(cfg: dict) -> None:

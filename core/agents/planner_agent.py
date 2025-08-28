@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from typing import Any
+import json
 
 from core.agents.prompt_agent import PromptFactoryAgent
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
+from core.llm import select_model
 
 
 class PlannerAgent(PromptFactoryAgent):
@@ -17,7 +19,20 @@ class PlannerAgent(PromptFactoryAgent):
             "capabilities": "task planning",
             "evaluation_hooks": ["self_check_minimal"],
         }
-        return super().run_with_spec(spec, **kwargs)
+        raw = super().run_with_spec(spec, **kwargs)
+        try:
+            data = json.loads(raw)
+            text = json.dumps(data).lower()
+            if any(k in text for k in ["simulate", "model", "digital twin"]):
+                data.setdefault("hints", {})["simulation_domain"] = "generic"
+            return json.dumps(data)
+        except Exception:
+            return raw
 
     def run(self, idea: str, task: Any, **kwargs) -> str:
         return self.act(idea, task, **kwargs)
+
+
+def run_planner(idea: str, task: Any, model: str | None = None) -> str:
+    agent = PlannerAgent(model or select_model("agent", agent_name="Planner"))
+    return agent.run(idea, task)

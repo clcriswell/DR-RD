@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 from core.agents.prompt_agent import PromptFactoryAgent
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
+from core.llm import select_model
 
 
 class SynthesizerAgent(PromptFactoryAgent):
@@ -35,3 +36,8 @@ class SynthesizerAgent(PromptFactoryAgent):
 
     def run(self, idea: str, answers: Dict[str, Any], **kwargs) -> str:
         return self.act(idea, answers, **kwargs)
+
+
+def compose_final_proposal(idea: str, answers: Dict[str, Any], model: str | None = None) -> str:
+    agent = SynthesizerAgent(model or select_model("agent", agent_name="Synthesizer"))
+    return agent.run(idea, answers)

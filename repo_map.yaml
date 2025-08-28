@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-28T21:08:36.949693Z'
-git_sha: 1a5672048b1c07c457ac13051e648eb54b20bab8
+generated_at: '2025-08-28T21:23:20.053908Z'
+git_sha: 6fdf6e2f86f87992b6ba8442f4b2cec76de01369
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -170,15 +170,15 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/agents/dynamic_agent_wrapper.py
-  role: Agent[Dynamic Specialist]
+- path: core/agents/simulation_agent.py
+  role: Agent[Simulation]
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/qa_router.py
-  role: Orchestrator
+- path: core/agents/dynamic_agent_wrapper.py
+  role: Agent[Dynamic Specialist]
   responsibilities: []
   inputs: []
   outputs: []
@@ -212,8 +212,8 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/schemas.py
-  role: Summarization
+- path: orchestrators/qa_router.py
+  role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
@@ -227,6 +227,13 @@ modules:
   invoked_by: []
   invokes: []
 - path: core/summarization/__init__.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/schemas.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -273,6 +280,7 @@ agent_registry:
   Materials: core/agents/materials_agent.py
   QA: core/agents/qa_agent.py
   Finance Specialist: core/agents/finance_specialist_agent.py
+  Simulation: core/agents/simulation_agent.py
   Dynamic Specialist: core/agents/dynamic_agent_wrapper.py
 config_files:
 - path: config/modes.yaml
