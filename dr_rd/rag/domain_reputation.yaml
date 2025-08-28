@@ -1,0 +1,8 @@
+domains:
+  gov: 1.0
+  edu: 0.9
+  tech: 0.8
+  news: 0.6
+  blog: 0.3
+blocked_domains:
+  - bad.com

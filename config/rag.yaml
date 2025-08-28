@@ -1,0 +1,5 @@
+weights: {bm25: 0.45, dense: 0.35, quality: 0.20}
+topk_defaults: {LIGHT: 5, AGGRESSIVE: 12}
+per_doc_cap_tokens: 400
+domain_reputation_file: "dr_rd/rag/domain_reputation.yaml"
+allow_live_search: true
