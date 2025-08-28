@@ -26,6 +26,12 @@ outputs for PII leaks, toxicity, citation integrity, and jailbreak resilience.
 Agents attach `safety_meta` to outputs. The Synthesizer aggregates this data and
 notes blocked items in `contradictions` while adjusting confidence.
 
+## Redaction Review
+
+`dr_rd/safety/redaction_review.py` summarises redactions by type using hashed
+examples only. The review workflow never surfaces raw text, enabling safe audit
+of filters without recovering sensitive content.
+
 ## Configuration
 Feature flags live in `config/feature_flags.py` and defaults in
 `config/safety.yaml`. See `docs/CONFIG.md` for details.

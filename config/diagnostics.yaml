@@ -1,0 +1,14 @@
+latency:
+  warn_ms: 500
+  fail_ms: 1200
+failure_rate:
+  warn_delta: 0.05
+  fail_delta: 0.10
+token_spike:
+  warn_ratio: 1.25
+  fail_ratio: 1.5
+missing_citations:
+  enabled: true
+redaction_regressions:
+  enabled: true
+  fail_on_new_secrets: true

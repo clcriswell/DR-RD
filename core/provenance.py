@@ -5,20 +5,39 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from config import feature_flags
+from core.trace_models import RunMeta
 
 RUN_ID = time.strftime("%Y%m%d-%H%M%S")
 _BASE = Path("runs") / RUN_ID
 _FILE = _BASE / "provenance.jsonl"
+_RUN_META_FILE = _BASE / "run_meta.json"
 _EVENTS: List[Dict[str, Any]] = []
 _STACK: List[str] = []
 
 
 def _ensure_dir() -> None:
+    """Make sure the run directory exists and run meta is written."""
     _BASE.mkdir(parents=True, exist_ok=True)
+    if not _RUN_META_FILE.exists():
+        # Snapshot basic feature flags at start of run.
+        flags = {
+            k: getattr(feature_flags, k)
+            for k in dir(feature_flags)
+            if k.isupper()
+        }
+        meta = RunMeta(
+            run_id=RUN_ID,
+            started_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            flags=flags,
+            budgets={},
+            models={},
+        )
+        _RUN_META_FILE.write_text(json.dumps(asdict(meta), indent=2))
 
 
 def start_span(name: str, meta: Optional[Dict[str, Any]] = None) -> str:
