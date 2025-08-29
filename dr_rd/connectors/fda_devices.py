@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from .commons import cached, http_json, ratelimit_guard, signed_headers
+from .commons import (
+    cached,
+    http_json,
+    ratelimit_guard,
+    signed_headers,
+    use_fixtures,
+    load_fixture,
+)
 
 BASE_URL = "https://api.fda.gov/device/510k.json"
 
@@ -20,6 +27,8 @@ def _normalize(item: Dict[str, Any]) -> Dict[str, Any]:
 
 @cached(ttl_s=86400)
 def search_devices(query: str) -> Dict[str, Any]:
+    if use_fixtures():
+        return load_fixture("fda_device_search") or {"items": []}
     ratelimit_guard("fda_device_search", 5)
     params = {"search": query}
     headers = signed_headers("FDA_API_KEY")
