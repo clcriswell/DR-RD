@@ -1,0 +1,5 @@
+name,property,value,units,source
+AlloyA,density,1.2,g/cm3,lab
+AlloyA,yield,80,MPa,lab
+AlloyB,density,0.8,g/cm3,lab
+AlloyB,yield,90,MPa,lab
