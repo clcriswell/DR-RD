@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Tuple
 from config import feature_flags
 from dr_rd.safety import filters
 from dr_rd.policy.engine import evaluate as policy_evaluate, classify
+from dr_rd.telemetry import metrics
 
 
 def preflight(text: str) -> List[str]:
@@ -48,5 +49,5 @@ def guard_output(
         safety_meta = {"decision": decision.__dict__, "attempts": attempts}
         if decision.allowed:
             return True, sanitized, safety_meta
-
+    metrics.inc("safety_blocked", agent=agent_role)
     return False, {"error": "SAFETY_BLOCKED"}, safety_meta

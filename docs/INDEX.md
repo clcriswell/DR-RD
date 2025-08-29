@@ -16,3 +16,7 @@ Quick links to core documentation:
 - [Open Source Policy](OPEN_SOURCE_POLICY.md)
 - [Release Security](RELEASE_SECURITY.md)
 - [SBOM](../sbom/README.md)
+- [Post-Release Monitoring](POST_RELEASE_MONITORING.md)
+- [Alerting](ALERTING.md)
+- [On-Call Runbook](ONCALL_RUNBOOK.md)
+- [Rollback Playbook](ROLLBACK.md)

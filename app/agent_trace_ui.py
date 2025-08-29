@@ -79,6 +79,15 @@ def render_agent_trace(agent_trace: Sequence[Dict[str, Any]], answers: Dict[str,
         with st.expander("Span Tree", expanded=False):
             st.json(trace_export.to_tree(agent_trace))
 
+        with st.expander("Metrics", expanded=False):
+            from pathlib import Path
+
+            summary_path = Path(os.getenv("TELEMETRY_LOG_DIR", ".dr_rd/telemetry")) / "summary.json"
+            if summary_path.exists():
+                st.json(json.loads(summary_path.read_text()))
+            else:
+                st.write("No telemetry summary found")
+
 
 def render_role_summaries(answers: Dict[str, str]) -> None:
     """Display per-role outputs with raw view toggles."""

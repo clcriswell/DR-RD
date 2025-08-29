@@ -53,6 +53,12 @@ KB_ENABLED = _flag("KB_ENABLED") or os.getenv("KB_ENABLED", "true").lower() == "
 REPORTING_ENABLED = os.getenv("REPORTING_ENABLED", "true").lower() == "true"
 EXAMPLES_ENABLED = os.getenv("EXAMPLES_ENABLED", "true").lower() == "true"
 
+# Telemetry --------------------------------------------------------------
+TELEMETRY_ENABLED = os.getenv("TELEMETRY_ENABLED", "true").lower() == "true"
+TELEMETRY_SAMPLING_RATE: float = float(
+    os.getenv("TELEMETRY_SAMPLING_RATE", "1.0")
+)
+
 # Safety & governance ---------------------------------------------------------
 SAFETY_ENABLED = os.getenv("SAFETY_ENABLED", "true").lower() == "true"
 FILTERS_STRICT_MODE = os.getenv("FILTERS_STRICT_MODE", "true").lower() == "true"
@@ -153,6 +159,8 @@ def get_env_defaults() -> dict:
         "KB_ENABLED": KB_ENABLED,
         "REPORTING_ENABLED": REPORTING_ENABLED,
         "EXAMPLES_ENABLED": EXAMPLES_ENABLED,
+        "TELEMETRY_ENABLED": TELEMETRY_ENABLED,
+        "TELEMETRY_SAMPLING_RATE": TELEMETRY_SAMPLING_RATE,
         "SAFETY_ENABLED": SAFETY_ENABLED,
         "FILTERS_STRICT_MODE": FILTERS_STRICT_MODE,
         "REDTEAM_ENABLED": REDTEAM_ENABLED,

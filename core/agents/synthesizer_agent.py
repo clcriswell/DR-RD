@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 from core.agents.prompt_agent import PromptFactoryAgent
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 from core.llm import select_model
+from dr_rd.telemetry import metrics
 
 
 class SynthesizerAgent(PromptFactoryAgent):
@@ -53,6 +54,7 @@ class SynthesizerAgent(PromptFactoryAgent):
             if missing_sources:
                 data.setdefault("contradictions", []).append("missing sources for " + ", ".join(missing_sources))
                 data["confidence"] = min(data.get("confidence", 1.0), 0.7)
+                metrics.inc("citations_missing", value=len(missing_sources), agent="Synthesizer")
             result = json.dumps(data)
         return result
 

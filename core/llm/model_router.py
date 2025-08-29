@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from config import feature_flags
+from dr_rd.telemetry import metrics
 
 # Paths
 _ROOT = Path(__file__).resolve().parents[2]
@@ -164,8 +165,7 @@ def choose_model(ctx: RouteContext) -> RouteDecision:
         "target_ms": cfg.get("slos", {}).get("target_latency_ms", {}).get(ctx.purpose),
         "max_ms": cfg.get("slos", {}).get("max_latency_ms", {}).get(ctx.purpose),
     }
-
-    return RouteDecision(
+    decision = RouteDecision(
         provider=chosen.provider,
         model=chosen.name,
         reason=reason,
@@ -174,6 +174,11 @@ def choose_model(ctx: RouteContext) -> RouteDecision:
         budget_est={"est_tokens": est_tokens},
         slo=slo,
     )
+    metrics.inc(
+        "model_route", provider=decision.provider, model=decision.model, reason=decision.reason,
+        gray=str(decision.gray_probe)
+    )
+    return decision
 
 
 def failover_policy(decision: RouteDecision) -> RouteDecision | None:
@@ -181,7 +186,7 @@ def failover_policy(decision: RouteDecision) -> RouteDecision | None:
         return None
     nxt = decision.backups[0]
     remaining = decision.backups[1:]
-    return RouteDecision(
+    fd = RouteDecision(
         provider=nxt.provider,
         model=nxt.name,
         reason="failover",
@@ -190,6 +195,8 @@ def failover_policy(decision: RouteDecision) -> RouteDecision | None:
         budget_est=decision.budget_est,
         slo=decision.slo,
     )
+    metrics.inc("model_route", provider=fd.provider, model=fd.model, reason=fd.reason)
+    return fd
 
 
 __all__ = [

@@ -5,6 +5,7 @@ from typing import Any, Dict, Tuple
 
 from core.llm_client import call_openai
 from core import provenance
+from dr_rd.telemetry import metrics
 from .model_router import RouteDecision, failover_policy
 
 
@@ -20,17 +21,25 @@ def call_model(decision: RouteDecision, prompt_obj: Dict[str, Any], timeout_ms: 
             params = prompt_obj.get("params", {})
             result = call_openai(model=decision.model, messages=messages, **params)
             usage = result.get("usage") or {}
-            provenance.end_span(
-                span,
-                meta={
-                    "latency_ms": int((time.monotonic() - t0) * 1000),
-                    "usage": usage,
-                },
+            latency = int((time.monotonic() - t0) * 1000)
+            provenance.end_span(span, meta={"latency_ms": latency, "usage": usage})
+            metrics.observe(
+                "model_call_latency_ms",
+                latency,
+                provider=decision.provider,
+                model=decision.model,
+            )
+            metrics.observe(
+                "tokens_in", usage.get("prompt_tokens", 0), provider=decision.provider, model=decision.model
+            )
+            metrics.observe(
+                "tokens_out", usage.get("completion_tokens", 0), provider=decision.provider, model=decision.model
             )
             return result, usage
         raise NotImplementedError(f"provider {decision.provider} not supported")
     except Exception as e:  # pragma: no cover - pass through
         provenance.end_span(span, ok=False, meta={"error": str(e)})
+        metrics.inc("runs_failed", provider=decision.provider, model=decision.model)
         raise
 
 
