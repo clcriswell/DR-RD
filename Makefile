@@ -1,4 +1,4 @@
-.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses sbom
+.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses sbom build repro
 
 init:
 	pip install -e .[dev]
@@ -48,4 +48,10 @@ audit:
 	python scripts/gate_pip_audit.py --input reports/pip-audit.json
 
 sbom:
-	python scripts/gen_sbom.py
+        python scripts/gen_sbom.py
+
+build:
+        python scripts/build_artifacts.py
+
+repro:
+        python scripts/repro_check.py

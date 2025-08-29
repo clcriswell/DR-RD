@@ -5,3 +5,8 @@ runs/
 outputs/
 qa_queue.json
 *.cache
+
+/build/
+/dist/
+/*.egg-info/
+/reports/build/
