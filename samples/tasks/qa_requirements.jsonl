@@ -1,0 +1,1 @@
+{"requirement": "System shall log events", "tests": ["log_write", "log_read"]}
