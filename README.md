@@ -8,6 +8,7 @@ multi-disciplinary research tasks, and orchestrates AI agents to synthesize a
 prototype or development plan.
 
 See the docs index in [docs/INDEX.md](docs/INDEX.md) for more information.
+New contributors should start with the [Migration Guide](docs/MIGRATION_GUIDE_v1_to_v2.md).
 
 _Current repo state_
 **Step 1:** Minimal Streamlit front-end + “Creation Planner” prompt.

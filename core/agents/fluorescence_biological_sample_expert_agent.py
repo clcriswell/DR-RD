@@ -1,4 +1,5 @@
 from core.agents.base_agent import BaseAgent
+from core.compat.deprecations import warn_legacy_agent_use
 
 """Fluorescence & Biological Sample Expert Agent for sample prep and imaging guidance."""
 
@@ -7,6 +8,11 @@ class FluorescenceBiologicalSampleExpertAgent(BaseAgent):
     """Agent specializing in fluorescence imaging and biological sample preparation."""
 
     def __init__(self, model):
+        warn_legacy_agent_use(
+            "Fluorescence / Biological Sample Expert",
+            "fluorescence_biological_sample_expert.v1",
+            "2025-12-31",
+        )
         super().__init__(
             name="Fluorescence / Biological Sample Expert",
             model=model,

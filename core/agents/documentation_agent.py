@@ -1,9 +1,15 @@
 from core.agents.base_agent import BaseAgent
+from core.compat.deprecations import warn_legacy_agent_use
 
 """Documentation Agent for technical documentation planning."""
 class DocumentationAgent(BaseAgent):
     """Agent that outlines the documentation strategy and requirements for the project."""
     def __init__(self, model):
+        warn_legacy_agent_use(
+            "Documentation",
+            "documentation.v1",
+            "2025-12-31",
+        )
         super().__init__(
             name="Documentation",
             model=model,
