@@ -18,3 +18,10 @@ same deterministic environment. It compares the resulting artifact hashes
 and writes `reports/build/repro_report.json`. If the hashes differ the script
 normalizes archives and compares their contents; mismatches are reported but do
 not fail the command. Gating will be introduced in a later phase.
+
+## Secret Scanning
+The `secret-scan` workflow runs [Gitleaks](https://github.com/gitleaks/gitleaks)
+on every push, pull request, manual trigger, and a weekly schedule. Findings are
+uploaded as SARIF to GitHub Code Scanning and preserved as workflow artifacts.
+Run `make secrets-scan` locally to generate `reports/gitleaks.sarif` before
+opening a pull request.

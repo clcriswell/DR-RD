@@ -50,6 +50,11 @@ audit:
 sbom:
         python scripts/gen_sbom.py
 
+secrets-scan:
+        mkdir -p reports
+        gitleaks detect --source . --redact --config=.gitleaks.toml --report-format sarif --report-path reports/gitleaks.sarif
+        @echo "Gitleaks report written to reports/gitleaks.sarif"
+
 build:
         python scripts/build_artifacts.py
 
