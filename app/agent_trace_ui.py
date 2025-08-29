@@ -184,10 +184,10 @@ def render_exports(project_id: str, agent_trace: Sequence[Dict[str, Any]]) -> No
         st.text("Shareable Project Link")
         st.code(share_path, language=None)
         console_base = os.getenv("CONSOLE_BASE_URL", "").strip()
-            if console_base:
-                st.markdown(
-                    f"[Open in Console]({console_base.rstrip('/')}/{project_id})"
-                )
+        if console_base:
+            st.markdown(
+                f"[Open in Console]({console_base.rstrip('/')}/{project_id})"
+            )
 
 
 def render_trace_diff_panel() -> None:
