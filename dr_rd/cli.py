@@ -11,8 +11,12 @@ def main(argv=None):
     sub.add_parser("version", help="Print package version")
 
     demo_p = sub.add_parser("demo", help="Run demo scenarios")
-    demo_p.add_argument("name", choices=["specialists", "dynamic", "compliance", "rag"], help="Demo name")
-
+    demo_p.add_argument(
+        "name",
+        choices=["specialists", "dynamic", "compliance", "rag", "all"],
+        help="Demo name",
+    )
+    
     sub.add_parser("app", help="Launch Streamlit app")
 
     args = parser.parse_args(argv)
@@ -21,6 +25,17 @@ def main(argv=None):
         print(get_version())
         return 0
     if args.cmd == "demo":
+        if args.name == "all":
+            return subprocess.call([
+                "python",
+                "scripts/demo_run.py",
+                "--flow",
+                "all",
+                "--out",
+                "samples/runs/cli",
+                "--flags",
+                "RAG_ENABLED=0,EVALUATORS_ENABLED=1",
+            ])
         from scripts.demos import demo_specialists, demo_dynamic, demo_compliance, demo_rag
 
         mapping = {
