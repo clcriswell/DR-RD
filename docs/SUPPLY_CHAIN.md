@@ -1,5 +1,8 @@
 # Supply Chain
 
+See also the [Open Source Policy](OPEN_SOURCE_POLICY.md),
+[Release Security](RELEASE_SECURITY.md), and the [SBOM guide](../sbom/README.md).
+
 ## Reproducible Builds
 To make release artifacts deterministic we build under a fixed environment:
 
@@ -41,5 +44,13 @@ Temporary overrides require justification:
 The `secret-scan` workflow runs [Gitleaks](https://github.com/gitleaks/gitleaks)
 on every push, pull request, manual trigger, and a weekly schedule. Findings are
 uploaded as SARIF to GitHub Code Scanning and preserved as workflow artifacts.
-Run `make secrets-scan` locally to generate `reports/gitleaks.sarif` before
-opening a pull request.
+Run `make secrets-scan` locally to generate `reports/security/gitleaks.sarif`
+before opening a pull request.
+
+## Where to find reports
+
+- `reports/licenses.json` – license inventory for third-party packages.
+- `reports/pip-audit.json` – vulnerability scan results.
+- `reports/security/gitleaks.sarif` – secrets scan findings.
+- `reports/build/build_manifest.json` – hashes for built artifacts.
+- `reports/build/repro_report.json` – reproducible build comparison.

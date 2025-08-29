@@ -1,4 +1,4 @@
-.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses sbom build repro release-check release-checklist
+.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses sbom build repro supply-chain release-check release-checklist
 
 init:
 	pip install -e .[dev]
@@ -28,7 +28,7 @@ map repo-map:
 	python scripts/generate_repo_map.py
 
 repo-validate:
-        python scripts/validate_repo_map.py
+	python scripts/validate_repo_map.py
 
 audit-tests:
 	pytest -q tests/audit
@@ -48,18 +48,24 @@ audit:
 	python scripts/gate_pip_audit.py --input reports/pip-audit.json
 
 sbom:
-        python scripts/gen_sbom.py
+	python scripts/gen_sbom.py
 
 secrets-scan:
-        mkdir -p reports
-        gitleaks detect --source . --redact --config=.gitleaks.toml --report-format sarif --report-path reports/gitleaks.sarif
-        @echo "Gitleaks report written to reports/gitleaks.sarif"
+	mkdir -p reports/security
+	gitleaks detect --source . --redact --config=.gitleaks.toml --report-format sarif --report-path reports/security/gitleaks.sarif
+	@echo "Gitleaks report written to reports/security/gitleaks.sarif"
 
 build:
-        python scripts/build_artifacts.py
+	python scripts/build_artifacts.py
 
 repro:
-        python scripts/repro_check.py
+	python scripts/repro_check.py
+
+supply-chain: licenses audit sbom repro
+	@echo "License report: reports/licenses.json"
+	@echo "Vulnerability report: reports/pip-audit.json"
+	@echo "SBOM: sbom/cyclonedx-python.json"
+	@echo "Repro report: reports/build/repro_report.json"
 
 release-check:
 #       AUDIT_ALLOW_HIGH=1 to allow high/critical vulnerabilities
@@ -67,6 +73,6 @@ release-check:
 	python scripts/release_check.py
 
 release-checklist:
-        @echo "build"
-        @echo "sbom"
-        @echo "release"
+	@echo "build"
+	@echo "sbom"
+	@echo "release"
