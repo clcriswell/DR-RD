@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from .commons import cached, http_json, ratelimit_guard, signed_headers
+from .commons import (
+    cached,
+    http_json,
+    ratelimit_guard,
+    signed_headers,
+    use_fixtures,
+    load_fixture,
+)
 
 BASE_URL = "https://api.regulations.gov/v4/documents"
 
@@ -22,6 +29,8 @@ def _normalize(item: Dict[str, Any]) -> Dict[str, Any]:
 
 @cached(ttl_s=86400)
 def search_documents(query: str) -> Dict[str, Any]:
+    if use_fixtures():
+        return load_fixture("reg_search") or {"items": []}
     ratelimit_guard("reg_gov_search", 5)
     params = {"q": query}
     headers = signed_headers("REG_GOV_API_KEY")
@@ -32,6 +41,8 @@ def search_documents(query: str) -> Dict[str, Any]:
 
 @cached(ttl_s=86400)
 def fetch_document(document_id: str) -> Dict[str, Any]:
+    if use_fixtures():
+        return load_fixture("reg_fetch") or {"record": {}}
     ratelimit_guard("reg_gov_fetch", 5)
     headers = signed_headers("REG_GOV_API_KEY")
     data = http_json(f"{BASE_URL}/{document_id}", headers=headers)
