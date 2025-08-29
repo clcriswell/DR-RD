@@ -10,3 +10,5 @@ qa_queue.json
 /dist/
 /*.egg-info/
 /reports/build/
+reports/gitleaks.*
+*.sarif

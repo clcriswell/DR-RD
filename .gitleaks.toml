@@ -1,0 +1,29 @@
+title = "gitleaks config"
+
+[extend]
+  default = true
+
+[allowlist]
+  description = "Allowlist for paths and patterns"
+  paths = [
+    '^sbom/',
+    '^reports/',
+    '^dist/',
+    '^build/',
+    '^\.venv/',
+    '^node_modules/',
+    '^docs/assets/',
+    '^samples/',
+    '^.*\.egg-info/'
+  ]
+  regexes = [
+    "(?i)(dummy|example|sample|test)(_)?(token|key|secret)[:=][\\s\"']?[A-Za-z0-9_\\-]{6,}",
+    "https?://(?:localhost|127\\.0\\.0\\.1)(?::\\d{2,5})?",
+    "[\\w.+-]+@example\\.com",
+    "[\\w.+-]+@test\\.local"
+  ]
+  commits = []
+  # Add commit SHAs to allowlist specific historical false positives
+
+[general]
+  redact = true
