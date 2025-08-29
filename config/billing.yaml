@@ -1,0 +1,34 @@
+billing:
+  enabled: true
+  currency: USD
+  free_tier:
+    monthly_tokens_in: 200000
+    monthly_tokens_out: 200000
+    monthly_tool_runtime_ms: 300000
+    monthly_tool_calls: 1000
+  markups:
+    model: 0.10
+    tools: 0.10
+  taxes:
+    rate: 0.00
+  invoice:
+    net_terms_days: 30
+    issuer:
+      name: "DR-RD"
+      address: ""
+      email: ""
+  rounding:
+    cents: 2
+rates:
+  tools_default_cost_per_call_usd: 0.0005
+quotas:
+  soft:
+    tokens_in: 1_000_000
+    tokens_out: 1_000_000
+    tool_calls: 10_000
+    tool_runtime_ms: 3_600_000
+  hard:
+    tokens_in: 2_000_000
+    tokens_out: 2_000_000
+    tool_calls: 20_000
+    tool_runtime_ms: 7_200_000

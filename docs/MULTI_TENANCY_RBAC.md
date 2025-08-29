@@ -12,6 +12,11 @@ access control (RBAC) used in the DR-RD prototype.
 ### Storage
 Tenancy metadata is stored under `~/.dr_rd/tenants/` as JSONL files.
 
+Each tenant may also have billing artifacts under
+`~/.dr_rd/tenants/{org}/{workspace}/billing/` including usage rollups and
+invoices. Budget and quota overlays can be supplied via
+`config/tenants/{org}/{workspace}/billing.yaml`.
+
 ## Roles
 | Role     | Scope      | Typical permissions |
 |----------|------------|---------------------|

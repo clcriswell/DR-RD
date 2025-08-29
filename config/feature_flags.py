@@ -35,6 +35,8 @@ GRAPH_MAX_STEPS: int = int(os.getenv("GRAPH_MAX_STEPS", "100"))
 GRAPH_PARALLELISM: int = int(os.getenv("GRAPH_PARALLELISM", "4"))
 PROVENANCE_ENABLED = os.getenv("PROVENANCE_ENABLED", "true").lower() == "true"
 COST_GOVERNANCE_ENABLED = os.getenv("COST_GOVERNANCE_ENABLED", "true").lower() == "true"
+BILLING_ENABLED = os.getenv("BILLING_ENABLED", "true").lower() == "true"
+QUOTAS_ENABLED = os.getenv("QUOTAS_ENABLED", "true").lower() == "true"
 BUDGET_PROFILE: str = os.getenv("BUDGET_PROFILE", "standard")
 MODEL_ROUTING_ENABLED = os.getenv("MODEL_ROUTING_ENABLED", "true").lower() == "true"
 FAILOVER_ENABLED = os.getenv("FAILOVER_ENABLED", "true").lower() == "true"

@@ -30,6 +30,15 @@ Diagnostics for trace diffing read thresholds from `config/diagnostics.yaml`:
 configuration. `load_mode()` is deprecated and forwards to `load_profile()` for
 one release.
 
+## Billing & Quotas
+
+Tenant usage metering and cost controls are configured in `config/billing.yaml`.
+This file defines free tier credits, per-metric soft and hard quotas, markups,
+tax stubs and invoice terms. Feature flags `BILLING_ENABLED` and
+`QUOTAS_ENABLED` toggle metering and enforcement. Individual tenants can
+override sections by placing a `billing.yaml` under
+`config/tenants/{org}/{workspace}/`.
+
 ## Agent registry
 
 The canonical agent registry lives in `core.agents.unified_registry`. Legacy
