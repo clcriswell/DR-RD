@@ -1,0 +1,13 @@
+slos:
+  availability: 99.0
+  quality: 95.0
+  validity: 98.0
+  latency_p95_ms:
+    plan: 1000
+    exec: 2000
+    synth: 1500
+error_budgets:
+  windows: ["1h", "6h", "24h", "30d"]
+  burn_thresholds:
+    fast: 2.0
+    slow: 1.0

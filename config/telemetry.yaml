@@ -1,0 +1,4 @@
+exporter: file
+log_dir: '.dr_rd/telemetry'
+max_file_mb: 50
+rotate_days: 7

@@ -10,6 +10,7 @@ import yaml
 from config import feature_flags as ff
 from dr_rd.rag import bundling, budget, hybrid, retrievers, types
 from dr_rd.safety import filters
+from dr_rd.telemetry import metrics
 
 CFG = yaml.safe_load(Path("config/rag.yaml").read_text()) if Path("config/rag.yaml").exists() else {}
 
@@ -59,4 +60,6 @@ def run_retrieval(role: str, task: str, query: str, plan: dict, router_budgets: 
     token_budget = (router_budgets or {}).get("token_cap", per_doc * spec.top_k)
     bundle = budget.clip_to_budget(hits, token_budget, per_doc)
     bundle.sources = sources
+    metrics.inc("retrieval_hits_total", value=len(hits), policy=spec.policy)
+    metrics.observe("retrieval_docs_per_run", len(hits), policy=spec.policy)
     return bundle

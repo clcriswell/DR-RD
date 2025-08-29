@@ -16,6 +16,7 @@ import yaml
 from config import feature_flags
 from core import provenance
 from dr_rd.cache.file_cache import FileCache
+from dr_rd.telemetry import metrics
 from dr_rd.connectors.fda_devices import search_devices
 from dr_rd.connectors.govinfo_cfr import lookup_cfr
 from dr_rd.connectors.regulations_gov import fetch_document, search_documents
@@ -133,6 +134,8 @@ def call_tool(
     start = time.time()
     result = meta.fn(**params)
     elapsed_ms = int((time.time() - start) * 1000)
+    metrics.inc("tool_calls_total", tool=tool_name, agent=agent)
+    metrics.observe("tool_call_latency_ms", elapsed_ms, tool=tool_name, agent=agent)
     if feature_flags.PROVENANCE_ENABLED and span is not None:
         provenance.end_span(
             span,

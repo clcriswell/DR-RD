@@ -1,0 +1,26 @@
+name: Ops Alerts
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: '0 * * * *'
+
+jobs:
+  slo-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install
+        run: pip install -e .
+      - name: Run SLO check
+        id: slo
+        run: |
+          python scripts/slo_check.py > ops_report.json
+        continue-on-error: true
+      - name: Raise issue on breach
+        if: steps.slo.outcome == 'failure'
+        run: |
+          python scripts/raise_github_issue.py ops_report.json

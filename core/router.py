@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any, Dict, Tuple, Type
 import yaml
 
 from config import feature_flags
+from dr_rd.telemetry import metrics
 from core.agents.invoke import invoke_agent
 from core.agents.unified_registry import AGENT_REGISTRY, get_agent
 from core.llm import select_model
@@ -194,6 +196,12 @@ def route_task(
             }
         )
     out["route_decision"] = route_decision
+    metrics.inc(
+        "route_decision",
+        role=role,
+        retrieval_level=str(route_decision.get("retrieval_level")),
+        caps=json.dumps(route_decision.get("caps", {})),
+    )
     return role, cls, model, out
 
 
