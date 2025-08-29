@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from .commons import cached, http_json, ratelimit_guard, signed_headers
+from .commons import (
+    cached,
+    http_json,
+    ratelimit_guard,
+    signed_headers,
+    use_fixtures,
+    load_fixture,
+)
 
 BASE_URL = "https://api.patentsview.org/patents/search"
 FETCH_URL = "https://api.patentsview.org/patents/query"
@@ -28,6 +35,9 @@ def _normalize(record: Dict[str, Any]) -> Dict[str, Any]:
 
 @cached(ttl_s=86400)
 def search_patents(query: str) -> Dict[str, Any]:
+    if use_fixtures():
+        data = load_fixture("uspto_search_patents") or {"items": []}
+        return data
     ratelimit_guard("uspto_search", 5)
     params = {"q": query}
     headers = signed_headers("USPTO_API_KEY")
@@ -40,6 +50,9 @@ def search_patents(query: str) -> Dict[str, Any]:
 def fetch_patent(
     pub_number: Optional[str] = None, app_number: Optional[str] = None
 ) -> Dict[str, Any]:
+    if use_fixtures():
+        data = load_fixture("uspto_fetch_patent") or {}
+        return data
     ratelimit_guard("uspto_fetch", 5)
     params: Dict[str, Any] = {}
     if pub_number:
