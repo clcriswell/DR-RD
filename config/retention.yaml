@@ -1,0 +1,29 @@
+privacy:
+  enabled: true
+  pii_detection:
+    email: true
+    phone: true
+    ip: true
+    gov_id: false
+    api_keys: true
+    custom_patterns: []  # regex list
+  identifiers:
+    # Fields we treat as data-subject identifiers
+    fields: ["email", "user_id", "customer_id", "name"]
+    subject_salt_env: "PRIVACY_SALT"  # used to derive stable subject hashes
+  retention:
+    # TTLs per artifact (per-tenant overlays may override)
+    kb_days: 365
+    provenance_days: 180
+    telemetry_days: 180
+    audit_days: 3650    # keep long, but support redaction of subject strings
+    rag_index_days: 180
+    cache_days: 7
+    incidents_days: 365
+    billing_days: 2555  # ~7y, configurable
+  schedules:
+    scrub_cron: "daily"   # "hourly"|"daily"|"weekly"
+    compact_cron: "weekly"
+  erase:
+    soft_delete_window_days: 7  # grace period before hard wipe
+    redaction_token: "[REDACTED]"

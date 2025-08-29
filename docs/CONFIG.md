@@ -15,6 +15,11 @@ Retrieval flows in two stages: the FAISS vector index is queried when `rag_enabl
 Safety thresholds and patterns are defined in `config/safety.yaml` and apply
 globally when `SAFETY_ENABLED` is true.
 
+Privacy retention settings live in `config/retention.yaml`. These control
+per-artifact TTLs, PII detection patterns and erasure parameters. Tenants may
+override values via `config/tenants/{org}/{workspace}/retention.yaml`.
+Set the `PRIVACY_SALT` environment variable to derive stable subject hashes.
+
 Diagnostics for trace diffing read thresholds from `config/diagnostics.yaml`:
 
 - `latency.warn_ms` / `latency.fail_ms`
@@ -132,6 +137,7 @@ APIKEY_HASH_SALT=secret_salt_for_api_keys
 AUDIT_HMAC_KEY=secret_key_for_audit_log_chain
 DRRD_SUPERUSER_MODE=1_to_disable_RBAC_checks_dev_only
 DRRD_CRED_*=inline_credentials_for_connectors
+PRIVACY_SALT=random_long_value
 ```
 
 ### Provenance logging

@@ -1,0 +1,11 @@
+# name: privacy-sweep
+# on:
+#   schedule:
+#     - cron: '0 0 * * *'
+# jobs:
+#   sweep:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - name: Run privacy sweep
+#         run: python scripts/privacy_sweep.py
