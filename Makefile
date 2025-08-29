@@ -73,6 +73,12 @@ release-check:
 	python scripts/release_check.py
 
 release-checklist:
-	@echo "build"
-	@echo "sbom"
-	@echo "release"
+        @echo "build"
+        @echo "sbom"
+        @echo "release"
+
+gtm:
+	STAMP=$$(date +%Y%m%d_%H%M%S); \
+	python scripts/demo_run.py --flow all --out samples/runs/$$STAMP --flags RAG_ENABLED=0,EVALUATORS_ENABLED=1; \
+	python scripts/snapshots.py --runs samples/runs/$$STAMP --out docs/assets/screens; \
+	python scripts/generate_deck.py --outline docs/templates/deck_outline.yaml --shots docs/assets/screens --out docs/kits
