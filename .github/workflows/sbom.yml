@@ -1,0 +1,40 @@
+name: sbom
+
+on:
+  push:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: 'pip'
+      - name: Install SBOM tools
+        run: pip install cyclonedx-bom
+      - name: Install Syft (optional)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+        continue-on-error: true
+      - name: Generate SBOM
+        run: python scripts/gen_sbom.py
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/
+      - name: Upload SBOM to release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=${GITHUB_REF#refs/tags/}
+          if [ "${{ github.event_name }}" = "release" ]; then
+            tag=${{ github.event.release.tag_name }}
+          fi
+          gh release upload "$tag" sbom/*.json --clobber || echo "Release upload failed"

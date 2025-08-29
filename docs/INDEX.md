@@ -12,3 +12,4 @@ Quick links to core documentation:
 - [Example Bank](EXAMPLE_BANK.md)
 - [Connectors](CONNECTORS.md)
 - [Demo Scenarios](DEMO_SCENARIOS.md)
+- [SBOM](../sbom/README.md)
