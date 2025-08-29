@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Check third-party licenses against the project policy."""
+import argparse
 import json
 import subprocess
 import sys
-from pathlib import Path
 from importlib.metadata import distributions
+from pathlib import Path
+
 from packaging.requirements import Requirement
 
 ALLOW = {"MIT", "BSD-2-Clause", "BSD-3-Clause", "Apache-2.0", "MPL-2.0"}
@@ -42,17 +44,24 @@ def build_parent_map() -> dict[str, set[str]]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", help="Path to pip-licenses JSON output")
+    args = parser.parse_args()
+
     reports_dir = Path("reports")
     reports_dir.mkdir(exist_ok=True)
     out_path = reports_dir / "licenses.json"
 
-    result = subprocess.run(
-        ["pip-licenses", "--format=json"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    data = json.loads(result.stdout or "[]")
+    if args.input:
+        data = json.loads(Path(args.input).read_text() or "[]")
+    else:
+        result = subprocess.run(
+            ["pip-licenses", "--format=json"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        data = json.loads(result.stdout or "[]")
     out_path.write_text(json.dumps(data, indent=2))
 
     parents = build_parent_map()

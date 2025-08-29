@@ -277,3 +277,5 @@ and commit the regenerated lock file.
 Runtime dependencies live in `requirements.in` and development tooling in `dev-requirements.in`. Installations should use the hashed lock files `requirements.lock.txt` and `dev-requirements.lock.txt`.
 
 License reports are produced by `scripts/check_licenses.py` and written to `reports/licenses.json`.
+
+CI enforces license and vulnerability gates. `pip-licenses` and `pip-audit` write reports to `reports/licenses.json` and `reports/pip-audit.json`. Builds fail on HIGH/CRITICAL vulnerabilities unless `AUDIT_ALLOW_HIGH=1` (default `0`).
