@@ -12,4 +12,7 @@ Quick links to core documentation:
 - [Example Bank](EXAMPLE_BANK.md)
 - [Connectors](CONNECTORS.md)
 - [Demo Scenarios](DEMO_SCENARIOS.md)
+- [Supply Chain](SUPPLY_CHAIN.md)
+- [Open Source Policy](OPEN_SOURCE_POLICY.md)
+- [Release Security](RELEASE_SECURITY.md)
 - [SBOM](../sbom/README.md)

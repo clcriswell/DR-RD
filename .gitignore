@@ -6,9 +6,10 @@ outputs/
 qa_queue.json
 *.cache
 
-/build/
 /dist/
+/build/
 /*.egg-info/
-/reports/build/
-reports/gitleaks.*
-*.sarif
+/sbom/*.json
+/reports/**/*.json
+/reports/**/*.sarif
+!/reports/**/.gitkeep
