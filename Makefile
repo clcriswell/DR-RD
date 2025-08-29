@@ -1,4 +1,4 @@
-.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses
+.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses sbom
 
 init:
 	pip install -e .[dev]
@@ -28,21 +28,24 @@ map repo-map:
 	python scripts/generate_repo_map.py
 
 repo-validate:
-        python scripts/validate_repo_map.py
+	python scripts/validate_repo_map.py
 
 audit-tests:
-        pytest -q tests/audit
+	pytest -q tests/audit
 
 lock:
-        pip-compile --allow-unsafe --generate-hashes --output-file=requirements.lock.txt requirements.in
-        pip-compile --allow-unsafe --generate-hashes --output-file=dev-requirements.lock.txt dev-requirements.in
+	pip-compile --allow-unsafe --generate-hashes --output-file=requirements.lock.txt requirements.in
+	pip-compile --allow-unsafe --generate-hashes --output-file=dev-requirements.lock.txt dev-requirements.in
 
 licenses:
-        mkdir -p reports
-        pip-licenses --format=json --output-file reports/licenses.json
-        python scripts/check_licenses.py --input reports/licenses.json
+	mkdir -p reports
+	pip-licenses --format=json --output-file reports/licenses.json
+	python scripts/check_licenses.py --input reports/licenses.json
 
 audit:
-        mkdir -p reports
-        pip-audit -r requirements.lock.txt --format json --output reports/pip-audit.json || true
-        python scripts/gate_pip_audit.py --input reports/pip-audit.json
+	mkdir -p reports
+	pip-audit -r requirements.lock.txt --format json --output reports/pip-audit.json || true
+	python scripts/gate_pip_audit.py --input reports/pip-audit.json
+
+sbom:
+	python scripts/gen_sbom.py
