@@ -1,4 +1,4 @@
-.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses sbom build repro
+.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses sbom build repro release-checklist
 
 init:
 	pip install -e .[dev]
@@ -55,3 +55,8 @@ build:
 
 repro:
         python scripts/repro_check.py
+
+release-checklist:
+	@echo "build"
+	@echo "sbom"
+	@echo "release"
