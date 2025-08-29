@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}
+export PYTHONHASHSEED=0
+export TZ=UTC
+# propagate feature flags
+export RAG_ENABLED=${RAG_ENABLED:-false}
+export ENABLE_LIVE_SEARCH=${ENABLE_LIVE_SEARCH:-false}
+export EVALUATORS_ENABLED=${EVALUATORS_ENABLED:-false}
+export MODEL_ROUTING_ENABLED=${MODEL_ROUTING_ENABLED:-false}
+export SAFETY_ENABLED=${SAFETY_ENABLED:-true}
+export PROVENANCE_ENABLED=${PROVENANCE_ENABLED:-true}
+export TELEMETRY_ENABLED=${TELEMETRY_ENABLED:-false}
+exec streamlit run app.py

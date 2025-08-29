@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dr-rd-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dr-rd-app
+  template:
+    metadata:
+      labels:
+        app: dr-rd-app
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/example/dr-rd-app:latest
+          ports:
+            - containerPort: 8501
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dr-rd-app
+spec:
+  selector:
+    app: dr-rd-app
+  ports:
+    - port: 80
+      targetPort: 8501

@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-worker
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-worker
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.workerImage.repo }}:{{ .Values.workerImage.tag }}"
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-flags
+            - secretRef:
+                name: {{ .Release.Name }}-env
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: data
+              mountPath: /worker/.dr_rd
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ default .Release.Name .Values.pvc.existingClaim }}

@@ -1,0 +1,13 @@
+# Production profile
+feature_flags:
+  RAG_ENABLED: true
+  ENABLE_LIVE_SEARCH: false
+  EVALUATORS_ENABLED: true
+  MODEL_ROUTING_ENABLED: true
+  SAFETY_ENABLED: true
+  PROVENANCE_ENABLED: true
+  TELEMETRY_ENABLED: true
+budgets:
+  max_total_usd: 10.0
+rag:
+  top_k: 10

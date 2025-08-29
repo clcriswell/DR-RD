@@ -1,0 +1,21 @@
+name: Helm Lint
+on:
+  push:
+    paths:
+      - 'deploy/helm/**'
+  pull_request:
+    paths:
+      - 'deploy/helm/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v3
+      - name: Install chart-testing
+        run: pip install chart-testing
+      - name: Helm lint
+        run: helm lint deploy/helm/dr-rd
+      - name: ct lint
+        run: ct lint --chart-dir deploy/helm
