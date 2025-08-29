@@ -1,4 +1,4 @@
-.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses sbom build repro release-checklist
+.PHONY: init lint type test cov perf docs map repo-map repo-validate audit audit-tests lock licenses sbom build repro release-check release-checklist
 
 init:
 	pip install -e .[dev]
@@ -28,7 +28,7 @@ map repo-map:
 	python scripts/generate_repo_map.py
 
 repo-validate:
-	python scripts/validate_repo_map.py
+        python scripts/validate_repo_map.py
 
 audit-tests:
 	pytest -q tests/audit
@@ -61,7 +61,12 @@ build:
 repro:
         python scripts/repro_check.py
 
+release-check:
+#       AUDIT_ALLOW_HIGH=1 to allow high/critical vulnerabilities
+#       PERF_ALLOW_REGRESSION=1 to permit >10% perf regression
+	python scripts/release_check.py
+
 release-checklist:
-	@echo "build"
-	@echo "sbom"
-	@echo "release"
+        @echo "build"
+        @echo "sbom"
+        @echo "release"

@@ -1,6 +1,6 @@
 # Release Security
 
-This project builds and ships artifacts with a hardened supply chain. On tagged `v*` releases, the release workflow performs:
+This project builds and ships artifacts with a hardened supply chain. On tagged `v*` releases, a `gate_release` job first runs `scripts/release_check.py` to ensure the release checklist is satisfied. Only on success do the following steps execute:
 
 1. **Deterministic builds** – `scripts/build_artifacts.py` produces wheels and source archives under `dist/` using only locked dependencies.
 2. **SBOM generation** – `scripts/gen_sbom.py` writes Software Bill of Materials files to `sbom/`.
