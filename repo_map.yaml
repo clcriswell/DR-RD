@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-28T23:57:55.883866Z'
-git_sha: 2552d606d2cb2fec271195cc923a5a9325af95cb
+generated_at: '2025-08-29T00:02:28.476659Z'
+git_sha: 9fa318e601ad126868423e1f8141137587095f7a # pragma: allowlist secret
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -184,14 +184,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/app_builder.py
+- path: orchestrators/spec_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/spec_builder.py
+- path: orchestrators/app_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -226,14 +226,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/integrator.py
+- path: core/summarization/role_summarizer.py
   role: Summarization
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/role_summarizer.py
+- path: core/summarization/integrator.py
   role: Summarization
   responsibilities: []
   inputs: []
