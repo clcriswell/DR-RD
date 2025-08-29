@@ -1,0 +1,4 @@
+allowed_roles:
+  - Research
+commands:
+  run: default

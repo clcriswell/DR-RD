@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-app
+spec:
+  replicas: {{ .Values.app.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-app
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-app
+    spec:
+      containers:
+        - name: app
+          image: "{{ .Values.image.repo }}:{{ .Values.image.tag }}"
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-flags
+            - secretRef:
+                name: {{ .Release.Name }}-env
+          volumeMounts:
+            - name: data
+              mountPath: /app/.dr_rd
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ default .Release.Name .Values.pvc.existingClaim }}

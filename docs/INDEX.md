@@ -29,3 +29,6 @@ Quick links to core documentation:
 - [Packaging](PACKAGING.md)
 - [Example Templates](EXAMPLES_INDEX.md)
 - [Partner Integration](PARTNER_INTEGRATION.md)
+- [Enterprise Deployment](ENTERPRISE_DEPLOY.md)
+- [Helm Quickstart](HELM_QUICKSTART.md)
+- [Slack, Teams & Jira Integrations](INTEGRATIONS_SLACK_TEAMS_JIRA.md)

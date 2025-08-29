@@ -1,0 +1,34 @@
+image:
+  repo: ghcr.io/example/dr-rd-app
+  tag: latest
+workerImage:
+  repo: ghcr.io/example/dr-rd-worker
+  tag: latest
+featureFlags:
+  RAG_ENABLED: false
+  ENABLE_LIVE_SEARCH: false
+  EVALUATORS_ENABLED: false
+  MODEL_ROUTING_ENABLED: false
+  SAFETY_ENABLED: true
+  PROVENANCE_ENABLED: true
+  TELEMETRY_ENABLED: false
+profiles:
+  profile: dev
+configFiles:
+  budgets: budgets.yaml
+  rag: rag.yaml
+pvc:
+  enabled: true
+  existingClaim: ""
+app:
+  replicaCount: 1
+worker:
+  replicaCount: 1
+resources: {}
+ingress:
+  enabled: false
+  host: example.com
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
