@@ -1,4 +1,5 @@
 from core.agents.base_agent import BaseAgent
+from core.compat.deprecations import warn_legacy_agent_use
 
 """Data Scientist / Analytics Engineer Agent."""
 
@@ -6,6 +7,11 @@ class DataScientistAnalyticsEngineerAgent(BaseAgent):
     """Agent that provides data strategy and analytics modeling for the project."""
 
     def __init__(self, model):
+        warn_legacy_agent_use(
+            "Data Scientist / Analytics Engineer",
+            "data_scientist_analytics_engineer.v1",
+            "2025-12-31",
+        )
         super().__init__(
             name="Data Scientist / Analytics Engineer",
             model=model,

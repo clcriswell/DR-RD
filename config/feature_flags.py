@@ -53,6 +53,9 @@ KB_ENABLED = _flag("KB_ENABLED") or os.getenv("KB_ENABLED", "true").lower() == "
 REPORTING_ENABLED = os.getenv("REPORTING_ENABLED", "true").lower() == "true"
 EXAMPLES_ENABLED = os.getenv("EXAMPLES_ENABLED", "true").lower() == "true"
 
+# Legacy agents are temporarily supported for migration
+LEGACY_AGENTS_ENABLED = True
+
 # Telemetry --------------------------------------------------------------
 TELEMETRY_ENABLED = os.getenv("TELEMETRY_ENABLED", "true").lower() == "true"
 TELEMETRY_SAMPLING_RATE: float = float(
@@ -138,6 +141,7 @@ def get_env_defaults() -> dict:
         "RAG_ENABLED": RAG_ENABLED,
         "RAG_TOPK": RAG_TOPK,
         "ENABLE_LIVE_SEARCH": ENABLE_LIVE_SEARCH,
+        "LEGACY_AGENTS_ENABLED": LEGACY_AGENTS_ENABLED,
         "LIVE_SEARCH_BACKEND": LIVE_SEARCH_BACKEND,
         "LIVE_SEARCH_MAX_CALLS": LIVE_SEARCH_MAX_CALLS,
         "LIVE_SEARCH_SUMMARY_TOKENS": LIVE_SEARCH_SUMMARY_TOKENS,
