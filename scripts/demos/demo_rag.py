@@ -12,8 +12,14 @@ FIXTURE = (
 )
 
 
+def _load():
+    if FIXTURE.exists():
+        return json.loads(FIXTURE.read_text())
+    return {"results": [{"id": "demo"}]}
+
+
 def main() -> int:
-    data = json.loads(FIXTURE.read_text())
+    data = _load()
     sources = data.get("results") or data.get("data", [])
     out = {
         "scenario": "rag",

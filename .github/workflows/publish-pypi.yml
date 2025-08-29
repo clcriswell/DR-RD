@@ -1,0 +1,58 @@
+name: Publish PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install deps
+        run: |
+          pip install --require-hashes -r requirements.lock.txt
+          pip install --require-hashes -r dev-requirements.lock.txt
+      - name: Release checklist gate
+        run: python scripts/release_check.py
+
+  build:
+    runs-on: ubuntu-latest
+    needs: gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install build tools
+        run: pip install build
+      - name: Build sdist and wheel
+        run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Publish to TestPyPI
+        if: contains(github.ref_name, '-rc')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+      - name: Publish to PyPI
+        if: ${{ !contains(github.ref_name, '-rc') }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true

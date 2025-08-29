@@ -26,3 +26,6 @@ Quick links to core documentation:
 - [Compatibility Matrix](COMPAT_MATRIX.md)
 - [Maintenance Practices](MAINTENANCE.md)
 - [Roadmap](ROADMAP.md)
+- [Packaging](PACKAGING.md)
+- [Example Templates](EXAMPLES_INDEX.md)
+- [Partner Integration](PARTNER_INTEGRATION.md)

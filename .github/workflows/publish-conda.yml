@@ -1,0 +1,20 @@
+name: Build Conda Package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+      - name: Build package
+        run: conda build conda -c conda-forge
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: conda-dist
+          path: ~/.conda-bld/noarch/*.tar.bz2

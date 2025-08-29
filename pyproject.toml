@@ -1,3 +1,38 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dr-rd"
+description = "Decentralized R&D orchestration framework"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "DR-RD Team" }
+]
+license = { text = "MIT" }
+dynamic = ["version"]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/openai/dr-rd"
+Documentation = "https://github.com/openai/dr-rd/tree/main/docs"
+Repository = "https://github.com/openai/dr-rd"
+
+[project.optional-dependencies]
+ui = ["streamlit"]
+connectors = ["httpx", "requests"]
+reporting = ["python-docx"]
+safety = ["regex", "toxicity-lite"]
+dev = ["pytest", "ruff", "black", "mypy"]
+
+[project.scripts]
+"dr-rd" = "dr_rd.cli:main"
+"dr-rd-demo" = "scripts.demos.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["dr_rd*", "core*", "app*", "scripts*", "config*"]
+
 [tool.black]
 line-length = 100
 

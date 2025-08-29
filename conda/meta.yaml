@@ -1,0 +1,37 @@
+{% set name = "dr-rd" %}
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0') %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  noarch: python
+  script: "{{ PYTHON }} -m pip install .[ui,connectors,reporting,safety] --no-deps -vv"
+
+requirements:
+  host:
+    - python
+    - pip
+  run:
+    - python
+    - httpx
+    - requests
+    - streamlit
+    - python-docx
+    - regex
+    - toxicity-lite
+
+about:
+  summary: "Decentralized R&D orchestration framework"
+  license: MIT
+
+extra:
+  optional-features:
+    ui: streamlit
+    connectors: httpx requests
+    reporting: python-docx
+    safety: regex toxicity-lite
