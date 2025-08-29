@@ -24,6 +24,17 @@ class AuditEvent:
     hash: str
 
 
+@dataclass
+class RedactionEvent:
+    ts: float
+    event: str
+    target_hash: str
+    reason: str
+    redaction_token: str
+    prev_hash: str
+    hash: str
+
+
 _DEF_KEY = "dummy_audit_key"
 
 
@@ -66,6 +77,30 @@ def append_event(ctx: TenantContext, action: str, resource: str, outcome: str, d
     with path.open("a") as f:
         f.write(json.dumps(record) + "\n")
     return AuditEvent(**record)
+
+
+def append_redaction(ctx: TenantContext, target_hash: str, reason: str, redaction_token: str) -> RedactionEvent:
+    path = _audit_path(ctx)
+    prev_hash = ""
+    if path.exists():
+        with path.open() as f:
+            for line in f:
+                pass
+            if line.strip():
+                prev_hash = json.loads(line)["hash"]
+    record = {
+        "ts": time.time(),
+        "event": "REDACTION",
+        "target_hash": target_hash,
+        "reason": reason,
+        "redaction_token": redaction_token,
+        "prev_hash": prev_hash,
+    }
+    payload = json.dumps(record, sort_keys=True)
+    record["hash"] = _hmac(prev_hash + payload)
+    with path.open("a") as f:
+        f.write(json.dumps(record) + "\n")
+    return RedactionEvent(**record)
 
 
 def verify_chain(path: Path) -> bool:

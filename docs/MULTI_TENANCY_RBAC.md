@@ -29,6 +29,8 @@ invoices. Budget and quota overlays can be supplied via
 
 `DRRD_SUPERUSER_MODE=1` disables checks (development only).
 
+Owners and admins may request or approve data erasure operations.
+
 ## Enforcement Points
 Permissions are enforced via decorators in `core.security.guard` which consult
 `dr_rd.tenancy.policy`. All subsystems should call `require_perm()` before

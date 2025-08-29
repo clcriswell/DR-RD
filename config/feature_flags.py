@@ -55,6 +55,11 @@ KB_ENABLED = _flag("KB_ENABLED") or os.getenv("KB_ENABLED", "true").lower() == "
 REPORTING_ENABLED = os.getenv("REPORTING_ENABLED", "true").lower() == "true"
 EXAMPLES_ENABLED = os.getenv("EXAMPLES_ENABLED", "true").lower() == "true"
 
+# Privacy & retention ---------------------------------------------------------
+PRIVACY_ENABLED = True
+RETENTION_ENABLED = True
+ERASURE_ENABLED = True
+
 # Legacy agents are temporarily supported for migration
 LEGACY_AGENTS_ENABLED = True
 
@@ -165,6 +170,9 @@ def get_env_defaults() -> dict:
         "KB_ENABLED": KB_ENABLED,
         "REPORTING_ENABLED": REPORTING_ENABLED,
         "EXAMPLES_ENABLED": EXAMPLES_ENABLED,
+        "PRIVACY_ENABLED": PRIVACY_ENABLED,
+        "RETENTION_ENABLED": RETENTION_ENABLED,
+        "ERASURE_ENABLED": ERASURE_ENABLED,
         "TELEMETRY_ENABLED": TELEMETRY_ENABLED,
         "TELEMETRY_SAMPLING_RATE": TELEMETRY_SAMPLING_RATE,
         "SAFETY_ENABLED": SAFETY_ENABLED,

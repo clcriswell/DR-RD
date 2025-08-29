@@ -11,10 +11,12 @@ from typing import Any, Dict, List, Optional
 
 from config import feature_flags
 from core.trace_models import RunMeta
+from core.audit_log import _hmac
 
 RUN_ID = time.strftime("%Y%m%d-%H%M%S")
 _BASE = Path("runs") / RUN_ID
 _FILE = _BASE / "provenance.jsonl"
+_REDACTIONS_FILE = _BASE / "provenance_redactions.jsonl"
 _RUN_META_FILE = _BASE / "run_meta.json"
 _EVENTS: List[Dict[str, Any]] = []
 _STACK: List[str] = []
@@ -37,7 +39,7 @@ def _ensure_dir() -> None:
             budgets={},
             models={},
         )
-        _RUN_META_FILE.write_text(json.dumps(asdict(meta), indent=2))
+        _RUN_META_FILE.write_text(json.dumps(asdict(meta), default=str, indent=2))
 
 
 def start_span(name: str, meta: Optional[Dict[str, Any]] = None) -> str:
@@ -97,3 +99,26 @@ def get_events() -> List[Dict[str, Any]]:
 def reset() -> None:
     _EVENTS.clear()
     _STACK.clear()
+
+
+def append_redaction_event(target_hash: str, reason: str, redaction_token: str) -> None:
+    _ensure_dir()
+    prev_hash = ""
+    if _REDACTIONS_FILE.exists():
+        with _REDACTIONS_FILE.open() as f:
+            for line in f:
+                pass
+            if line.strip():
+                prev_hash = json.loads(line)["hash"]
+    record = {
+        "ts": time.time(),
+        "event": "REDACTION",
+        "target_hash": target_hash,
+        "reason": reason,
+        "redaction_token": redaction_token,
+        "prev_hash": prev_hash,
+    }
+    payload = json.dumps(record, sort_keys=True)
+    record["hash"] = _hmac(prev_hash + payload)
+    with _REDACTIONS_FILE.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record) + "\n")
