@@ -119,6 +119,10 @@ EPO_OPS_KEY=your_key
 REG_GOV_API_KEY=your_key
 GOVINFO_API_KEY=your_key
 FDA_API_KEY=your_key
+APIKEY_HASH_SALT=secret_salt_for_api_keys
+AUDIT_HMAC_KEY=secret_key_for_audit_log_chain
+DRRD_SUPERUSER_MODE=1_to_disable_RBAC_checks_dev_only
+DRRD_CRED_*=inline_credentials_for_connectors
 ```
 
 ### Provenance logging
