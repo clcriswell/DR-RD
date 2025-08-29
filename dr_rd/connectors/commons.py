@@ -6,7 +6,7 @@ import random
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional
 
 import requests
 
@@ -56,6 +56,11 @@ def http_json(
     retries: int = 3,
     timeout: int = 10,
 ) -> dict[str, Any]:
+    if use_fixtures():
+        name = os.path.basename(url).split("?")[0]
+        fixture = load_fixture(name)
+        if fixture is not None:
+            return fixture
     resp = http_get(url, params=params, headers=headers, retries=retries, timeout=timeout)
     return resp.json()
 
@@ -68,33 +73,26 @@ def signed_headers(key_env: str, headers: dict[str, str] | None = None) -> dict[
     return headers
 
 
-def load_fixture(name: str, fixtures_dir: Path | None = None) -> dict[str, Any]:
-    """Load a JSON fixture for demos or tests.
+def use_fixtures() -> bool:
+    """Return True when connectors should read from offline fixtures."""
+    if os.getenv("DEMO_FIXTURES_DIR"):
+        return True
+    if os.getenv("ENABLE_LIVE_SEARCH") in {"0", "false", "False"}:
+        return True
+    return False
 
-    Parameters
-    ----------
-    name: str
-        Path to the fixture relative to the fixtures directory.
-    fixtures_dir: Path | None
-        Base directory containing fixtures. Defaults to ``tests/fixtures/connectors``
-        located relative to this file. Set the ``DEMO_FIXTURES_DIR`` environment
-        variable to override this location.
 
-    Returns
-    -------
-    dict[str, Any]
-        Parsed JSON content of the fixture.
-    """
-
-    if fixtures_dir is None:
-        env_dir = os.getenv("DEMO_FIXTURES_DIR")
-        if env_dir:
-            fixtures_dir = Path(env_dir)
-        else:
-            fixtures_dir = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "connectors"
-    path = fixtures_dir / name
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+def load_fixture(name: str) -> Optional[Dict[str, Any]]:
+    base = os.getenv("DEMO_FIXTURES_DIR")
+    if not base:
+        base = "samples/connectors/fixtures"
+    path = Path(base) / name
+    if path.suffix != ".json":
+        path = path.with_suffix(".json")
+    if path.exists():
+        with open(path) as fh:
+            return json.load(fh)
+    return None
 
 
 __all__ = [
@@ -103,5 +101,6 @@ __all__ = [
     "http_json",
     "ratelimit_guard",
     "signed_headers",
+    "use_fixtures",
     "load_fixture",
 ]
