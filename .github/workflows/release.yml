@@ -7,7 +7,22 @@ on:
       - 'v*'
 
 jobs:
+  gate_release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: |
+          pip install --require-hashes -r requirements.lock.txt
+          pip install --require-hashes -r dev-requirements.lock.txt
+      - name: Release checklist gate
+        run: python scripts/release_check.py
+
   build:
+    needs: gate_release
     runs-on: ubuntu-latest
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}

@@ -19,6 +19,24 @@ and writes `reports/build/repro_report.json`. If the hashes differ the script
 normalizes archives and compares their contents; mismatches are reported but do
 not fail the command. Gating will be introduced in a later phase.
 
+## Release Gate
+Tagged releases run `scripts/release_check.py` which enforces:
+
+- CI is green on `main` (skipped if `GITHUB_TOKEN` is absent).
+- Dependency locks are current.
+- No HIGH/CRITICAL vulnerabilities unless `AUDIT_ALLOW_HIGH=1`.
+- Third-party licenses pass `scripts/check_licenses.py`.
+- `sbom/cyclonedx-python.json` was generated in the last 24 hours.
+- `scripts/validate_config_lock.py` shows no drift.
+- Performance is within 10% of `scripts/perf_baseline.json` unless `PERF_ALLOW_REGRESSION=1`.
+- `repo_map.yaml` and `docs/REPO_MAP.md` have no pending changes.
+- `CHANGELOG.md` contains entries under Unreleased and the version matches the tag.
+
+Temporary overrides require justification:
+
+- `AUDIT_ALLOW_HIGH=1` – allow high/critical vulnerabilities.
+- `PERF_ALLOW_REGRESSION=1` – allow >10% performance regression.
+
 ## Secret Scanning
 The `secret-scan` workflow runs [Gitleaks](https://github.com/gitleaks/gitleaks)
 on every push, pull request, manual trigger, and a weekly schedule. Findings are
