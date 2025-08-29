@@ -271,3 +271,9 @@ python scripts/freeze_config.py
 ```
 
 and commit the regenerated lock file.
+
+## Dependency and License Management
+
+Runtime dependencies live in `requirements.in` and development tooling in `dev-requirements.in`. Installations should use the hashed lock files `requirements.lock.txt` and `dev-requirements.lock.txt`.
+
+License reports are produced by `scripts/check_licenses.py` and written to `reports/licenses.json`.
