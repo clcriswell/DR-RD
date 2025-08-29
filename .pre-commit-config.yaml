@@ -19,3 +19,11 @@ repos:
       - id: detect-secrets
         args: ["--baseline", ".secrets.baseline"]
         exclude: config/config.lock.json
+  - repo: local
+    hooks:
+      - id: dead-link-check
+        name: dead-link-check
+        entry: python scripts/dead_link_check.py --internal-only
+        language: system
+        pass_filenames: true
+        files: \.(md)$

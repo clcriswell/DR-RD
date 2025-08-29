@@ -39,3 +39,8 @@ Quick links to core documentation:
 - [Enterprise Deployment](ENTERPRISE_DEPLOY.md)
 - [Helm Quickstart](HELM_QUICKSTART.md)
 - [Slack, Teams & Jira Integrations](INTEGRATIONS_SLACK_TEAMS_JIRA.md)
+- [Contributing Guide](../CONTRIBUTING.md)
+- [Code of Conduct](../CODE_OF_CONDUCT.md)
+- [Security Policy](../SECURITY.md)
+- [Support](../SUPPORT.md)
+- [Badges](BADGES.md)
