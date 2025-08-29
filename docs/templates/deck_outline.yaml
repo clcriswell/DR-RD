@@ -1,0 +1,32 @@
+- title: "Title"
+  bullets:
+    - "DR-RD Walkthrough"
+- title: "Problem"
+  bullets:
+    - "Offline demos needed"
+- title: "DR-RD Playbook"
+  bullets:
+    - "Planner"
+    - "Router"
+    - "Executor"
+    - "Synthesizer"
+- title: "Specialists"
+  bullets:
+    - "Materials"
+    - "QA"
+    - "Finance"
+- title: "RAG"
+  bullets:
+    - "Offline fixtures"
+- title: "Safety & Gov"
+  bullets:
+    - "Controls"
+- title: "Trace & Ops"
+  bullets:
+    - "Observability"
+- title: "Demo Highlights"
+  bullets:
+    - "Screenshots"
+- title: "Roadmap"
+  bullets:
+    - "Next steps"
