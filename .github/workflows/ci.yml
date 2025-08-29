@@ -38,6 +38,24 @@ jobs:
         run: python scripts/gen_sbom.py
       - name: Reproducibility report
         run: python scripts/repro_check.py || true
+      - name: Stale code scan
+        run: python scripts/stale_code_scan.py --json-output reports/stale_code.json
+      - name: Upload stale code report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stale-code-${{ matrix.python }}
+          path: reports/stale_code.json
+          if-no-files-found: ignore
+      - name: Unused dependency scan
+        run: python scripts/unused_deps_scan.py --json-output reports/unused_deps.json
+      - name: Upload unused dependency report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unused-deps-${{ matrix.python }}
+          path: reports/unused_deps.json
+          if-no-files-found: ignore
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4

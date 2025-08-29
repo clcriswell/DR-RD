@@ -1,7 +1,12 @@
 # AI R&D Center (Streamlit)
 
-[![tests](https://github.com/clcriswell/DR-RD/actions/workflows/test.yml/badge.svg)](https://github.com/clcriswell/DR-RD/actions/workflows/test.yml)
-[![secret-scan](https://github.com/clcriswell/DR-RD/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/clcriswell/DR-RD/actions/workflows/secret-scan.yml)
+[![Build CI](https://github.com/clcriswell/DR-RD/actions/workflows/ci.yml/badge.svg)](https://github.com/clcriswell/DR-RD/actions/workflows/ci.yml)
+[![Tests](https://github.com/clcriswell/DR-RD/actions/workflows/test.yml/badge.svg)](https://github.com/clcriswell/DR-RD/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/badge/coverage-unknown-lightgrey.svg)](docs/BADGES.md#coverage)
+[![License](https://img.shields.io/github/license/clcriswell/DR-RD)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/)
+[![Code style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Lint: Ruff](https://img.shields.io/badge/lint-ruff-46A2F1.svg)](https://github.com/astral-sh/ruff)
 
 A public Streamlit application that masks a user’s idea, decomposes it into
 multi-disciplinary research tasks, and orchestrates AI agents to synthesize a

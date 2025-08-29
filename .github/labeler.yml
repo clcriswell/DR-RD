@@ -1,0 +1,5 @@
+core/*: [core]
+dr_rd/*: [dr_rd]
+docs/*: [docs]
+app/*: [app]
+tests/*: [tests]

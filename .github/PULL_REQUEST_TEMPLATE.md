@@ -2,8 +2,8 @@
 
 - [ ] `pre-commit run --files <files>`
 - [ ] `make lint type test`
-- [ ] Coverage collected with `make cov`
-- [ ] Performance within thresholds (`make perf`)
+- [ ] Performance baseline collected (`make perf`) if applicable
 - [ ] `python scripts/validate_config_lock.py`
-- [ ] `make map` committed `repo_map.yaml` and `docs/REPO_MAP.md`
-- [ ] Demo scripts executed
+- [ ] `make repo-map` committed `repo_map.yaml` and `docs/REPO_MAP.md`
+- [ ] Documentation updated and links added
+- [ ] Security review completed (if applicable)
