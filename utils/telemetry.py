@@ -10,5 +10,12 @@ LOG_PATH = LOG_DIR / "events.jsonl"
 
 def log_event(ev: dict) -> None:
     ev.setdefault("ts", time.time())
-    with LOG_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(ev, ensure_ascii=False) + "\n")
+    try:
+        line = json.dumps(ev, ensure_ascii=False)
+    except Exception:
+        return
+    try:
+        with LOG_PATH.open("a", encoding="utf-8", errors="ignore") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
