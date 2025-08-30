@@ -22,6 +22,7 @@ DEFAULT_PREFS: dict[str, Any] = {
         "show_trace_by_default": True,
         "auto_export_on_completion": False,
         "trace_page_size": 50,
+        "language": "en",
     },
     "privacy": {
         "telemetry_enabled": True,

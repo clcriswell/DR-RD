@@ -13,6 +13,7 @@ from utils.telemetry import (
     run_annotated,
     run_favorited,
 )
+from utils.i18n import tr as t
 from app.ui.command_palette import open_palette
 
 # quick open via button
@@ -54,7 +55,7 @@ if act:
 
 params = dict(st.query_params)
 
-st.title("Run History")
+st.title(t("history_title"))
 log_event({"event": "nav_page_view", "page": "history"})
 
 notes_lookup = run_notes.all_notes()

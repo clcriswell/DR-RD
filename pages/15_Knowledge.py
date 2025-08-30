@@ -10,9 +10,10 @@ from utils.telemetry import (
     knowledge_tags_updated,
     log_event,
 )
+from utils.i18n import tr as t
 from app.ui.command_palette import open_palette
 
-st.title("Knowledge Manager")
+st.title(t("knowledge_title"))
 st.caption("Select sources in Sidebar → Knowledge.")
 log_event({"event": "nav_page_view", "page": "knowledge"})
 

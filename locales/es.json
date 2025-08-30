@@ -1,0 +1,13 @@
+{
+  "welcome_title": "Bienvenido a DR RD",
+  "welcome_body": "Describe tu idea, inicia una ejecución y luego revisa el Trazo y exporta un informe.",
+  "start_run": "Iniciar ejecución",
+  "run_demo": "Ejecutar demo",
+  "trace_title": "Visor de Trazo",
+  "reports_title": "Informes y Exportaciones",
+  "settings_title": "Configuración",
+  "reports_caption": "Vista previa y exportación de artefactos para esta ejecución.",
+  "download_report": "Descargar informe (.md)",
+  "download_bundle": "Descargar paquete de artefactos (.zip)",
+  "greet": "Hola {name}"
+}

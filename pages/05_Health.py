@@ -7,6 +7,7 @@ import streamlit as st
 
 from utils import health_check
 from utils.telemetry import log_event
+from utils.i18n import tr as t
 from app.ui.command_palette import open_palette
 
 # quick open via button
@@ -46,7 +47,7 @@ if act:
         }
     )
 
-st.title("System Health")
+st.title(t("health_title"))
 
 if st.button("Run diagnostics"):
     report = health_check.run_all()

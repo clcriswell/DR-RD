@@ -3,7 +3,7 @@ import json
 import copy
 from typing import Any
 import streamlit as st
-from app.ui.copy import t
+from utils.i18n import get_locale, set_locale, tr as t
 
 from utils.prefs import DEFAULT_PREFS, load_prefs, save_prefs
 from utils.telemetry import log_event
@@ -50,10 +50,23 @@ if st.query_params.get("view") != "settings":
     st.query_params["view"] = "settings"
 log_event({"event": "nav_page_view", "page": "settings"})
 
+prefs = load_prefs()
+lang = st.selectbox(
+    "Language",
+    ["en", "es"],
+    index=["en", "es"].index(get_locale()),
+    help="UI language",
+)
+if st.button("Apply language"):
+    set_locale(lang)
+    prefs["ui"]["language"] = lang
+    save_prefs(prefs)
+    log_event({"event": "locale_changed", "lang": lang})
+    st.rerun()
+
 st.title(t("settings_title"))
 st.caption(t("settings_help"))
 
-prefs = load_prefs()
 original = copy.deepcopy(prefs)
 
 
@@ -141,6 +154,7 @@ updated = {
         "show_trace_by_default": bool(show_trace),
         "auto_export_on_completion": bool(auto_export),
         "trace_page_size": int(trace_page_size),
+        "language": prefs["ui"].get("language", "en"),
     },
     "privacy": {
         "telemetry_enabled": bool(telemetry),

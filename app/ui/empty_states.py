@@ -1,5 +1,5 @@
 import streamlit as st
-from .copy import t
+from utils.i18n import tr as t
 
 def empty_card(title_key: str, body_key: str, *, actions: list[tuple[str, str]] | None = None):
     st.info(f"**{t(title_key)}**\n\n{t(body_key)}")

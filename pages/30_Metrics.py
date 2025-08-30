@@ -8,7 +8,7 @@ import streamlit as st
 from utils import metrics
 from utils.telemetry import log_event
 from app.ui import empty_states
-from app.ui.copy import t
+from utils.i18n import tr as t
 from app.ui.command_palette import open_palette
 
 # quick open via button
