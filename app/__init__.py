@@ -4,7 +4,6 @@ import io
 import json
 import logging
 import time
-import uuid
 from pathlib import Path
 
 import fitz
@@ -33,6 +32,9 @@ from core.agents.unified_registry import build_agents_unified
 from utils.run_config import to_orchestrator_kwargs
 from utils.telemetry import log_event
 from utils.errors import make_safe_error
+from utils.run_id import new_run_id
+from utils.paths import ensure_run_dirs
+from utils.runs import create_run_meta, complete_run_meta
 
 WRAP_CSS = """
 pre, code {
@@ -92,11 +94,14 @@ def main() -> None:
     ff.RAG_ENABLED = kwargs["rag"]
     ff.ENABLE_LIVE_SEARCH = kwargs["live"]
 
-    run_id = str(uuid.uuid4())
+    run_id = new_run_id()
+    ensure_run_dirs(run_id)
+    create_run_meta(run_id, mode=kwargs["mode"], idea_preview=kwargs["idea"][:120])
     st.session_state["run_id"] = run_id
+    st.query_params["run_id"] = run_id
     log_event(
         {
-            "event": "start_run",
+            "event": "run_created",
             "run_id": run_id,
             "mode": kwargs["mode"],
             "rag": kwargs["rag"],
@@ -156,6 +161,8 @@ def main() -> None:
         st.markdown(final)
         st.session_state["run_report"] = final
         st.query_params.update({"run_id": run_id})
+        complete_run_meta(run_id, status="success")
+        log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
         st.markdown("[Open Trace](./Trace)")
         st.caption("Use the Trace page to inspect step details.")
         survey.maybe_prompt_after_run(run_id)
@@ -165,6 +172,8 @@ def main() -> None:
         err = make_safe_error(
             e, run_id=run_id, phase=current_phase, step_id=None
         )
+        complete_run_meta(run_id, status="error")
+        log_event({"event": "run_completed", "run_id": run_id, "status": "error"})
         log_event(
             {
                 "event": "error_shown",

@@ -4,8 +4,9 @@ import csv
 import io
 import json
 from collections import OrderedDict
-from typing import Any, Iterable, List, Dict, Sequence
+from typing import Any, Dict, List, Sequence
 
+from .paths import write_bytes
 
 Row = List[Any]
 
@@ -90,4 +91,23 @@ def to_markdown(trace: Sequence[Dict[str, Any]], run_id: str | None = None) -> b
     return "\n".join(lines).encode("utf-8")
 
 
-__all__ = ["to_json", "to_csv", "to_markdown"]
+def write_trace_json(run_id: str, trace: Sequence[Dict[str, Any]]) -> None:
+    write_bytes(run_id, "trace", "json", to_json(trace))
+
+
+def write_trace_csv(run_id: str, trace: Sequence[Dict[str, Any]]) -> None:
+    write_bytes(run_id, "summary", "csv", to_csv(trace, run_id=run_id))
+
+
+def write_trace_markdown(run_id: str, trace: Sequence[Dict[str, Any]]) -> None:
+    write_bytes(run_id, "trace", "md", to_markdown(trace, run_id=run_id))
+
+
+__all__ = [
+    "to_json",
+    "to_csv",
+    "to_markdown",
+    "write_trace_json",
+    "write_trace_csv",
+    "write_trace_markdown",
+]
