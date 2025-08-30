@@ -10,6 +10,7 @@ import streamlit as st
 from markdown_pdf import MarkdownPdf, Section
 
 from app.ui import components
+from app.ui.trace_viewer import render_trace
 from app.ui_presets import UI_PRESETS
 from config.agent_models import AGENT_MODEL_MAP
 import config.feature_flags as ff
@@ -121,6 +122,8 @@ def main() -> None:
         })
         progress(3, "Run complete")
         st.markdown(final)
+        trace = st.session_state.get("agent_trace", [])
+        render_trace(trace, run_id)
     except Exception as e:  # pragma: no cover - UI display
         log_event({"event": "error_shown", "run_id": run_id, "where": "main", "message": str(e)})
         st.error(str(e))
