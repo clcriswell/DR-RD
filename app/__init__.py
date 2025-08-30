@@ -10,12 +10,13 @@ import streamlit as st
 from markdown_pdf import MarkdownPdf, Section
 
 from app.ui import components
+from app.ui.sidebar import render_sidebar
 from app.ui.trace_viewer import render_trace
-from app.ui_presets import UI_PRESETS
 from config.agent_models import AGENT_MODEL_MAP
 import config.feature_flags as ff
 from core.agents.unified_registry import build_agents_unified
 from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
+from utils.run_config import to_orchestrator_kwargs
 from utils.telemetry import log_event
 
 st.set_page_config(
@@ -48,37 +49,26 @@ def main() -> None:
         "first_run_tip",
         "After you start, the app plans, executes tasks, then synthesizes a report.",
     )
-    modes = list(UI_PRESETS.keys())
-    with st.form("entry_form"):
-        idea = st.text_area(
-            "Project idea",
-            placeholder="Describe the concept…",
-            help="What should the agents work on?",
-        )
-        mode = st.selectbox("Mode", modes, index=modes.index("standard") if "standard" in modes else 0)
-        rag = st.checkbox("Enable RAG", value=ff.RAG_ENABLED, help="Use retrieval augmented generation")
-        live = st.checkbox(
-            "Enable live search",
-            value=ff.ENABLE_LIVE_SEARCH,
-            help="Query the web during execution",
-        )
-        budget = st.checkbox("Enforce budget", value=False, help="Stop when budget exceeded")
-        submitted = st.form_submit_button("Start run", type="primary")
-    if not submitted or not idea.strip():
+
+    cfg = render_sidebar()
+    submitted = st.button("Start run", type="primary")
+    if not submitted or not cfg.idea.strip():
         return
 
-    ff.RAG_ENABLED = rag
-    ff.ENABLE_LIVE_SEARCH = live
+    kwargs = to_orchestrator_kwargs(cfg)
+    ff.RAG_ENABLED = kwargs["rag"]
+    ff.ENABLE_LIVE_SEARCH = kwargs["live"]
 
     run_id = str(uuid.uuid4())
+    st.session_state["run_id"] = run_id
     log_event(
         {
             "event": "start_run",
             "run_id": run_id,
-            "mode": mode,
-            "rag": rag,
-            "live": live,
-            "budget": budget,
+            "mode": kwargs["mode"],
+            "rag": kwargs["rag"],
+            "live": kwargs["live"],
+            "budget": kwargs["budget"],
         }
     )
 
@@ -88,7 +78,7 @@ def main() -> None:
     try:
         start = time.time()
         with components.stage_status("Planning…") as box:
-            tasks = generate_plan(idea)
+            tasks = generate_plan(kwargs["idea"])
             box.update(label="Planning complete", state="complete")
         log_event({
             "event": "step_completed",
@@ -100,7 +90,7 @@ def main() -> None:
 
         start = time.time()
         with components.stage_status("Executing…") as box:
-            answers = execute_plan(idea, tasks, agents=get_agents())
+            answers = execute_plan(kwargs["idea"], tasks, agents=get_agents())
             box.update(label="Execution complete", state="complete")
         log_event({
             "event": "step_completed",
@@ -112,7 +102,7 @@ def main() -> None:
 
         start = time.time()
         with components.stage_status("Synthesizing…") as box:
-            final = compose_final_proposal(idea, answers)
+            final = compose_final_proposal(kwargs["idea"], answers)
             box.update(label="Synthesis complete", state="complete")
         log_event({
             "event": "step_completed",
