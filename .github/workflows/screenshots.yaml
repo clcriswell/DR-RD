@@ -1,0 +1,48 @@
+name: screenshots
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * *'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'pages/**'
+      - 'app/ui/**'
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install deps
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+      - name: Capture screenshots
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+        run: python scripts/screenshot_pages.py
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: docs/images/*.png
+      - name: Visual diff
+        run: |
+          python scripts/visual_diff.py --baseline-dir docs/images --candidate-dir docs/images --out-dir diff
+      - name: Auto PR
+        if: env.AUTO_PR == '1'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name github-actions
+          git config user.email actions@github.com
+          git checkout -b docs-screenshots-${{ github.sha }}
+          git add docs/images/*.png
+          git commit -m "chore: update screenshots"
+          git push origin docs-screenshots-${{ github.sha }}
+          gh pr create --fill --head docs-screenshots-${{ github.sha }}

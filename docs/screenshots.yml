@@ -1,0 +1,42 @@
+base_url: "${APP_BASE_URL:-http://localhost:8501}"
+viewport:
+  width: 1440
+  height: 900
+wait_ms: 800   # post-load settle
+pages:
+  - name: run
+    path: "/"
+    wait_for: "text=Start run"
+    out: "docs/images/run_form.png"
+  - name: trace
+    path: "/?view=trace"
+    wait_for: "text=Trace"
+    out: "docs/images/trace_viewer.png"
+  - name: reports
+    path: "/?view=reports"
+    wait_for: "text=Reports"
+    out: "docs/images/reports_page.png"
+  - name: metrics
+    path: "/?view=metrics"
+    wait_for: "text=Metrics"
+    out: "docs/images/metrics_page.png"
+  - name: history
+    path: "/?view=history"
+    wait_for: "text=Run History"
+    out: "docs/images/history_page.png"
+  - name: knowledge
+    path: "/?view=knowledge"
+    wait_for: "text=Knowledge"
+    out: "docs/images/knowledge_page.png"
+  - name: compare
+    path: "/?view=compare"
+    wait_for: "text=Compare"
+    out: "docs/images/compare_page.png"
+  - name: settings
+    path: "/?view=settings"
+    wait_for: "text=Settings"
+    out: "docs/images/settings_page.png"
+  - name: health
+    path: "/?view=health"
+    wait_for: "text=System Health"
+    out: "docs/images/health_page.png"

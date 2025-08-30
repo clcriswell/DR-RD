@@ -3,7 +3,13 @@
 ![Run form](images/run_form.png)
 ![Trace viewer](images/trace_viewer.png)
 
-TODO: replace with live screenshots.
+![Reports page](images/reports_page.png)
+![Metrics page](images/metrics_page.png)
+![History page](images/history_page.png)
+![Knowledge page](images/knowledge_page.png)
+![Compare page](images/compare_page.png)
+![Settings page](images/settings_page.png)
+![Health page](images/health_page.png)
 
 | Heuristic | Issue | Impact | Priority | Location |
 | --- | --- | --- | --- | --- |
