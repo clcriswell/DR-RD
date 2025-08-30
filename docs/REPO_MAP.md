@@ -56,4 +56,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-08-30T16:06:14.784601Z from commit 75c4aeb_
+_Last generated at 2025-08-30T16:13:36.946156Z from commit 80ffb60_

@@ -86,3 +86,25 @@ def get_active_model(mode: str, override: Optional[Tuple[str, str]] = None) -> T
 def pricing_table() -> Dict[str, Dict[str, float]]:
     return price_table()
 
+
+def fallback_chain(mode: str) -> list[tuple[str, str]]:
+    """Return prioritized list of (provider, model) for *mode*."""
+    chain: list[tuple[str, str]] = []
+    prefs = load_prefs()
+    snap = prefs.get("defaults", {}).get("provider_model")
+    sel = from_prefs_snapshot(snap) if isinstance(snap, dict) else None
+    if sel and has_secrets(sel[0]):
+        chain.append(sel)
+    for prov, info in REGISTRY.items():
+        default = info.get("default_by_mode", {}).get(mode)
+        if default and has_secrets(prov) and (prov, default) not in chain:
+            chain.append((prov, default))
+    for prov, info in REGISTRY.items():
+        if not has_secrets(prov):
+            continue
+        for mdl in info.get("models", {}).keys():
+            pair = (prov, mdl)
+            if pair not in chain:
+                chain.append(pair)
+    return chain
+
