@@ -143,6 +143,43 @@ def knowledge_tags_updated(item_id: str, count: int) -> None:
     log_event({"event": "knowledge_tags_updated", "id": item_id, "count": count})
 
 
+def history_filter_changed(q_len: int, status_count: int, mode_count: int, fav: bool) -> None:
+    """Emit a history_filter_changed telemetry event."""
+    log_event(
+        {
+            "event": "history_filter_changed",
+            "q_len": q_len,
+            "status_count": status_count,
+            "mode_count": mode_count,
+            "fav": bool(fav),
+        }
+    )
+
+
+def history_export_clicked(count: int) -> None:
+    """Emit a history_export_clicked telemetry event."""
+    log_event({"event": "history_export_clicked", "count": count})
+
+
+def run_annotated(run_id: str, title_len: int, tags_count: int, note_len: int, favorite: bool) -> None:
+    """Emit a run_annotated telemetry event."""
+    log_event(
+        {
+            "event": "run_annotated",
+            "run_id": run_id,
+            "title_len": title_len,
+            "tags_count": tags_count,
+            "note_len": note_len,
+            "favorite": bool(favorite),
+        }
+    )
+
+
+def run_favorited(run_id: str, favorite: bool) -> None:
+    """Emit a run_favorited telemetry event."""
+    log_event({"event": "run_favorited", "run_id": run_id, "favorite": bool(favorite)})
+
+
 __all__ = [
     "log_event",
     "run_cancel_requested",
@@ -161,4 +198,8 @@ __all__ = [
     "knowledge_added",
     "knowledge_removed",
     "knowledge_tags_updated",
+    "history_filter_changed",
+    "history_export_clicked",
+    "run_annotated",
+    "run_favorited",
 ]
