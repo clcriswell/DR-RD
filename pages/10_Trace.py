@@ -17,11 +17,13 @@ from utils.query_params import encode_config, view_state_from_params
 from utils.run_config import from_session, to_orchestrator_kwargs
 from utils.runs import last_run_id, list_runs
 from utils.telemetry import log_event
+from utils.flags import is_enabled
 
-state = view_state_from_params(st.query_params)
+params = dict(st.query_params)
+state = view_state_from_params(params)
 runs = list_runs(limit=100)
 run_id = state["run_id"] or last_run_id()
-if st.query_params.get("view") != "trace":
+if params.get("view") != "trace":
     st.query_params["view"] = "trace"
 
 st.title(t("trace_title"))
@@ -96,12 +98,20 @@ if runs:
                 log_event({"event": "reproduce_prep", "run_id": run_id})
             except FileNotFoundError:
                 st.toast("Missing run lockfile", icon="⚠️")
-        render_trace(
-            trace,
-            run_id=run_id,
-            default_view=state["trace_view"],
-            default_query=state["trace_query"],
-        )
+        if is_enabled("trace_viewer_v2", params=params):
+            render_trace(
+                trace,
+                run_id=run_id,
+                default_view=state["trace_view"],
+                default_query=state["trace_query"],
+            )
+        else:
+            render_trace(
+                trace,
+                run_id=run_id,
+                default_view=state["trace_view"],
+                default_query=state["trace_query"],
+            )
 else:
     log_event({"event": "nav_page_view", "page": "trace", "run_id": None})
     empty_states.trace_empty()

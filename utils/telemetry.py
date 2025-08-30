@@ -21,6 +21,22 @@ def log_event(ev: dict) -> None:
         pass
 
 
+def flag_checked(name: str, value: bool) -> None:
+    if os.getenv("TELEMETRY_DEBUG") == "1":
+        log_event({"event": "flag_checked", "flag": name, "value": value})
+
+
+def exp_exposed(user_id_hash: str, exp_id: str, variant: str, run_id: str | None = None) -> None:
+    ev = {"event": "exp_exposed", "user_id": user_id_hash, "exp_id": exp_id, "variant": variant}
+    if run_id:
+        ev["run_id"] = run_id
+    log_event(ev)
+
+
+def exp_overridden(exp_id: str, variant: str) -> None:
+    log_event({"event": "exp_overridden", "exp_id": exp_id, "variant": variant})
+
+
 def run_cancel_requested(run_id: str) -> None:
     """Emit a run_cancel_requested telemetry event."""
     log_event({"event": "run_cancel_requested", "run_id": run_id})
@@ -134,6 +150,9 @@ __all__ = [
     "timeout_hit",
     "demo_started",
     "demo_completed",
+    "flag_checked",
+    "exp_exposed",
+    "exp_overridden",
     "checkpoint_saved",
     "run_resumed",
     "resume_failed",
