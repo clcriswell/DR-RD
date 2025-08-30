@@ -4,11 +4,13 @@ import csv
 import io
 import json
 from collections import OrderedDict
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Mapping, Sequence
 
 from .paths import write_bytes
 
 Row = List[Any]
+TraceStep = Mapping[str, Any]
+TraceRow = Dict[str, Any]
 
 
 def _safe_summary(text: str | None, max_len: int = 80) -> str:
@@ -16,9 +18,9 @@ def _safe_summary(text: str | None, max_len: int = 80) -> str:
     return text[:max_len]
 
 
-def flatten_trace_rows(trace: Sequence[Dict[str, Any]]) -> list[dict]:
+def flatten_trace_rows(trace: Sequence[TraceStep]) -> List[TraceRow]:
     """Return normalized rows for tabular exports."""
-    rows: list[dict] = []
+    rows: List[TraceRow] = []
     for idx, step in enumerate(trace, 1):
         rows.append(
             {
