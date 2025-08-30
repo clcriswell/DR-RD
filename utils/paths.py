@@ -12,12 +12,18 @@ def artifact_key(run_id: str, name: str, ext: str) -> str:
     return key_run(run_id, name, ext)
 
 
-def write_bytes(run_id: str, name: str, ext: str, data: bytes) -> str:
-    return get_storage().write_bytes(artifact_key(run_id, name, ext), data).key
+def write_bytes(run_id: str, name: str, ext: str, data: bytes) -> Path:
+    """Write bytes to storage and return a local path when available."""
+    ref = get_storage().write_bytes(artifact_key(run_id, name, ext), data)
+    local = local_path_for_debug(ref.key)
+    return local if local is not None else Path(ref.key)
 
 
-def write_text(run_id: str, name: str, ext: str, text: str) -> str:
-    return get_storage().write_text(artifact_key(run_id, name, ext), text).key
+def write_text(run_id: str, name: str, ext: str, text: str) -> Path:
+    """Write text to storage and return a local path when available."""
+    ref = get_storage().write_text(artifact_key(run_id, name, ext), text)
+    local = local_path_for_debug(ref.key)
+    return local if local is not None else Path(ref.key)
 
 
 def read_bytes(run_id: str, name: str, ext: str) -> bytes:
@@ -51,8 +57,13 @@ def local_path_for_debug(key: str) -> Path | None:
 RUNS_ROOT = Path(".dr_rd") / "runs"
 
 
+def run_root(run_id: str) -> Path:
+    """Return the directory for a run without creating it."""
+    return RUNS_ROOT / run_id
+
+
 def ensure_run_dirs(run_id: str) -> Path:
-    path = RUNS_ROOT / run_id
+    path = run_root(run_id)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
