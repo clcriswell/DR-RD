@@ -5,16 +5,16 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-from utils import runs_index, run_notes
+from app.ui.command_palette import open_palette
+from utils import run_notes, runs_index
+from utils.i18n import tr as t
 from utils.telemetry import (
-    log_event,
-    history_filter_changed,
     history_export_clicked,
+    history_filter_changed,
+    log_event,
     run_annotated,
     run_favorited,
 )
-from utils.i18n import tr as t
-from app.ui.command_palette import open_palette
 
 # quick open via button
 if st.button(
@@ -74,14 +74,17 @@ status_default_list = [s for s in status_default.split(",") if s]
 q_val = st.text_input("Search", q_default)
 status_val = st.multiselect("Status", status_options, default=status_default_list)
 mode_val = st.multiselect("Mode", mode_options)
-dates = st.date_input("Date range", value=(None, None))
+# `st.date_input` does not support `None` defaults for range selection. Using
+# `(None, None)` triggered a `StreamlitAPIException`. Instead, provide a broad
+# default range (epoch -> today) so that all runs are initially displayed while
+# still allowing the user to narrow the dates.
+default_range = (datetime.fromtimestamp(0).date(), datetime.now().date())
+dates = st.date_input("Date range", value=default_range)
 tags_val = st.multiselect("Tags", all_tags)
 fav_val = st.checkbox("Favorites only", value=fav_default)
 
 qp_changed = (
-    q_val != q_default
-    or set(status_val) != set(status_default_list)
-    or fav_val != fav_default
+    q_val != q_default or set(status_val) != set(status_default_list) or fav_val != fav_default
 )
 if qp_changed:
     st.query_params["q"] = q_val
@@ -116,12 +119,16 @@ if rows:
             {
                 "⭐": "★" if notes_lookup.get(r["run_id"], {}).get("favorite") else "",
                 "run_id": r["run_id"],
-                "started_at": datetime.fromtimestamp(r["started_at"]).isoformat()
-                if r.get("started_at")
-                else "",
-                "duration": (r.get("completed_at", 0) - r.get("started_at", 0))
-                if r.get("completed_at") and r.get("started_at")
-                else None,
+                "started_at": (
+                    datetime.fromtimestamp(r["started_at"]).isoformat()
+                    if r.get("started_at")
+                    else ""
+                ),
+                "duration": (
+                    (r.get("completed_at", 0) - r.get("started_at", 0))
+                    if r.get("completed_at") and r.get("started_at")
+                    else None
+                ),
                 "status": r.get("status"),
                 "mode": r.get("mode"),
                 "idea_preview": r.get("idea_preview", "")[:40],
@@ -130,9 +137,11 @@ if rows:
                 "Trace": f"./?view=trace&run_id={r['run_id']}",
                 "Reports": f"./?view=reports&run_id={r['run_id']}",
                 "Reproduce": f"./?view=run&origin_run_id={r['run_id']}",
-                "Resume": f"./?view=run&resume_from={r['run_id']}"
-                if r.get("status") == "resumable"
-                else "",
+                "Resume": (
+                    f"./?view=run&resume_from={r['run_id']}"
+                    if r.get("status") == "resumable"
+                    else ""
+                ),
             }
             for r in rows
         ]
