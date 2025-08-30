@@ -5,3 +5,6 @@
 - [UX Metrics](UX_METRICS.md)
 - [UI Heuristic Audit](UI_AUDIT.md)
 - [UI Upgrade Spec](UI_SPEC.md)
+
+## Utilities
+- `scripts/cleanup_runs.py` — remove old run artifacts (`--keep N` or `--max-bytes M`)

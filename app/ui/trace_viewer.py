@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Dict, List, Sequence
 
 import json
 import streamlit as st
 
 from utils import trace_export
+from utils.paths import artifact_path
 from utils.telemetry import log_event
 
 PHASE_LABELS = {
@@ -109,27 +109,25 @@ def render_trace(
     st.caption(f"{len(filtered_steps)} of {total_steps} steps")
 
     # export buttons
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    base = f"trace_{run_id or 'session'}_{ts}"
     col_json, col_csv, col_md = st.columns(3)
     if col_json.download_button(
         "Download full trace (.json)",
         data=trace_export.to_json(steps),
-        file_name=f"{base}.json",
+        file_name=artifact_path(run_id or "session", "trace", "json").name,
         mime="application/json",
     ):
         log_event({"event": "trace_export_clicked", "format": "json", "step_count": len(steps)})
     if col_csv.download_button(
         "Download summary (.csv)",
         data=trace_export.to_csv(steps, run_id=run_id),
-        file_name=f"{base}.csv",
+        file_name=artifact_path(run_id or "session", "summary", "csv").name,
         mime="text/csv",
     ):
         log_event({"event": "trace_export_clicked", "format": "csv", "step_count": len(steps)})
     if col_md.download_button(
         "Download readable report (.md)",
         data=trace_export.to_markdown(steps, run_id=run_id),
-        file_name=f"{base}.md",
+        file_name=artifact_path(run_id or "session", "trace", "md").name,
         mime="text/markdown",
     ):
         log_event({"event": "trace_export_clicked", "format": "md", "step_count": len(steps)})

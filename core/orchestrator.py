@@ -606,12 +606,19 @@ def execute_plan(
     trace_data = collector.as_dicts()
     try:
         st.session_state["agent_trace"] = trace_data
+        run_id = st.session_state.get("run_id")
+        if run_id:
+            from utils.trace_export import (
+                write_trace_csv,
+                write_trace_json,
+                write_trace_markdown,
+            )
+
+            write_trace_json(run_id, trace_data)
+            write_trace_csv(run_id, trace_data)
+            write_trace_markdown(run_id, trace_data)
     except Exception:
         pass
-    out_dir = os.path.join("audits", project_id)
-    os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "trace.json"), "w", encoding="utf-8") as f:
-        json.dump(trace_data, f, ensure_ascii=False, indent=2)
     return answers
 
 
@@ -621,6 +628,11 @@ def compose_final_proposal(idea: str, answers: Dict[str, str]) -> str:
     prompt = SYNTHESIZER_TEMPLATE.format(idea=idea, findings_md=findings_md)
     result = complete("You are an expert R&D writer.", prompt)
     final_markdown = (result.content or "").strip()
+    run_id = st.session_state.get("run_id")
+    if run_id:
+        from utils.paths import write_text
+
+        write_text(run_id, "report", "md", final_markdown)
     try:
         from core.final.composer import write_final_bundle
         from core.final.traceability import build_rows
