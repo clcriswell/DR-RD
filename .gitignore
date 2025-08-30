@@ -13,3 +13,5 @@ qa_queue.json
 /reports/**/*.json
 /reports/**/*.sarif
 !/reports/**/.gitkeep
+.dr_rd/**
+!samples/demo_run/**

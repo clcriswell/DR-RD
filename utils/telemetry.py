@@ -1,4 +1,5 @@
 """Telemetry logging utilities with schema validation and rotation."""
+
 from __future__ import annotations
 
 import json
@@ -6,9 +7,9 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import List
 
-from .telemetry_schema import CURRENT_SCHEMA_VERSION, validate, upcast
+from .redaction import redact_dict
+from .telemetry_schema import CURRENT_SCHEMA_VERSION, upcast, validate
 
 LOG_DIR = Path(os.getenv("TELEMETRY_LOG_DIR", ".dr_rd/telemetry"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -51,6 +52,7 @@ def log_event(ev: dict) -> None:
     ev = validate(ev)
     ev.setdefault("schema_version", CURRENT_SCHEMA_VERSION)
     ev.setdefault("ts", time.time())
+    ev = redact_dict(ev)
     try:
         line = json.dumps(ev, ensure_ascii=False)
     except Exception:
@@ -78,12 +80,12 @@ def log_event(ev: dict) -> None:
                     pass
 
 
-def list_files(day: str | None = None) -> List[Path]:
+def list_files(day: str | None = None) -> list[Path]:
     pattern = f"events-{day}*" if day else "events-*.jsonl"
     return sorted(LOG_DIR.glob(pattern))
 
 
-def read_events(limit: int | None = None, days: int = 7) -> List[dict]:
+def read_events(limit: int | None = None, days: int = 7) -> list[dict]:
     """Read recent events from log files.
 
     Parameters
@@ -91,7 +93,7 @@ def read_events(limit: int | None = None, days: int = 7) -> List[dict]:
     limit: optional maximum number of events to return.
     days: how many days of logs to include, starting from today.
     """
-    events: List[dict] = []
+    events: list[dict] = []
     now = time.time()
     for i in range(days):
         day = time.strftime("%Y%m%d", time.gmtime(now - i * 86400))
@@ -114,6 +116,7 @@ def read_events(limit: int | None = None, days: int = 7) -> List[dict]:
 
 
 # Convenience event wrappers remain largely unchanged below.
+
 
 def flag_checked(name: str, value: bool) -> None:
     if os.getenv("TELEMETRY_DEBUG") == "1":
@@ -224,7 +227,9 @@ def usage_exceeded(
 
 def knowledge_added(item_id: str, name: str, type_: str, size: int) -> None:
     """Emit a knowledge_added telemetry event."""
-    log_event({"event": "knowledge_added", "id": item_id, "name": name, "type": type_, "size": size})
+    log_event(
+        {"event": "knowledge_added", "id": item_id, "name": name, "type": type_, "size": size}
+    )
 
 
 def knowledge_removed(item_id: str) -> None:
@@ -255,7 +260,9 @@ def history_export_clicked(count: int) -> None:
     log_event({"event": "history_export_clicked", "count": count})
 
 
-def run_annotated(run_id: str, title_len: int, tags_count: int, note_len: int, favorite: bool) -> None:
+def run_annotated(
+    run_id: str, title_len: int, tags_count: int, note_len: int, favorite: bool
+) -> None:
     """Emit a run_annotated telemetry event."""
     log_event(
         {

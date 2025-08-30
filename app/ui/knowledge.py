@@ -1,5 +1,7 @@
-import streamlit as st
 from datetime import datetime
+
+import streamlit as st
+
 from utils import uploads
 
 
@@ -13,6 +15,8 @@ def table(items: list[dict]):
     for it in items:
         cols = st.columns([3, 1, 1, 2, 2, 1, 1])
         cols[0].write(it["name"])
+        if it.get("pii_flag"):
+            cols[0].caption("Possible PII detected")
         cols[1].write(it["type"])
         cols[2].write(_fmt_size(it["size"]))
         new_tags = tag_editor(it["id"], it.get("tags", []), key=f"tags_{it['id']}")
@@ -22,9 +26,7 @@ def table(items: list[dict]):
         if cols[5].button("Remove", key=f"rm_{it['id']}"):
             removed.append(it["id"])
         with open(it["path"], "rb") as fh:
-            cols[6].download_button(
-                "Download", fh, file_name=it["name"], key=f"dl_{it['id']}"
-            )
+            cols[6].download_button("Download", fh, file_name=it["name"], key=f"dl_{it['id']}")
     return removed, tag_updates
 
 

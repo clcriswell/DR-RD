@@ -1,14 +1,16 @@
 """Survey storage helpers."""
+
 from __future__ import annotations
 
 import json
 import threading
 import time
 from pathlib import Path
-from typing import Dict, List
 
 import streamlit as st
+
 from .cache import cached_data
+from .redaction import redact_text
 
 SURVEYS_PATH = Path(".dr_rd/telemetry/surveys.jsonl")
 SURVEYS_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -19,7 +21,7 @@ except Exception:  # StreamlitSecretNotFoundError when no secrets file
     _FF_FIRESTORE = False
 
 
-def _write_record(record: Dict) -> None:
+def _write_record(record: dict) -> None:
     with SURVEYS_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
@@ -27,7 +29,7 @@ def _write_record(record: Dict) -> None:
         threading.Thread(target=_mirror_to_firestore, args=(record,), daemon=True).start()
 
 
-def _mirror_to_firestore(record: Dict) -> None:  # pragma: no cover - best effort
+def _mirror_to_firestore(record: dict) -> None:  # pragma: no cover - best effort
     try:
         from google.cloud import firestore  # type: ignore
         from google.oauth2 import service_account  # type: ignore
@@ -41,7 +43,8 @@ def _mirror_to_firestore(record: Dict) -> None:  # pragma: no cover - best effor
         pass
 
 
-def save_sus(run_id: str, answers: Dict[str, int], total: int, comment: str | None) -> None:
+def save_sus(run_id: str, answers: dict[str, int], total: int, comment: str | None) -> None:
+    clean = redact_text(comment or "")[:1000]
     record = {
         "ts": time.time(),
         "run_id": run_id,
@@ -49,25 +52,26 @@ def save_sus(run_id: str, answers: Dict[str, int], total: int, comment: str | No
         "version": 1,
         "answers": answers,
         "total": total,
-        "comment": comment or "",
+        "comment": clean,
     }
     _write_record(record)
 
 
 def save_seq(run_id: str, score: int, comment: str | None) -> None:
+    clean = redact_text(comment or "")[:1000]
     record = {
         "ts": time.time(),
         "run_id": run_id,
         "instrument": "SEQ",
         "version": 1,
         "answers": {"score": score},
-        "comment": comment or "",
+        "comment": clean,
     }
     _write_record(record)
 
 
 @cached_data(ttl=30)
-def load_recent(n: int = 500) -> List[Dict]:
+def load_recent(n: int = 500) -> list[dict]:
     if not SURVEYS_PATH.exists():
         return []
     with SURVEYS_PATH.open("r", encoding="utf-8") as f:
@@ -75,15 +79,25 @@ def load_recent(n: int = 500) -> List[Dict]:
     return [json.loads(line) for line in lines]
 
 
-def compute_aggregates(records: List[Dict]) -> Dict[str, float]:
+def compute_aggregates(records: list[dict]) -> dict[str, float]:
     now = time.time()
     cutoff = now - 7 * 24 * 60 * 60
     sus_scores = [r.get("total", 0) for r in records if r.get("instrument") == "SUS"]
-    sus_recent = [r.get("total", 0) for r in records if r.get("instrument") == "SUS" and r.get("ts", 0) >= cutoff]
-    seq_scores = [r.get("answers", {}).get("score") for r in records if r.get("instrument") == "SEQ"]
-    seq_recent = [r.get("answers", {}).get("score") for r in records if r.get("instrument") == "SEQ" and r.get("ts", 0) >= cutoff]
+    sus_recent = [
+        r.get("total", 0)
+        for r in records
+        if r.get("instrument") == "SUS" and r.get("ts", 0) >= cutoff
+    ]
+    seq_scores = [
+        r.get("answers", {}).get("score") for r in records if r.get("instrument") == "SEQ"
+    ]
+    seq_recent = [
+        r.get("answers", {}).get("score")
+        for r in records
+        if r.get("instrument") == "SEQ" and r.get("ts", 0) >= cutoff
+    ]
 
-    def _mean(values: List[float]) -> float:
+    def _mean(values: list[float]) -> float:
         return sum(values) / len(values) if values else 0.0
 
     return {
