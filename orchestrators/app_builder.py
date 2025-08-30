@@ -3,8 +3,9 @@ import json, os, re
 from typing import Dict, Tuple, List
 
 from core.model_router import pick_model, CallHints
-from core.llm_client import call_openai
+from utils.llm_client import chat as llm_chat
 from utils.providers import get_active_model
+from utils.usage import Usage, add_delta
 from app_builder.spec import AppSpec, PageSpec
 from app_builder.codegen import render_streamlit_app
 
@@ -37,12 +38,12 @@ def plan_app_spec(idea: str, packages_extra: List[str] | None = None) -> AppSpec
         {"role": "system", "content": "You turn app ideas into minimal JSON specifications."},
         {"role": "user", "content": PROMPT.format(idea=idea)},
     ]
-    result = call_openai(
-        model=sel_model,
-        messages=messages,
-        **sel.get("params", {})
-    )
-    content = result["text"] or ""
+    payload = {"messages": messages, **sel.get("params", {})}
+    resp = llm_chat(payload, mode="standard")
+    pt = getattr(resp, "usage", {}).get("prompt_tokens", 0)
+    ct = getattr(resp, "usage", {}).get("completion_tokens", 0)
+    _u = add_delta(Usage(), model=sel_model, prompt_tokens=pt, completion_tokens=ct)
+    content = getattr(getattr(resp, "choices", [None])[0], "message", {}).get("content", "")
     try:
         data = json.loads(content)
     except Exception:
@@ -52,12 +53,12 @@ def plan_app_spec(idea: str, packages_extra: List[str] | None = None) -> AppSpec
             {"role": "system", "content": "Return ONLY valid JSON."},
             messages[1],
         ]
-        result = call_openai(
-            model=sel["model"],
-            messages=retry_messages,
-            **sel.get("params", {})
-        )
-        content = result["text"] or ""
+        payload = {"messages": retry_messages, **sel.get("params", {})}
+        resp = llm_chat(payload, mode="standard")
+        pt = getattr(resp, "usage", {}).get("prompt_tokens", 0)
+        ct = getattr(resp, "usage", {}).get("completion_tokens", 0)
+        _u = add_delta(Usage(), model=sel_model, prompt_tokens=pt, completion_tokens=ct)
+        content = getattr(getattr(resp, "choices", [None])[0], "message", {}).get("content", "")
         try:
             data = json.loads(content)
         except Exception:

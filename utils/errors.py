@@ -41,6 +41,23 @@ def classify(exc: Exception) -> str:
     return "unknown"
 
 
+def classify_provider_error(exc: Exception) -> str:
+    """Map provider SDK exceptions to canonical kinds."""
+    name = exc.__class__.__name__.lower()
+    msg = str(exc).lower()
+    if "rate" in name or "rate" in msg and "limit" in msg:
+        return "rate_limit"
+    if "timeout" in name or "timed" in msg:
+        return "timeout"
+    if "auth" in name or "unauthorized" in msg or "api key" in msg:
+        return "auth"
+    if "quota" in name or "billing" in msg:
+        return "quota"
+    if isinstance(exc, (ValueError, KeyError, TypeError)) or "validation" in name:
+        return "validation"
+    return "transient"
+
+
 MAX_CHARS = 2000
 
 

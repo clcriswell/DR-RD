@@ -118,6 +118,55 @@ def read_events(limit: int | None = None, days: int = 7) -> list[dict]:
 # Convenience event wrappers remain largely unchanged below.
 
 
+def llm_call_started(provider: str, model: str, attempt: int, run_id: str | None = None, step_id: str | None = None) -> None:
+    ev = {"event": "llm_call_started", "provider": provider, "model": model, "attempt": attempt}
+    if run_id:
+        ev["run_id"] = run_id
+    if step_id:
+        ev["step_id"] = step_id
+    log_event(ev)
+
+
+def llm_call_succeeded(provider: str, model: str, attempt: int, run_id: str | None = None, step_id: str | None = None) -> None:
+    ev = {"event": "llm_call_succeeded", "provider": provider, "model": model, "attempt": attempt}
+    if run_id:
+        ev["run_id"] = run_id
+    if step_id:
+        ev["step_id"] = step_id
+    log_event(ev)
+
+
+def llm_call_failed(provider: str, model: str, attempt: int, kind: str, run_id: str | None = None, step_id: str | None = None) -> None:
+    ev = {"event": "llm_call_failed", "provider": provider, "model": model, "attempt": attempt, "kind": kind}
+    if run_id:
+        ev["run_id"] = run_id
+    if step_id:
+        ev["step_id"] = step_id
+    log_event(ev)
+
+
+def llm_fallback(provider: str, model: str, run_id: str | None = None, step_id: str | None = None) -> None:
+    ev = {"event": "llm_fallback", "provider": provider, "model": model}
+    if run_id:
+        ev["run_id"] = run_id
+    if step_id:
+        ev["step_id"] = step_id
+    log_event(ev)
+
+
+def llm_cache_hit(provider: str, model: str, run_id: str | None = None, step_id: str | None = None) -> None:
+    ev = {"event": "llm_cache_hit", "provider": provider, "model": model}
+    if run_id:
+        ev["run_id"] = run_id
+    if step_id:
+        ev["step_id"] = step_id
+    log_event(ev)
+
+
+def circuit_skipped(provider: str, model: str) -> None:
+    log_event({"event": "circuit_skipped", "provider": provider, "model": model})
+
+
 def flag_checked(name: str, value: bool) -> None:
     if os.getenv("TELEMETRY_DEBUG") == "1":
         log_event({"event": "flag_checked", "flag": name, "value": value})
