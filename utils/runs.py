@@ -8,7 +8,13 @@ from typing import List, Dict
 from .paths import artifact_path, ensure_run_dirs
 
 
-def create_run_meta(run_id: str, *, mode: str, idea_preview: str) -> None:
+def create_run_meta(
+    run_id: str,
+    *,
+    mode: str,
+    idea_preview: str,
+    origin_run_id: str | None = None,
+) -> None:
     """Create initial run metadata."""
     ensure_run_dirs(run_id)
     meta = {
@@ -18,6 +24,9 @@ def create_run_meta(run_id: str, *, mode: str, idea_preview: str) -> None:
         "idea_preview": idea_preview,
         "status": "running",
     }
+    if origin_run_id:
+        meta["origin_run_id"] = origin_run_id
+        meta["resume_of"] = origin_run_id
     artifact_path(run_id, "run", "json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -26,8 +35,8 @@ def create_run_meta(run_id: str, *, mode: str, idea_preview: str) -> None:
 def complete_run_meta(run_id: str, *, status: str) -> None:
     """Mark a run as completed with ``status``.
 
-    ``status`` may be ``success``, ``error``, ``cancelled`` or ``timeout``.
-    ``completed_at`` is always recorded.
+    ``status`` may be ``success``, ``error``, ``cancelled``, ``timeout`` or
+    ``resumable``. ``completed_at`` is always recorded.
     """
     path = artifact_path(run_id, "run", "json")
     if not path.exists():

@@ -38,6 +38,11 @@ else:
             st.toast("Missing run lockfile", icon="⚠️")
 
     meta = load_run_meta(run_id) or {}
+    if meta.get("status") == "resumable":
+        st.info("This run can be resumed.")
+        if st.button("Resume run", use_container_width=True):
+            st.query_params.update({"resume_from": run_id, "view": "run"})
+            st.switch_page("app.py")
     trace_path = artifact_path(run_id, "trace", "json")
     trace = json.loads(trace_path.read_text(encoding="utf-8")) if trace_path.exists() else []
     summary_path = artifact_path(run_id, "synth", "md")

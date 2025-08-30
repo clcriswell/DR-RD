@@ -48,6 +48,7 @@ if runs:
         log_event({"event": "run_selected", "run_id": selected})
         st.rerun()
     run_id = selected
+    meta = next((r for r in runs if r["run_id"] == run_id), {})
     log_event({"event": "nav_page_view", "page": "trace", "run_id": run_id})
     trace_path = artifact_path(run_id, "trace", "json")
     if trace_path.exists():
@@ -57,6 +58,11 @@ if runs:
     if not trace:
         empty_states.trace_empty()
     else:
+        if meta.get("status") == "resumable":
+            st.info("This run can be resumed.")
+            if st.button("Resume run", use_container_width=True):
+                st.query_params.update({"resume_from": run_id, "view": "run"})
+                st.switch_page("app.py")
         include_adv = st.checkbox(
             t("include_adv_label"), key="trace_share_adv", help=t("include_adv_help")
         )
