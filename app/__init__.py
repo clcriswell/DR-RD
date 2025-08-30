@@ -4,7 +4,6 @@ import io
 import json
 import logging
 import time
-from pathlib import Path
 
 import fitz
 import streamlit as st
@@ -38,10 +37,12 @@ from utils.run_config import (
     to_orchestrator_kwargs,
     to_session,
 )
+from utils.prefs import load_prefs
+from utils import bundle
 from utils.telemetry import log_event
 from utils.errors import make_safe_error
 from utils.run_id import new_run_id
-from utils.paths import ensure_run_dirs
+from utils.paths import ensure_run_dirs, artifact_path, run_root, write_bytes
 from utils.runs import create_run_meta, complete_run_meta
 from utils.query_params import (
     QP_APPLIED_KEY,
@@ -62,26 +63,13 @@ pre, code {
 logger = logging.getLogger(__name__)
 
 
-CONFIG_PATH = Path(".dr_rd/config.json")
-
-
-def load_ui_config() -> dict:
-    if CONFIG_PATH.exists():
-        with CONFIG_PATH.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
-
-
-def save_ui_config(data: dict) -> None:
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with CONFIG_PATH.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def _apply_stored_defaults() -> None:
-    cfg = load_ui_config()
-    for key, val in cfg.items():
-        st.session_state.setdefault(key, val)
+def _apply_prefs() -> dict:
+    prefs = load_prefs()
+    if not st.session_state.get("_prefs_applied"):
+        to_session(defaults())
+        st.session_state.setdefault("show_agent_trace", prefs["ui"].get("show_trace_by_default", True))
+        st.session_state["_prefs_applied"] = True
+    return prefs
 
 
 def get_agents():
@@ -92,7 +80,7 @@ def get_agents():
 
 def main() -> None:
     from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
-    _apply_stored_defaults()
+    prefs = _apply_prefs()
     if st.session_state.get(QP_APPLIED_KEY) is not True:
         decoded = decode_config(st.query_params)
         rc_defaults = asdict(defaults())
@@ -225,8 +213,22 @@ def main() -> None:
         st.query_params.update({"run_id": run_id, "view": "trace"})
         complete_run_meta(run_id, status="success")
         log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
-        st.markdown("[Open Trace](./Trace)")
-        st.caption("Use the Trace page to inspect step details.")
+        if prefs["ui"].get("auto_export_on_completion"):
+            try:
+                def _read_bytes(rid, name, ext):
+                    return artifact_path(rid, name, ext).read_bytes()
+                def _list_existing(rid):
+                    root = run_root(rid)
+                    return [(p.stem, p.suffix.lstrip(".")) for p in root.iterdir() if p.is_file()]
+                data = bundle.build_zip_bundle(run_id, [], read_bytes=_read_bytes, list_existing=_list_existing)
+                write_bytes(run_id, "bundle", "zip", data)
+            except Exception:
+                pass
+        if prefs["ui"].get("show_trace_by_default"):
+            st.switch_page("pages/10_Trace.py")
+        else:
+            st.markdown("[Open Trace](./Trace)")
+            st.caption("Use the Trace page to inspect step details.")
         survey.maybe_prompt_after_run(run_id)
     except Exception as e:  # pragma: no cover - UI display
         if current_box is not None:

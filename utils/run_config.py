@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Dict, List
 
 import streamlit as st
@@ -15,6 +15,8 @@ class RunConfig:
     rag_enabled: bool = False
     live_search_enabled: bool = False
     enforce_budget: bool = False
+    budget_limit_usd: float | None = None
+    max_tokens: int = 8000
     knowledge_sources: List[str] = field(default_factory=list)
     show_agent_trace: bool = False
     verbose_planner: bool = False
@@ -26,7 +28,11 @@ class RunConfig:
 def defaults() -> RunConfig:
     """Return default run configuration."""
 
-    return RunConfig()
+    from .prefs import merge_defaults
+
+    base = asdict(RunConfig())
+    merged = merge_defaults(base)
+    return RunConfig(**merged)
 
 
 def from_session() -> RunConfig:
@@ -39,9 +45,11 @@ def from_session() -> RunConfig:
     return RunConfig(**data)
 
 
-def to_session(cfg: RunConfig) -> None:
+def to_session(cfg: RunConfig | None = None) -> None:
     """Seed ``st.session_state`` with values from ``cfg`` if missing."""
 
+    if cfg is None:
+        cfg = defaults()
     for f in fields(RunConfig):
         st.session_state.setdefault(f.name, getattr(cfg, f.name))
 
@@ -55,6 +63,8 @@ def to_orchestrator_kwargs(cfg: RunConfig) -> Dict[str, Any]:
         "rag": cfg.rag_enabled,
         "live": cfg.live_search_enabled,
         "budget": cfg.enforce_budget,
+        "budget_limit_usd": cfg.budget_limit_usd,
+        "max_tokens": cfg.max_tokens,
         "knowledge_sources": list(cfg.knowledge_sources),
     }
     kwargs.update(cfg.advanced)
