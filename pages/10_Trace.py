@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 import streamlit as st
 
 from app.ui import empty_states
-from app.ui.copy import t
+from utils.i18n import tr as t
 from app.ui.trace_viewer import render_trace
 from utils import run_reproduce
 from utils.paths import artifact_path

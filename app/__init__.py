@@ -10,9 +10,10 @@ import time
 import fitz
 import streamlit as st
 from markdown_pdf import MarkdownPdf, Section
+from utils.i18n import tr as t, set_locale, missing_keys
 
 st.set_page_config(
-    page_title="DR-RD",
+    page_title=t("app_title"),
     page_icon=":material/science:",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -20,7 +21,6 @@ st.set_page_config(
 )
 
 from app.ui.a11y import inject_accessibility_baseline, live_region_container
-from app.ui.copy import t
 from app.ui.command_palette import open_palette
 from utils.cancellation import CancellationToken
 from utils.telemetry import (
@@ -147,6 +147,13 @@ logger = logging.getLogger(__name__)
 
 def _apply_prefs() -> dict:
     prefs = load_prefs()
+    lang = prefs["ui"].get("language", "en")
+    set_locale(lang)
+    if not st.session_state.get("_i18n_missing_logged"):
+        miss = missing_keys(lang)
+        if miss:
+            log_event({"event": "i18n_missing_keys", "lang": lang, "count": len(miss)})
+        st.session_state["_i18n_missing_logged"] = True
     if not st.session_state.get("_prefs_applied"):
         to_session(defaults())
         st.session_state.setdefault(

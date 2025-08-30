@@ -9,7 +9,7 @@ from zipfile import ZipFile
 import streamlit as st
 
 from app.ui import empty_states
-from app.ui.copy import t
+from utils.i18n import tr as t
 from utils import bundle, report_builder, run_reproduce
 from utils.paths import artifact_path, run_root
 from utils.query_params import encode_config
@@ -126,7 +126,7 @@ else:
 
         col_md, col_zip = st.columns(2)
         if col_md.download_button(
-            t("download_report_label"),
+            t("download_report"),
             data=md.encode("utf-8"),
             file_name=f"report_{run_id}.md",
             mime="text/markdown",
@@ -135,7 +135,7 @@ else:
         ):
             log_event({"event": "export_clicked", "format": "md", "run_id": run_id})
         if col_zip.download_button(
-            t("download_bundle_label"),
+            t("download_bundle"),
             data=bundle_bytes,
             file_name=f"artifacts_{run_id}.zip",
             mime="application/zip",

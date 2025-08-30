@@ -22,6 +22,7 @@ from utils.diff_runs import (
 from utils.telemetry import log_event
 from utils.metrics import ensure_run_totals
 from utils.flags import is_enabled
+from utils.i18n import tr as t
 from app.ui.command_palette import open_palette
 
 
@@ -70,7 +71,7 @@ if not is_enabled("compare_page", params=params):
 if params.get("view") != "compare":
     st.query_params["view"] = "compare"
 
-st.title("Compare Runs")
+st.title(t("compare_title"))
 log_event({"event": "nav_page_view", "page": "compare"})
 
 runs = list_runs(limit=200)
