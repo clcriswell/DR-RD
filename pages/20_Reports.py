@@ -8,6 +8,10 @@ from zipfile import ZipFile
 
 import streamlit as st
 
+from utils.share_links import viewer_from_query
+from utils.redaction import redact_public
+from utils.telemetry import log_event, safety_export_blocked
+
 from app.ui import empty_states
 from app.ui import safety as ui_safety
 from app.ui.a11y import aria_live_region, inject, main_start
@@ -20,12 +24,22 @@ from utils.paths import artifact_path, run_root
 from utils.query_params import encode_config
 from utils.report_html import build_html_report
 from utils.runs import last_run_id, load_run_meta
-from utils.telemetry import log_event, safety_export_blocked
 from utils.trace_export import flatten_trace_rows
 
 inject()
 main_start()
 aria_live_region()
+
+viewer_mode, vinfo = viewer_from_query(dict(st.query_params))
+if viewer_mode:
+    log_event({"event": "share_link_accessed", "run_id": vinfo.get("rid"), "scopes": vinfo.get("scopes", [])})
+    st.info("View only link. Some controls are disabled.")
+elif "error" in vinfo:
+    if vinfo["error"] == "exp":
+        log_event({"event": "share_link_expired"})
+    else:
+        log_event({"event": "share_link_invalid", "reason": vinfo["error"]})
+    st.warning("Invalid or expired share link.")
 
 # quick open via button
 if st.button(
@@ -70,6 +84,10 @@ if not is_enabled("reports_page", params=params):
     st.stop()
 
 run_id = params.get("run_id") or last_run_id()
+scopes = vinfo.get("scopes", [])
+if viewer_mode and "reports" not in scopes:
+    st.warning("Reports access not allowed.")
+    st.stop()
 
 if not run_id:
     log_event({"event": "nav_page_view", "page": "reports", "run_id": None})
@@ -80,18 +98,19 @@ else:
     st.title(t("reports_title"))
     st.caption(t("reports_caption"))
 
-    if st.button("Reproduce run", use_container_width=True, help="Prefill inputs from this run"):
-        try:
-            locked = run_reproduce.load_run_inputs(run_id)
-            kwargs = run_reproduce.to_orchestrator_kwargs(locked)
-            st.query_params.update(encode_config(kwargs) | {"view": "run", "origin_run_id": run_id})
-            st.toast("Prefilled from saved config. Review and start the run.")
-            log_event({"event": "reproduce_prep", "run_id": run_id})
-        except FileNotFoundError:
-            st.toast("Missing run lockfile", icon="⚠️")
+    if not viewer_mode:
+        if st.button("Reproduce run", use_container_width=True, help="Prefill inputs from this run"):
+            try:
+                locked = run_reproduce.load_run_inputs(run_id)
+                kwargs = run_reproduce.to_orchestrator_kwargs(locked)
+                st.query_params.update(encode_config(kwargs) | {"view": "run", "origin_run_id": run_id})
+                st.toast("Prefilled from saved config. Review and start the run.")
+                log_event({"event": "reproduce_prep", "run_id": run_id})
+            except FileNotFoundError:
+                st.toast("Missing run lockfile", icon="⚠️")
 
     meta = load_run_meta(run_id) or {}
-    if meta.get("status") == "resumable":
+    if meta.get("status") == "resumable" and not viewer_mode:
         st.info("This run can be resumed.")
         if st.button("Resume run", use_container_width=True, help="Continue this run"):
             st.query_params.update({"resume_from": run_id, "view": "run"})
@@ -100,6 +119,8 @@ else:
     trace = json.loads(trace_path.read_text(encoding="utf-8")) if trace_path.exists() else []
     summary_path = artifact_path(run_id, "synth", "md")
     summary_text = summary_path.read_text(encoding="utf-8") if summary_path.exists() else None
+    if viewer_mode and summary_text:
+        summary_text = redact_public(summary_text)
     totals = {
         "tokens": sum((step.get("tokens") or 0) for step in trace),
         "cost": sum((step.get("cost") or 0.0) for step in trace),
@@ -133,6 +154,8 @@ else:
     md = report_builder.build_markdown_report(
         run_id, meta, trace, summary_text, totals, sanitizer=sanitizer
     )
+    if viewer_mode:
+        md = redact_public(md)
     rows = flatten_trace_rows(trace)
 
     with st.expander(t("report_preview_label"), expanded=True):
@@ -176,55 +199,58 @@ else:
         with ZipFile(io.BytesIO(bundle_bytes)) as zf:
             bundle_count = len(zf.namelist())
 
-        col_md, col_html, col_zip = st.columns(3)
-        if col_md.download_button(
-            t("download_report"),
-            data=md.encode("utf-8"),
-            file_name=f"report_{run_id}.md",
-            mime="text/markdown",
-            use_container_width=True,
-            help=t("report_download_help"),
-        ):
-            log_event({"event": "export_clicked", "format": "md", "run_id": run_id})
-        if col_html.download_button(
-            "Download report (.html)",
-            data=html.encode("utf-8"),
-            file_name=f"report_{run_id}.html",
-            mime="text/html",
-            use_container_width=True,
-            help="Download report as HTML",
-        ):
-            log_event({"event": "export_clicked", "format": "html", "run_id": run_id})
-        if col_zip.download_button(
-            t("download_bundle"),
-            data=bundle_bytes,
-            file_name=f"artifacts_{run_id}.zip",
-            mime="application/zip",
-            use_container_width=True,
-            help=t("bundle_download_help"),
-        ):
-            log_event(
-                {
-                    "event": "export_clicked",
-                    "format": "zip",
-                    "run_id": run_id,
-                    "count": bundle_count,
-                }
+        if "artifacts" in scopes:
+            col_md, col_html, col_zip = st.columns(3)
+            if col_md.download_button(
+                t("download_report"),
+                data=md.encode("utf-8"),
+                file_name=f"report_{run_id}.md",
+                mime="text/markdown",
+                use_container_width=True,
+                help=t("report_download_help"),
+            ):
+                log_event({"event": "export_clicked", "format": "md", "run_id": run_id})
+            if col_html.download_button(
+                "Download report (.html)",
+                data=html.encode("utf-8"),
+                file_name=f"report_{run_id}.html",
+                mime="text/html",
+                use_container_width=True,
+                help="Download report as HTML",
+            ):
+                log_event({"event": "export_clicked", "format": "html", "run_id": run_id})
+            if col_zip.download_button(
+                t("download_bundle"),
+                data=bundle_bytes,
+                file_name=f"artifacts_{run_id}.zip",
+                mime="application/zip",
+                use_container_width=True,
+                help=t("bundle_download_help"),
+            ):
+                log_event(
+                    {
+                        "event": "export_clicked",
+                        "format": "zip",
+                        "run_id": run_id,
+                        "count": bundle_count,
+                    }
+                )
+
+            st.caption(
+                "Tip: Open the HTML in your browser and use Print \u2192 Save as PDF for a polished PDF."
             )
 
-        st.caption(
-            "Tip: Open the HTML in your browser and use Print \u2192 Save as PDF for a polished PDF."
-        )
-
-        if files:
-            st.subheader(t("artifacts_subheader"))
-            for name, ext in files:
-                path = artifact_path(run_id, name, ext)
-                st.download_button(
-                    f"{name}.{ext}",
-                    data=path.read_bytes(),
-                    file_name=path.name,
-                    use_container_width=True,
-                    key=path.name,
-                    help=t("bundle_download_help"),
-                )
+            if files:
+                st.subheader(t("artifacts_subheader"))
+                for name, ext in files:
+                    path = artifact_path(run_id, name, ext)
+                    st.download_button(
+                        f"{name}.{ext}",
+                        data=path.read_bytes(),
+                        file_name=path.name,
+                        use_container_width=True,
+                        key=path.name,
+                        help=t("bundle_download_help"),
+                    )
+        else:
+            st.info("Downloads disabled for this link.")

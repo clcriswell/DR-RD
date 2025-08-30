@@ -63,11 +63,17 @@ DEFAULT_PREFS: dict[str, Any] = {
         "max_chars_per_doc": 200000,
     },
 
+    "sharing": {
+        "default_ttl_sec": 604800,
+        "default_scopes": ["trace", "reports", "artifacts"],
+        "allow_scopes": ["trace", "reports", "artifacts"],
+    },
+
 
 
 }
 
-_ALLOWED_SECTIONS = {"defaults", "ui", "privacy", "notifications", "storage", "retrieval", "version"}
+_ALLOWED_SECTIONS = {"defaults", "ui", "privacy", "notifications", "storage", "retrieval", "sharing", "version"}
 
 
 def _validate(raw: Mapping[str, Any] | None) -> dict:
@@ -131,7 +137,7 @@ def _validate(raw: Mapping[str, Any] | None) -> dict:
         for k, v in np["events"].items():
             events[k] = bool(raw_ev.get(k, v))
         np["events"] = events
-    for section in ("defaults", "ui", "privacy", "retrieval"):
+    for section in ("defaults", "ui", "privacy", "retrieval", "sharing"):
         raw_section = raw.get(section)
         if not isinstance(raw_section, Mapping):
             continue
@@ -139,6 +145,17 @@ def _validate(raw: Mapping[str, Any] | None) -> dict:
             if key not in prefs[section]:
                 continue
             _coerce(section, key, value)
+        if section == "sharing":
+            allowed = set(DEFAULT_PREFS["sharing"]["allow_scopes"])
+            scopes = [s for s in prefs["sharing"]["allow_scopes"] if s in allowed]
+            prefs["sharing"]["allow_scopes"] = scopes
+            def_scopes = [s for s in prefs["sharing"]["default_scopes"] if s in scopes]
+            prefs["sharing"]["default_scopes"] = def_scopes
+            try:
+                ttl = int(prefs["sharing"]["default_ttl_sec"])
+            except Exception:
+                ttl = DEFAULT_PREFS["sharing"]["default_ttl_sec"]
+            prefs["sharing"]["default_ttl_sec"] = max(60, ttl)
 
     # Clamp safety threshold
     thr = prefs["privacy"].get("safety_high_threshold", 0.8)
