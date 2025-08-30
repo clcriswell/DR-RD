@@ -1,13 +1,15 @@
 """Settings page."""
-import json
-import copy
-from typing import Any
-import streamlit as st
-from utils.i18n import get_locale, set_locale, tr as t
 
+import copy
+import json
+
+import streamlit as st
+
+from app.ui.command_palette import open_palette
+from utils.i18n import get_locale, set_locale
+from utils.i18n import tr as t
 from utils.prefs import DEFAULT_PREFS, load_prefs, save_prefs
 from utils.telemetry import log_event
-from app.ui.command_palette import open_palette
 
 # quick open via button
 if st.button(
@@ -80,6 +82,7 @@ def _flatten(d: dict, prefix: str = "", out: dict | None = None) -> dict:
             out[path] = v
     return out
 
+
 # Defaults for new runs
 st.subheader("Defaults for new runs")
 mode = st.selectbox(
@@ -92,7 +95,7 @@ max_tokens = st.number_input(
     t("max_tokens_label"),
     min_value=0,
     step=100,
-    value=prefs["defaults"].get("max_tokens", 0),
+    value=prefs["defaults"].get("max_tokens") or 0,
     help=t("max_tokens_help"),
 )
 budget_limit = st.number_input(
@@ -146,7 +149,7 @@ updated = {
     "version": DEFAULT_PREFS["version"],
     "defaults": {
         "mode": mode,
-        "max_tokens": int(max_tokens),
+        "max_tokens": int(max_tokens) if max_tokens is not None else None,
         "budget_limit_usd": float(budget_limit) if budget_limit else None,
         "knowledge_sources": knowledge_sources,
     },
@@ -173,7 +176,13 @@ if st.button(t("save_prefs_label"), type="primary", help=t("save_prefs_help")):
 
 if st.button(t("restore_defaults_label"), help=t("restore_defaults_help")):
     save_prefs(DEFAULT_PREFS)
-    log_event({"event": "settings_changed", "keys_changed": list(_flatten(original).keys()), "version": DEFAULT_PREFS["version"]})
+    log_event(
+        {
+            "event": "settings_changed",
+            "keys_changed": list(_flatten(original).keys()),
+            "version": DEFAULT_PREFS["version"],
+        }
+    )
     st.success(t("prefs_restored_msg"))
     prefs = load_prefs()
 
