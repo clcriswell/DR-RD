@@ -199,6 +199,11 @@ def generate_plan(
     )
 
     try:
+        st.session_state["_last_prompt"] = (system_prompt + "\n" + user_prompt)[:4000]
+    except Exception:
+        pass
+
+    try:
         return _call()
     except Exception as e:
         _check()
@@ -323,6 +328,7 @@ def execute_plan(
     role_to_findings: Dict[str, dict] = {}
     evidence = EvidenceSet(project_id=project_id) if save_evidence else None
     collector = AgentTraceCollector(project_id=project_id)
+    prompt_previews: list[str] = []
     try:
         st.session_state.setdefault("routing_report", [])
         st.session_state.setdefault("live_status", {})
@@ -378,6 +384,8 @@ def execute_plan(
             if agent is None:
                 agent = AgentCls(model)
                 agents[role] = agent
+            preview = f"{routed.get('title', '')}: {routed.get('description', '')}"
+            prompt_previews.append(preview[:4000])
             collector.append_event(handle, "call", {"attempt": 1})
             try:
                 out = _invoke_agent(agent, idea, routed, model=model)
@@ -680,6 +688,11 @@ def execute_plan(
                 f"Consumer: {i.consumer}\n\nContract:\n{i.contract}\n"
             )
 
+    try:
+        st.session_state["_last_prompt"] = "\n\n".join(prompt_previews)[:4000]
+    except Exception:
+        pass
+
     trace_data = collector.as_dicts()
     try:
         st.session_state["agent_trace"] = trace_data
@@ -721,6 +734,10 @@ def compose_final_proposal(
     system_prompt = st.session_state.get("prompt_texts", {}).get(
         "synthesizer", "You are an expert R&D writer."
     )
+    try:
+        st.session_state["_last_prompt"] = (system_prompt + "\n" + prompt)[:4000]
+    except Exception:
+        pass
     with with_deadline(deadline):
         result = complete(system_prompt, prompt)
     _check()
@@ -951,7 +968,12 @@ def run_stream(
                     safety_flagged_step(run_id, "planner", [f.category for f in res.findings])
                 trace_writer.append_step(
                     run_id,
-                    {"phase": "planner", "summary": tasks, **({"safety": asdict(res)} if res.findings else {})},
+                    {
+                        "phase": "planner",
+                        "summary": tasks,
+                        "prompt_preview": st.session_state.pop("_last_prompt", None),
+                        **({"safety": asdict(res)} if res.findings else {}),
+                    },
                 )
                 yield Event("summary", phase="planner", text=text)
                 yield Event("step_end", phase="planner", step_id="planner", meta=meta)
@@ -995,7 +1017,12 @@ def run_stream(
                     safety_flagged_step(run_id, "executor", [f.category for f in res.findings])
                 trace_writer.append_step(
                     run_id,
-                    {"phase": "executor", "summary": answers, **({"safety": asdict(res)} if res.findings else {})},
+                    {
+                        "phase": "executor",
+                        "summary": answers,
+                        "prompt_preview": st.session_state.pop("_last_prompt", None),
+                        **({"safety": asdict(res)} if res.findings else {}),
+                    },
                 )
                 yield Event("summary", phase="executor", text=text)
                 yield Event("step_end", phase="executor", step_id="executor", meta=meta)
@@ -1034,7 +1061,12 @@ def run_stream(
                     safety_flagged_step(run_id, "synth", [f.category for f in res.findings])
                 trace_writer.append_step(
                     run_id,
-                    {"phase": "synth", "summary": final, **({"safety": asdict(res)} if res.findings else {})},
+                    {
+                        "phase": "synth",
+                        "summary": final,
+                        "prompt_preview": st.session_state.pop("_last_prompt", None),
+                        **({"safety": asdict(res)} if res.findings else {}),
+                    },
                 )
                 yield Event("summary", phase="synth", text=final)
                 yield Event("step_end", phase="synth", step_id="synth", meta=meta)

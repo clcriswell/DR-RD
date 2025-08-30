@@ -52,7 +52,9 @@ log_event("start_run", run_id)
 Runs can be downloaded as self contained Jupyter notebooks from the
 Reports page. The notebook captures the run configuration, prompts,
 summaries and citations. Large binary artifacts are referenced by key
-rather than embedded. All free text is redacted for safe sharing.
+rather than embedded. All free text is redacted for safe sharing and the
+resulting `.ipynb` can be opened locally in any Jupyter viewer without
+network access.
 
 ## Wireframes
 ### Main Page
