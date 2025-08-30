@@ -1,11 +1,10 @@
 import streamlit as st
 
 from app.agent_trace_ui import (
-    render_agent_trace,
     render_live_status,
     render_role_summaries,
-    render_exports,
 )
+from app.ui.trace_viewer import render_trace
 
 
 def test_agent_trace_ui_smoke(tmp_path):
@@ -24,25 +23,19 @@ def test_agent_trace_ui_smoke(tmp_path):
     }
     trace = [
         {
-            "project_id": "p",
-            "task_id": "T01",
-            "step_no": 1,
-            "role": "CTO",
-            "title": "Test",
-            "model": "gpt",
-            "tokens_in": 1,
-            "tokens_out": 2,
-            "cost_usd": 0.1,
-            "quotes": [],
-            "citations": [],
-            "finding": "done",
-            "raw_json": {},
-            "events": [],
-            "ts_start": "",
-            "ts_end": "",
+            "phase": "planner",
+            "name": "Plan",
+            "status": "complete",
+            "started_at": 0,
+            "ended_at": 1,
+            "duration_ms": 1000,
+            "tokens": 1,
+            "cost": 0.1,
+            "summary": "done",
+            "raw": {},
+            "step_id": "s1",
         }
     ]
     render_live_status(live_status)
-    render_agent_trace(trace, {})
+    render_trace(trace, run_id="proj")
     render_role_summaries({"CTO": "output"})
-    render_exports("proj", trace)

@@ -1,21 +1,64 @@
-from core import trace_export
+import json
+
+from utils.trace_export import to_json, to_csv, to_markdown
 
 
-def sample_events():
-    return [
-        {"id": "1", "name": "root", "parent_id": None, "t_start": 0, "t_end": 1, "duration_ms": 1000},
-        {"id": "2", "name": "child", "parent_id": "1", "t_start": 0.1, "t_end": 0.2, "duration_ms": 100},
-    ]
+TRACE = [
+    {
+        "phase": "planner",
+        "name": "Plan",
+        "status": "complete",
+        "started_at": 0,
+        "ended_at": 1,
+        "duration_ms": 1000,
+        "tokens": 10,
+        "cost": 0.1,
+        "summary": "planning",
+        "raw": {},
+        "step_id": "s1",
+    },
+    {
+        "phase": "executor",
+        "name": "Exec",
+        "status": "error",
+        "started_at": 1,
+        "ended_at": 2,
+        "duration_ms": 1000,
+        "tokens": 20,
+        "cost": 0.2,
+        "summary": "failed",
+        "raw": {"error": "boom"},
+        "step_id": "s2",
+    },
+    {
+        "phase": "synth",
+        "name": "Synth",
+        "status": "complete",
+        "started_at": 2,
+        "ended_at": 3,
+        "duration_ms": 1000,
+        "tokens": 30,
+        "cost": 0.3,
+        "summary": "done",
+        "raw": {},
+        "step_id": "s3",
+    },
+]
 
 
-def test_to_tree():
-    tree = trace_export.to_tree(sample_events())
-    assert tree["children"][0]["children"][0]["name"] == "child"
+def test_to_json_contains_ids():
+    data = json.loads(to_json(TRACE).decode("utf-8"))
+    assert {s["step_id"] for s in data} == {"s1", "s2", "s3"}
 
 
-def test_speedscope_and_chrome():
-    events = sample_events()
-    ss = trace_export.to_speedscope(events)
-    assert ss["profiles"][0]["events"]
-    ct = trace_export.to_chrometrace(events)
-    assert any(e["ph"] == "X" for e in ct)
+def test_to_csv_has_rows():
+    csv_bytes = to_csv(TRACE, run_id="r1")
+    lines = csv_bytes.decode("utf-8").strip().splitlines()
+    assert lines[0].startswith("run_id,phase")
+    assert len(lines) == 4  # header + 3 rows
+
+
+def test_to_markdown_structure():
+    md = to_markdown(TRACE, run_id="r1").decode("utf-8")
+    assert "## Planner" in md
+    assert "Step 1/" in md
