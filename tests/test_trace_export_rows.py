@@ -20,6 +20,8 @@ def test_flatten_trace_rows():
     assert rows[1]["status"] == "error"
     assert set(rows[0].keys()) == {
         "i",
+        "id",
+        "parents",
         "phase",
         "name",
         "status",
@@ -27,4 +29,6 @@ def test_flatten_trace_rows():
         "tokens",
         "cost",
         "summary",
+        "prompt",
+        "citations",
     }
