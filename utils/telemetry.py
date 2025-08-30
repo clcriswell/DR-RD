@@ -201,6 +201,28 @@ def exp_exposed(user_id_hash: str, exp_id: str, variant: str, run_id: str | None
     log_event(ev)
 
 
+def share_link_created(run_id: str, scopes: list[str], ttl_sec: int) -> None:
+    log_event({"event": "share_link_created", "run_id": run_id, "scopes": scopes, "ttl_sec": int(ttl_sec)})
+
+
+def share_link_accessed(run_id: str | None, scopes: list[str]) -> None:
+    ev = {"event": "share_link_accessed", "scopes": scopes}
+    if run_id:
+        ev["run_id"] = run_id
+    log_event(ev)
+
+
+def share_link_invalid(reason: str) -> None:
+    log_event({"event": "share_link_invalid", "reason": reason})
+
+
+def share_link_expired(run_id: str | None = None) -> None:
+    ev = {"event": "share_link_expired"}
+    if run_id:
+        ev["run_id"] = run_id
+    log_event(ev)
+
+
 def exp_overridden(exp_id: str, variant: str) -> None:
     log_event({"event": "exp_overridden", "exp_id": exp_id, "variant": variant})
 

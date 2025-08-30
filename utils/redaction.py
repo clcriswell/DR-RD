@@ -85,3 +85,9 @@ def load_policy(path_or_dict: Any) -> dict[str, Any]:
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     return data
+
+
+def redact_public(s: str) -> str:
+    """Redact sensitive data for public sharing and clamp long strings."""
+    s = redact_text(s)
+    return s[:5000]

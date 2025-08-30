@@ -8,6 +8,10 @@ from urllib.parse import urlencode
 
 import streamlit as st
 
+from utils.share_links import viewer_from_query
+from utils.redaction import redact_public
+from utils.telemetry import log_event
+
 from app.ui import empty_states
 from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
@@ -20,11 +24,21 @@ from utils.query_params import encode_config
 from utils.run_config import RunConfig, to_orchestrator_kwargs
 from utils.runs import last_run_id, list_runs
 from utils.session_store import init_stores
-from utils.telemetry import log_event
 
 inject()
 main_start()
 aria_live_region()
+
+viewer_mode, vinfo = viewer_from_query(dict(st.query_params))
+if viewer_mode:
+    log_event({"event": "share_link_accessed", "run_id": vinfo.get("rid"), "scopes": vinfo.get("scopes", [])})
+    st.info("View only link. Some controls are disabled.")
+elif "error" in vinfo:
+    if vinfo["error"] == "exp":
+        log_event({"event": "share_link_expired"})
+    else:
+        log_event({"event": "share_link_invalid", "reason": vinfo["error"]})
+    st.warning("Invalid or expired share link.")
 
 # quick open via button
 if st.button(
@@ -69,6 +83,7 @@ runs = list_runs(limit=100)
 run_id = params.get("run_id") or last_run_id()
 if params.get("view") != "trace":
     st.query_params["view"] = "trace"
+scopes = vinfo.get("scopes", [])
 
 st.title(t("trace_title"))
 st.caption(t("trace_caption"))
@@ -101,47 +116,56 @@ if runs:
         trace = json.loads(trace_path.read_text(encoding="utf-8"))
     else:
         trace = []
-    if not trace:
+    if viewer_mode:
+        for step in trace:
+            if isinstance(step, dict):
+                for key in ("output", "error", "summary"):
+                    if isinstance(step.get(key), str):
+                        step[key] = redact_public(step[key])
+    if viewer_mode and "trace" not in scopes:
+        st.warning("Trace view not allowed.")
+    elif not trace:
         empty_states.trace_empty()
     else:
-        if meta.get("status") == "resumable":
+        if meta.get("status") == "resumable" and not viewer_mode:
             st.info("This run can be resumed.")
             if st.button("Resume run", use_container_width=True):
                 st.query_params.update({"resume_from": run_id, "view": "run"})
                 st.switch_page("app.py")
-        include_adv = st.checkbox(
-            t("include_adv_label"), key="trace_share_adv", help=t("include_adv_help")
-        )
-        if st.button(t("share_link_label"), key="trace_share", help=t("share_link_help")):
-            cfg_dict = to_orchestrator_kwargs(RunConfig(**run_store.as_dict()))
-            if not include_adv:
-                cfg_dict.pop("advanced", None)
-            qp = encode_config(cfg_dict)
-            qp.update({"view": "trace", "run_id": run_id})
-            if tv := st.query_params.get("trace_view"):
-                qp["trace_view"] = tv
-            if q := st.query_params.get("q"):
-                qp["q"] = q
-            url = "./?" + urlencode(qp)
-            st.text_input(t("share_link_url_label"), value=url, help=t("share_link_help"))
-            log_event(
-                {
-                    "event": "link_shared",
-                    "where": "trace",
-                    "included_adv": bool(include_adv),
-                }
+        if not viewer_mode:
+            include_adv = st.checkbox(
+                t("include_adv_label"), key="trace_share_adv", help=t("include_adv_help")
             )
-        if st.button("Reproduce run", use_container_width=True):
-            try:
-                locked = run_reproduce.load_run_inputs(run_id)
-                kwargs = run_reproduce.to_orchestrator_kwargs(locked)
-                st.query_params.update(
-                    encode_config(kwargs) | {"view": "run", "origin_run_id": run_id}
+            if st.button(t("share_link_label"), key="trace_share", help=t("share_link_help")):
+                cfg_dict = to_orchestrator_kwargs(RunConfig(**run_store.as_dict()))
+                if not include_adv:
+                    cfg_dict.pop("advanced", None)
+                qp = encode_config(cfg_dict)
+                qp.update({"view": "trace", "run_id": run_id})
+                if tv := st.query_params.get("trace_view"):
+                    qp["trace_view"] = tv
+                if q := st.query_params.get("q"):
+                    qp["q"] = q
+                url = "./?" + urlencode(qp)
+                st.text_input(t("share_link_url_label"), value=url, help=t("share_link_help"))
+                log_event(
+                    {
+                        "event": "link_shared",
+                        "where": "trace",
+                        "included_adv": bool(include_adv),
+                    }
                 )
-                st.toast("Prefilled from saved config. Review and start the run.")
-                log_event({"event": "reproduce_prep", "run_id": run_id})
-            except FileNotFoundError:
-                st.toast("Missing run lockfile", icon="⚠️")
+            if st.button("Reproduce run", use_container_width=True):
+                try:
+                    locked = run_reproduce.load_run_inputs(run_id)
+                    kwargs = run_reproduce.to_orchestrator_kwargs(locked)
+                    st.query_params.update(
+                        encode_config(kwargs) | {"view": "run", "origin_run_id": run_id}
+                    )
+                    st.toast("Prefilled from saved config. Review and start the run.")
+                    log_event({"event": "reproduce_prep", "run_id": run_id})
+                except FileNotFoundError:
+                    st.toast("Missing run lockfile", icon="⚠️")
         if is_enabled("trace_viewer_v2", params=params):
             render_trace(
                 trace,
