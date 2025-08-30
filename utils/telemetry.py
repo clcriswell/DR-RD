@@ -435,6 +435,16 @@ def history_export_clicked(count: int) -> None:
     log_event({"event": "history_export_clicked", "count": count})
 
 
+def graph_view_opened(run_id: str) -> None:
+    """Emit a graph_view_opened telemetry event."""
+    log_event({"event": "graph_view_opened", "run_id": run_id})
+
+
+def graph_export_clicked(run_id: str, fmt: str) -> None:
+    """Emit a graph_export_clicked telemetry event."""
+    log_event({"event": "graph_export_clicked", "run_id": run_id, "format": fmt})
+
+
 def run_annotated(
     run_id: str, title_len: int, tags_count: int, note_len: int, favorite: bool
 ) -> None:
@@ -542,6 +552,8 @@ __all__ = [
     "retrieval_used",
     "history_filter_changed",
     "history_export_clicked",
+    "graph_view_opened",
+    "graph_export_clicked",
     "run_annotated",
     "run_favorited",
     "eval_started",
