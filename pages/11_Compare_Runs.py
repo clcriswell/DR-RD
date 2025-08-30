@@ -6,8 +6,7 @@ import streamlit as st
 
 from utils import compare
 from utils.runs import run_options
-from utils.telemetry import compare_opened, compare_export_clicked
-
+from utils.telemetry import compare_export_clicked, compare_opened
 
 st.set_page_config(page_title="Compare Runs")
 
@@ -17,9 +16,18 @@ run_a = qp.get("run_a") or (opts[0] if opts else None)
 run_b = qp.get("run_b") or (opts[1] if len(opts) > 1 else None)
 
 col_a, col_b = st.columns(2)
-sel_a = col_a.selectbox("Run A", opts, index=opts.index(run_a) if run_a in opts else 0, format_func=lambda x: labels.get(x, x))
-sel_b = col_b.selectbox("Run B", opts, index=opts.index(run_b) if run_b in opts else 0, format_func=lambda x: labels.get(x, x))
-if sel_a != run_a or sel_b != run_b:
+sel_a = col_a.selectbox(
+    "Run A",
+    opts,
+    index=opts.index(run_a) if run_a in opts else 0,
+    format_func=lambda x: labels.get(x, x),
+)
+sel_b = col_b.selectbox(
+    "Run B",
+    opts,
+    index=opts.index(run_b) if run_b in opts else 0,
+    format_func=lambda x: labels.get(x, x),
+)if sel_a != run_a or sel_b != run_b:
     qp["run_a"] = sel_a
     qp["run_b"] = sel_b
     st.rerun()
