@@ -1,16 +1,23 @@
 """Firestore-backed result cache for DR-RD."""
+
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from google.cloud import firestore
-from google.oauth2 import service_account
 import streamlit as st
 
-_client: Optional[firestore.Client] = None
+from utils.lazy_import import lazy
+
+if TYPE_CHECKING:  # pragma: no cover
+    from google.cloud import firestore  # type: ignore
+
+_firestore = lazy("google.cloud.firestore")
+_service_account = lazy("google.oauth2.service_account")
+
+_client: firestore.Client | None = None
 
 
-def _get_client() -> Optional[firestore.Client]:
+def _get_client() -> firestore.Client | None:
     """Return a Firestore client, creating it if needed.
     If the client cannot be created (e.g. credentials missing), ``None`` is returned.
     """
@@ -18,17 +25,17 @@ def _get_client() -> Optional[firestore.Client]:
     if _client is None:
         try:
             info = st.secrets["gcp_service_account"]
-            credentials = service_account.Credentials.from_service_account_info(info)
-            _client = firestore.Client(credentials=credentials)
+            credentials = _service_account.Credentials.from_service_account_info(info)
+            _client = _firestore.Client(credentials=credentials)
         except Exception:
             try:
-                _client = firestore.Client()
+                _client = _firestore.Client()
             except Exception:
                 _client = None
     return _client
 
 
-def get_result(hash: str) -> Optional[str]:
+def get_result(hash: str) -> str | None:
     """Retrieve cached result for ``hash`` or ``None`` if not found."""
     client = _get_client()
     if client is None:

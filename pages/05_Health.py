@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import os
 
-import pandas as pd
 import streamlit as st
 
-from utils import health_check
-from utils.telemetry import log_event
-from utils.i18n import tr as t
 from app.ui.command_palette import open_palette
+from utils import health_check
+from utils.i18n import tr as t
+from utils.lazy_import import local_import
+from utils.telemetry import log_event
 
 # quick open via button
 if st.button(
@@ -55,6 +55,7 @@ if st.button("Run diagnostics"):
     cols[0].metric("pass", report.summary.get("pass", 0))
     cols[1].metric("warn", report.summary.get("warn", 0))
     cols[2].metric("fail", report.summary.get("fail", 0))
+    pd = local_import("pandas")
     df = pd.DataFrame([{"id": c.id, "name": c.name, "status": c.status} for c in report.checks])
     st.dataframe(df, use_container_width=True)
     for c in report.checks:

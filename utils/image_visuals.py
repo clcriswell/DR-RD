@@ -1,20 +1,20 @@
 """Utilities for generating and storing project visuals."""
 
 import base64
-import os
 import time
 from io import BytesIO
 
 import streamlit as st
-from openai import OpenAI
 from PIL import Image
 
 from config.feature_flags import ENABLE_IMAGES
+from utils.lazy_import import local_import
+
 from .storage_gcs import upload_bytes_to_gcs
 
 
 def _openai():
-    return OpenAI()
+    return local_import("openai").OpenAI()
 
 
 SCHEMATIC_PROMPT = (
@@ -33,9 +33,7 @@ def _decode_to_bytes(b64: str) -> bytes:
     return base64.b64decode(b64)
 
 
-def _gen_image(
-    prompt: str, fmt: str = "png", size: str = "256x256", quality: str = "high"
-):
+def _gen_image(prompt: str, fmt: str = "png", size: str = "256x256", quality: str = "high"):
     client = _openai()
     res = client.images.generate(
         model="gpt-image-1",

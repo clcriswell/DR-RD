@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import pandas as pd
 import streamlit as st
 
 from app.ui.command_palette import open_palette
 from utils import run_notes, runs_index
 from utils.i18n import tr as t
+from utils.lazy_import import local_import
 from utils.telemetry import (
     history_export_clicked,
     history_filter_changed,
@@ -114,6 +114,7 @@ rows = runs_index.search(
 )
 
 if rows:
+    pd = local_import("pandas")
     df = pd.DataFrame(
         [
             {
