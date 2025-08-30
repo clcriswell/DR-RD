@@ -13,9 +13,6 @@ from utils.telemetry import log_event
 def render_sidebar() -> RunConfig:
     """Render the sidebar and return the current :class:`RunConfig`."""
 
-    if not st.session_state.get("_run_config_seeded"):
-        to_session(defaults())
-        st.session_state["_run_config_seeded"] = True
     if not st.session_state.get("_sidebar_tip_shown"):
         st.sidebar.caption("Settings apply to the next run.")
         st.session_state["_sidebar_tip_shown"] = True

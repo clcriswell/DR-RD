@@ -42,6 +42,7 @@ def render_trace(
     run_id: str | None = None,
     *,
     default_view: str = "summary",
+    default_query: str = "",
     page_size: int = 25,
 ) -> None:
     steps = [_normalize_step(s) for s in trace]
@@ -62,7 +63,9 @@ def render_trace(
     view_index = view_opts.index(default_view.capitalize()) if default_view.capitalize() in view_opts else 0
     view = st.radio("View", view_opts, index=view_index, horizontal=True)
 
-    query = st.text_input("Filter steps", placeholder="Search in name or text…")
+    query = st.text_input(
+        "Filter steps", value=default_query, placeholder="Search in name or text…"
+    )
     phase_names = ["All"] + [PHASE_LABELS[p] for p in PHASE_LABELS]
     jump = st.radio("Jump to", phase_names, horizontal=True, index=0)
 
@@ -79,6 +82,14 @@ def render_trace(
             }
         )
         st.session_state[state_key] = state_val
+        if st.query_params.get("trace_view") != view.lower():
+            st.query_params["trace_view"] = view.lower()
+        prev_q = st.query_params.get("q", "")
+        if query.strip():
+            if query != prev_q:
+                st.query_params["q"] = query[:100]
+        elif prev_q:
+            del st.query_params["q"]
 
     expand_key = "_trace_expand"
     expand_state = st.session_state.get(expand_key) or {p: True for p in PHASE_LABELS}

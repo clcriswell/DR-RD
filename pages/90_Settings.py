@@ -5,6 +5,8 @@ from utils.run_config import defaults
 from utils.telemetry import log_event
 from app import load_ui_config, save_ui_config
 
+if st.query_params.get("view") != "settings":
+    st.query_params["view"] = "settings"
 log_event({"event": "nav_page_view", "page": "settings"})
 
 st.title("Settings")
