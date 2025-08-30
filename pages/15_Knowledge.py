@@ -3,15 +3,15 @@
 import streamlit as st
 
 from app.ui import knowledge as ui
-from utils import knowledge_store, uploads
+from app.ui.command_palette import open_palette
+from utils import knowledge_store, upload_scan, uploads
+from utils.i18n import tr as t
 from utils.telemetry import (
     knowledge_added,
     knowledge_removed,
     knowledge_tags_updated,
     log_event,
 )
-from utils.i18n import tr as t
-from app.ui.command_palette import open_palette
 
 st.title(t("knowledge_title"))
 st.caption("Select sources in Sidebar → Knowledge.")
@@ -69,7 +69,22 @@ if st.button("Add files"):
         dest.parent.mkdir(parents=True, exist_ok=True)
         with dest.open("wb") as out:
             out.write(f.getbuffer())
-        item = knowledge_store.add_item(f.name, dest, tags=tag_list, kind="upload")
+        if not upload_scan.allowed(dest):
+            st.warning(f"Unsupported file type or size: {f.name}")
+            dest.unlink(missing_ok=True)
+            continue
+        pii_flag = False
+        typ = upload_scan.sniff_type(dest)
+        if typ in {"text/plain", "text/markdown", "application/json", "text/csv"}:
+            try:
+                with dest.open("r", encoding="utf-8", errors="ignore") as fh:
+                    head = fh.read(200_000)
+                pii_flag = upload_scan.detect_pii(head)
+            except Exception:
+                pii_flag = False
+        item = knowledge_store.add_item(
+            f.name, dest, tags=tag_list, kind="upload", pii_flag=pii_flag
+        )
         knowledge_added(item["id"], item["name"], item["type"], item["size"])
         st.toast(f"Uploaded {f.name}")
 

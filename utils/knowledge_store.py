@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import secrets
 import time
 from pathlib import Path
-from typing import Iterable, Mapping, Optional
+from typing import Iterable, Mapping
 
 ROOT = Path(".dr_rd/knowledge")
 UPLOADS = ROOT / "uploads"
@@ -41,7 +42,7 @@ def _write_meta(data: Mapping[str, dict]) -> None:
                 pass
 
 
-def list_items(tags: Optional[Iterable[str]] = None) -> list[dict]:
+def list_items(tags: Iterable[str] | None = None) -> list[dict]:
     """Return a sorted list of item dicts."""
     meta = _read_meta()
     items = list(meta.values())
@@ -52,7 +53,7 @@ def list_items(tags: Optional[Iterable[str]] = None) -> list[dict]:
     return items
 
 
-def get_item(item_id: str) -> Optional[dict]:
+def get_item(item_id: str) -> dict | None:
     return _read_meta().get(item_id)
 
 
@@ -63,7 +64,9 @@ def _ensure_inside_uploads(path: Path) -> None:
         raise ValueError("path outside uploads") from exc
 
 
-def add_item(name: str, path: Path, *, tags: list[str] | None, kind: str) -> dict:
+def add_item(
+    name: str, path: Path, *, tags: list[str] | None, kind: str, pii_flag: bool = False
+) -> dict:
     """Register an item already copied into uploads and return its metadata."""
     init_store()
     _ensure_inside_uploads(path)
@@ -71,6 +74,8 @@ def add_item(name: str, path: Path, *, tags: list[str] | None, kind: str) -> dic
     item_id = f"kn_{int(time.time())}_{secrets.token_hex(4)}"
     size = path.stat().st_size
     type_ = path.suffix.lstrip(".").upper()
+    with path.open("rb") as fh:
+        sha256 = hashlib.sha256(fh.read()).hexdigest()
     item = {
         "id": item_id,
         "name": name,
@@ -80,6 +85,8 @@ def add_item(name: str, path: Path, *, tags: list[str] | None, kind: str) -> dic
         "created_at": time.time(),
         "path": str(path),
         "kind": kind,
+        "sha256": sha256,
+        "pii_flag": bool(pii_flag),
     }
     meta[item_id] = item
     _write_meta(meta)

@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from typing import Any, Optional
 import json
-import os
-import re
 import traceback
 import uuid
+from dataclasses import asdict, dataclass
+from typing import Any
 
-
-HOME = re.escape(os.path.expanduser("~"))
+from .redaction import redact_text
 
 
 @dataclass(frozen=True)
@@ -17,7 +14,7 @@ class SafeError:
     kind: str
     user_message: str
     tech_message: str
-    traceback: Optional[str]
+    traceback: str | None
     support_id: str
     context: dict[str, Any]
 
@@ -44,22 +41,7 @@ def classify(exc: Exception) -> str:
     return "unknown"
 
 
-_RE_PATTERNS = [
-    (r"sk-[A-Za-z0-9]{16,}", "[REDACTED]"),
-    (r"Bearer\s+[A-Za-z0-9._-]+", "Bearer [REDACTED]"),
-    (r"[A-Za-z0-9_.+-]+@[A-Za-z0-9-]+\.[A-Za-z0-9-.]+", "[REDACTED_EMAIL]"),
-    (HOME + r"[\w/._-]*", "[REDACTED_PATH]"),
-    (r"api_key\s*[:=]\s*[^\s]+", "api_key=[REDACTED]"),
-]
-
-
-def redact(text: str) -> str:
-    if not text:
-        return text
-    result = text
-    for pattern, repl in _RE_PATTERNS:
-        result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
-    return result
+MAX_CHARS = 2000
 
 
 def make_safe_error(
@@ -70,9 +52,9 @@ def make_safe_error(
     step_id: str | None,
 ) -> SafeError:
     kind = classify(exc)
-    tech_message = redact(str(exc).strip().replace("\n", " "))
+    tech_message = redact_text(str(exc).strip().replace("\n", " "))[:MAX_CHARS]
     tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-    tb = redact(tb)
+    tb = redact_text(tb)[:MAX_CHARS]
     support_id = uuid.uuid4().hex[:8]
     context: dict[str, Any] = {}
     if run_id:
@@ -93,4 +75,3 @@ def make_safe_error(
 
 def as_json(safe: SafeError) -> bytes:
     return json.dumps(asdict(safe), ensure_ascii=False).encode("utf-8")
-
