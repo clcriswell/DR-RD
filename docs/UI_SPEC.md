@@ -48,6 +48,12 @@ log_event("start_run", run_id)
 ### P2
 - **Polish and follow ups**: keyboard shortcuts, animations, copy tweaks. *Effort: ongoing.*
 
+### Notebook Export
+Runs can be downloaded as self contained Jupyter notebooks from the
+Reports page. The notebook captures the run configuration, prompts,
+summaries and citations. Large binary artifacts are referenced by key
+rather than embedded. All free text is redacted for safe sharing.
+
 ## Wireframes
 ### Main Page
 ```mermaid

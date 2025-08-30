@@ -45,6 +45,8 @@ _SCHEMAS: Dict[str, List[str]] = {
     "prompt_bump": ["id", "from", "to"],
     "prompt_saved": ["id", "version"],
     "prompt_edited": ["id", "version"],
+    "compare_opened": ["run_a", "run_b"],
+    "compare_export_clicked": ["run_a", "run_b", "format"],
 }
 
 # Keys that should never be persisted. This is a simple heuristic to strip

@@ -25,6 +25,7 @@ from utils.query_params import encode_config
 from utils.report_html import build_html_report
 from utils.runs import last_run_id, load_run_meta
 from utils.trace_export import flatten_trace_rows
+from utils.notebook_export import build_notebook
 
 inject()
 main_start()
@@ -117,6 +118,8 @@ else:
             st.switch_page("app.py")
     trace_path = artifact_path(run_id, "trace", "json")
     trace = json.loads(trace_path.read_text(encoding="utf-8")) if trace_path.exists() else []
+    lock_path = artifact_path(run_id, "run_config.lock", "json")
+    lock = json.loads(lock_path.read_text(encoding="utf-8")) if lock_path.exists() else {}
     summary_path = artifact_path(run_id, "synth", "md")
     summary_text = summary_path.read_text(encoding="utf-8") if summary_path.exists() else None
     if viewer_mode and summary_text:
@@ -186,6 +189,7 @@ else:
     files = _list_existing(run_id)
     artifacts = [(f"{n}.{e}", f"{n}.{e}") for n, e in files]
     html = build_html_report(run_id, meta, rows, summary_text, totals, artifacts)
+    ipynb_bytes = build_notebook(run_id, meta, lock, rows, artifacts)
     if not files and not summary_text:
         empty_states.reports_empty()
     else:
@@ -200,7 +204,7 @@ else:
             bundle_count = len(zf.namelist())
 
         if "artifacts" in scopes:
-            col_md, col_html, col_zip = st.columns(3)
+            col_md, col_html, col_ipynb, col_zip = st.columns(4)
             if col_md.download_button(
                 t("download_report"),
                 data=md.encode("utf-8"),
@@ -219,6 +223,15 @@ else:
                 help="Download report as HTML",
             ):
                 log_event({"event": "export_clicked", "format": "html", "run_id": run_id})
+            if col_ipynb.download_button(
+                "Download notebook (.ipynb)",
+                data=ipynb_bytes,
+                file_name=f"dr_rd_run_{run_id}.ipynb",
+                mime="application/x-ipynb+json",
+                use_container_width=True,
+                help="Download run as notebook",
+            ):
+                log_event({"event": "export_clicked", "format": "ipynb", "run_id": run_id})
             if col_zip.download_button(
                 t("download_bundle"),
                 data=bundle_bytes,
