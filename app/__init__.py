@@ -289,22 +289,21 @@ def main() -> None:
     if nav_variant == "top_nav":
         st.caption("Top navigation variant")
     cfg = render_sidebar()
+    active_run = st.session_state.get("active_run")
     col_run, col_demo, col_share = st.columns([2, 2, 1])
     with col_run:
         submitted = st.button(
             t("start_run_label"),
             type="primary",
             help=t("start_run_help"),
-            disabled=st.session_state["active_run"] is not None
-            and st.session_state["active_run"].get("status") == "running",
+            disabled=active_run is not None and active_run.get("status") == "running",
         )
     with col_demo:
         demo_submit = st.button(
             "Run demo",
             type="secondary",
             help="Play a recorded run with no cost",
-            disabled=st.session_state["active_run"] is not None
-            and st.session_state["active_run"].get("status") == "running",
+            disabled=active_run is not None and active_run.get("status") == "running",
         )
     with col_share:
         include_adv = st.checkbox(
@@ -314,8 +313,7 @@ def main() -> None:
             t("share_link_label"),
             key="share_link",
             help=t("share_link_help"),
-            disabled=st.session_state["active_run"] is not None
-            and st.session_state["active_run"].get("status") == "running",
+            disabled=active_run is not None and active_run.get("status") == "running",
         ):
             qp = encode_config(to_orchestrator_kwargs(cfg))
             if not include_adv:
@@ -332,9 +330,9 @@ def main() -> None:
     if not (submitted or demo_submit) or not cfg.idea.strip():
         return
 
-    if st.session_state["active_run"] and st.session_state["active_run"].get("status") == "running":
+    if active_run and active_run.get("status") == "running":
         st.warning("Run already in progress")
-        run_start_blocked("already_running", st.session_state["active_run"].get("run_id"))
+        run_start_blocked("already_running", active_run.get("run_id"))
         return
 
     qp_run = st.query_params.get("run_id")
