@@ -50,14 +50,28 @@ def complete_run_meta(run_id: str, *, status: str) -> None:
 
 
 def load_run_meta(run_id: str) -> dict | None:
-    """Load run metadata or return None."""
+    """Load run metadata with usage totals if available."""
     path = artifact_path(run_id, "run", "json")
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        meta = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return None
+        meta = {"run_id": run_id}
+    meta.setdefault("status", "running")
+    totals_path = path.parent / "usage_totals.json"
+    tokens = 0
+    cost = 0.0
+    if totals_path.exists():
+        try:
+            totals = json.loads(totals_path.read_text(encoding="utf-8"))
+            tokens = int(totals.get("tokens") or totals.get("total_tokens") or 0)
+            cost = float(totals.get("cost_usd") or totals.get("cost") or 0.0)
+        except Exception:
+            pass
+    meta.setdefault("tokens", tokens)
+    meta.setdefault("cost_usd", cost)
+    return meta
 
 
 def list_runs(limit: int = 200) -> list[dict]:
