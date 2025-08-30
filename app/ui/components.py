@@ -1,6 +1,8 @@
 import streamlit as st
 from contextlib import contextmanager
 
+from utils.errors import SafeError, as_json
+
 
 class _StatusBox:
     def __init__(self, status_obj):
@@ -41,3 +43,21 @@ def help_once(key: str, text: str) -> None:
     if not st.session_state.get(flag):
         st.caption(text)
         st.session_state[flag] = True
+
+
+def error_banner(err: SafeError):
+    st.error(f"{err.user_message}  \nSupport ID: `{err.support_id}`")
+    with st.expander("Show technical details"):
+        st.code(err.tech_message or "", language=None)
+        if err.traceback:
+            st.code(err.traceback, language=None)
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.download_button(
+            "Download error report (.json)",
+            data=as_json(err),
+            file_name=f"error_{err.support_id}.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+    return True

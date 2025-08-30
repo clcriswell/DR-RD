@@ -32,6 +32,7 @@ import config.feature_flags as ff
 from core.agents.unified_registry import build_agents_unified
 from utils.run_config import to_orchestrator_kwargs
 from utils.telemetry import log_event
+from utils.errors import make_safe_error
 
 WRAP_CSS = """
 pre, code {
@@ -107,9 +108,14 @@ def main() -> None:
     progress = components.step_progress(3)
     progress(0, "Starting run")
 
+    current_phase = "start"
+    current_box = None
+
     try:
         start = time.time()
+        current_phase = "plan"
         with components.stage_status("Planning…") as box:
+            current_box = box
             tasks = generate_plan(kwargs["idea"])
             box.update(label="Planning complete", state="complete")
         log_event({
@@ -121,7 +127,9 @@ def main() -> None:
         progress(1, "Plan ready")
 
         start = time.time()
+        current_phase = "exec"
         with components.stage_status("Executing…") as box:
+            current_box = box
             answers = execute_plan(kwargs["idea"], tasks, agents=get_agents())
             box.update(label="Execution complete", state="complete")
         log_event({
@@ -133,7 +141,9 @@ def main() -> None:
         progress(2, "Execution finished")
 
         start = time.time()
+        current_phase = "synth"
         with components.stage_status("Synthesizing…") as box:
+            current_box = box
             final = compose_final_proposal(kwargs["idea"], answers)
             box.update(label="Synthesis complete", state="complete")
         log_event({
@@ -150,8 +160,33 @@ def main() -> None:
         st.caption("Use the Trace page to inspect step details.")
         survey.maybe_prompt_after_run(run_id)
     except Exception as e:  # pragma: no cover - UI display
-        log_event({"event": "error_shown", "run_id": run_id, "where": "main", "message": str(e)})
-        st.error(str(e))
+        if current_box is not None:
+            current_box.update(label="Error", state="error")
+        err = make_safe_error(
+            e, run_id=run_id, phase=current_phase, step_id=None
+        )
+        log_event(
+            {
+                "event": "error_shown",
+                "support_id": err.support_id,
+                "kind": err.kind,
+                "where": err.context.get("phase"),
+                "run_id": err.context.get("run_id"),
+                "tech": err.tech_message[:200],
+            }
+        )
+        components.error_banner(err)
+        r1, r2 = st.columns([1, 1])
+        with r1:
+            retry = st.button("Retry run", type="primary", use_container_width=True)
+        with r2:
+            open_trace = st.button("Open trace", use_container_width=True)
+        if retry:
+            st.query_params["retry_of"] = err.context.get("run_id") or ""
+            st.rerun()
+        if open_trace:
+            st.query_params["run_id"] = err.context.get("run_id") or ""
+            st.switch_page("pages/10_Trace.py")
 
 
 def generate_pdf(markdown_text):
