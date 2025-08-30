@@ -1,0 +1,7 @@
+{
+  "idea": "Demo: sustainable widget",
+  "mode": "demo",
+  "rag": false,
+  "live": false,
+  "budget": {"plan": 0.2, "exec": 0.5, "synth": 0.3}
+}

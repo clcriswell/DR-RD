@@ -1,0 +1,10 @@
+run_id,phase,step_index,name,status,duration_ms,tokens,cost,summary_80chars
+demo,plan,1,Collect requirements,complete,120,50,0.002,Gathered inputs.
+demo,plan,2,Outline approach,warning,80,40,0.0015,Minor ambiguity noted.
+demo,plan,3,Finalize plan,complete,90,45,0.0018,Plan finalized.
+demo,exec,4,Fetch data,complete,200,100,0.004,Retrieved baseline data.
+demo,exec,5,Analyze widgets,error,150,80,0.003,Failed to parse input.
+demo,exec,6,Fallback analysis,complete,110,60,0.0025,Manual review successful.
+demo,synth,7,Aggregate findings,complete,70,30,0.0012,Summaries combined.
+demo,synth,8,Draft report,complete,130,70,0.0028,Draft completed.
+demo,synth,9,Review report,complete,60,20,0.001,Reviewed for demo.

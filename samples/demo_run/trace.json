@@ -1,0 +1,11 @@
+[
+  {"phase": "plan", "name": "Collect requirements", "status": "complete", "duration_ms": 120, "tokens": 50, "cost": 0.002, "summary": "Gathered inputs."},
+  {"phase": "plan", "name": "Outline approach", "status": "warning", "duration_ms": 80, "tokens": 40, "cost": 0.0015, "summary": "Minor ambiguity noted."},
+  {"phase": "plan", "name": "Finalize plan", "status": "complete", "duration_ms": 90, "tokens": 45, "cost": 0.0018, "summary": "Plan finalized."},
+  {"phase": "exec", "name": "Fetch data", "status": "complete", "duration_ms": 200, "tokens": 100, "cost": 0.004, "summary": "Retrieved baseline data."},
+  {"phase": "exec", "name": "Analyze widgets", "status": "error", "duration_ms": 150, "tokens": 80, "cost": 0.003, "summary": "Failed to parse input."},
+  {"phase": "exec", "name": "Fallback analysis", "status": "complete", "duration_ms": 110, "tokens": 60, "cost": 0.0025, "summary": "Manual review successful."},
+  {"phase": "synth", "name": "Aggregate findings", "status": "complete", "duration_ms": 70, "tokens": 30, "cost": 0.0012, "summary": "Summaries combined."},
+  {"phase": "synth", "name": "Draft report", "status": "complete", "duration_ms": 130, "tokens": 70, "cost": 0.0028, "summary": "Draft completed."},
+  {"phase": "synth", "name": "Review report", "status": "complete", "duration_ms": 60, "tokens": 20, "cost": 0.001, "summary": "Reviewed for demo."}
+]

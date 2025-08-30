@@ -27,6 +27,8 @@ from utils.telemetry import (
     run_cancel_requested,
     run_cancelled,
     timeout_hit,
+    demo_started,
+    demo_completed,
 )
 from utils.usage import Usage
 
@@ -50,7 +52,7 @@ if not st.session_state.get("_onboard_shown", False):
     st.session_state["_onboard_shown"] = True
     log_event({"event": "onboarding_shown"})
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from urllib.parse import urlencode
 
 import config.feature_flags as ff
@@ -148,9 +150,15 @@ def main() -> None:
     )
 
     cfg = render_sidebar()
-    col_run, col_share = st.columns([3, 1])
+    col_run, col_demo, col_share = st.columns([2, 2, 1])
     with col_run:
         submitted = st.button(t("start_run_label"), type="primary", help=t("start_run_help"))
+    with col_demo:
+        demo_submit = st.button(
+            "Run demo",
+            type="secondary",
+            help="Play a recorded run with no cost",
+        )
     with col_share:
         include_adv = st.checkbox(
             t("include_adv_label"), key="share_adv", help=t("include_adv_help")
@@ -168,8 +176,11 @@ def main() -> None:
                     "included_adv": bool(include_adv),
                 }
             )
-    if not submitted or not cfg.idea.strip():
+    if not (submitted or demo_submit) or not cfg.idea.strip():
         return
+
+    if demo_submit:
+        cfg = replace(cfg, mode="demo")
 
     kwargs = to_orchestrator_kwargs(cfg)
     qp = encode_config(kwargs)
@@ -180,11 +191,46 @@ def main() -> None:
 
     run_id = new_run_id()
     ensure_run_dirs(run_id)
+    st.session_state["run_id"] = run_id
+    st.query_params["run_id"] = run_id
+
+    if cfg.mode == "demo":
+        demo_started(run_id)
+        from utils.run_playback import materialize_run
+
+        outputs = materialize_run(run_id)
+        st.session_state["usage"] = Usage()
+        st.markdown(outputs["report_md"])
+        meter.render_summary(st.session_state["usage"])
+        st.session_state["run_report"] = outputs["report_md"]
+        if prefs["ui"].get("auto_export_on_completion"):
+            try:
+                def _read_bytes(rid, name, ext):
+                    return artifact_path(rid, name, ext).read_bytes()
+
+                def _list_existing(rid):
+                    root = run_root(rid)
+                    return [(p.stem, p.suffix.lstrip(".")) for p in root.iterdir() if p.is_file()]
+
+                data = bundle.build_zip_bundle(
+                    run_id, [], read_bytes=_read_bytes, list_existing=_list_existing
+                )
+                write_bytes(run_id, "bundle", "zip", data)
+            except Exception:
+                pass
+        st.query_params.update({"run_id": run_id, "view": "trace"})
+        demo_completed(run_id)
+        if prefs["ui"].get("show_trace_by_default"):
+            st.switch_page("pages/10_Trace.py")
+        else:
+            st.markdown("[Open Trace](./Trace)")
+            st.caption("Use the Trace page to inspect step details.")
+        survey.maybe_prompt_after_run(run_id)
+        return
+
     create_run_meta(run_id, mode=kwargs["mode"], idea_preview=kwargs["idea"][:120])
     write_text(run_id, "run_config", "lock.json", json.dumps(to_lockfile(asdict(cfg))))
     write_text(run_id, "env", "snapshot.json", json.dumps(capture_env()))
-    st.session_state["run_id"] = run_id
-    st.query_params["run_id"] = run_id
     if origin_run_id:
         log_event({"event": "reproduce_started", "run_id": run_id, "origin_run_id": origin_run_id})
     log_event(
