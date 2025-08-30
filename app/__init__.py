@@ -418,6 +418,20 @@ def main() -> None:
     st.session_state["run_id"] = run_id
     st.query_params["run_id"] = run_id
 
+    from utils.prompts import runtime as prompt_runtime
+    from utils.telemetry import prompt_used
+
+    prompt_texts: dict[str, str] = {}
+    prompt_pins: dict[str, dict] = {}
+    for role in ("planner", "executor", "synthesizer"):
+        text, pin = prompt_runtime.get_prompt_text(role, cfg)
+        prompt_texts[role] = text
+        prompt_pins[role] = pin
+        prompt_used(run_id, role, pin["id"], pin["version"], pin["hash"])
+    st.session_state["prompt_texts"] = prompt_texts
+    kwargs["prompt_texts"] = prompt_texts
+    kwargs["prompts"] = prompt_pins
+
     if cfg.mode == "demo":
         demo_started(run_id)
         from utils.run_playback import materialize_run
@@ -457,8 +471,15 @@ def main() -> None:
         survey.maybe_prompt_after_run(run_id)
         return
 
-    create_run_meta(run_id, mode=kwargs["mode"], idea_preview=kwargs["idea"][:120])
-    write_text(run_id, "run_config", "lock.json", json.dumps(to_lockfile(asdict(cfg))))
+    create_run_meta(
+        run_id,
+        mode=kwargs["mode"],
+        idea_preview=kwargs["idea"][:120],
+        prompts=prompt_pins,
+    )
+    cfg_dict = asdict(cfg)
+    cfg_dict["prompts"] = prompt_pins
+    write_text(run_id, "run_config", "lock.json", json.dumps(to_lockfile(cfg_dict)))
     write_text(run_id, "env", "snapshot.json", json.dumps(capture_env()))
     if origin_run_id:
         log_event({"event": "reproduce_started", "run_id": run_id, "origin_run_id": origin_run_id})
@@ -501,7 +522,13 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
     res = notify_dispatch(note, load_prefs())
     notification_sent(run_id, status, [k for k, v in res.items() if v], any(res.values()))
 run_start_ts = time.time()
-    events = run_stream(kwargs["idea"], run_id=run_id, agents=get_agents())
+    events = run_stream(
+        kwargs["idea"],
+        run_id=run_id,
+        agents=get_agents(),
+        prompt_texts=prompt_texts,
+        prompt_pins=prompt_pins,
+    )
     render_live(events)
     st.session_state["run_report"] = ""
     st.session_state["active_run"]["status"] = "success"

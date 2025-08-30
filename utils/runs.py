@@ -14,6 +14,7 @@ def create_run_meta(
     mode: str,
     idea_preview: str,
     origin_run_id: str | None = None,
+    prompts: dict | None = None,
 ) -> None:
     """Create initial run metadata."""
     ensure_run_dirs(run_id)
@@ -27,6 +28,8 @@ def create_run_meta(
     if origin_run_id:
         meta["origin_run_id"] = origin_run_id
         meta["resume_of"] = origin_run_id
+    if prompts:
+        meta["prompts"] = prompts
     artifact_path(run_id, "run", "json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )

@@ -1,0 +1,17 @@
+id: planner
+version: "1.0.0"
+title: "Planner system prompt"
+description: "Task planning instructions for DR RD."
+vars:
+  - name: tone
+    required: false
+    default: "concise"
+  - name: knowledge_hint
+    required: false
+    default: ""
+template: |
+  You are the Planner. Produce a minimal plan.
+  Tone: {tone}
+  {knowledge_hint}
+changelog:
+  - "1.0.0: Initial prompt."

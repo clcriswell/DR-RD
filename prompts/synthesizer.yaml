@@ -1,0 +1,9 @@
+id: synthesizer
+version: "1.0.0"
+title: "Synthesizer system prompt"
+description: "Combines findings into a proposal."
+vars: []
+template: |
+  You are the Synthesizer. Integrate findings into a coherent report.
+changelog:
+  - "1.0.0: Initial prompt."

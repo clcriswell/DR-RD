@@ -45,3 +45,17 @@ def local_path_for_debug(key: str) -> Path | None:
         assert isinstance(storage, LocalFSStorage)
         return storage.root / key
     return None
+
+
+# Compatibility helpers -----------------------------------------------------
+RUNS_ROOT = Path(".dr_rd") / "runs"
+
+
+def ensure_run_dirs(run_id: str) -> Path:
+    path = RUNS_ROOT / run_id
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def artifact_path(run_id: str, name: str, ext: str) -> Path:
+    return ensure_run_dirs(run_id) / f"{name}.{ext}"

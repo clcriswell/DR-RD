@@ -201,6 +201,35 @@ def exp_exposed(user_id_hash: str, exp_id: str, variant: str, run_id: str | None
     log_event(ev)
 
 
+def prompt_used(run_id: str, role: str, id_: str, version: str, hash_: str) -> None:
+    log_event(
+        {
+            "event": "prompt_used",
+            "run_id": run_id,
+            "role": role,
+            "id": id_,
+            "version": version,
+            "hash": hash_,
+        }
+    )
+
+
+def prompt_preview(id_: str) -> None:
+    log_event({"event": "prompt_preview", "id": id_})
+
+
+def prompt_bump(id_: str, old: str, new: str) -> None:
+    log_event({"event": "prompt_bump", "id": id_, "from": old, "to": new})
+
+
+def prompt_saved(id_: str, version: str) -> None:
+    log_event({"event": "prompt_saved", "id": id_, "version": version})
+
+
+def prompt_edited(id_: str, version: str) -> None:
+    log_event({"event": "prompt_edited", "id": id_, "version": version})
+
+
 def share_link_created(run_id: str, scopes: list[str], ttl_sec: int) -> None:
     log_event({"event": "share_link_created", "run_id": run_id, "scopes": scopes, "ttl_sec": int(ttl_sec)})
 
@@ -562,6 +591,11 @@ __all__ = [
     "notification_sent",
     "notifications_saved",
     "notification_test_sent",
+    "prompt_used",
+    "prompt_preview",
+    "prompt_bump",
+    "prompt_saved",
+    "prompt_edited",
 ]
 
 
