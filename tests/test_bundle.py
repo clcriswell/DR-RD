@@ -13,7 +13,13 @@ def _fake_list(run_id: str):
 
 
 def test_build_zip_bundle():
-    data = build_zip_bundle("r1", [], read_bytes=_fake_read, list_existing=_fake_list)
+    data = build_zip_bundle(
+        "r1",
+        [],
+        read_bytes=_fake_read,
+        list_existing=_fake_list,
+        sanitize=lambda n, e, b: b,
+    )
     with ZipFile(BytesIO(data)) as zf:
         names = sorted(zf.namelist())
         contents = {n: zf.read(n) for n in names}

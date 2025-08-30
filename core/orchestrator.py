@@ -16,7 +16,10 @@ from utils.telemetry import (
     stream_started,
     stream_chunked,
     stream_completed,
+    safety_flagged_step,
 )
+from dataclasses import asdict
+from utils import safety as safety_utils
 
 import config.feature_flags as ff
 from core.agents.unified_registry import AGENT_REGISTRY
@@ -878,9 +881,18 @@ def run_stream(
         # Planner phase
         yield Event("phase_start", phase="planner")
         tasks = generate_plan(idea, cancel=cancel, deadline_ts=deadline_ts)
-        yield Event("summary", phase="planner", text=json.dumps(tasks))
-        trace_writer.append_step(run_id, {"phase": "planner", "summary": tasks})
-        yield Event("step_end", phase="planner", step_id="planner", meta={})
+        text = json.dumps(tasks)
+        res = safety_utils.check_text(text)
+        meta = {}
+        if res.findings:
+            meta["safety"] = asdict(res)
+            safety_flagged_step(run_id, "planner", [f.category for f in res.findings])
+        trace_writer.append_step(
+            run_id,
+            {"phase": "planner", "summary": tasks, **({"safety": asdict(res)} if res.findings else {})},
+        )
+        yield Event("summary", phase="planner", text=text)
+        yield Event("step_end", phase="planner", step_id="planner", meta=meta)
         yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
         yield Event("phase_end", phase="planner")
 
@@ -893,9 +905,18 @@ def run_stream(
             cancel=cancel,
             deadline_ts=deadline_ts,
         )
-        yield Event("summary", phase="executor", text=json.dumps(answers))
-        trace_writer.append_step(run_id, {"phase": "executor", "summary": answers})
-        yield Event("step_end", phase="executor", step_id="executor", meta={})
+        text = json.dumps(answers)
+        res = safety_utils.check_text(text)
+        meta = {}
+        if res.findings:
+            meta["safety"] = asdict(res)
+            safety_flagged_step(run_id, "executor", [f.category for f in res.findings])
+        trace_writer.append_step(
+            run_id,
+            {"phase": "executor", "summary": answers, **({"safety": asdict(res)} if res.findings else {})},
+        )
+        yield Event("summary", phase="executor", text=text)
+        yield Event("step_end", phase="executor", step_id="executor", meta=meta)
         yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
         yield Event("phase_end", phase="executor")
 
@@ -907,9 +928,17 @@ def run_stream(
             cancel=cancel,
             deadline_ts=deadline_ts,
         )
+        res = safety_utils.check_text(final)
+        meta = {}
+        if res.findings:
+            meta["safety"] = asdict(res)
+            safety_flagged_step(run_id, "synth", [f.category for f in res.findings])
+        trace_writer.append_step(
+            run_id,
+            {"phase": "synth", "summary": final, **({"safety": asdict(res)} if res.findings else {})},
+        )
         yield Event("summary", phase="synth", text=final)
-        trace_writer.append_step(run_id, {"phase": "synth", "summary": final})
-        yield Event("step_end", phase="synth", step_id="synth", meta={})
+        yield Event("step_end", phase="synth", step_id="synth", meta=meta)
         yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
         yield Event("phase_end", phase="synth")
 
