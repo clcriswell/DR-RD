@@ -48,3 +48,17 @@ weekly_sus = df[df.event=="survey_submitted"].set_index("ts").scores.resample("7
 - No PII captured; run IDs are anonymous.
 - Secrets are redacted before logging.
 - Users can opt out by setting `DRRD_TELEMETRY_OPTOUT=1`.
+
+## Telemetry schema + rotation + purge
+- Events are validated against a versioned schema (`schema_version`), currently `1`. Older records are upcast on read so analytics stay consistent.
+- Writers emit JSONL files daily under `.dr_rd/telemetry/` and roll to `events-YYYYMMDD.partN.jsonl` when they exceed ~25MB.
+- `scripts/telemetry_purge.py` deletes old files (`--older-than`/`--keep-last-days`) or removes a specific run's events (`--delete-run`). Use `--dry-run` to preview.
+- `scripts/telemetry_export.py` exports logs to CSV or Parquet and offers `usage` or `runs` rollups.
+
+### Examples
+```bash
+python scripts/telemetry_export.py --days 7 --out events.csv
+python scripts/telemetry_export.py --from 2025-01-01 --to 2025-01-31 --out events.parquet --rollup usage
+python scripts/telemetry_purge.py --older-than 30
+python scripts/telemetry_purge.py --delete-run r123
+```
