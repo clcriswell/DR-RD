@@ -26,6 +26,7 @@ from utils.telemetry import (
     timeout_hit,
 )
 from utils.cancellation import CancellationToken
+from utils.usage import Usage
 
 inject_accessibility_baseline()
 live_region_container()
@@ -48,7 +49,7 @@ if not st.session_state.get("_onboard_shown", False):
 from dataclasses import asdict
 from urllib.parse import urlencode
 
-from app.ui import components
+from app.ui import components, meter
 from app.ui.sidebar import render_sidebar
 from app.ui import survey
 from config.agent_models import AGENT_MODEL_MAP
@@ -181,6 +182,17 @@ def main() -> None:
             "budget": kwargs["budget"],
         }
     )
+    st.session_state["budget_limit_usd"] = kwargs.get("budget_limit_usd")
+    st.session_state["max_tokens"] = kwargs.get("max_tokens")
+    st.session_state["usage"] = Usage()
+    st.subheader("Live usage")
+    live = meter.render_live(
+        st.session_state["usage"],
+        budget_limit_usd=kwargs.get("budget_limit_usd"),
+        token_limit=kwargs.get("max_tokens"),
+    )
+    if live.get("budget_exceeded") or live.get("token_exceeded"):
+        raise RuntimeError("usage_exceeded")
     token = CancellationToken()
     st.session_state[f"cancel_{run_id}"] = token
     deadline_ts = None
@@ -217,6 +229,13 @@ def main() -> None:
             "stage": "plan",
             "duration": time.time() - start,
         })
+        live = meter.render_live(
+            st.session_state["usage"],
+            budget_limit_usd=kwargs.get("budget_limit_usd"),
+            token_limit=kwargs.get("max_tokens"),
+        )
+        if live.get("budget_exceeded") or live.get("token_exceeded"):
+            raise RuntimeError("usage_exceeded")
         progress(1, "Plan ready")
 
         start = time.time()
@@ -237,6 +256,13 @@ def main() -> None:
             "stage": "exec",
             "duration": time.time() - start,
         })
+        live = meter.render_live(
+            st.session_state["usage"],
+            budget_limit_usd=kwargs.get("budget_limit_usd"),
+            token_limit=kwargs.get("max_tokens"),
+        )
+        if live.get("budget_exceeded") or live.get("token_exceeded"):
+            raise RuntimeError("usage_exceeded")
         progress(2, "Execution finished")
 
         start = time.time()
@@ -256,8 +282,16 @@ def main() -> None:
             "stage": "synth",
             "duration": time.time() - start,
         })
+        live = meter.render_live(
+            st.session_state["usage"],
+            budget_limit_usd=kwargs.get("budget_limit_usd"),
+            token_limit=kwargs.get("max_tokens"),
+        )
+        if live.get("budget_exceeded") or live.get("token_exceeded"):
+            raise RuntimeError("usage_exceeded")
         progress(3, "Run complete")
         st.markdown(final)
+        meter.render_summary(st.session_state["usage"])
         st.session_state["run_report"] = final
         st.query_params.update({"run_id": run_id, "view": "trace"})
         complete_run_meta(run_id, status="success")

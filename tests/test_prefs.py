@@ -60,7 +60,7 @@ def test_merge_defaults(tmp_path, monkeypatch):
     base = {"mode": "standard", "max_tokens": 8000, "budget_limit_usd": None, "knowledge_sources": []}
     merged = prefs.merge_defaults(base)
     assert merged["mode"] == "test"
-    assert merged["max_tokens"] == 8000
+    assert merged["max_tokens"] is None
     assert "budget_limit_usd" in merged
 
 

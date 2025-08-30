@@ -16,7 +16,7 @@ class RunConfig:
     live_search_enabled: bool = False
     enforce_budget: bool = False
     budget_limit_usd: float | None = None
-    max_tokens: int = 8000
+    max_tokens: int | None = None
     knowledge_sources: List[str] = field(default_factory=list)
     show_agent_trace: bool = False
     verbose_planner: bool = False

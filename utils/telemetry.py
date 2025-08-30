@@ -1,7 +1,7 @@
-from pathlib import Path
 import json
 import os
 import time
+from pathlib import Path
 
 LOG_DIR = Path(os.getenv("TELEMETRY_LOG_DIR", ".dr_rd/telemetry"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -40,3 +40,58 @@ def timeout_hit(run_id: str, phase: str | None = None) -> None:
     if phase:
         ev["phase"] = phase
     log_event(ev)
+
+
+def usage_threshold_crossed(
+    type_: str,
+    frac: float,
+    run_id: str | None = None,
+    *,
+    phase: str | None = None,
+    cost_usd: float | None = None,
+    total_tokens: int | None = None,
+) -> None:
+    ev = {
+        "event": "usage_threshold_crossed",
+        "type": type_,
+        "frac": frac,
+    }
+    if run_id:
+        ev["run_id"] = run_id
+    if phase:
+        ev["phase"] = phase
+    if cost_usd is not None:
+        ev["cost_usd"] = cost_usd
+    if total_tokens is not None:
+        ev["total_tokens"] = total_tokens
+    log_event(ev)
+
+
+def usage_exceeded(
+    type_: str,
+    run_id: str | None = None,
+    *,
+    phase: str | None = None,
+    cost_usd: float | None = None,
+    total_tokens: int | None = None,
+) -> None:
+    ev = {"event": "usage_exceeded", "type": type_}
+    if run_id:
+        ev["run_id"] = run_id
+    if phase:
+        ev["phase"] = phase
+    if cost_usd is not None:
+        ev["cost_usd"] = cost_usd
+    if total_tokens is not None:
+        ev["total_tokens"] = total_tokens
+    log_event(ev)
+
+
+__all__ = [
+    "log_event",
+    "run_cancel_requested",
+    "run_cancelled",
+    "timeout_hit",
+    "usage_threshold_crossed",
+    "usage_exceeded",
+]
