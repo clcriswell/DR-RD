@@ -57,7 +57,21 @@ def to_lockfile(cfg: Mapping[str, Any]) -> dict:
         "advanced": dict(adv),
         "seed": seed,
     }
-    return {"schema": SCHEMA_VERSION, "created_at": int(time.time()), "inputs": inputs}
+    out = {"schema": SCHEMA_VERSION, "created_at": int(time.time()), "inputs": inputs}
+    prompts = cfg.get("prompts")
+    if isinstance(prompts, Mapping):
+        pins: dict[str, Any] = {}
+        for role, pin in prompts.items():
+            if not isinstance(pin, Mapping):
+                continue
+            pins[role] = {
+                "id": _validate_str(pin.get("id", ""), "id"),
+                "version": _validate_str(pin.get("version", ""), "version"),
+                "hash": _validate_str(pin.get("hash", ""), "hash"),
+            }
+        if pins:
+            out["prompts"] = pins
+    return out
 
 
 def from_lockfile(obj: Mapping[str, Any]) -> dict:
@@ -82,7 +96,7 @@ def from_lockfile(obj: Mapping[str, Any]) -> dict:
     seed = inputs.get("seed")
     if seed is not None:
         seed = int(seed)
-    return {
+    out = {
         "idea": idea,
         "mode": mode,
         "budget_limit_usd": budget_limit,
@@ -91,3 +105,15 @@ def from_lockfile(obj: Mapping[str, Any]) -> dict:
         "advanced": adv,
         "seed": seed,
     }
+    prompts = obj.get("prompts")
+    if isinstance(prompts, Mapping):
+        pins: dict[str, Any] = {}
+        for role, pin in prompts.items():
+            pin = _validate_mapping(pin, role)
+            pins[role] = {
+                "id": _validate_str(pin.get("id", ""), "id"),
+                "version": _validate_str(pin.get("version", ""), "version"),
+                "hash": _validate_str(pin.get("hash", ""), "hash"),
+            }
+        out["prompts"] = pins
+    return out

@@ -1,0 +1,11 @@
+id: executor
+version: "1.0.0"
+title: "Executor system prompt"
+description: "Runs tasks assigned by the planner."
+vars:
+  - name: task
+    required: true
+template: |
+  You are the Executor. Complete the task: {task}
+changelog:
+  - "1.0.0: Initial prompt."

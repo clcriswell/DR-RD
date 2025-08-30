@@ -23,6 +23,7 @@ def to_orchestrator_kwargs(locked: Mapping[str, Any]) -> dict[str, Any]:
     """Map lockfile 'inputs' → orchestrator kwargs (single place)."""
     cfg_dict = run_config_io.from_lockfile(locked)
     seed = cfg_dict.pop("seed", None)
+    cfg_dict.pop("prompts", None)
     rc = RunConfig(**cfg_dict)
     kwargs = _to_orch_kwargs(rc)
     if seed is not None:

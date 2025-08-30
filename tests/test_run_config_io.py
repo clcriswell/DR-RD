@@ -13,6 +13,9 @@ def test_round_trip_and_truncation():
         "advanced": {"foo": "bar"},
         "seed": 42,
         "extra": "drop",
+        "prompts": {
+            "planner": {"id": "planner", "version": "1.0.0", "hash": "h"}
+        },
     }
     lock = run_config_io.to_lockfile(cfg)
     assert lock["inputs"]["idea"] == "x" * 200
@@ -25,6 +28,7 @@ def test_round_trip_and_truncation():
         "knowledge_sources": ["a", "b"],
         "advanced": {"foo": "bar"},
         "seed": 42,
+        "prompts": {"planner": {"id": "planner", "version": "1.0.0", "hash": "h"}},
     }
 
 

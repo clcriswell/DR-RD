@@ -40,7 +40,6 @@ from core.schemas import Plan, ScopeNote
 from memory.decision_log import log_decision
 from planning.segmenter import load_redaction_policy, redact_text
 from prompts.prompts import (
-    PLANNER_SYSTEM_PROMPT,
     PLANNER_USER_PROMPT_TEMPLATE,
     SYNTHESIZER_TEMPLATE,
 )
@@ -185,9 +184,13 @@ def generate_plan(
             raise
         return normalize_tasks(normalize_plan_to_tasks(data["tasks"]))
 
-    system_prompt = PLANNER_SYSTEM_PROMPT
+    system_prompt = st.session_state.get("prompt_texts", {}).get(
+        "planner", "You are the Planner."
+    )
     if pseudo_flag:
-        system_prompt += "\nPlaceholders like [PERSON_1], [ORG_1] are entity aliases. Use them verbatim. Do not invent values."
+        system_prompt += (
+            "\nPlaceholders like [PERSON_1], [ORG_1] are entity aliases. Use them verbatim. Do not invent values."
+        )
 
     user_prompt = PLANNER_USER_PROMPT_TEMPLATE.format(
         idea=sn.idea,
@@ -715,8 +718,11 @@ def compose_final_proposal(
     _check()
     findings_md = "\n".join(f"### {r}\n{a}" for r, a in answers.items())
     prompt = SYNTHESIZER_TEMPLATE.format(idea=idea, findings_md=findings_md)
+    system_prompt = st.session_state.get("prompt_texts", {}).get(
+        "synthesizer", "You are an expert R&D writer."
+    )
     with with_deadline(deadline):
-        result = complete("You are an expert R&D writer.", prompt)
+        result = complete(system_prompt, prompt)
     _check()
     final_markdown = (result.content or "").strip()
     run_id = st.session_state.get("run_id")
@@ -901,6 +907,13 @@ def run_stream(
     except Exception:
         session_id = None
     mode = kwargs.get("mode") or st.session_state.get("mode")
+    prompt_texts = kwargs.get("prompt_texts") or {}
+    prompt_pins = kwargs.get("prompt_pins") or {}
+    try:
+        st.session_state.setdefault("prompt_texts", {}).update(prompt_texts)
+        st.session_state.setdefault("prompt_pins", {}).update(prompt_pins)
+    except Exception:
+        pass
     stream_started(run_id)
     with otel.start_span(
         "run",
