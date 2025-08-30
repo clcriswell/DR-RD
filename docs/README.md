@@ -9,3 +9,20 @@
 
 ## Utilities
 - `scripts/cleanup_runs.py` — remove old run artifacts (`--keep N` or `--max-bytes M`)
+
+## E2E tests
+Run the Playwright end-to-end tests either against a locally started app or a deployed URL.
+
+Local app:
+
+```
+APP_BASE_URL=http://localhost:8501 APP_EXTERNAL=0 \
+pytest -q e2e
+```
+
+Against deployed app:
+
+```
+APP_EXTERNAL=1 APP_BASE_URL=https://dr-rnd.streamlit.app \
+pytest -q e2e
+```

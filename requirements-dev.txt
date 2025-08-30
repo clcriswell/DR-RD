@@ -3,6 +3,7 @@ ruff==0.6.9
 mypy
 pytest
 pytest-cov
+pytest-playwright
 requests
 tomli; python_version<'3.11'
 pre-commit
