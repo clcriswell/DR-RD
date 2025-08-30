@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from urllib.parse import urlencode
 
 import streamlit as st
 
@@ -10,9 +11,14 @@ from app.ui.trace_viewer import render_trace
 from utils.telemetry import log_event
 from utils.paths import artifact_path
 from utils.runs import list_runs, last_run_id
+from utils.query_params import view_state_from_params, encode_config
+from utils.run_config import from_session, to_orchestrator_kwargs
 
+state = view_state_from_params(st.query_params)
 runs = list_runs(limit=100)
-run_id = st.query_params.get("run_id") or last_run_id()
+run_id = state["run_id"] or last_run_id()
+if st.query_params.get("view") != "trace":
+    st.query_params["view"] = "trace"
 
 st.title("Trace")
 st.caption("Step-by-step agent activity.")
@@ -36,7 +42,32 @@ if runs:
         trace = json.loads(trace_path.read_text(encoding="utf-8"))
     else:
         trace = []
-    render_trace(trace, run_id=run_id)
+    include_adv = st.checkbox("Include advanced options", key="trace_share_adv")
+    if st.button("Copy shareable link", key="trace_share"):
+        cfg_dict = to_orchestrator_kwargs(from_session())
+        if not include_adv:
+            cfg_dict.pop("advanced", None)
+        qp = encode_config(cfg_dict)
+        qp.update({"view": "trace", "run_id": run_id})
+        if tv := st.query_params.get("trace_view"):
+            qp["trace_view"] = tv
+        if q := st.query_params.get("q"):
+            qp["q"] = q
+        url = "./?" + urlencode(qp)
+        st.text_input("trace_share_url", value=url, label_visibility="collapsed")
+        log_event(
+            {
+                "event": "link_shared",
+                "where": "trace",
+                "included_adv": bool(include_adv),
+            }
+        )
+    render_trace(
+        trace,
+        run_id=run_id,
+        default_view=state["trace_view"],
+        default_query=state["trace_query"],
+    )
 else:
     log_event({"event": "nav_page_view", "page": "trace", "run_id": None})
     st.info("No runs found.")

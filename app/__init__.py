@@ -23,18 +23,33 @@ from app.ui.a11y import inject_accessibility_baseline, live_region_container
 inject_accessibility_baseline()
 live_region_container()
 
+from dataclasses import asdict
+from urllib.parse import urlencode
+
 from app.ui import components
 from app.ui.sidebar import render_sidebar
 from app.ui import survey
 from config.agent_models import AGENT_MODEL_MAP
 import config.feature_flags as ff
 from core.agents.unified_registry import build_agents_unified
-from utils.run_config import to_orchestrator_kwargs
+from utils.run_config import (
+    RunConfig,
+    defaults,
+    to_orchestrator_kwargs,
+    to_session,
+)
 from utils.telemetry import log_event
 from utils.errors import make_safe_error
 from utils.run_id import new_run_id
 from utils.paths import ensure_run_dirs
 from utils.runs import create_run_meta, complete_run_meta
+from utils.query_params import (
+    QP_APPLIED_KEY,
+    decode_config,
+    encode_config,
+    merge_into_defaults,
+    view_state_from_params,
+)
 
 WRAP_CSS = """
 pre, code {
@@ -77,8 +92,35 @@ def get_agents():
 
 def main() -> None:
     from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
-
     _apply_stored_defaults()
+    if st.session_state.get(QP_APPLIED_KEY) is not True:
+        decoded = decode_config(st.query_params)
+        rc_defaults = asdict(defaults())
+        merged = merge_into_defaults(rc_defaults, decoded)
+        extra = {k: merged.pop(k) for k in list(merged.keys()) if k not in rc_defaults}
+        adv = merged.get("advanced", {})
+        adv.update(extra)
+        merged["advanced"] = adv
+        to_session(RunConfig(**merged))
+        st.session_state[QP_APPLIED_KEY] = True
+        if decoded:
+            log_event(
+                {
+                    "event": "config_prefilled_from_url",
+                    "fields": {k: len(str(v)) for k, v in decoded.items()},
+                }
+            )
+        view_state = view_state_from_params(st.query_params)
+        if view_state["view"] != "run":
+            target = {
+                "trace": "pages/10_Trace.py",
+                "reports": "pages/20_Reports.py",
+                "metrics": "pages/30_Metrics.py",
+                "settings": "pages/90_Settings.py",
+            }.get(view_state["view"])
+            if target:
+                st.switch_page(target)
+
     survey.render_usage_panel()
     components.help_once(
         "first_run_tip",
@@ -86,11 +128,31 @@ def main() -> None:
     )
 
     cfg = render_sidebar()
-    submitted = st.button("Start run", type="primary")
+    col_run, col_share = st.columns([3, 1])
+    with col_run:
+        submitted = st.button("Start run", type="primary")
+    with col_share:
+        include_adv = st.checkbox("Include advanced options", key="share_adv")
+        if st.button("Copy shareable link", key="share_link"):
+            qp = encode_config(to_orchestrator_kwargs(cfg))
+            if not include_adv:
+                qp.pop("adv", None)
+            url = "./?" + urlencode(qp)
+            st.text_input("shareable", value=url, label_visibility="collapsed")
+            log_event(
+                {
+                    "event": "link_shared",
+                    "where": "entry",
+                    "included_adv": bool(include_adv),
+                }
+            )
     if not submitted or not cfg.idea.strip():
         return
 
     kwargs = to_orchestrator_kwargs(cfg)
+    qp = encode_config(kwargs)
+    st.query_params.update(qp)
+    log_event({"event": "config_encoded_to_url", "field_count": len(qp)})
     ff.RAG_ENABLED = kwargs["rag"]
     ff.ENABLE_LIVE_SEARCH = kwargs["live"]
 
@@ -160,7 +222,7 @@ def main() -> None:
         progress(3, "Run complete")
         st.markdown(final)
         st.session_state["run_report"] = final
-        st.query_params.update({"run_id": run_id})
+        st.query_params.update({"run_id": run_id, "view": "trace"})
         complete_run_meta(run_id, status="success")
         log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
         st.markdown("[Open Trace](./Trace)")
@@ -195,6 +257,7 @@ def main() -> None:
             st.rerun()
         if open_trace:
             st.query_params["run_id"] = err.context.get("run_id") or ""
+            st.query_params["view"] = "trace"
             st.switch_page("pages/10_Trace.py")
 
 

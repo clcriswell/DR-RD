@@ -11,9 +11,13 @@ from utils.telemetry import log_event
 from utils.paths import artifact_path
 from utils.runs import list_runs, last_run_id
 from app import generate_pdf
+from utils.query_params import view_state_from_params
 
+state = view_state_from_params(st.query_params)
 runs = list_runs(limit=100)
-run_id = st.query_params.get("run_id") or last_run_id()
+run_id = state["run_id"] or last_run_id()
+if st.query_params.get("view") != "reports":
+    st.query_params["view"] = "reports"
 
 st.title("Reports & Exports")
 st.caption("Download outputs from your last run.")

@@ -8,6 +8,8 @@ import streamlit as st
 from utils import metrics
 from utils.telemetry import log_event
 
+if st.query_params.get("view") != "metrics":
+    st.query_params["view"] = "metrics"
 log_event({"event": "nav_page_view", "page": "metrics"})
 
 st.title("Metrics")
