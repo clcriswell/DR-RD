@@ -509,3 +509,15 @@ __all__ = [
     "notifications_saved",
     "notification_test_sent",
 ]
+
+
+def storage_write(backend: str, key: str, bytes: int) -> None:
+    log_event({"event": "storage_write", "backend": backend, "key": key, "bytes": bytes})
+
+
+def storage_read(backend: str, key: str, bytes: int) -> None:
+    log_event({"event": "storage_read", "backend": backend, "key": key, "bytes": bytes})
+
+
+def storage_error(backend: str, key: str, op: str, reason: str) -> None:
+    log_event({"event": "storage_error", "backend": backend, "key": key, "op": op, "reason": reason})
