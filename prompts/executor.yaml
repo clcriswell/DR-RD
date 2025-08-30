@@ -4,7 +4,8 @@ title: "Executor system prompt"
 description: "Runs tasks assigned by the planner."
 vars:
   - name: task
-    required: true
+    required: false
+    default: ""
 template: |
   You are the Executor. Complete the task: {task}
 changelog:
