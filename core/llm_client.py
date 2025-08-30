@@ -14,6 +14,8 @@ from openai import APIStatusError, OpenAI
 from core.budget import BudgetManager, CostTracker
 from core.token_meter import TokenMeter
 from utils.config import load_config
+from utils.usage import Usage, add_delta, thresholds
+from utils.telemetry import usage_threshold_crossed, usage_exceeded
 
 logger = logging.getLogger(__name__)
 
@@ -373,6 +375,60 @@ def log_usage(stage, model, pt, ct, cost=0.0):
     st.session_state["usage_log"].append(
         {"stage": stage, "model": model, "pt": pt, "ct": ct, "cost": cost},
     )
+    usage: Usage = st.session_state.get("usage", Usage())
+    usage = add_delta(usage, model=model, prompt_tokens=pt, completion_tokens=ct)
+    st.session_state["usage"] = usage
+
+    limits = {
+        "budget_limit_usd": st.session_state.get("budget_limit_usd"),
+        "token_limit": st.session_state.get("max_tokens"),
+    }
+    th = thresholds(usage, **limits)
+    prev = st.session_state.get(
+        "_usage_flags",
+        {"budget_crossed": False, "token_crossed": False, "budget_exceeded": False, "token_exceeded": False},
+    )
+    run_id = st.session_state.get("run_id")
+    if th["budget_crossed"] and not prev["budget_crossed"]:
+        usage_threshold_crossed(
+            "budget",
+            th["budget_frac"] or 0.0,
+            run_id,
+            phase=stage,
+            cost_usd=usage.cost_usd,
+            total_tokens=usage.total_tokens,
+        )
+    if th["token_crossed"] and not prev["token_crossed"]:
+        usage_threshold_crossed(
+            "token",
+            th["token_frac"] or 0.0,
+            run_id,
+            phase=stage,
+            cost_usd=usage.cost_usd,
+            total_tokens=usage.total_tokens,
+        )
+    if th["budget_exceeded"] and not prev["budget_exceeded"]:
+        usage_exceeded(
+            "budget",
+            run_id,
+            phase=stage,
+            cost_usd=usage.cost_usd,
+            total_tokens=usage.total_tokens,
+        )
+    if th["token_exceeded"] and not prev["token_exceeded"]:
+        usage_exceeded(
+            "token",
+            run_id,
+            phase=stage,
+            cost_usd=usage.cost_usd,
+            total_tokens=usage.total_tokens,
+        )
+    st.session_state["_usage_flags"] = {
+        "budget_crossed": th["budget_crossed"],
+        "token_crossed": th["token_crossed"],
+        "budget_exceeded": th["budget_exceeded"],
+        "token_exceeded": th["token_exceeded"],
+    }
 
 
 def llm_call(

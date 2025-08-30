@@ -15,7 +15,7 @@ DEFAULT_PREFS: dict[str, Any] = {
     "defaults": {
         "mode": "standard",
         "budget_limit_usd": None,
-        "max_tokens": 8000,
+        "max_tokens": None,
         "knowledge_sources": ["samples"],
     },
     "ui": {
@@ -55,7 +55,10 @@ def _validate(raw: Mapping[str, Any] | None) -> dict:
                 prefs[section][key] = None
             else:
                 try:
-                    prefs[section][key] = float(value)
+                    if key.endswith("tokens"):
+                        prefs[section][key] = int(value)
+                    else:
+                        prefs[section][key] = float(value)
                 except Exception:
                     pass
         elif isinstance(base, list):

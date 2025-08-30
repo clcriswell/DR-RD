@@ -17,7 +17,7 @@ def test_defaults():
     assert cfg.idea == ""
     assert cfg.knowledge_sources == ["samples"]
     assert cfg.budget_limit_usd is None
-    assert cfg.max_tokens == 8000
+    assert cfg.max_tokens is None
 
 
 def test_to_orchestrator_kwargs_minimal():
@@ -27,7 +27,7 @@ def test_to_orchestrator_kwargs_minimal():
     assert kw["idea"] == "x"
     assert kw["rag"] is True
     assert kw["knowledge_sources"] == []
-    assert kw["max_tokens"] == 8000
+    assert kw["max_tokens"] is None
     assert kw["budget_limit_usd"] is None
 
 
