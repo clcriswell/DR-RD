@@ -1,0 +1,61 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field, fields
+from typing import Any, Dict, List
+
+import streamlit as st
+
+
+@dataclass(frozen=True)
+class RunConfig:
+    """Typed configuration for a single run."""
+
+    idea: str = ""
+    mode: str = "standard"
+    rag_enabled: bool = False
+    live_search_enabled: bool = False
+    enforce_budget: bool = False
+    knowledge_sources: List[str] = field(default_factory=list)
+    show_agent_trace: bool = False
+    verbose_planner: bool = False
+    auto_export_trace: bool = False
+    auto_export_report: bool = False
+    advanced: Dict[str, Any] = field(default_factory=dict)
+
+
+def defaults() -> RunConfig:
+    """Return default run configuration."""
+
+    return RunConfig()
+
+
+def from_session() -> RunConfig:
+    """Build a RunConfig from ``st.session_state``."""
+
+    base = defaults()
+    data = {}
+    for f in fields(RunConfig):
+        data[f.name] = st.session_state.get(f.name, getattr(base, f.name))
+    return RunConfig(**data)
+
+
+def to_session(cfg: RunConfig) -> None:
+    """Seed ``st.session_state`` with values from ``cfg`` if missing."""
+
+    for f in fields(RunConfig):
+        st.session_state.setdefault(f.name, getattr(cfg, f.name))
+
+
+def to_orchestrator_kwargs(cfg: RunConfig) -> Dict[str, Any]:
+    """Convert a ``RunConfig`` into kwargs for orchestrators."""
+
+    kwargs: Dict[str, Any] = {
+        "idea": cfg.idea,
+        "mode": cfg.mode,
+        "rag": cfg.rag_enabled,
+        "live": cfg.live_search_enabled,
+        "budget": cfg.enforce_budget,
+        "knowledge_sources": list(cfg.knowledge_sources),
+    }
+    kwargs.update(cfg.advanced)
+    return kwargs
