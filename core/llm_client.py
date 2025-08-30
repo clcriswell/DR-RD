@@ -10,10 +10,10 @@ from typing import Any, Dict, List, Optional, Type
 
 import streamlit as st
 from openai import APIStatusError, OpenAI
-from utils.config import load_config
 
 from core.budget import BudgetManager, CostTracker
 from core.token_meter import TokenMeter
+from utils.config import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -107,9 +107,10 @@ def _to_chat_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def _sanitize_responses_params(params: dict | None) -> dict:
     p = dict(params or {})
-    if "seed" in p:
-        p.pop("seed", None)
-        logger.info("Ignoring unsupported Responses param: seed")
+    for unsupported in ("seed", "llm_hints"):
+        if unsupported in p:
+            p.pop(unsupported, None)
+            logger.info("Ignoring unsupported Responses param: %s", unsupported)
     return p
 
 
@@ -120,7 +121,7 @@ def extract_text(resp: Any) -> Optional[str]:
     # Responses API
     if hasattr(resp, "output") or hasattr(resp, "output_text"):
         if getattr(resp, "output_text", None):
-            return getattr(resp, "output_text")
+            return resp.output_text
         chunks = []
         for item in getattr(resp, "output", []) or []:
             if getattr(item, "type", "") == "message":
@@ -146,7 +147,7 @@ def _strip_code_fences(s: str) -> str:
         if "\n" in s:
             s = s.split("\n", 1)[1]
     if s.endswith("```"):
-        s = s[: -3]
+        s = s[:-3]
     return s.strip()
 
 
@@ -211,10 +212,8 @@ def call_openai(
     t0 = time.monotonic()
     meta = meta or {}
     web_search_requested = _openai_web_search_requested(enable_web_search)
-    effective_model = (
-        _coerce_model_for_openai_search(model) if web_search_requested else model
-    )
-    api = kwargs.pop("api", "Responses")
+    effective_model = _coerce_model_for_openai_search(model) if web_search_requested else model
+    kwargs.pop("api", "Responses")
 
     logger.info(
         "LLM start req=%s model=%s purpose=%s agent=%s",
@@ -225,11 +224,9 @@ def call_openai(
     )
 
     http_status_or_exc: int | str = "EXC"
-    exc: Exception | None = None
     try:
         compiled_prompt = " \n".join(
-            m.get("content", "") if isinstance(m.get("content", ""), str) else ""
-            for m in messages
+            m.get("content", "") if isinstance(m.get("content", ""), str) else "" for m in messages
         )
         if os.getenv("DRRD_DRY_RUN", "").lower() in ("1", "true", "yes"):
             stub = _dry_stub(compiled_prompt)
@@ -241,7 +238,7 @@ def call_openai(
             fixtures_dir = Path(cfg.get("dry_run", {}).get("fixtures_dir", "tests/fixtures"))
             path = fixtures_dir / "llm" / "plan_seed.json"
             try:
-                with open(path, "r", encoding="utf-8") as fh:
+                with open(path, encoding="utf-8") as fh:
                     data = json.load(fh)
                 http_status_or_exc = 0
                 return {"raw": data, "text": data.get("text", "")}
@@ -255,6 +252,9 @@ def call_openai(
                 tool_choice = "auto"
 
         params = {**(response_params or {}), **kwargs}
+        if "llm_hints" in params:
+            params.pop("llm_hints", None)
+            logger.info("Ignoring unsupported param: llm_hints")
         if tools is not None:
             params["tools"] = tools
         if tool_choice is not None:
@@ -265,11 +265,7 @@ def call_openai(
             "yes",
         )
         seed = params.get("seed")
-        if (
-            seed is not None
-            and use_chat_for_seed
-            and response_format is None
-        ):
+        if seed is not None and use_chat_for_seed and response_format is None:
             chat_params = {k: v for k, v in params.items() if k != "seed"}
             logger.info("Using chat.completions for seeded request")
             resp = client.chat.completions.create(
@@ -342,8 +338,7 @@ def call_openai(
         http_status_or_exc = getattr(resp, "http_status", 200)
         text = extract_text(resp)
         return {"raw": resp, "text": text}
-    except Exception as e:
-        exc = e
+    except Exception:
         raise
     finally:
         duration_ms = int((time.monotonic() - t0) * 1000)
@@ -432,9 +427,9 @@ def llm_call(
 
     log_usage(stage, chosen_model, usage["prompt_tokens"], usage["completion_tokens"], cost)
     try:
-        setattr(resp, "tokens_in", usage["prompt_tokens"])
-        setattr(resp, "tokens_out", usage["completion_tokens"])
-        setattr(resp, "cost_usd", cost)
+        resp.tokens_in = usage["prompt_tokens"]
+        resp.tokens_out = usage["completion_tokens"]
+        resp.cost_usd = cost
     except Exception:
         pass
     return resp
