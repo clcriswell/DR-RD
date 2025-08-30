@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Mapping, Sequence
 
 from .cache import cached_data
+from .diff_runs import aggregate_from_rows
 
 EVENTS_PATH = Path(".dr_rd/telemetry/events.jsonl")
 SURVEYS_PATH = Path(".dr_rd/telemetry/surveys.jsonl")
@@ -80,3 +81,22 @@ def list_artifacts(run_id: str | None = None) -> Dict[str, str]:
     if not base.exists():
         return {}
     return {p.name: str(p) for p in base.glob("**/*") if p.is_file()}
+
+
+def ensure_run_totals(
+    meta: Mapping[str, float] | None, rows: Sequence[Mapping[str, object]]
+) -> Dict[str, float]:
+    """Return per-run totals, computing from ``rows`` if ``meta`` lacks values."""
+    totals: Dict[str, float] = {}
+    if meta:
+        for key in ("steps", "errors", "duration_ms", "tokens", "cost_usd"):
+            if key in meta:
+                try:
+                    totals[key] = float(meta[key])
+                except (TypeError, ValueError):
+                    continue
+    if len(totals) < 5:
+        computed = aggregate_from_rows(rows)
+        for key, val in computed.items():
+            totals.setdefault(key, val)
+    return totals
