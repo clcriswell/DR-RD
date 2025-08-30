@@ -9,7 +9,16 @@ from utils import survey, survey_store
 from utils.telemetry import log_event
 
 
+try:
+    from utils.consent import allowed_surveys
+except Exception:  # pragma: no cover
+    def allowed_surveys() -> bool:
+        return True
+
+
 def render_usage_panel() -> None:
+    if not allowed_surveys():
+        return
     records = survey_store.load_recent()
     metrics = survey_store.compute_aggregates(records)
     with st.sidebar.expander("Usage & Quality", expanded=False):
@@ -37,6 +46,8 @@ def render_usage_panel() -> None:
 
 
 def maybe_prompt_after_run(run_id: str) -> None:
+    if not allowed_surveys():
+        return
     key = f"survey_prompted_{run_id}"
     if st.session_state.get(key):
         return

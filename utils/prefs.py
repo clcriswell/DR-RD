@@ -28,6 +28,8 @@ DEFAULT_PREFS: dict[str, Any] = {
     "privacy": {
         "telemetry_enabled": True,
         "include_advanced_in_share_links": False,
+        "retention_days_events": 30,
+        "retention_days_runs": 60,
         "safety_mode": "warn",
         "safety_use_llm": False,
         "safety_block_categories": ["exfil","malicious_instruction"],
@@ -89,6 +91,15 @@ def _validate(raw: Mapping[str, Any] | None) -> dict:
     except Exception:
         thr = 0.8
     prefs["privacy"]["safety_high_threshold"] = max(0.0, min(1.0, thr))
+
+    # Clamp retention windows
+    for key in ("retention_days_events", "retention_days_runs"):
+        days = prefs["privacy"].get(key, DEFAULT_PREFS["privacy"][key])
+        try:
+            days = int(days)
+        except Exception:
+            days = DEFAULT_PREFS["privacy"][key]
+        prefs["privacy"][key] = max(7, min(365, days))
 
     # Validate provider/model snapshot
     try:

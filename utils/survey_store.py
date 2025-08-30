@@ -44,6 +44,13 @@ def _mirror_to_firestore(record: dict) -> None:  # pragma: no cover - best effor
 
 
 def save_sus(run_id: str, answers: dict[str, int], total: int, comment: str | None) -> None:
+    try:
+        from utils.consent import allowed_surveys
+
+        if not allowed_surveys():
+            return
+    except Exception:
+        pass
     clean = redact_text(comment or "")[:1000]
     record = {
         "ts": time.time(),
@@ -58,6 +65,13 @@ def save_sus(run_id: str, answers: dict[str, int], total: int, comment: str | No
 
 
 def save_seq(run_id: str, score: int, comment: str | None) -> None:
+    try:
+        from utils.consent import allowed_surveys
+
+        if not allowed_surveys():
+            return
+    except Exception:
+        pass
     clean = redact_text(comment or "")[:1000]
     record = {
         "ts": time.time(),
@@ -72,6 +86,13 @@ def save_seq(run_id: str, score: int, comment: str | None) -> None:
 
 @cached_data(ttl=30)
 def load_recent(n: int = 500) -> list[dict]:
+    try:
+        from utils.consent import allowed_surveys
+
+        if not allowed_surveys():
+            return []
+    except Exception:
+        pass
     if not SURVEYS_PATH.exists():
         return []
     with SURVEYS_PATH.open("r", encoding="utf-8") as f:
@@ -80,6 +101,20 @@ def load_recent(n: int = 500) -> list[dict]:
 
 
 def compute_aggregates(records: list[dict]) -> dict[str, float]:
+    try:
+        from utils.consent import allowed_surveys
+
+        if not allowed_surveys():
+            return {
+                "sus_count": 0,
+                "sus_mean": 0.0,
+                "sus_7_day_mean": 0.0,
+                "seq_count": 0,
+                "seq_mean": 0.0,
+                "seq_7_day_mean": 0.0,
+            }
+    except Exception:
+        pass
     now = time.time()
     cutoff = now - 7 * 24 * 60 * 60
     sus_scores = [r.get("total", 0) for r in records if r.get("instrument") == "SUS"]
