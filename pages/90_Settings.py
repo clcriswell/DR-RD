@@ -3,6 +3,7 @@ import json
 import copy
 from typing import Any
 import streamlit as st
+from app.ui.copy import t
 
 from utils.prefs import DEFAULT_PREFS, load_prefs, save_prefs
 from utils.telemetry import log_event
@@ -11,8 +12,8 @@ if st.query_params.get("view") != "settings":
     st.query_params["view"] = "settings"
 log_event({"event": "nav_page_view", "page": "settings"})
 
-st.title("Settings")
-st.caption("Configure preferences and defaults.")
+st.title(t("settings_title"))
+st.caption(t("settings_help"))
 
 prefs = load_prefs()
 original = copy.deepcopy(prefs)
@@ -31,54 +32,63 @@ def _flatten(d: dict, prefix: str = "", out: dict | None = None) -> dict:
 # Defaults for new runs
 st.subheader("Defaults for new runs")
 mode = st.selectbox(
-    "Mode",
+    t("mode_label"),
     ["standard", "test", "deep"],
     index=["standard", "test", "deep"].index(prefs["defaults"].get("mode", "standard")),
+    help=t("mode_help"),
 )
 max_tokens = st.number_input(
-    "Max tokens",
+    t("max_tokens_label"),
     min_value=0,
     step=100,
     value=prefs["defaults"].get("max_tokens", 0),
+    help=t("max_tokens_help"),
 )
 budget_limit = st.number_input(
-    "Budget limit (USD)",
+    t("budget_limit_label"),
     min_value=0.0,
     step=0.5,
     value=prefs["defaults"].get("budget_limit_usd") or 0.0,
+    help=t("budget_limit_help"),
 )
 knowledge_sources = st.multiselect(
-    "Knowledge sources",
+    t("knowledge_sources_label"),
     ["samples", "uploads", "connectors"],
     default=prefs["defaults"].get("knowledge_sources", []),
+    help=t("knowledge_sources_help"),
 )
 
 # UI behavior
 st.subheader("UI behavior")
 show_trace = st.checkbox(
-    "Show trace by default",
+    t("show_trace_label"),
     value=prefs["ui"].get("show_trace_by_default", True),
+    help=t("show_trace_help"),
 )
 auto_export = st.checkbox(
-    "Auto export on completion",
+    t("auto_export_label"),
     value=prefs["ui"].get("auto_export_on_completion", False),
+    help=t("auto_export_help"),
 )
 trace_page_size = st.number_input(
-    "Trace page size",
+    t("trace_page_size_label"),
     min_value=10,
     max_value=200,
     value=prefs["ui"].get("trace_page_size", 50),
+    help=t("trace_page_size_help"),
 )
 
 # Privacy
 st.subheader("Privacy")
 telemetry = st.checkbox(
-    "Telemetry enabled",
+    t("telemetry_label"),
     value=prefs["privacy"].get("telemetry_enabled", True),
+    help=t("telemetry_help"),
 )
 share_adv = st.checkbox(
-    "Include advanced options in share links",
+    t("share_adv_label"),
     value=prefs["privacy"].get("include_advanced_in_share_links", False),
+    help=t("share_adv_help"),
 )
 
 updated = {
@@ -100,35 +110,36 @@ updated = {
     },
 }
 
-if st.button("Save preferences", type="primary"):
+if st.button(t("save_prefs_label"), type="primary", help=t("save_prefs_help")):
     save_prefs(updated)
     flat_old = _flatten(original)
     flat_new = _flatten(updated)
     changed = [k for k, v in flat_new.items() if flat_old.get(k) != v]
     log_event({"event": "settings_changed", "keys_changed": changed, "version": updated["version"]})
-    st.success("Preferences saved")
+    st.success(t("prefs_saved_msg"))
     prefs = updated
 
-if st.button("Restore factory defaults"):
+if st.button(t("restore_defaults_label"), help=t("restore_defaults_help")):
     save_prefs(DEFAULT_PREFS)
     log_event({"event": "settings_changed", "keys_changed": list(_flatten(original).keys()), "version": DEFAULT_PREFS["version"]})
-    st.success("Preferences restored")
+    st.success(t("prefs_restored_msg"))
     prefs = load_prefs()
 
-uploaded = st.file_uploader("Import preferences (.json)", type="json")
+uploaded = st.file_uploader(t("import_prefs_label"), type="json", help=t("import_prefs_help"))
 if uploaded is not None:
     try:
         data = json.load(uploaded)
         save_prefs(data)
         log_event({"event": "settings_imported", "version": data.get("version")})
-        st.success("Preferences imported")
+        st.success(t("prefs_imported_msg"))
         prefs = load_prefs()
     except Exception:
-        st.error("Invalid preferences file")
+        st.error(t("prefs_invalid_msg"))
 
 if st.download_button(
-    "Export preferences",
+    t("export_prefs_label"),
     data=json.dumps(prefs).encode("utf-8"),
     file_name="config.json",
+    help=t("export_prefs_help"),
 ):
     log_event({"event": "settings_exported", "version": prefs.get("version")})

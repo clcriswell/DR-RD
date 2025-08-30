@@ -18,9 +18,26 @@ st.set_page_config(
 )
 
 from app.ui.a11y import inject_accessibility_baseline, live_region_container
+from app.ui.copy import t
+from utils.telemetry import log_event
 
 inject_accessibility_baseline()
 live_region_container()
+
+if not st.session_state.get("_onboard_shown", False):
+    try:
+        @st.dialog(t("welcome_title"))
+        def _welcome():
+            st.write(t("welcome_body"))
+            st.caption(t("run_help"))
+            st.button("Got it", key="welcome_ok")
+        _welcome()
+    except Exception:
+        with st.expander(t("welcome_title"), expanded=True):
+            st.write(t("welcome_body"))
+            st.caption(t("run_help"))
+    st.session_state["_onboard_shown"] = True
+    log_event({"event": "onboarding_shown"})
 
 from dataclasses import asdict
 from urllib.parse import urlencode
@@ -39,7 +56,6 @@ from utils.run_config import (
 )
 from utils.prefs import load_prefs
 from utils import bundle
-from utils.telemetry import log_event
 from utils.errors import make_safe_error
 from utils.run_id import new_run_id
 from utils.paths import ensure_run_dirs, artifact_path, run_root, write_bytes
@@ -112,21 +128,21 @@ def main() -> None:
     survey.render_usage_panel()
     components.help_once(
         "first_run_tip",
-        "After you start, the app plans, executes tasks, then synthesizes a report.",
+        t("run_help"),
     )
 
     cfg = render_sidebar()
     col_run, col_share = st.columns([3, 1])
     with col_run:
-        submitted = st.button("Start run", type="primary")
+        submitted = st.button(t("start_run_label"), type="primary", help=t("start_run_help"))
     with col_share:
-        include_adv = st.checkbox("Include advanced options", key="share_adv")
-        if st.button("Copy shareable link", key="share_link"):
+        include_adv = st.checkbox(t("include_adv_label"), key="share_adv", help=t("include_adv_help"))
+        if st.button(t("share_link_label"), key="share_link", help=t("share_link_help")):
             qp = encode_config(to_orchestrator_kwargs(cfg))
             if not include_adv:
                 qp.pop("adv", None)
             url = "./?" + urlencode(qp)
-            st.text_input("shareable", value=url, label_visibility="collapsed")
+            st.text_input(t("share_link_url_label"), value=url, help=t("share_link_help"))
             log_event(
                 {
                     "event": "link_shared",
