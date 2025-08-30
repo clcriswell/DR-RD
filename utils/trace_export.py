@@ -18,9 +18,12 @@ def _safe_summary(text: str | None, max_len: int = 80) -> str:
     return text[:max_len]
 
 
-def flatten_trace_rows(trace: Sequence[TraceStep]) -> List[TraceRow]:
-    """Return normalized rows for tabular exports."""
-    rows: List[TraceRow] = []
+def flatten_trace_rows(trace: Sequence[TraceStep]) -> list[dict]:
+    """Return normalized rows for tabular exports.
+
+    Each row contains the fields: i, phase, name, status, duration_ms, tokens, cost, summary.
+    """
+    rows: list[dict] = []
     for idx, step in enumerate(trace, 1):
         rows.append(
             {
