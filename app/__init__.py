@@ -1,5 +1,7 @@
 """Thin Streamlit UI for DR-RD."""
 
+# ruff: noqa: E402
+
 import io
 import json
 import logging
@@ -19,13 +21,13 @@ st.set_page_config(
 
 from app.ui.a11y import inject_accessibility_baseline, live_region_container
 from app.ui.copy import t
+from utils.cancellation import CancellationToken
 from utils.telemetry import (
     log_event,
     run_cancel_requested,
     run_cancelled,
     timeout_hit,
 )
-from utils.cancellation import CancellationToken
 from utils.usage import Usage
 
 inject_accessibility_baseline()
@@ -33,11 +35,13 @@ live_region_container()
 
 if not st.session_state.get("_onboard_shown", False):
     try:
+
         @st.dialog(t("welcome_title"))
         def _welcome():
             st.write(t("welcome_body"))
             st.caption(t("run_help"))
             st.button("Got it", key="welcome_ok")
+
         _welcome()
     except Exception:
         with st.expander(t("welcome_title"), expanded=True):
@@ -49,24 +53,16 @@ if not st.session_state.get("_onboard_shown", False):
 from dataclasses import asdict
 from urllib.parse import urlencode
 
-from app.ui import components, meter
-from app.ui.sidebar import render_sidebar
-from app.ui import survey
-from config.agent_models import AGENT_MODEL_MAP
 import config.feature_flags as ff
+from app.ui import components, meter, survey
+from app.ui.sidebar import render_sidebar
+from config.agent_models import AGENT_MODEL_MAP
 from core.agents.unified_registry import build_agents_unified
-from utils.run_config import (
-    RunConfig,
-    defaults,
-    to_orchestrator_kwargs,
-    to_session,
-)
-from utils.prefs import load_prefs
 from utils import bundle
+from utils.env_snapshot import capture_env
 from utils.errors import make_safe_error
-from utils.run_id import new_run_id
-from utils.paths import ensure_run_dirs, artifact_path, run_root, write_bytes
-from utils.runs import create_run_meta, complete_run_meta
+from utils.paths import artifact_path, ensure_run_dirs, run_root, write_bytes, write_text
+from utils.prefs import load_prefs
 from utils.query_params import (
     QP_APPLIED_KEY,
     decode_config,
@@ -74,6 +70,15 @@ from utils.query_params import (
     merge_into_defaults,
     view_state_from_params,
 )
+from utils.run_config import (
+    RunConfig,
+    defaults,
+    to_orchestrator_kwargs,
+    to_session,
+)
+from utils.run_config_io import to_lockfile
+from utils.run_id import new_run_id
+from utils.runs import complete_run_meta, create_run_meta
 
 WRAP_CSS = """
 pre, code {
@@ -90,7 +95,9 @@ def _apply_prefs() -> dict:
     prefs = load_prefs()
     if not st.session_state.get("_prefs_applied"):
         to_session(defaults())
-        st.session_state.setdefault("show_agent_trace", prefs["ui"].get("show_trace_by_default", True))
+        st.session_state.setdefault(
+            "show_agent_trace", prefs["ui"].get("show_trace_by_default", True)
+        )
         st.session_state["_prefs_applied"] = True
     return prefs
 
@@ -103,7 +110,9 @@ def get_agents():
 
 def main() -> None:
     from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
+
     prefs = _apply_prefs()
+    origin_run_id = st.query_params.get("origin_run_id")
     if st.session_state.get(QP_APPLIED_KEY) is not True:
         decoded = decode_config(st.query_params)
         rc_defaults = asdict(defaults())
@@ -143,7 +152,9 @@ def main() -> None:
     with col_run:
         submitted = st.button(t("start_run_label"), type="primary", help=t("start_run_help"))
     with col_share:
-        include_adv = st.checkbox(t("include_adv_label"), key="share_adv", help=t("include_adv_help"))
+        include_adv = st.checkbox(
+            t("include_adv_label"), key="share_adv", help=t("include_adv_help")
+        )
         if st.button(t("share_link_label"), key="share_link", help=t("share_link_help")):
             qp = encode_config(to_orchestrator_kwargs(cfg))
             if not include_adv:
@@ -170,8 +181,12 @@ def main() -> None:
     run_id = new_run_id()
     ensure_run_dirs(run_id)
     create_run_meta(run_id, mode=kwargs["mode"], idea_preview=kwargs["idea"][:120])
+    write_text(run_id, "run_config", "lock.json", json.dumps(to_lockfile(asdict(cfg))))
+    write_text(run_id, "env", "snapshot.json", json.dumps(capture_env()))
     st.session_state["run_id"] = run_id
     st.query_params["run_id"] = run_id
+    if origin_run_id:
+        log_event({"event": "reproduce_started", "run_id": run_id, "origin_run_id": origin_run_id})
     log_event(
         {
             "event": "run_created",
@@ -223,12 +238,14 @@ def main() -> None:
                 deadline_ts=deadline_ts,
             )
             box.update(label="Planning complete", state="complete")
-        log_event({
-            "event": "step_completed",
-            "run_id": run_id,
-            "stage": "plan",
-            "duration": time.time() - start,
-        })
+        log_event(
+            {
+                "event": "step_completed",
+                "run_id": run_id,
+                "stage": "plan",
+                "duration": time.time() - start,
+            }
+        )
         live = meter.render_live(
             st.session_state["usage"],
             budget_limit_usd=kwargs.get("budget_limit_usd"),
@@ -250,12 +267,14 @@ def main() -> None:
                 deadline_ts=deadline_ts,
             )
             box.update(label="Execution complete", state="complete")
-        log_event({
-            "event": "step_completed",
-            "run_id": run_id,
-            "stage": "exec",
-            "duration": time.time() - start,
-        })
+        log_event(
+            {
+                "event": "step_completed",
+                "run_id": run_id,
+                "stage": "exec",
+                "duration": time.time() - start,
+            }
+        )
         live = meter.render_live(
             st.session_state["usage"],
             budget_limit_usd=kwargs.get("budget_limit_usd"),
@@ -276,12 +295,14 @@ def main() -> None:
                 deadline_ts=deadline_ts,
             )
             box.update(label="Synthesis complete", state="complete")
-        log_event({
-            "event": "step_completed",
-            "run_id": run_id,
-            "stage": "synth",
-            "duration": time.time() - start,
-        })
+        log_event(
+            {
+                "event": "step_completed",
+                "run_id": run_id,
+                "stage": "synth",
+                "duration": time.time() - start,
+            }
+        )
         live = meter.render_live(
             st.session_state["usage"],
             budget_limit_usd=kwargs.get("budget_limit_usd"),
@@ -296,14 +317,28 @@ def main() -> None:
         st.query_params.update({"run_id": run_id, "view": "trace"})
         complete_run_meta(run_id, status="success")
         log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
+        if origin_run_id:
+            log_event(
+                {
+                    "event": "reproduce_completed",
+                    "run_id": run_id,
+                    "origin_run_id": origin_run_id,
+                    "status": "success",
+                }
+            )
         if prefs["ui"].get("auto_export_on_completion"):
             try:
+
                 def _read_bytes(rid, name, ext):
                     return artifact_path(rid, name, ext).read_bytes()
+
                 def _list_existing(rid):
                     root = run_root(rid)
                     return [(p.stem, p.suffix.lstrip(".")) for p in root.iterdir() if p.is_file()]
-                data = bundle.build_zip_bundle(run_id, [], read_bytes=_read_bytes, list_existing=_list_existing)
+
+                data = bundle.build_zip_bundle(
+                    run_id, [], read_bytes=_read_bytes, list_existing=_list_existing
+                )
                 write_bytes(run_id, "bundle", "zip", data)
             except Exception:
                 pass
@@ -320,6 +355,15 @@ def main() -> None:
         complete_run_meta(run_id, status="cancelled")
         run_cancelled(run_id, current_phase)
         log_event({"event": "run_completed", "run_id": run_id, "status": "cancelled"})
+        if origin_run_id:
+            log_event(
+                {
+                    "event": "reproduce_completed",
+                    "run_id": run_id,
+                    "origin_run_id": origin_run_id,
+                    "status": "cancelled",
+                }
+            )
         log_event(
             {
                 "event": "error_shown",
@@ -350,6 +394,15 @@ def main() -> None:
         complete_run_meta(run_id, status="timeout")
         timeout_hit(run_id, current_phase)
         log_event({"event": "run_completed", "run_id": run_id, "status": "timeout"})
+        if origin_run_id:
+            log_event(
+                {
+                    "event": "reproduce_completed",
+                    "run_id": run_id,
+                    "origin_run_id": origin_run_id,
+                    "status": "timeout",
+                }
+            )
         log_event(
             {
                 "event": "error_shown",
@@ -376,11 +429,18 @@ def main() -> None:
     except Exception as e:  # pragma: no cover - UI display
         if current_box is not None:
             current_box.update(label="Error", state="error")
-        err = make_safe_error(
-            e, run_id=run_id, phase=current_phase, step_id=None
-        )
+        err = make_safe_error(e, run_id=run_id, phase=current_phase, step_id=None)
         complete_run_meta(run_id, status="error")
         log_event({"event": "run_completed", "run_id": run_id, "status": "error"})
+        if origin_run_id:
+            log_event(
+                {
+                    "event": "reproduce_completed",
+                    "run_id": run_id,
+                    "origin_run_id": origin_run_id,
+                    "status": "error",
+                }
+            )
         log_event(
             {
                 "event": "error_shown",
