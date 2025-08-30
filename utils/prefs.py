@@ -1,4 +1,5 @@
 """Helpers for persisted user preferences."""
+
 from __future__ import annotations
 
 import json
@@ -18,6 +19,7 @@ DEFAULT_PREFS: dict[str, Any] = {
         "max_tokens": None,
         "knowledge_sources": ["samples"],
         "provider_model": {"provider": "openai", "model": "gpt-4o-mini"},
+        "profile": "",
     },
     "ui": {
         "show_trace_by_default": True,
@@ -32,10 +34,9 @@ DEFAULT_PREFS: dict[str, Any] = {
         "retention_days_runs": 60,
         "safety_mode": "warn",
         "safety_use_llm": False,
-        "safety_block_categories": ["exfil","malicious_instruction"],
+        "safety_block_categories": ["exfil", "malicious_instruction"],
         "safety_high_threshold": 0.8,
     },
-
     "notifications": {
         "enabled": True,
         "channels": [],
@@ -51,7 +52,6 @@ DEFAULT_PREFS: dict[str, Any] = {
         },
     },
     "storage": {"backend": "local", "bucket": "", "prefix": "dr_rd", "signed_url_ttl_sec": 600},
-
     "retrieval": {
         "enabled": True,
         "top_k": 4,
@@ -62,18 +62,23 @@ DEFAULT_PREFS: dict[str, Any] = {
         "embedding_model": "text-embedding-3-small",
         "max_chars_per_doc": 200000,
     },
-
     "sharing": {
         "default_ttl_sec": 604800,
         "default_scopes": ["trace", "reports", "artifacts"],
         "allow_scopes": ["trace", "reports", "artifacts"],
     },
-
-
-
 }
 
-_ALLOWED_SECTIONS = {"defaults", "ui", "privacy", "notifications", "storage", "retrieval", "sharing", "version"}
+_ALLOWED_SECTIONS = {
+    "defaults",
+    "ui",
+    "privacy",
+    "notifications",
+    "storage",
+    "retrieval",
+    "sharing",
+    "version",
+}
 
 
 def _validate(raw: Mapping[str, Any] | None) -> dict:
@@ -110,9 +115,6 @@ def _validate(raw: Mapping[str, Any] | None) -> dict:
                 prefs[section][key] = [str(v) for v in value]
         else:
             prefs[section][key] = str(value)
-
-
-
 
     raw_not = raw.get("notifications")
     if isinstance(raw_not, Mapping):

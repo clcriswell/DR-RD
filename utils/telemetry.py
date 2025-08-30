@@ -140,7 +140,9 @@ def read_events(limit: int | None = None, days: int = 7) -> list[dict]:
 # Convenience event wrappers remain largely unchanged below.
 
 
-def llm_call_started(provider: str, model: str, attempt: int, run_id: str | None = None, step_id: str | None = None) -> None:
+def llm_call_started(
+    provider: str, model: str, attempt: int, run_id: str | None = None, step_id: str | None = None
+) -> None:
     ev = {"event": "llm_call_started", "provider": provider, "model": model, "attempt": attempt}
     if run_id:
         ev["run_id"] = run_id
@@ -149,7 +151,9 @@ def llm_call_started(provider: str, model: str, attempt: int, run_id: str | None
     log_event(ev)
 
 
-def llm_call_succeeded(provider: str, model: str, attempt: int, run_id: str | None = None, step_id: str | None = None) -> None:
+def llm_call_succeeded(
+    provider: str, model: str, attempt: int, run_id: str | None = None, step_id: str | None = None
+) -> None:
     ev = {"event": "llm_call_succeeded", "provider": provider, "model": model, "attempt": attempt}
     if run_id:
         ev["run_id"] = run_id
@@ -158,8 +162,21 @@ def llm_call_succeeded(provider: str, model: str, attempt: int, run_id: str | No
     log_event(ev)
 
 
-def llm_call_failed(provider: str, model: str, attempt: int, kind: str, run_id: str | None = None, step_id: str | None = None) -> None:
-    ev = {"event": "llm_call_failed", "provider": provider, "model": model, "attempt": attempt, "kind": kind}
+def llm_call_failed(
+    provider: str,
+    model: str,
+    attempt: int,
+    kind: str,
+    run_id: str | None = None,
+    step_id: str | None = None,
+) -> None:
+    ev = {
+        "event": "llm_call_failed",
+        "provider": provider,
+        "model": model,
+        "attempt": attempt,
+        "kind": kind,
+    }
     if run_id:
         ev["run_id"] = run_id
     if step_id:
@@ -167,7 +184,9 @@ def llm_call_failed(provider: str, model: str, attempt: int, kind: str, run_id: 
     log_event(ev)
 
 
-def llm_fallback(provider: str, model: str, run_id: str | None = None, step_id: str | None = None) -> None:
+def llm_fallback(
+    provider: str, model: str, run_id: str | None = None, step_id: str | None = None
+) -> None:
     ev = {"event": "llm_fallback", "provider": provider, "model": model}
     if run_id:
         ev["run_id"] = run_id
@@ -176,7 +195,9 @@ def llm_fallback(provider: str, model: str, run_id: str | None = None, step_id: 
     log_event(ev)
 
 
-def llm_cache_hit(provider: str, model: str, run_id: str | None = None, step_id: str | None = None) -> None:
+def llm_cache_hit(
+    provider: str, model: str, run_id: str | None = None, step_id: str | None = None
+) -> None:
     ev = {"event": "llm_cache_hit", "provider": provider, "model": model}
     if run_id:
         ev["run_id"] = run_id
@@ -231,7 +252,9 @@ def prompt_edited(id_: str, version: str) -> None:
 
 
 def share_link_created(run_id: str, scopes: list[str], ttl_sec: int) -> None:
-    log_event({"event": "share_link_created", "run_id": run_id, "scopes": scopes, "ttl_sec": int(ttl_sec)})
+    log_event(
+        {"event": "share_link_created", "run_id": run_id, "scopes": scopes, "ttl_sec": int(ttl_sec)}
+    )
 
 
 def share_link_accessed(run_id: str | None, scopes: list[str]) -> None:
@@ -520,10 +543,16 @@ def eval_completed(items: int, pass_rate: float, mean_final: float) -> None:
     )
 
 
-
-
 def notification_sent(run_id: str, status: str, channels: list[str], ok: bool) -> None:
-    log_event({"event": "notification_sent", "run_id": run_id, "status": status, "channels": channels, "ok": bool(ok)})
+    log_event(
+        {
+            "event": "notification_sent",
+            "run_id": run_id,
+            "status": status,
+            "channels": channels,
+            "ok": bool(ok),
+        }
+    )
 
 
 def notifications_saved(channels: list[str], events_count: int) -> None:
@@ -547,7 +576,33 @@ def retrieval_query(q_len: int) -> None:
 
 
 def retrieval_used(run_id: str, step_id: str, k: int, provider: str) -> None:
-    log_event({"event": "retrieval_used", "run_id": run_id, "step_id": step_id, "k": k, "provider": provider})
+    log_event(
+        {
+            "event": "retrieval_used",
+            "run_id": run_id,
+            "step_id": step_id,
+            "k": k,
+            "provider": provider,
+        }
+    )
+
+
+def profile_saved(name: str) -> None:
+    log_event({"event": "profile_saved", "name": name})
+
+
+def profile_applied(name: str) -> None:
+    log_event({"event": "profile_applied", "name": name})
+
+
+def profile_deleted(name: str) -> None:
+    log_event({"event": "profile_deleted", "name": name})
+
+
+def profile_set_default(name: str) -> None:
+    log_event({"event": "profile_set_default", "name": name})
+
+
 __all__ = [
     "log_event",
     "list_files",
@@ -579,6 +634,10 @@ __all__ = [
     "safety_export_blocked",
     "retrieval_query",
     "retrieval_used",
+    "profile_saved",
+    "profile_applied",
+    "profile_deleted",
+    "profile_set_default",
     "history_filter_changed",
     "history_export_clicked",
     "graph_view_opened",
@@ -608,4 +667,6 @@ def storage_read(backend: str, key: str, bytes: int) -> None:
 
 
 def storage_error(backend: str, key: str, op: str, reason: str) -> None:
-    log_event({"event": "storage_error", "backend": backend, "key": key, "op": op, "reason": reason})
+    log_event(
+        {"event": "storage_error", "backend": backend, "key": key, "op": op, "reason": reason}
+    )
