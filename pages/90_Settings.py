@@ -7,6 +7,44 @@ from app.ui.copy import t
 
 from utils.prefs import DEFAULT_PREFS, load_prefs, save_prefs
 from utils.telemetry import log_event
+from app.ui.command_palette import open_palette
+
+# quick open via button
+if st.button(
+    "⌘K Command palette",
+    key="cmd_btn",
+    use_container_width=False,
+    help="Open global search",
+):
+    log_event({"event": "palette_opened"})
+    open_palette()
+
+# auto open via query param
+if st.query_params.get("cmd") == "1":
+    log_event({"event": "palette_opened", "source": "qp"})
+    open_palette()
+    st.query_params.pop("cmd", None)
+
+act = st.session_state.pop("_cmd_action", None)
+if act:
+    if act["action"] == "switch_page":
+        st.switch_page(act["params"]["page"])
+    elif act["action"] == "set_params":
+        st.query_params.update(act["params"])
+        st.rerun()
+    elif act["action"] == "copy":
+        st.code(act["params"]["text"], language=None)
+        st.toast("Copied link")
+    elif act["action"] == "start_demo":
+        st.query_params.update({"mode": "demo", "view": "run"})
+        st.toast("Demo mode selected. Review and start.")
+    log_event(
+        {
+            "event": "palette_executed",
+            "kind": act.get("kind"),
+            "action": act["action"],
+        }
+    )
 
 if st.query_params.get("view") != "settings":
     st.query_params["view"] = "settings"
