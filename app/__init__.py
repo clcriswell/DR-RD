@@ -183,6 +183,9 @@ def main() -> None:
         cfg = replace(cfg, mode="demo")
 
     kwargs = to_orchestrator_kwargs(cfg)
+    resume_from = st.query_params.pop("resume_from", None)
+    if resume_from:
+        kwargs["resume_from"] = resume_from
     qp = encode_config(kwargs)
     st.query_params.update(qp)
     log_event({"event": "config_encoded_to_url", "field_count": len(qp)})
@@ -421,11 +424,13 @@ def main() -> None:
             }
         )
         components.error_banner(err)
-        r1, r2 = st.columns([1, 1])
+        r1, r2, r3 = st.columns([1, 1, 1])
         with r1:
             retry = st.button("Retry run", type="primary", use_container_width=True)
         with r2:
             open_trace = st.button("Open trace", use_container_width=True)
+        with r3:
+            resume = st.button("Resume run", use_container_width=True)
         if retry:
             st.query_params["retry_of"] = err.context.get("run_id") or ""
             st.rerun()
@@ -433,6 +438,9 @@ def main() -> None:
             st.query_params["run_id"] = err.context.get("run_id") or ""
             st.query_params["view"] = "trace"
             st.switch_page("pages/10_Trace.py")
+        if resume:
+            st.query_params["resume_from"] = err.context.get("run_id") or ""
+            st.rerun()
     except TimeoutError as e:  # pragma: no cover - UI display
         if current_box is not None:
             current_box.update(label="Timeout", state="error")
@@ -460,11 +468,13 @@ def main() -> None:
             }
         )
         components.error_banner(err)
-        r1, r2 = st.columns([1, 1])
+        r1, r2, r3 = st.columns([1, 1, 1])
         with r1:
             retry = st.button("Retry run", type="primary", use_container_width=True)
         with r2:
             open_trace = st.button("Open trace", use_container_width=True)
+        with r3:
+            resume = st.button("Resume run", use_container_width=True)
         if retry:
             st.query_params["retry_of"] = err.context.get("run_id") or ""
             st.rerun()
@@ -472,6 +482,9 @@ def main() -> None:
             st.query_params["run_id"] = err.context.get("run_id") or ""
             st.query_params["view"] = "trace"
             st.switch_page("pages/10_Trace.py")
+        if resume:
+            st.query_params["resume_from"] = err.context.get("run_id") or ""
+            st.rerun()
     except Exception as e:  # pragma: no cover - UI display
         if current_box is not None:
             current_box.update(label="Error", state="error")

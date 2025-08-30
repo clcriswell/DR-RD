@@ -34,6 +34,21 @@ def run_cancelled(run_id: str, phase: str | None = None) -> None:
     log_event(ev)
 
 
+def checkpoint_saved(run_id: str, phase: str, step_id: str | int) -> None:
+    """Emit a checkpoint_saved telemetry event."""
+    log_event({"event": "checkpoint_saved", "run_id": run_id, "phase": phase, "step_id": step_id})
+
+
+def run_resumed(new_run_id: str, origin_run_id: str) -> None:
+    """Emit a run_resumed telemetry event."""
+    log_event({"event": "run_resumed", "new_run_id": new_run_id, "origin_run_id": origin_run_id})
+
+
+def resume_failed(origin_run_id: str, reason: str) -> None:
+    """Emit a resume_failed telemetry event."""
+    log_event({"event": "resume_failed", "origin_run_id": origin_run_id, "reason": reason})
+
+
 def timeout_hit(run_id: str, phase: str | None = None) -> None:
     """Emit a timeout_hit telemetry event."""
     ev = {"event": "timeout_hit", "run_id": run_id}
@@ -119,6 +134,9 @@ __all__ = [
     "timeout_hit",
     "demo_started",
     "demo_completed",
+    "checkpoint_saved",
+    "run_resumed",
+    "resume_failed",
     "usage_threshold_crossed",
     "usage_exceeded",
     "knowledge_added",

@@ -31,8 +31,14 @@ from prompts.prompts import (
     PLANNER_USER_PROMPT_TEMPLATE,
     SYNTHESIZER_TEMPLATE,
 )
+from utils import checkpoints
+from utils.telemetry import run_resumed, resume_failed
 
 evidence: EvidenceSet | None = None
+
+
+class ResumeNotPossible(Exception):
+    pass
 
 
 def _invoke_agent(agent, idea: str, task: Dict[str, str], model: str | None = None) -> str:
@@ -805,23 +811,46 @@ def run_poc(project_id: str, test_plan):
     return report
 
 
-def orchestrate(*args, **kwargs):
+def orchestrate(*args, resume_from: str | None = None, **kwargs):
     import logging
 
     logging.warning(
         "core.orchestrator.orchestrate is deprecated; using unified pipeline (planner→router→executor→synth)."
     )
     idea = args[0] if args else kwargs.get("idea", "")
+    run_id = st.session_state.get("run_id") or ""
+    phases = ["planner", "executor", "synth"]
+    if resume_from:
+        cp = checkpoints.load(resume_from)
+        if not cp:
+            resume_failed(resume_from, "missing_checkpoint")
+            raise ResumeNotPossible(f"no checkpoint for {resume_from}")
+        checkpoints.init(run_id, phases=phases)
+        run_resumed(run_id, resume_from)
+        start = {ph: cp["phases"].get(ph, {}).get("next_index", 0) for ph in phases}
+    else:
+        checkpoints.init(run_id, phases=phases)
+        start = {ph: 0 for ph in phases}
     logger.info(
         "UnifiedPipeline: planner→router→executor→synth (parallel=%s, rag=%s, live=%s)",
         ff.PARALLEL_EXEC_ENABLED,
         ff.RAG_ENABLED,
         ff.ENABLE_LIVE_SEARCH,
     )
-    tasks = generate_plan(idea)
+    tasks: List[Dict[str, str]] = []
+    if start["planner"] == 0:
+        tasks = generate_plan(idea)
+        checkpoints.mark_step_done(run_id, "planner", "plan")
     agents = kwargs.get("agents") or {}
-    results = execute_plan(idea, tasks, agents)
-    return compose_final_proposal(idea, results)
+    results: Dict[str, str] = {}
+    if start["executor"] == 0:
+        results = execute_plan(idea, tasks, agents)
+        checkpoints.mark_step_done(run_id, "executor", "exec")
+    final = ""
+    if start["synth"] == 0:
+        final = compose_final_proposal(idea, results)
+        checkpoints.mark_step_done(run_id, "synth", "synth")
+    return final
 
 
 def run_pipeline(idea: str, mode: str = "test", **kwargs):
