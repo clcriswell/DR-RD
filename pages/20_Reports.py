@@ -14,6 +14,9 @@ from utils import bundle, report_builder, run_reproduce
 from utils.report_html import build_html_report
 from utils.trace_export import flatten_trace_rows
 from utils.paths import artifact_path, run_root
+from utils import safety as safety_utils
+from app.ui import safety as ui_safety
+from utils.telemetry import safety_export_blocked
 from utils.query_params import encode_config
 from utils.runs import last_run_id, load_run_meta
 from utils.telemetry import log_event
@@ -97,7 +100,31 @@ else:
         "tokens": sum((step.get("tokens") or 0) for step in trace),
         "cost": sum((step.get("cost") or 0.0) for step in trace),
     }
-    md = report_builder.build_markdown_report(run_id, meta, trace, summary_text, totals)
+    results = []
+    for step in trace:
+        if isinstance(step.get("safety"), dict):
+            try:
+                results.append(safety_utils.SafetyResult(**step["safety"]))
+            except Exception:
+                pass
+    if summary_text:
+        results.append(safety_utils.check_text(summary_text))
+    agg = safety_utils.merge_results(*results) if results else safety_utils.SafetyResult([], False, 0.0)
+    cfg_s = safety_utils.default_config()
+    risky = agg.findings and (
+        agg.blocked
+        or agg.score >= cfg_s.high_severity_threshold
+        or any(f.category in cfg_s.block_categories for f in agg.findings)
+    )
+    ui_safety.badge(agg, where="export")
+    if risky and cfg_s.mode == "block":
+        st.info("Export blocked by safety policy")
+        safety_export_blocked(run_id, "all", [f.category for f in agg.findings])
+        return
+    sanitizer = safety_utils.sanitize_text if agg.findings else None
+    md = report_builder.build_markdown_report(
+        run_id, meta, trace, summary_text, totals, sanitizer=sanitizer
+    )
     rows = flatten_trace_rows(trace)
 
     with st.expander(t("report_preview_label"), expanded=True):
@@ -105,11 +132,19 @@ else:
 
     def _read_bytes(rid: str, name: str, ext: str) -> bytes:
         if name == "report" and ext == "md":
-            return md.encode("utf-8")
-        path = artifact_path(rid, name, ext)
-        if not path.exists():
-            raise FileNotFoundError
-        return path.read_bytes()
+            data = md
+        else:
+            path = artifact_path(rid, name, ext)
+            if not path.exists():
+                raise FileNotFoundError
+            data = path.read_text(encoding="utf-8")
+        if sanitizer and ext in {"md", "txt", "html", "csv", "json"}:
+            data = safety_utils.sanitize_text(data)
+            if ext in {"md", "txt"}:
+                data += "\n\nSanitized by DR RD."
+            elif ext == "html":
+                data += "<p>Sanitized by DR RD.</p>"
+        return data.encode("utf-8")
 
     def _list_existing(rid: str):
         root = run_root(rid)
@@ -124,7 +159,11 @@ else:
         empty_states.reports_empty()
     else:
         bundle_bytes = bundle.build_zip_bundle(
-            run_id, [], read_bytes=_read_bytes, list_existing=_list_existing
+            run_id,
+            [],
+            read_bytes=_read_bytes,
+            list_existing=_list_existing,
+            sanitize=lambda n, e, b: b,
         )
         with ZipFile(io.BytesIO(bundle_bytes)) as zf:
             bundle_count = len(zf.namelist())

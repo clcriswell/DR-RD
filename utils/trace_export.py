@@ -4,7 +4,7 @@ import csv
 import io
 import json
 from collections import OrderedDict
-from typing import Any, Dict, List, Mapping, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Sequence
 
 from .paths import write_bytes
 
@@ -45,7 +45,11 @@ def to_json(trace: Sequence[Dict[str, Any]]) -> bytes:
     return json.dumps(list(trace), ensure_ascii=False, indent=2).encode("utf-8")
 
 
-def to_csv(trace: Sequence[Dict[str, Any]], run_id: str | None = None) -> bytes:
+def to_csv(
+    trace: Sequence[Dict[str, Any]],
+    run_id: str | None = None,
+    sanitizer: Callable[[str], str] | None = None,
+) -> bytes:
     """Return a CSV summary of the trace."""
     rows = flatten_trace_rows(trace)
     output = io.StringIO()
@@ -71,12 +75,16 @@ def to_csv(trace: Sequence[Dict[str, Any]], run_id: str | None = None) -> bytes:
             row.get("duration_ms"),
             row.get("tokens"),
             row.get("cost"),
-            _safe_summary(row.get("summary")),
+            _safe_summary(sanitizer(row.get("summary")) if sanitizer else row.get("summary")),
         ])
     return output.getvalue().encode("utf-8")
 
 
-def to_markdown(trace: Sequence[Dict[str, Any]], run_id: str | None = None) -> bytes:
+def to_markdown(
+    trace: Sequence[Dict[str, Any]],
+    run_id: str | None = None,
+    sanitizer: Callable[[str], str] | None = None,
+) -> bytes:
     """Return a human readable Markdown report of the trace."""
     phases: OrderedDict[str, List[Dict[str, Any]]] = OrderedDict()
     for step in trace:
@@ -104,6 +112,8 @@ def to_markdown(trace: Sequence[Dict[str, Any]], run_id: str | None = None) -> b
                 header += f" ({', '.join(meta)})"
             lines.append(header)
             summary = step.get("summary") or ""
+            if sanitizer:
+                summary = sanitizer(summary)
             if len(summary) <= 200:
                 lines.append("```")
                 lines.append(summary.strip())
@@ -120,12 +130,12 @@ def write_trace_json(run_id: str, trace: Sequence[Dict[str, Any]]) -> None:
     write_bytes(run_id, "trace", "json", to_json(trace))
 
 
-def write_trace_csv(run_id: str, trace: Sequence[Dict[str, Any]]) -> None:
-    write_bytes(run_id, "summary", "csv", to_csv(trace, run_id=run_id))
+def write_trace_csv(run_id: str, trace: Sequence[Dict[str, Any]], sanitizer: Callable[[str], str] | None = None) -> None:
+    write_bytes(run_id, "summary", "csv", to_csv(trace, run_id=run_id, sanitizer=sanitizer))
 
 
-def write_trace_markdown(run_id: str, trace: Sequence[Dict[str, Any]]) -> None:
-    write_bytes(run_id, "trace", "md", to_markdown(trace, run_id=run_id))
+def write_trace_markdown(run_id: str, trace: Sequence[Dict[str, Any]], sanitizer: Callable[[str], str] | None = None) -> None:
+    write_bytes(run_id, "trace", "md", to_markdown(trace, run_id=run_id, sanitizer=sanitizer))
 
 
 __all__ = [

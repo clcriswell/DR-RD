@@ -28,6 +28,10 @@ DEFAULT_PREFS: dict[str, Any] = {
     "privacy": {
         "telemetry_enabled": True,
         "include_advanced_in_share_links": False,
+        "safety_mode": "warn",
+        "safety_use_llm": False,
+        "safety_block_categories": ["exfil","malicious_instruction"],
+        "safety_high_threshold": 0.8,
     },
 }
 
@@ -77,6 +81,14 @@ def _validate(raw: Mapping[str, Any] | None) -> dict:
             if key not in prefs[section]:
                 continue
             _coerce(section, key, value)
+
+    # Clamp safety threshold
+    thr = prefs["privacy"].get("safety_high_threshold", 0.8)
+    try:
+        thr = float(thr)
+    except Exception:
+        thr = 0.8
+    prefs["privacy"]["safety_high_threshold"] = max(0.0, min(1.0, thr))
 
     # Validate provider/model snapshot
     try:

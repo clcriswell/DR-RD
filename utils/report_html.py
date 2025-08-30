@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import html
-from typing import Mapping, Sequence, Tuple
+from typing import Callable, Mapping, Sequence, Tuple
 
 from .report_builder import summarize_steps
 
@@ -56,6 +56,7 @@ def build_html_report(
     summary_text: str | None,
     totals: Mapping | None,
     artifacts: Sequence[Tuple[str, str]] | None = None,
+    sanitizer: Callable[[str], str] | None = None,
 ) -> str:
     """Return a complete UTF-8 HTML report string."""
 
@@ -73,6 +74,8 @@ def build_html_report(
     # Overview
     lines.append("<h2>Overview</h2>")
     idea = meta.get("idea_preview")
+    if sanitizer and isinstance(idea, str):
+        idea = sanitizer(idea)
     mode = meta.get("mode")
     started = _iso(meta.get("started_at"))
     completed = _iso(meta.get("completed_at"))
@@ -96,15 +99,17 @@ def build_html_report(
     # Key results
     lines.append("<h2>Key results</h2>")
     if summary_text:
+        txt = sanitizer(summary_text) if sanitizer else summary_text
         lines.append("<pre><code>")
-        lines.append(_esc(summary_text))
+        lines.append(_esc(txt))
         lines.append("</code></pre>")
     else:
         summaries = summarize_steps(rows)
         if summaries:
             lines.append("<ul>")
             for s in summaries:
-                lines.append(f"<li>{_esc(s)}</li>")
+                txt = sanitizer(s) if sanitizer else s
+                lines.append(f"<li>{_esc(txt)}</li>")
             lines.append("</ul>")
 
     # Metrics

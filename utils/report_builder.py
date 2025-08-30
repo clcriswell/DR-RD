@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Mapping, Optional, Sequence
+from typing import Callable, List, Mapping, Optional, Sequence
 
 from .paths import run_root
 from .trace_export import flatten_trace_rows
@@ -47,6 +47,7 @@ def build_markdown_report(
     trace: Sequence[Mapping],
     summary_text: Optional[str],
     totals: Mapping,
+    sanitizer: Callable[[str], str] | None = None,
 ) -> str:
     """Assemble a human readable markdown report for a run."""
 
@@ -55,6 +56,8 @@ def build_markdown_report(
 
     lines.append("## Overview")
     idea = meta.get("idea_preview", "")
+    if sanitizer:
+        idea = sanitizer(idea)
     mode = meta.get("mode", "")
     started = meta.get("started_at")
     completed = meta.get("completed_at")
@@ -81,9 +84,12 @@ def build_markdown_report(
 
     lines.append("## Key results")
     if summary_text:
-        lines.append(summary_text.strip())
+        text = sanitizer(summary_text.strip()) if sanitizer else summary_text.strip()
+        lines.append(text)
     else:
         for s in summarize_steps(trace):
+            if sanitizer:
+                s = sanitizer(s)
             lines.append(f"- {s}")
     lines.append("")
 

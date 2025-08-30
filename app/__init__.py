@@ -140,6 +140,8 @@ from utils.env_snapshot import capture_env
 from utils.errors import make_safe_error
 from utils.paths import artifact_path, ensure_run_dirs, run_root, write_bytes, write_text
 from utils.prefs import load_prefs
+from utils import safety as safety_utils
+from utils import knowledge_store
 from utils.query_params import (
     QP_APPLIED_KEY,
     decode_config,
@@ -156,6 +158,8 @@ from utils.run_config import (
 from utils.run_config_io import to_lockfile
 from utils.run_id import new_run_id
 from utils.runs import complete_run_meta, create_run_meta
+from app.ui import safety as ui_safety
+from utils.telemetry import safety_warned, safety_blocked
 
 WRAP_CSS = """
 pre, code {
@@ -308,6 +312,38 @@ def main() -> None:
     if demo_submit:
         cfg = replace(cfg, mode="demo")
 
+    # Safety preflight
+    preview_parts = [cfg.idea[:1000]]
+    names = []
+    for sid in cfg.knowledge_sources:
+        item = knowledge_store.get_item(sid)
+        if item:
+            names.append(item.get("name", sid))
+    if names:
+        preview_parts.append("Sources: " + ", ".join(names))
+    preview = "\n".join(preview_parts)
+    res = safety_utils.check_text(preview)
+    cfg_s = safety_utils.default_config()
+    if cfg_s.use_llm:
+        res = safety_utils.merge_results(res, safety_utils.llm_advisor(preview, mode=cfg.mode))
+    risky = res.findings and (
+        res.blocked
+        or res.score >= cfg_s.high_severity_threshold
+        or any(f.category in cfg_s.block_categories for f in res.findings)
+    )
+    if risky:
+        ui_safety.badge(res, where="preflight")
+        cats = [f.category for f in res.findings]
+        if cfg_s.mode == "block":
+            safety_blocked("preflight", cats, res.score)
+            st.error("Input blocked by safety policy")
+            return
+        else:
+            if not ui_safety.confirm_to_proceed(res):
+                safety_blocked("preflight", cats, res.score)
+                return
+            safety_warned("preflight", cats, res.score)
+
     kwargs = to_orchestrator_kwargs(cfg)
     resume_from = st.query_params.pop("resume_from", None)
     if resume_from:
@@ -347,7 +383,11 @@ def main() -> None:
                     return [(p.stem, p.suffix.lstrip(".")) for p in root.iterdir() if p.is_file()]
 
                 data = bundle.build_zip_bundle(
-                    run_id, [], read_bytes=_read_bytes, list_existing=_list_existing
+                    run_id,
+                    [],
+                    read_bytes=_read_bytes,
+                    list_existing=_list_existing,
+                    sanitize=lambda n, e, b: b,
                 )
                 write_bytes(run_id, "bundle", "zip", data)
             except Exception:
@@ -532,7 +572,11 @@ def main() -> None:
                     return [(p.stem, p.suffix.lstrip(".")) for p in root.iterdir() if p.is_file()]
 
                 data = bundle.build_zip_bundle(
-                    run_id, [], read_bytes=_read_bytes, list_existing=_list_existing
+                    run_id,
+                    [],
+                    read_bytes=_read_bytes,
+                    list_existing=_list_existing,
+                    sanitize=lambda n, e, b: b,
                 )
                 write_bytes(run_id, "bundle", "zip", data)
             except Exception:

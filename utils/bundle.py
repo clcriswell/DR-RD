@@ -17,6 +17,7 @@ def build_zip_bundle(
     *,
     read_bytes: Callable[[str, str, str], bytes],
     list_existing: Callable[[str], Iterable[Tuple[str, str]]],
+    sanitize: Callable[[str, str, bytes], bytes] | None = None,
 ) -> bytes:
     """Create an in-memory ZIP for the run."""
     to_include = set(DEFAULT_FILES)
@@ -31,6 +32,8 @@ def build_zip_bundle(
                 data = read_bytes(run_id, name, ext)
             except Exception:
                 continue
+            if sanitize:
+                data = sanitize(name, ext, data)
             zf.writestr(f"{name}.{ext}", data)
     return buffer.getvalue()
 

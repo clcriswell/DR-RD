@@ -329,6 +329,50 @@ def knowledge_tags_updated(item_id: str, count: int) -> None:
     log_event({"event": "knowledge_tags_updated", "id": item_id, "count": count})
 
 
+def safety_warned(where: str, categories: list[str], score: float) -> None:
+    log_event(
+        {
+            "event": "safety_warned",
+            "where": where,
+            "categories": categories,
+            "score": score,
+        }
+    )
+
+
+def safety_blocked(where: str, categories: list[str], score: float) -> None:
+    log_event(
+        {
+            "event": "safety_blocked",
+            "where": where,
+            "categories": categories,
+            "score": score,
+        }
+    )
+
+
+def safety_flagged_step(run_id: str, step_id: str, categories: list[str]) -> None:
+    log_event(
+        {
+            "event": "safety_flagged_step",
+            "run_id": run_id,
+            "step_id": step_id,
+            "categories": categories,
+        }
+    )
+
+
+def safety_export_blocked(run_id: str, format: str, categories: list[str]) -> None:
+    log_event(
+        {
+            "event": "safety_export_blocked",
+            "run_id": run_id,
+            "format": format,
+            "categories": categories,
+        }
+    )
+
+
 def history_filter_changed(q_len: int, status_count: int, mode_count: int, fav: bool) -> None:
     """Emit a history_filter_changed telemetry event."""
     log_event(
@@ -391,6 +435,10 @@ __all__ = [
     "knowledge_added",
     "knowledge_removed",
     "knowledge_tags_updated",
+    "safety_warned",
+    "safety_blocked",
+    "safety_flagged_step",
+    "safety_export_blocked",
     "history_filter_changed",
     "history_export_clicked",
     "run_annotated",
