@@ -1,10 +1,8 @@
-import pytest
-
 from core.role_normalizer import (
     SYNONYMS,
+    group_by_role,
     normalize_role,
     normalize_tasks,
-    group_by_role,
 )
 
 ALLOWED = set(SYNONYMS.keys())
@@ -15,17 +13,11 @@ def test_exact_match():
 
 
 def test_synonym_mapping():
-    assert (
-        normalize_role("Mechanical Engineer", ALLOWED)
-        == "Mechanical Systems Lead"
-    )
+    assert normalize_role("Mechanical Engineer", ALLOWED) == "Mechanical Systems Lead"
 
 
 def test_fuzzy_fallback():
-    assert (
-        normalize_role("Reserch Scientst", ALLOWED)
-        == "Research Scientist"
-    )
+    assert normalize_role("Reserch Scientst", ALLOWED) == "Research Scientist"
 
 
 def test_tail_collapse_by_frequency():
@@ -68,3 +60,9 @@ def test_paperclip_plan_grouping():
     grouped = group_by_role(normalized, key="normalized_role")
     assert set(grouped) == {"Mechanical Systems Lead", "Regulatory", "Planner"}
     assert len(grouped["Planner"]) == 2
+
+
+def test_handles_string_tasks():
+    tasks = ["do something"]
+    normalized = normalize_tasks(tasks, allowed_roles=ALLOWED)
+    assert normalized[0]["normalized_role"] == "Synthesizer"
