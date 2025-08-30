@@ -37,6 +37,7 @@ from utils.telemetry import (
     run_start_blocked,
     run_duplicate_detected,
 )
+from utils import consent as _consent
 from utils.usage import Usage
 from utils.flags import is_enabled
 from utils.experiments import assign, force_from_params, exposure
@@ -50,6 +51,44 @@ run_store, view_store = init_stores()
 
 st.session_state.setdefault("active_run", None)
 st.session_state.setdefault("submit_token", None)
+
+_c = _consent.get()
+if _c is None:
+    try:
+        @st.dialog("Privacy & consent")
+        def _dlg():
+            st.write(
+                "Allow anonymous telemetry and optional in app surveys? You can change this anytime in Privacy settings."
+            )
+            tel = st.checkbox("Allow telemetry", value=True)
+            srv = st.checkbox("Allow surveys", value=True)
+            if st.button("Save choices", type="primary"):
+                _consent.set(telemetry=tel, surveys=srv)
+                log_event(
+                    {
+                        "event": "consent_changed",
+                        "telemetry": bool(tel),
+                        "surveys": bool(srv),
+                    }
+                )
+                st.rerun()
+
+        _dlg()
+    except Exception:
+        # Fallback inline block if dialogs unavailable
+        with st.expander("Privacy & consent", expanded=True):
+            tel = st.checkbox("Allow telemetry", value=True, key="c_tel")
+            srv = st.checkbox("Allow surveys", value=True, key="c_srv")
+            if st.button("Save choices", key="c_save"):
+                _consent.set(telemetry=tel, surveys=srv)
+                log_event(
+                    {
+                        "event": "consent_changed",
+                        "telemetry": bool(tel),
+                        "surveys": bool(srv),
+                    }
+                )
+                st.rerun()
 
 # quick open via button
 if st.button(
