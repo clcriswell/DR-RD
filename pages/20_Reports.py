@@ -15,8 +15,14 @@ from utils.paths import artifact_path, run_root
 from utils.query_params import encode_config
 from utils.runs import last_run_id, load_run_meta
 from utils.telemetry import log_event
+from utils.flags import is_enabled
 
-run_id = st.query_params.get("run_id") or last_run_id()
+params = dict(st.query_params)
+if not is_enabled("reports_page", params=params):
+    st.warning("Reports page disabled")
+    st.stop()
+
+run_id = params.get("run_id") or last_run_id()
 
 if not run_id:
     log_event({"event": "nav_page_view", "page": "reports", "run_id": None})

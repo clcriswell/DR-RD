@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "flags": {
+    "trace_viewer_v2": true,
+    "wizard_form": true,
+    "compare_page": true,
+    "reports_page": true
+  }
+}

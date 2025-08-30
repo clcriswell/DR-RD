@@ -29,11 +29,25 @@ from utils.telemetry import (
     timeout_hit,
     demo_started,
     demo_completed,
+    exp_overridden,
 )
 from utils.usage import Usage
+from utils.flags import is_enabled
+from utils.experiments import assign, force_from_params, exposure
+from utils.user_id import get_user_id
 
 inject_accessibility_baseline()
 live_region_container()
+
+params = dict(st.query_params)
+uid = get_user_id()
+forced_nav = force_from_params(params, "exp_trace_nav")
+if forced_nav:
+    exp_overridden("exp_trace_nav", forced_nav)
+nav_variant = forced_nav or assign(uid, "exp_trace_nav")[0]
+exposure(log_event, uid, "exp_trace_nav", nav_variant, run_id=params.get("run_id"))
+if forced_nav:
+    st.caption("Experiment override active.")
 
 if not st.session_state.get("_onboard_shown", False):
     try:
@@ -149,6 +163,11 @@ def main() -> None:
         t("run_help"),
     )
 
+    if not is_enabled("wizard_form", params=params):
+        st.warning("Wizard form disabled")
+        st.stop()
+    if nav_variant == "top_nav":
+        st.caption("Top navigation variant")
     cfg = render_sidebar()
     col_run, col_demo, col_share = st.columns([2, 2, 1])
     with col_run:

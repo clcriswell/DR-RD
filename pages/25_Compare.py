@@ -21,9 +21,15 @@ from utils.diff_runs import (
 )
 from utils.telemetry import log_event
 from utils.metrics import ensure_run_totals
+from utils.flags import is_enabled
 
 
-if st.query_params.get("view") != "compare":
+params = dict(st.query_params)
+if not is_enabled("compare_page", params=params):
+    st.warning("Compare page disabled")
+    st.stop()
+
+if params.get("view") != "compare":
     st.query_params["view"] = "compare"
 
 st.title("Compare Runs")

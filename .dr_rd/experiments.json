@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "experiments": {
+    "exp_trace_nav": {"variants": ["control", "top_nav"], "weights": [0.5, 0.5], "salt": "trace2025"},
+    "exp_status_compact": {"variants": ["control", "compact"], "weights": [0.5, 0.5], "salt": "status1"}
+  }
+}
