@@ -659,7 +659,7 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
         st.session_state["active_run"]["status"] = "success"
         complete_run_meta(run_id, status="success")
         log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
-    _send_note("run_completed", "success")
+        _send_note("run_completed", "success")
         if origin_run_id:
             log_event(
                 {
