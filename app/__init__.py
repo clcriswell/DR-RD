@@ -11,13 +11,25 @@ import fitz
 import streamlit as st
 from markdown_pdf import MarkdownPdf, Section
 
+st.set_page_config(
+    page_title="DR-RD",
+    page_icon=":material/science:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={"About": "DR-RD — AI R&D Workbench"},
+)
+
+from app.ui.a11y import inject_accessibility_baseline, live_region_container
+
+inject_accessibility_baseline()
+live_region_container()
+
 from app.ui import components
 from app.ui.sidebar import render_sidebar
 from app.ui import survey
 from config.agent_models import AGENT_MODEL_MAP
 import config.feature_flags as ff
 from core.agents.unified_registry import build_agents_unified
-from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
 from utils.run_config import to_orchestrator_kwargs
 from utils.telemetry import log_event
 
@@ -61,6 +73,8 @@ def get_agents():
 
 
 def main() -> None:
+    from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
+
     _apply_stored_defaults()
     survey.render_usage_panel()
     components.help_once(
