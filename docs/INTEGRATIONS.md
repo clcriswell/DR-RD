@@ -37,3 +37,10 @@ Slack messages use block kit and include run ID, status, mode, and cost. Webhook
 - Ensure network egress to Slack/SMTP/webhook endpoints.
 - Check rate limits for external services.
 - Use the "Send test" buttons in the Notifications settings page.
+
+
+## Artifact storage
+
+Configure storage backend for run artifacts. Supported backends are local filesystem, S3, and GCS.
+Set non-secret preferences under the Storage settings page. Secrets like credentials should be provided via environment variables or st.secrets.
+Signed download URLs are generated when supported, with lifetime controlled by `signed_url_ttl_sec`.

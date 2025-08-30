@@ -50,10 +50,13 @@ DEFAULT_PREFS: dict[str, Any] = {
             "safety_blocked": True,
         },
     },
+    "storage": {"backend": "local", "bucket": "", "prefix": "dr_rd", "signed_url_ttl_sec": 600},
+
+
 
 }
 
-_ALLOWED_SECTIONS = {"defaults", "ui", "privacy", "notifications", "version"}
+_ALLOWED_SECTIONS = {"defaults", "ui", "privacy", "notifications", "storage", "version"}
 
 
 def _validate(raw: Mapping[str, Any] | None) -> dict:
