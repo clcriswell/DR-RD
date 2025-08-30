@@ -521,7 +521,7 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
     )
     res = notify_dispatch(note, load_prefs())
     notification_sent(run_id, status, [k for k, v in res.items() if v], any(res.values()))
-run_start_ts = time.time()
+    run_start_ts = time.time()
     events = run_stream(
         kwargs["idea"],
         run_id=run_id,
