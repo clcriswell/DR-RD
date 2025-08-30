@@ -11,6 +11,8 @@ import streamlit as st
 from app.ui import empty_states
 from utils.i18n import tr as t
 from utils import bundle, report_builder, run_reproduce
+from utils.report_html import build_html_report
+from utils.trace_export import flatten_trace_rows
 from utils.paths import artifact_path, run_root
 from utils.query_params import encode_config
 from utils.runs import last_run_id, load_run_meta
@@ -96,6 +98,7 @@ else:
         "cost": sum((step.get("cost") or 0.0) for step in trace),
     }
     md = report_builder.build_markdown_report(run_id, meta, trace, summary_text, totals)
+    rows = flatten_trace_rows(trace)
 
     with st.expander(t("report_preview_label"), expanded=True):
         st.code(md, language=None)
@@ -115,6 +118,8 @@ else:
         return [(p.stem, p.suffix.lstrip(".")) for p in sorted(root.iterdir()) if p.is_file()]
 
     files = _list_existing(run_id)
+    artifacts = [(f"{n}.{e}", f"{n}.{e}") for n, e in files]
+    html = build_html_report(run_id, meta, rows, summary_text, totals, artifacts)
     if not files and not summary_text:
         empty_states.reports_empty()
     else:
@@ -124,7 +129,7 @@ else:
         with ZipFile(io.BytesIO(bundle_bytes)) as zf:
             bundle_count = len(zf.namelist())
 
-        col_md, col_zip = st.columns(2)
+        col_md, col_html, col_zip = st.columns(3)
         if col_md.download_button(
             t("download_report"),
             data=md.encode("utf-8"),
@@ -134,6 +139,14 @@ else:
             help=t("report_download_help"),
         ):
             log_event({"event": "export_clicked", "format": "md", "run_id": run_id})
+        if col_html.download_button(
+            "Download report (.html)",
+            data=html.encode("utf-8"),
+            file_name=f"report_{run_id}.html",
+            mime="text/html",
+            use_container_width=True,
+        ):
+            log_event({"event": "export_clicked", "format": "html", "run_id": run_id})
         if col_zip.download_button(
             t("download_bundle"),
             data=bundle_bytes,
@@ -150,6 +163,8 @@ else:
                     "count": bundle_count,
                 }
             )
+
+        st.caption("Tip: Open the HTML in your browser and use Print \u2192 Save as PDF for a polished PDF.")
 
         if files:
             st.subheader(t("artifacts_subheader"))
