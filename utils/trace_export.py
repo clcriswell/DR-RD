@@ -21,13 +21,16 @@ def _safe_summary(text: str | None, max_len: int = 80) -> str:
 def flatten_trace_rows(trace: Sequence[TraceStep]) -> list[dict]:
     """Return normalized rows for tabular exports.
 
-    Each row contains the fields: i, phase, name, status, duration_ms, tokens, cost, summary.
+    Each row contains the fields: i, id, parents, phase, name, status,
+    duration_ms, tokens, cost, summary, citations.
     """
     rows: list[dict] = []
     for idx, step in enumerate(trace, 1):
         rows.append(
             {
                 "i": idx,
+                "id": step.get("id"),
+                "parents": step.get("parent_ids") or step.get("parents"),
                 "phase": step.get("phase"),
                 "name": step.get("name"),
                 "status": step.get("status"),
