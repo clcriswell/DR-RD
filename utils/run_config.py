@@ -17,6 +17,7 @@ class RunConfig:
     enforce_budget: bool = False
     budget_limit_usd: float | None = None
     max_tokens: int | None = None
+    # Selected knowledge item IDs from built-ins and uploads
     knowledge_sources: List[str] = field(default_factory=list)
     show_agent_trace: bool = False
     verbose_planner: bool = False

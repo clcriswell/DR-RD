@@ -97,6 +97,21 @@ def usage_exceeded(
     log_event(ev)
 
 
+def knowledge_added(item_id: str, name: str, type_: str, size: int) -> None:
+    """Emit a knowledge_added telemetry event."""
+    log_event({"event": "knowledge_added", "id": item_id, "name": name, "type": type_, "size": size})
+
+
+def knowledge_removed(item_id: str) -> None:
+    """Emit a knowledge_removed telemetry event."""
+    log_event({"event": "knowledge_removed", "id": item_id})
+
+
+def knowledge_tags_updated(item_id: str, count: int) -> None:
+    """Emit a knowledge_tags_updated telemetry event."""
+    log_event({"event": "knowledge_tags_updated", "id": item_id, "count": count})
+
+
 __all__ = [
     "log_event",
     "run_cancel_requested",
@@ -106,4 +121,7 @@ __all__ = [
     "demo_completed",
     "usage_threshold_crossed",
     "usage_exceeded",
+    "knowledge_added",
+    "knowledge_removed",
+    "knowledge_tags_updated",
 ]

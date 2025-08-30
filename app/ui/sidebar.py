@@ -8,6 +8,7 @@ import streamlit as st
 from app.ui_presets import UI_PRESETS
 from utils.run_config import RunConfig, defaults, from_session, to_session
 from utils.telemetry import log_event
+from utils import knowledge_store
 
 
 def render_sidebar() -> RunConfig:
@@ -59,10 +60,16 @@ def render_sidebar() -> RunConfig:
         _track_change("mode")
 
         with st.expander("Knowledge"):
+            knowledge_store.init_store()
+            builtins = [("Samples", "samples")]
+            choices = builtins + knowledge_store.as_choice_list()
+            options = [c[1] for c in choices]
+            labels = {c[1]: c[0] for c in choices}
             st.multiselect(
                 "Sources",
-                ["local_samples", "uploads", "connectors"],
+                options,
                 key="knowledge_sources",
+                format_func=lambda x: labels.get(x, x),
                 help="Select knowledge sources",
             )
             _track_change("knowledge_sources")
