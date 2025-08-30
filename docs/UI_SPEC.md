@@ -37,6 +37,7 @@ st.dataframe(trace_df)
 ```python
 log_event("start_run", run_id)
 ```
+- **Demo mode** plays back recorded artifacts so users can try the app instantly with no network or billing.
 
 ### P1
 - **Sidebar taxonomy + typed `RunConfig`** organizes options. *Effort: M.*

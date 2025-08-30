@@ -42,6 +42,16 @@ def timeout_hit(run_id: str, phase: str | None = None) -> None:
     log_event(ev)
 
 
+def demo_started(run_id: str) -> None:
+    """Emit a demo_started telemetry event."""
+    log_event({"event": "demo_started", "run_id": run_id})
+
+
+def demo_completed(run_id: str) -> None:
+    """Emit a demo_completed telemetry event."""
+    log_event({"event": "demo_completed", "run_id": run_id})
+
+
 def usage_threshold_crossed(
     type_: str,
     frac: float,
@@ -92,6 +102,8 @@ __all__ = [
     "run_cancel_requested",
     "run_cancelled",
     "timeout_hit",
+    "demo_started",
+    "demo_completed",
     "usage_threshold_crossed",
     "usage_exceeded",
 ]
