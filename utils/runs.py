@@ -32,6 +32,19 @@ def create_run_meta(
     )
 
 
+def mark_run_running(run_id: str) -> None:
+    """Refresh run meta to indicate the run is currently running."""
+    path = artifact_path(run_id, "run", "json")
+    if not path.exists():
+        return
+    try:
+        meta = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        meta = {"run_id": run_id}
+    meta["status"] = "running"
+    path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def complete_run_meta(run_id: str, *, status: str) -> None:
     """Mark a run as completed with ``status``.
 
