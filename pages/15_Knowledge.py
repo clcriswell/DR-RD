@@ -3,6 +3,7 @@
 import streamlit as st
 
 from app.ui import knowledge as ui
+from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
 from utils import knowledge_store, upload_scan, uploads
 from utils.i18n import tr as t
@@ -12,6 +13,10 @@ from utils.telemetry import (
     knowledge_tags_updated,
     log_event,
 )
+
+inject()
+main_start()
+aria_live_region()
 
 st.title(t("knowledge_title"))
 st.caption("Select sources in Sidebar → Knowledge.")

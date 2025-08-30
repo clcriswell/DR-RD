@@ -4,6 +4,7 @@ from datetime import datetime
 
 import streamlit as st
 
+from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
 from utils import run_notes, runs_index
 from utils.i18n import tr as t
@@ -15,6 +16,10 @@ from utils.telemetry import (
     run_annotated,
     run_favorited,
 )
+
+inject()
+main_start()
+aria_live_region()
 
 # quick open via button
 if st.button(

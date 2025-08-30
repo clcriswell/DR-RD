@@ -1,15 +1,21 @@
 """Metrics page."""
+
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
 import streamlit as st
 
-from utils import metrics
-from utils.telemetry import log_event
 from app.ui import empty_states
-from utils.i18n import tr as t
+from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
+from utils import metrics
+from utils.i18n import tr as t
+from utils.telemetry import log_event
+
+inject()
+main_start()
+metrics_region = aria_live_region("metrics")
 
 # quick open via button
 if st.button(
@@ -50,13 +56,16 @@ if act:
 
 if st.query_params.get("view") != "metrics":
     st.query_params["view"] = "metrics"
+
 log_event({"event": "nav_page_view", "page": "metrics"})
 
 st.title(t("metrics_title"))
 st.caption(t("metrics_caption"))
 
 start_default = date.today() - timedelta(days=7)
-start, end = st.date_input(t("date_range_label"), value=(start_default, date.today()), help=t("metrics_date_help"))
+start, end = st.date_input(
+    t("date_range_label"), value=(start_default, date.today()), help=t("metrics_date_help")
+)
 start_ts = datetime.combine(start, datetime.min.time()).timestamp()
 end_ts = datetime.combine(end, datetime.max.time()).timestamp()
 
@@ -66,11 +75,17 @@ if not events and not surveys:
     empty_states.metrics_empty()
 else:
     agg = metrics.compute_aggregates(events, surveys)
+    cost = sum(e.get("cost_usd", 0.0) for e in events)
+    st.markdown(
+        f"<script>document.getElementById('{metrics_region}').innerText = 'Metrics loaded';</script>",
+        unsafe_allow_html=True,
+    )
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Runs", agg["runs"])
     col2.metric("Page views", agg["views"])
     col3.metric("Errors", agg["errors"])
+    col4.metric(label="Total cost (USD)", value=f"${cost:.2f}")
 
     st.subheader("Run Quality")
     st.table(

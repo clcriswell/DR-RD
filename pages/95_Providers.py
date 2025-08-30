@@ -1,9 +1,9 @@
 import streamlit as st
 
-from utils import prefs
-from utils import providers
-from utils.validate_providers import quick_probe
+from app.ui.a11y import aria_live_region, inject, main_start
+from utils import prefs, providers
 from utils.telemetry import log_event
+from utils.validate_providers import quick_probe
 
 
 def _table_data():
@@ -25,6 +25,9 @@ def _table_data():
 
 
 def main():
+    inject()
+    main_start()
+    aria_live_region()
     log_event({"event": "providers_page_view"})
     st.title("Providers & Models")
 
@@ -37,7 +40,11 @@ def main():
     ) or providers.default_model_for_mode("standard")
     cur_provider, cur_model = sel
 
-    prov = st.selectbox("Provider", list(providers.available_providers().keys()), index=list(providers.available_providers().keys()).index(cur_provider))
+    prov = st.selectbox(
+        "Provider",
+        list(providers.available_providers().keys()),
+        index=list(providers.available_providers().keys()).index(cur_provider),
+    )
     models = list(providers.list_models(prov).keys())
     model_idx = models.index(cur_model) if cur_model in models else 0
     mdl = st.selectbox("Model", models, index=model_idx)
@@ -47,7 +54,14 @@ def main():
     with col1:
         if st.button("Validate"):
             result = quick_probe(prov, mdl)
-            log_event({"event": "provider_validated", "provider": prov, "model": mdl, "status": result.get("status")})
+            log_event(
+                {
+                    "event": "provider_validated",
+                    "provider": prov,
+                    "model": mdl,
+                    "status": result.get("status"),
+                }
+            )
             status.write(result.get("status"))
     with col2:
         if st.button("Save as default"):
@@ -57,7 +71,9 @@ def main():
             log_event({"event": "provider_default_changed", "provider": prov, "model": mdl})
             status.success("Saved")
 
-    st.caption("Orchestrators read this selection by default; runs may override via mode or advanced settings.")
+    st.caption(
+        "Orchestrators read this selection by default; runs may override via mode or advanced settings."
+    )
 
 
 if __name__ == "__main__":

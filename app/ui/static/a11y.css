@@ -1,0 +1,21 @@
+/* Visible focus ring */
+:where(a, button, [role="button"], input, select, textarea):focus {
+  outline: 3px solid #0B5FFF !important;
+  outline-offset: 2px !important;
+}
+/* Larger hit targets */
+:where(button, [role="button"]) { min-height: 36px; }
+/* Skip link */
+.skip-link {
+  position: absolute; left: 8px; top: -40px; padding: 8px 12px; background: #0B5FFF; color: #fff;
+}
+.skip-link:focus { top: 8px; z-index: 1000; }
+/* High-contrast chips/badges */
+.badge { background:#0B5FFF12; border:1px solid #0B5FFF66; padding:2px 8px; border-radius:12px; }
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+/* Tables readability */
+table { border-collapse: collapse; }
+th, td { border-bottom: 1px solid #E3E8F0; padding: 8px 10px; }

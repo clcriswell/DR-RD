@@ -5,6 +5,7 @@ import json
 
 import streamlit as st
 
+from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
 from utils.i18n import get_locale, set_locale
 from utils.i18n import tr as t
@@ -12,6 +13,10 @@ from utils.prefs import DEFAULT_PREFS, load_prefs, save_prefs
 from utils.telemetry import log_event
 
 # quick open via button
+inject()
+main_start()
+aria_live_region()
+
 if st.button(
     "⌘K Command palette",
     key="cmd_btn",
@@ -59,7 +64,7 @@ lang = st.selectbox(
     index=["en", "es"].index(get_locale()),
     help="UI language",
 )
-if st.button("Apply language"):
+if st.button("Apply language", help="Apply selected language"):
     set_locale(lang)
     prefs["ui"]["language"] = lang
     save_prefs(prefs)

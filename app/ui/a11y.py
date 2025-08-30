@@ -1,44 +1,38 @@
+from pathlib import Path
+
 import streamlit as st
 
-
-_A11Y_CSS = """
-<style>
-/* Focus visibility across common widgets */
-:root { --focus-ring: 2px solid #0A63FF; }
-button:focus-visible,
-[role="button"]:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: var(--focus-ring) !important;
-  outline-offset: 2px !important;
-  box-shadow: none !important;
-}
-/* Larger hit targets for buttons and downloads */
-.stButton button, .stDownloadButton button {
-  min-height: 44px;
-  padding: 10px 16px;
-}
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0s !important;
-    transition-duration: 0s !important;
-    scroll-behavior: auto !important;
-  }
-}
-</style>
-"""
+_CSS_PATH = Path(__file__).with_suffix("").parent / "static" / "a11y.css"
+_INJECTED_KEY = "_a11y_injected"
 
 
-def inject_accessibility_baseline():
-    st.markdown(_A11Y_CSS, unsafe_allow_html=True)
-
-
-def live_region_container():
-    # screen reader polite announcements
+def inject():
+    if st.session_state.get(_INJECTED_KEY):
+        return
     st.markdown(
-        '<div aria-live="polite" aria-atomic="true" style="position:absolute;left:-9999px;height:1px;width:1px;overflow:hidden;"></div>',
+        """
+        <a href="#main" class="skip-link">Skip to main content</a>
+        <div id="a11y-top"></div>
+        """,
         unsafe_allow_html=True,
     )
+    if _CSS_PATH.exists():
+        st.markdown(
+            f"<style>{_CSS_PATH.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True
+        )
+    st.session_state[_INJECTED_KEY] = True
 
+
+def main_start():
+    """Place once near the top of the page's main content."""
+    st.markdown('<main id="main" tabindex="-1"></main>', unsafe_allow_html=True)
+
+
+def aria_live_region(key: str = "live_status"):
+    """Creates or returns an aria-live region id."""
+    region_id = f"live_{key}"
+    st.markdown(
+        f'<div id="{region_id}" role="status" aria-live="polite" style="height:0;overflow:hidden;"></div>',
+        unsafe_allow_html=True,
+    )
+    return region_id
