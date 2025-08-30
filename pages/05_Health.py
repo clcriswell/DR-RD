@@ -4,11 +4,16 @@ import os
 
 import streamlit as st
 
+from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
 from utils import health_check
 from utils.i18n import tr as t
 from utils.lazy_import import local_import
 from utils.telemetry import log_event
+
+inject()
+main_start()
+aria_live_region()
 
 # quick open via button
 if st.button(
@@ -49,7 +54,7 @@ if act:
 
 st.title(t("health_title"))
 
-if st.button("Run diagnostics"):
+if st.button("Run diagnostics", help="Run system diagnostics"):
     report = health_check.run_all()
     cols = st.columns(3)
     cols[0].metric("pass", report.summary.get("pass", 0))

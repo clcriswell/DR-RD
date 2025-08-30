@@ -1,6 +1,9 @@
-import streamlit as st
+import json
 from contextlib import contextmanager
 
+import streamlit as st
+
+from app.ui.a11y import aria_live_region
 from utils.errors import SafeError, as_json
 
 
@@ -30,10 +33,15 @@ def stage_status(label: str, expanded: bool = False):
 
 def step_progress(total_steps: int):
     bar = st.progress(0, text="Run progress")
+    region_id = aria_live_region("progress")
 
     def update(i: int, text: str):
         pct = int(i * 100 / total_steps)
         bar.progress(pct, text=text)
+        st.markdown(
+            f"<script>document.getElementById('{region_id}').innerText = {json.dumps(text)};</script>",
+            unsafe_allow_html=True,
+        )
 
     return update
 

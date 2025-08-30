@@ -1,18 +1,20 @@
+import importlib.util
+from pathlib import Path
+
 import streamlit as st
 
-from app.ui.a11y import inject_accessibility_baseline
+spec = importlib.util.spec_from_file_location("a11y", Path("app/ui/a11y.py"))
+a11y = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(a11y)
 
 
-def test_inject_accessibility_baseline(monkeypatch):
-    captured = {}
+def test_inject(monkeypatch):
+    calls = []
 
     def fake_markdown(content, unsafe_allow_html=False):
-        captured["content"] = content
-        captured["unsafe"] = unsafe_allow_html
+        calls.append(content)
 
     monkeypatch.setattr(st, "markdown", fake_markdown)
-    inject_accessibility_baseline()
-
-    assert captured["unsafe"] is True
-    assert ":root { --focus-ring" in captured["content"]
-
+    st.session_state.clear()
+    a11y.inject()
+    assert any("skip-link" in c for c in calls)

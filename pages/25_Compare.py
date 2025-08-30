@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import List
 
 import streamlit as st
 
 from app.ui import empty_states
-from utils.paths import artifact_path
-from utils.runs import list_runs, load_run_meta
-from utils.trace_export import flatten_trace_rows
+from app.ui.a11y import aria_live_region, inject, main_start
+from app.ui.command_palette import open_palette
 from utils.diff_runs import (
     align_steps,
     diff_metrics,
@@ -19,12 +17,17 @@ from utils.diff_runs import (
     to_csv,
     to_markdown,
 )
-from utils.telemetry import log_event
-from utils.metrics import ensure_run_totals
 from utils.flags import is_enabled
 from utils.i18n import tr as t
-from app.ui.command_palette import open_palette
+from utils.metrics import ensure_run_totals
+from utils.paths import artifact_path
+from utils.runs import list_runs, load_run_meta
+from utils.telemetry import log_event
+from utils.trace_export import flatten_trace_rows
 
+inject()
+main_start()
+aria_live_region()
 
 # quick open via button
 if st.button(
@@ -79,7 +82,9 @@ if not runs:
     empty_states.trace_empty()
 else:
     labels = {
-        r["run_id"]: f"{r['run_id']} — {datetime.fromtimestamp(r['started_at']).isoformat()} — {r['idea_preview'][:40]}…"
+        r[
+            "run_id"
+        ]: f"{r['run_id']} — {datetime.fromtimestamp(r['started_at']).isoformat()} — {r['idea_preview'][:40]}…"
         for r in runs
     }
     options = [r["run_id"] for r in runs]
@@ -108,8 +113,12 @@ else:
 
     index_a = options.index(run_id_a) if run_id_a in options else 0
     index_b = options.index(run_id_b) if run_id_b in options else (1 if len(options) > 1 else 0)
-    sel_a = st.selectbox("Run A", options, index=index_a, format_func=lambda x: labels[x], key="run_a")
-    sel_b = st.selectbox("Run B", options, index=index_b, format_func=lambda x: labels[x], key="run_b")
+    sel_a = st.selectbox(
+        "Run A", options, index=index_a, format_func=lambda x: labels[x], key="run_a"
+    )
+    sel_b = st.selectbox(
+        "Run B", options, index=index_b, format_func=lambda x: labels[x], key="run_b"
+    )
     if sel_a != run_id_a:
         qp["run_id_a"] = sel_a
         st.rerun()
@@ -118,11 +127,7 @@ else:
         st.rerun()
     run_id_a, run_id_b = sel_a, sel_b
 
-    if (
-        run_id_a
-        and run_id_b
-        and st.session_state.get("_compare_opened") != (run_id_a, run_id_b)
-    ):
+    if run_id_a and run_id_b and st.session_state.get("_compare_opened") != (run_id_a, run_id_b):
         log_event(
             {
                 "event": "compare_opened",
@@ -132,19 +137,16 @@ else:
         )
         st.session_state["_compare_opened"] = (run_id_a, run_id_b)
 
-    def _load(run_id: str) -> tuple[dict, List[dict], dict, str]:
-        meta = load_run_meta(run_id) or {}
-        trace_path = artifact_path(run_id, "trace", "json")
-        trace = (
-            json.loads(trace_path.read_text(encoding="utf-8"))
-            if trace_path.exists()
-            else []
-        )
-        rows = flatten_trace_rows(trace)
-        totals = ensure_run_totals(meta, rows)
-        summary_path = artifact_path(run_id, "summary", "md")
-        summary = summary_path.read_text(encoding="utf-8") if summary_path.exists() else ""
-        return meta, rows, totals, summary
+
+def _load(run_id: str) -> tuple[dict, list[dict], dict, str]:
+    meta = load_run_meta(run_id) or {}
+    trace_path = artifact_path(run_id, "trace", "json")
+    trace = json.loads(trace_path.read_text(encoding="utf-8")) if trace_path.exists() else []
+    rows = flatten_trace_rows(trace)
+    totals = ensure_run_totals(meta, rows)
+    summary_path = artifact_path(run_id, "summary", "md")
+    summary = summary_path.read_text(encoding="utf-8") if summary_path.exists() else ""
+    return meta, rows, totals, summary
 
     meta_a, rows_a, totals_a, summary_a = _load(run_id_a)
     meta_b, rows_b, totals_b, summary_b = _load(run_id_b)
@@ -189,12 +191,7 @@ else:
             st.session_state["_compare_changed_only"] = changed_only
 
         def _is_changed(r: dict) -> bool:
-            return (
-                r["a_status"] != r["b_status"]
-                or r["d_dur_ms"]
-                or r["d_tokens"]
-                or r["d_cost"]
-            )
+            return r["a_status"] != r["b_status"] or r["d_dur_ms"] or r["d_tokens"] or r["d_cost"]
 
         display_rows = rows
         if changed_only:

@@ -9,19 +9,23 @@ from zipfile import ZipFile
 import streamlit as st
 
 from app.ui import empty_states
-from utils.i18n import tr as t
-from utils import bundle, report_builder, run_reproduce
-from utils.report_html import build_html_report
-from utils.trace_export import flatten_trace_rows
-from utils.paths import artifact_path, run_root
-from utils import safety as safety_utils
 from app.ui import safety as ui_safety
-from utils.telemetry import safety_export_blocked
-from utils.query_params import encode_config
-from utils.runs import last_run_id, load_run_meta
-from utils.telemetry import log_event
-from utils.flags import is_enabled
+from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
+from utils import bundle, report_builder, run_reproduce
+from utils import safety as safety_utils
+from utils.flags import is_enabled
+from utils.i18n import tr as t
+from utils.paths import artifact_path, run_root
+from utils.query_params import encode_config
+from utils.report_html import build_html_report
+from utils.runs import last_run_id, load_run_meta
+from utils.telemetry import log_event, safety_export_blocked
+from utils.trace_export import flatten_trace_rows
+
+inject()
+main_start()
+aria_live_region()
 
 # quick open via button
 if st.button(
@@ -76,7 +80,7 @@ else:
     st.title(t("reports_title"))
     st.caption(t("reports_caption"))
 
-    if st.button("Reproduce run", use_container_width=True):
+    if st.button("Reproduce run", use_container_width=True, help="Prefill inputs from this run"):
         try:
             locked = run_reproduce.load_run_inputs(run_id)
             kwargs = run_reproduce.to_orchestrator_kwargs(locked)
@@ -89,7 +93,7 @@ else:
     meta = load_run_meta(run_id) or {}
     if meta.get("status") == "resumable":
         st.info("This run can be resumed.")
-        if st.button("Resume run", use_container_width=True):
+        if st.button("Resume run", use_container_width=True, help="Continue this run"):
             st.query_params.update({"resume_from": run_id, "view": "run"})
             st.switch_page("app.py")
     trace_path = artifact_path(run_id, "trace", "json")
@@ -109,7 +113,11 @@ else:
                 pass
     if summary_text:
         results.append(safety_utils.check_text(summary_text))
-    agg = safety_utils.merge_results(*results) if results else safety_utils.SafetyResult([], False, 0.0)
+    agg = (
+        safety_utils.merge_results(*results)
+        if results
+        else safety_utils.SafetyResult([], False, 0.0)
+    )
     cfg_s = safety_utils.default_config()
     risky = agg.findings and (
         agg.blocked
@@ -120,7 +128,7 @@ else:
     if risky and cfg_s.mode == "block":
         st.info("Export blocked by safety policy")
         safety_export_blocked(run_id, "all", [f.category for f in agg.findings])
-        return
+        st.stop()
     sanitizer = safety_utils.sanitize_text if agg.findings else None
     md = report_builder.build_markdown_report(
         run_id, meta, trace, summary_text, totals, sanitizer=sanitizer
@@ -184,6 +192,7 @@ else:
             file_name=f"report_{run_id}.html",
             mime="text/html",
             use_container_width=True,
+            help="Download report as HTML",
         ):
             log_event({"event": "export_clicked", "format": "html", "run_id": run_id})
         if col_zip.download_button(
@@ -203,7 +212,9 @@ else:
                 }
             )
 
-        st.caption("Tip: Open the HTML in your browser and use Print \u2192 Save as PDF for a polished PDF.")
+        st.caption(
+            "Tip: Open the HTML in your browser and use Print \u2192 Save as PDF for a polished PDF."
+        )
 
         if files:
             st.subheader(t("artifacts_subheader"))

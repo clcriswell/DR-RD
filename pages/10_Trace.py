@@ -9,17 +9,22 @@ from urllib.parse import urlencode
 import streamlit as st
 
 from app.ui import empty_states
-from utils.i18n import tr as t
+from app.ui.a11y import aria_live_region, inject, main_start
+from app.ui.command_palette import open_palette
 from app.ui.trace_viewer import render_trace
 from utils import run_reproduce
+from utils.flags import is_enabled
+from utils.i18n import tr as t
 from utils.paths import artifact_path
 from utils.query_params import encode_config
 from utils.run_config import RunConfig, to_orchestrator_kwargs
-from utils.session_store import init_stores
 from utils.runs import last_run_id, list_runs
+from utils.session_store import init_stores
 from utils.telemetry import log_event
-from utils.flags import is_enabled
-from app.ui.command_palette import open_palette
+
+inject()
+main_start()
+aria_live_region()
 
 # quick open via button
 if st.button(

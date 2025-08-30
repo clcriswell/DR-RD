@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
-
 import json
+from typing import Any, Sequence
+
 import streamlit as st
 
 from utils import trace_export
 from utils.paths import artifact_path
-from utils.telemetry import log_event
 from utils.session_store import SessionStore
+from utils.telemetry import log_event
 
 PHASE_LABELS = {
     "planner": "Planner",
@@ -18,7 +18,7 @@ PHASE_LABELS = {
 STATUS_ICONS = {"complete": "✅", "error": "⚠️", "running": "⏳"}
 
 
-def _normalize_step(step: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_step(step: dict[str, Any]) -> dict[str, Any]:
     """Best effort adapter for varying trace shapes."""
     return {
         "phase": (step.get("phase") or step.get("stage") or "executor").lower(),
@@ -39,7 +39,7 @@ def _normalize_step(step: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def render_trace(
-    trace: Sequence[Dict[str, Any]],
+    trace: Sequence[dict[str, Any]],
     run_id: str | None = None,
     *,
     default_view: str = "summary",
@@ -68,13 +68,22 @@ def render_trace(
     view_val = view_store.get("trace_view", default_view)
     view_opts = ["Summary", "Raw", "Both"]
     view_index = view_opts.index(view_val.capitalize()) if view_val.capitalize() in view_opts else 0
-    view = st.radio("View", view_opts, index=view_index, horizontal=True)
+    view = st.radio(
+        "View",
+        view_opts,
+        index=view_index,
+        horizontal=True,
+        help="Toggle between summary and raw views",
+    )
     if view.lower() != view_val:
         view_store.set("trace_view", view.lower())
 
     query_val = view_store.get("trace_query", default_query)
     query = st.text_input(
-        "Filter steps", value=query_val, placeholder="Search in name or text…",
+        "Filter trace",
+        value=query_val,
+        placeholder="Search in name or text…",
+        help="Filter trace by step name or contents",
     )
     if query != query_val:
         view_store.set("trace_query", query)
@@ -117,13 +126,17 @@ def render_trace(
 
     # filter steps
     q = query.lower().strip()
-    filtered_steps: List[Dict[str, Any]] = []
+    filtered_steps: list[dict[str, Any]] = []
     for s in steps:
         haystack = " ".join(
             [
                 s.get("name", ""),
                 s.get("summary", ""),
-                json.dumps(s.get("raw"), ensure_ascii=False) if isinstance(s.get("raw"), dict) else str(s.get("raw", "")),
+                (
+                    json.dumps(s.get("raw"), ensure_ascii=False)
+                    if isinstance(s.get("raw"), dict)
+                    else str(s.get("raw", ""))
+                ),
             ]
         ).lower()
         if q and q not in haystack:
@@ -156,7 +169,7 @@ def render_trace(
         log_event({"event": "trace_export_clicked", "format": "md", "step_count": len(steps)})
 
     # group and render
-    groups: Dict[str, List[Dict[str, Any]]] = {p: [] for p in PHASE_LABELS}
+    groups: dict[str, list[dict[str, Any]]] = {p: [] for p in PHASE_LABELS}
     for s in filtered_steps:
         groups.setdefault(s["phase"], []).append(s)
 
@@ -172,7 +185,7 @@ def render_trace(
             total = len(phase_steps)
             for idx, step in enumerate(display_steps, 1):
                 status = STATUS_ICONS.get(step["status"], step["status"])
-                meta: List[str] = []
+                meta: list[str] = []
                 if step.get("duration_ms") is not None:
                     meta.append(f"{step['duration_ms']} ms")
                 if step.get("tokens") is not None:
@@ -224,4 +237,3 @@ def render_trace(
                 "total_steps": len(filtered_steps),
             }
         )
-

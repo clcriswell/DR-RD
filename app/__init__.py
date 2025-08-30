@@ -10,8 +10,10 @@ import time
 import fitz
 import streamlit as st
 from markdown_pdf import MarkdownPdf, Section
-from utils.i18n import tr as t, set_locale, missing_keys
-from utils.session_store import init_stores, get_session_id  # noqa: F401
+
+from utils.i18n import missing_keys, set_locale
+from utils.i18n import tr as t
+from utils.session_store import get_session_id, init_stores  # noqa: F401
 
 st.set_page_config(
     page_title=t("app_title"),
@@ -21,31 +23,33 @@ st.set_page_config(
     menu_items={"About": "DR-RD — AI R&D Workbench"},
 )
 
-from app.ui.a11y import inject_accessibility_baseline, live_region_container
+from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
+from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
+from utils import consent as _consent
+from utils import session_guard
 from utils.cancellation import CancellationToken
+from utils.experiments import assign, exposure, force_from_params
+from utils.flags import is_enabled
 from utils.telemetry import (
+    demo_completed,
+    demo_started,
+    exp_overridden,
     log_event,
     run_cancel_requested,
     run_cancelled,
-    timeout_hit,
-    demo_started,
-    demo_completed,
-    exp_overridden,
+    run_duplicate_detected,
     run_lock_acquired,
     run_lock_released,
     run_start_blocked,
-    run_duplicate_detected,
+    timeout_hit,
 )
-from utils import consent as _consent
 from utils.usage import Usage
-from utils.flags import is_enabled
-from utils.experiments import assign, force_from_params, exposure
 from utils.user_id import get_user_id
-from utils import session_guard
 
-inject_accessibility_baseline()
-live_region_container()
+inject()
+main_start()
+aria_live_region()
 
 run_store, view_store = init_stores()
 
@@ -55,6 +59,7 @@ st.session_state.setdefault("submit_token", None)
 _c = _consent.get()
 if _c is None:
     try:
+
         @st.dialog("Privacy & consent")
         def _dlg():
             st.write(
@@ -174,16 +179,16 @@ from urllib.parse import urlencode
 
 import config.feature_flags as ff
 from app.ui import components, meter, survey
+from app.ui import safety as ui_safety
 from app.ui.sidebar import render_sidebar
 from config.agent_models import AGENT_MODEL_MAP
 from core.agents.unified_registry import build_agents_unified
-from utils import bundle
+from utils import bundle, knowledge_store
+from utils import safety as safety_utils
 from utils.env_snapshot import capture_env
 from utils.errors import make_safe_error
 from utils.paths import artifact_path, ensure_run_dirs, run_root, write_bytes, write_text
 from utils.prefs import load_prefs
-from utils import safety as safety_utils
-from utils import knowledge_store
 from utils.query_params import (
     QP_APPLIED_KEY,
     decode_config,
@@ -200,8 +205,7 @@ from utils.run_config import (
 from utils.run_config_io import to_lockfile
 from utils.run_id import new_run_id
 from utils.runs import complete_run_meta, create_run_meta
-from app.ui import safety as ui_safety
-from utils.telemetry import safety_warned, safety_blocked
+from utils.telemetry import safety_blocked, safety_warned
 
 WRAP_CSS = """
 pre, code {
@@ -340,7 +344,11 @@ def main() -> None:
             if st.button("Resume watching this run", key="resume_existing"):
                 tok = session_guard.new_token()
                 session_guard.acquire(qp_run, tok)
-                st.session_state["active_run"] = {"run_id": qp_run, "token": tok, "status": "running"}
+                st.session_state["active_run"] = {
+                    "run_id": qp_run,
+                    "token": tok,
+                    "status": "running",
+                }
                 st.session_state["submit_token"] = tok
                 run_duplicate_detected(qp_run)
                 st.query_params["run_id"] = qp_run
@@ -417,6 +425,7 @@ def main() -> None:
         st.session_state["run_report"] = outputs["report_md"]
         if prefs["ui"].get("auto_export_on_completion"):
             try:
+
                 def _read_bytes(rid, name, ext):
                     return artifact_path(rid, name, ext).read_bytes()
 
@@ -464,6 +473,7 @@ def main() -> None:
     st.session_state["usage"] = Usage()
     st.subheader("Live output")
     from app.ui.live_log import render as render_live
+
     events = run_stream(kwargs["idea"], run_id=run_id, agents=get_agents())
     render_live(events)
     st.session_state["run_report"] = ""

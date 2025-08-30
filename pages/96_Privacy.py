@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
-from utils.telemetry import log_event
 from utils import consent as _consent
-from utils import retention, prefs, runs
+from utils import prefs, retention, runs
+from utils.telemetry import log_event
 
+inject()
+main_start()
+aria_live_region()
 
 # quick open via button
 if st.button(
@@ -135,4 +139,3 @@ st.subheader("Export")
 st.write(
     "Run `python scripts/privacy_export.py --run-id <id> --out <dir>` from the command line to export a run's data."
 )
-

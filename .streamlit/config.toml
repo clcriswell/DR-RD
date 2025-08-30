@@ -2,10 +2,10 @@
 fileWatcherType = "none"
 
 [theme]
-base = "light"
-primaryColor = "#0A63FF"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F6F8FA"
-textColor = "#0A0A0A"
-font = "sans serif"
+base="light"
+primaryColor="#0B5FFF"
+backgroundColor="#FFFFFF"
+secondaryBackgroundColor="#F5F7FB"
+textColor="#0A0A0A"
+font="sans serif"
 # Contrast targets: WCAG AA requires 4.5:1 for normal text, 3:1 for large text.
