@@ -147,6 +147,21 @@ def run_cancelled(run_id: str, phase: str | None = None) -> None:
     log_event(ev)
 
 
+def stream_started(run_id: str) -> None:
+    """Emit a stream_started telemetry event."""
+    log_event({"event": "stream_started", "run_id": run_id})
+
+
+def stream_chunked(run_id: str, tokens: int) -> None:
+    """Emit a stream_chunked telemetry event."""
+    log_event({"event": "stream_chunked", "run_id": run_id, "tokens": tokens})
+
+
+def stream_completed(run_id: str, status: str) -> None:
+    """Emit a stream_completed telemetry event."""
+    log_event({"event": "stream_completed", "run_id": run_id, "status": status})
+
+
 def run_lock_acquired(run_id: str) -> None:
     """Emit a run_lock_acquired telemetry event."""
     log_event({"event": "run_lock_acquired", "run_id": run_id})
@@ -310,6 +325,9 @@ __all__ = [
     "read_events",
     "run_cancel_requested",
     "run_cancelled",
+    "stream_started",
+    "stream_chunked",
+    "stream_completed",
     "timeout_hit",
     "demo_started",
     "demo_completed",

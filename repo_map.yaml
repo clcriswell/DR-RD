@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-08-30T15:51:08.048798Z'
-git_sha: 425bf0dd3ea78e5d38e7cee9e5e84e46a48f6f92
+generated_at: '2025-08-30T16:06:14.784601Z'
+git_sha: 75c4aeb53cc87e7cc10472bb4d4b13223b2a8ffa
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -191,6 +191,13 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
+- path: orchestrators/__init__.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
 - path: orchestrators/app_builder.py
   role: Orchestrator
   responsibilities: []
@@ -212,21 +219,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/__init__.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/summarization/role_summarizer.py
+- path: core/summarization/__init__.py
   role: Summarization
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/__init__.py
+- path: core/summarization/integrator.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -240,7 +240,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/integrator.py
+- path: core/summarization/role_summarizer.py
   role: Summarization
   responsibilities: []
   inputs: []

@@ -193,7 +193,7 @@ def get_agents():
 
 
 def main() -> None:
-    from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
+    from core.orchestrator import run_stream
 
     prefs = _apply_prefs()
     origin_run_id = st.query_params.get("origin_run_id")
@@ -380,6 +380,17 @@ def main() -> None:
     st.session_state["budget_limit_usd"] = kwargs.get("budget_limit_usd")
     st.session_state["max_tokens"] = kwargs.get("max_tokens")
     st.session_state["usage"] = Usage()
+    st.subheader("Live output")
+    from app.ui.live_log import render as render_live
+    events = run_stream(kwargs["idea"], run_id=run_id, agents=get_agents())
+    render_live(events)
+    st.session_state["run_report"] = ""
+    st.session_state["active_run"]["status"] = "success"
+    complete_run_meta(run_id, status="success")
+    log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
+    st.query_params.update({"run_id": run_id, "view": "trace"})
+    return
+
     st.subheader("Live usage")
     live = meter.render_live(
         st.session_state["usage"],
