@@ -11,6 +11,7 @@ import pandas as pd  # type: ignore
 import streamlit as st  # type: ignore
 from core import trace_export
 from core import ui_bridge
+from utils.telemetry import log_event
 
 
 def _format_summary(text: Any, max_chars: int = 200) -> str:
@@ -77,7 +78,10 @@ def render_agent_trace(agent_trace: Sequence[Dict[str, Any]], answers: Dict[str,
             with st.expander("📄 Full Output", expanded=False):
                 st.write(item.get("finding", "") or "")
         with st.expander("Span Tree", expanded=False):
-            st.json(trace_export.to_tree(agent_trace))
+            try:
+                st.json(trace_export.to_tree(agent_trace))
+            except KeyError:
+                st.caption("Trace missing ids; tree view unavailable.")
 
         with st.expander("Metrics", expanded=False):
             from pathlib import Path
@@ -111,12 +115,13 @@ def render_exports(project_id: str, agent_trace: Sequence[Dict[str, Any]]) -> No
     st.subheader("Exports")
     col_json, col_csv = st.columns(2)
     trace_json = json.dumps(list(agent_trace), indent=2, ensure_ascii=False)
-    col_json.download_button(
+    if col_json.download_button(
         "💾 Download Trace (JSON)",
         data=trace_json,
         file_name="agent_trace.json",
         mime="application/json",
-    )
+    ):
+        log_event({"event": "export_clicked", "type": "trace_json"})
     try:
         flat_rows: List[Dict[str, Any]] = []
         for item in agent_trace:
@@ -128,56 +133,63 @@ def render_exports(project_id: str, agent_trace: Sequence[Dict[str, Any]]) -> No
                     row[k] = v
             flat_rows.append(row)
         df = pd.DataFrame(flat_rows)
-        col_csv.download_button(
+        if col_csv.download_button(
             "📄 Download Trace (CSV)",
             data=df.to_csv(index=False),
             file_name="agent_trace.csv",
             mime="text/csv",
-        )
+        ):
+            log_event({"event": "export_clicked", "type": "trace_csv"})
     except Exception:
         col_csv.caption("CSV export unavailable for this trace.")
     col_speed, col_chrome = st.columns(2)
-    col_speed.download_button(
+    if col_speed.download_button(
         "Speedscope JSON",
         data=json.dumps(trace_export.to_speedscope(agent_trace), indent=2),
         file_name="trace.speedscope.json",
         mime="application/json",
-    )
-    col_chrome.download_button(
+    ):
+        log_event({"event": "export_clicked", "type": "speedscope_json"})
+    if col_chrome.download_button(
         "Chrome Trace JSON",
         data=json.dumps(trace_export.to_chrometrace(agent_trace), indent=2),
         file_name="trace.chrome.json",
         mime="application/json",
-    )
+    ):
+        log_event({"event": "export_clicked", "type": "chrome_json"})
     evidence_path = Path("audits") / project_id / "evidence.json"
     coverage_path = Path("audits") / project_id / "coverage.csv"
     if evidence_path.exists():
-        st.download_button(
+        if st.download_button(
             "Evidence JSON",
             data=evidence_path.read_bytes(),
             file_name="evidence.json",
             mime="application/json",
-        )
+        ):
+            log_event({"event": "export_clicked", "type": "evidence_json"})
     if coverage_path.exists():
-        st.download_button(
+        if st.download_button(
             "Coverage CSV",
             data=coverage_path.read_bytes(),
             file_name="coverage.csv",
             mime="text/csv",
-        )
+        ):
+            log_event({"event": "export_clicked", "type": "coverage_csv"})
     paths = st.session_state.get("final_paths", {})
     if paths.get("report"):
-        st.download_button(
+        if st.download_button(
             "Download final report (MD)",
             data=open(paths["report"], "rb"),
             file_name="final_report.md",
-        )
+        ):
+            log_event({"event": "export_clicked", "type": "final_report_md"})
     if paths.get("bundle"):
-        st.download_button(
+        if st.download_button(
             "Download bundle (ZIP)",
             data=open(paths["bundle"], "rb"),
             file_name="final_bundle.zip",
-        )
+        ):
+            log_event({"event": "export_clicked", "type": "final_bundle_zip"})
     if project_id:
         st.markdown("---")
         share_path = f"rd_projects/{project_id}"
