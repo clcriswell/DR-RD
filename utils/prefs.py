@@ -35,9 +35,25 @@ DEFAULT_PREFS: dict[str, Any] = {
         "safety_block_categories": ["exfil","malicious_instruction"],
         "safety_high_threshold": 0.8,
     },
+
+    "notifications": {
+        "enabled": True,
+        "channels": [],
+        "email_to": [],
+        "slack_mention": "",
+        "events": {
+            "run_completed": True,
+            "run_failed": True,
+            "run_cancelled": True,
+            "timeout": True,
+            "budget_exceeded": True,
+            "safety_blocked": True,
+        },
+    },
+
 }
 
-_ALLOWED_SECTIONS = {"defaults", "ui", "privacy", "version"}
+_ALLOWED_SECTIONS = {"defaults", "ui", "privacy", "notifications", "version"}
 
 
 def _validate(raw: Mapping[str, Any] | None) -> dict:
@@ -75,6 +91,32 @@ def _validate(raw: Mapping[str, Any] | None) -> dict:
         else:
             prefs[section][key] = str(value)
 
+
+
+
+    raw_not = raw.get("notifications")
+    if isinstance(raw_not, Mapping):
+        np = prefs["notifications"]
+        np["enabled"] = bool(raw_not.get("enabled", True))
+        chans = []
+        for c in raw_not.get("channels", []):
+            if isinstance(c, str) and c in {"slack", "email", "webhook"} and c not in chans:
+                chans.append(c)
+        np["channels"] = chans
+        emails = []
+        for addr in raw_not.get("email_to", []):
+            if isinstance(addr, str):
+                emails.append(addr)
+            if len(emails) >= 10:
+                break
+        np["email_to"] = emails
+        if isinstance(raw_not.get("slack_mention"), str):
+            np["slack_mention"] = raw_not["slack_mention"]
+        events = {}
+        raw_ev = raw_not.get("events", {})
+        for k, v in np["events"].items():
+            events[k] = bool(raw_ev.get(k, v))
+        np["events"] = events
     for section in ("defaults", "ui", "privacy"):
         raw_section = raw.get(section)
         if not isinstance(raw_section, Mapping):

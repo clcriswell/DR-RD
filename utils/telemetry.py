@@ -459,6 +459,18 @@ def eval_completed(items: int, pass_rate: float, mean_final: float) -> None:
     )
 
 
+
+
+def notification_sent(run_id: str, status: str, channels: list[str], ok: bool) -> None:
+    log_event({"event": "notification_sent", "run_id": run_id, "status": status, "channels": channels, "ok": bool(ok)})
+
+
+def notifications_saved(channels: list[str], events_count: int) -> None:
+    log_event({"event": "notifications_saved", "channels": channels, "events_count": events_count})
+
+
+def notification_test_sent(channel: str, ok: bool) -> None:
+    log_event({"event": "notification_test_sent", "channel": channel, "ok": bool(ok)})
 __all__ = [
     "log_event",
     "list_files",
@@ -493,4 +505,7 @@ __all__ = [
     "eval_started",
     "eval_item_completed",
     "eval_completed",
+    "notification_sent",
+    "notifications_saved",
+    "notification_test_sent",
 ]

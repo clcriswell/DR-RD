@@ -37,6 +37,9 @@ _SCHEMAS: Dict[str, List[str]] = {
     "knowledge_removed": ["id"],
     "palette_opened": [],
     "palette_executed": ["command"],
+    "notification_sent": ["run_id"],
+    "notifications_saved": ["channels"],
+    "notification_test_sent": ["channel"],
 }
 
 # Keys that should never be persisted. This is a simple heuristic to strip

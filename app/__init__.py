@@ -5,6 +5,7 @@
 import io
 import json
 import logging
+import os
 import time
 
 import fitz
@@ -205,7 +206,8 @@ from utils.run_config import (
 from utils.run_config_io import to_lockfile
 from utils.run_id import new_run_id
 from utils.runs import complete_run_meta, create_run_meta
-from utils.telemetry import safety_blocked, safety_warned
+from utils.notify import Note, dispatch as notify_dispatch
+from utils.telemetry import safety_blocked, safety_warned, notification_sent
 
 WRAP_CSS = """
 pre, code {
@@ -386,6 +388,10 @@ def main() -> None:
         cats = [f.category for f in res.findings]
         if cfg_s.mode == "block":
             safety_blocked("preflight", cats, res.score)
+            rid = new_run_id()
+            note = Note(event="safety_blocked", run_id=rid, status="error", mode=cfg.mode, idea_preview=cfg.idea[:160])
+            res = notify_dispatch(note, load_prefs())
+            notification_sent(rid, "error", [k for k, v in res.items() if v], any(res.values()))
             st.error("Input blocked by safety policy")
             return
         else:
@@ -474,12 +480,36 @@ def main() -> None:
     st.subheader("Live output")
     from app.ui.live_log import render as render_live
 
+    
+def _send_note(event: str, status: str, extra: dict | None = None) -> None:
+    usage = st.session_state.get("usage")
+    totals = {
+        "tokens": getattr(usage, "total_tokens", None),
+        "cost_usd": getattr(usage, "cost_usd", None),
+        "duration_s": time.time() - run_start_ts,
+    }
+    base = os.getenv("APP_BASE_URL") or ("https://dr-rnd.streamlit.app" if os.getenv("STREAMLIT_RUNTIME") else "http://localhost:8501")
+    url = f"{base}/?view=trace&run_id={run_id}"
+    note = Note(
+        event=event,
+        run_id=run_id,
+        status=status,
+        mode=kwargs["mode"],
+        idea_preview=kwargs["idea"],
+        totals=totals,
+        url=url,
+        extra=extra,
+    )
+    res = notify_dispatch(note, load_prefs())
+    notification_sent(run_id, status, [k for k, v in res.items() if v], any(res.values()))
+run_start_ts = time.time()
     events = run_stream(kwargs["idea"], run_id=run_id, agents=get_agents())
     render_live(events)
     st.session_state["run_report"] = ""
     st.session_state["active_run"]["status"] = "success"
     complete_run_meta(run_id, status="success")
     log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
+    _send_note("run_completed", "success")
     st.query_params.update({"run_id": run_id, "view": "trace"})
     return
 
@@ -604,6 +634,7 @@ def main() -> None:
         st.session_state["active_run"]["status"] = "success"
         complete_run_meta(run_id, status="success")
         log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
+    _send_note("run_completed", "success")
         if origin_run_id:
             log_event(
                 {
@@ -647,6 +678,9 @@ def main() -> None:
         complete_run_meta(run_id, status="cancelled")
         run_cancelled(run_id, current_phase)
         log_event({"event": "run_completed", "run_id": run_id, "status": "cancelled"})
+        evt = "budget_exceeded" if str(e) == "usage_exceeded" else "run_cancelled"
+        status = "error" if evt == "budget_exceeded" else "cancelled"
+        _send_note(evt, status)
         if origin_run_id:
             log_event(
                 {
@@ -692,6 +726,7 @@ def main() -> None:
         complete_run_meta(run_id, status="timeout")
         timeout_hit(run_id, current_phase)
         log_event({"event": "run_completed", "run_id": run_id, "status": "timeout"})
+        _send_note("timeout", "timeout")
         if origin_run_id:
             log_event(
                 {
@@ -736,6 +771,7 @@ def main() -> None:
         st.session_state["active_run"]["status"] = "error"
         complete_run_meta(run_id, status="error")
         log_event({"event": "run_completed", "run_id": run_id, "status": "error"})
+        _send_note("run_failed", "error", {"error": e.__class__.__name__})
         if origin_run_id:
             log_event(
                 {
