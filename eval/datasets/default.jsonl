@@ -1,0 +1,1 @@
+{"id":"t001","idea":"Summarize the DR RD pipeline in 5 bullets.","mode":"standard","limits":{"budget_usd":0.10,"max_tokens":2000},"expected_keywords":["planner","executor","synthesizer"],"forbidden_keywords":["password","api_key"],"min_words":40,"max_words":200,"tags":["smoke","summary"],"seed":42}

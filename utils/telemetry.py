@@ -418,6 +418,31 @@ def run_favorited(run_id: str, favorite: bool) -> None:
     log_event({"event": "run_favorited", "run_id": run_id, "favorite": bool(favorite)})
 
 
+def eval_started(items: int, use_llm: bool) -> None:
+    """Emit an eval_started telemetry event."""
+    log_event({"event": "eval_started", "items": items, "use_llm": use_llm})
+
+
+def eval_item_completed(id: str, status: str, final: float, *, run_id: str | None = None) -> None:
+    """Emit an eval_item_completed telemetry event."""
+    ev = {"event": "eval_item_completed", "id": id, "status": status, "final": final}
+    if run_id:
+        ev["run_id"] = run_id
+    log_event(ev)
+
+
+def eval_completed(items: int, pass_rate: float, mean_final: float) -> None:
+    """Emit an eval_completed telemetry event."""
+    log_event(
+        {
+            "event": "eval_completed",
+            "items": items,
+            "pass_rate": pass_rate,
+            "mean_final": mean_final,
+        }
+    )
+
+
 __all__ = [
     "log_event",
     "list_files",
@@ -449,4 +474,7 @@ __all__ = [
     "history_export_clicked",
     "run_annotated",
     "run_favorited",
+    "eval_started",
+    "eval_item_completed",
+    "eval_completed",
 ]
