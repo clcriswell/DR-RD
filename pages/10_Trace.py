@@ -8,6 +8,8 @@ from urllib.parse import urlencode
 import streamlit as st
 
 from app.ui.trace_viewer import render_trace
+from app.ui import empty_states
+from app.ui.copy import t
 from utils.telemetry import log_event
 from utils.paths import artifact_path
 from utils.runs import list_runs, last_run_id
@@ -20,8 +22,8 @@ run_id = state["run_id"] or last_run_id()
 if st.query_params.get("view") != "trace":
     st.query_params["view"] = "trace"
 
-st.title("Trace")
-st.caption("Step-by-step agent activity.")
+st.title(t("trace_title"))
+st.caption(t("trace_caption"))
 
 if runs:
     labels = {
@@ -30,7 +32,7 @@ if runs:
     }
     options = list(labels.keys())
     index = options.index(run_id) if run_id in options else 0
-    selected = st.selectbox("Run", options, index=index, format_func=lambda x: labels[x])
+    selected = st.selectbox(t("run_label"), options, index=index, format_func=lambda x: labels[x], help=t("run_select_help"))
     if selected != run_id:
         st.query_params["run_id"] = selected
         log_event({"event": "run_selected", "run_id": selected})
@@ -42,32 +44,35 @@ if runs:
         trace = json.loads(trace_path.read_text(encoding="utf-8"))
     else:
         trace = []
-    include_adv = st.checkbox("Include advanced options", key="trace_share_adv")
-    if st.button("Copy shareable link", key="trace_share"):
-        cfg_dict = to_orchestrator_kwargs(from_session())
-        if not include_adv:
-            cfg_dict.pop("advanced", None)
-        qp = encode_config(cfg_dict)
-        qp.update({"view": "trace", "run_id": run_id})
-        if tv := st.query_params.get("trace_view"):
-            qp["trace_view"] = tv
-        if q := st.query_params.get("q"):
-            qp["q"] = q
-        url = "./?" + urlencode(qp)
-        st.text_input("trace_share_url", value=url, label_visibility="collapsed")
-        log_event(
-            {
-                "event": "link_shared",
-                "where": "trace",
-                "included_adv": bool(include_adv),
-            }
+    if not trace:
+        empty_states.trace_empty()
+    else:
+        include_adv = st.checkbox(t("include_adv_label"), key="trace_share_adv", help=t("include_adv_help"))
+        if st.button(t("share_link_label"), key="trace_share", help=t("share_link_help")):
+            cfg_dict = to_orchestrator_kwargs(from_session())
+            if not include_adv:
+                cfg_dict.pop("advanced", None)
+            qp = encode_config(cfg_dict)
+            qp.update({"view": "trace", "run_id": run_id})
+            if tv := st.query_params.get("trace_view"):
+                qp["trace_view"] = tv
+            if q := st.query_params.get("q"):
+                qp["q"] = q
+            url = "./?" + urlencode(qp)
+            st.text_input(t("share_link_url_label"), value=url, help=t("share_link_help"))
+            log_event(
+                {
+                    "event": "link_shared",
+                    "where": "trace",
+                    "included_adv": bool(include_adv),
+                }
+            )
+        render_trace(
+            trace,
+            run_id=run_id,
+            default_view=state["trace_view"],
+            default_query=state["trace_query"],
         )
-    render_trace(
-        trace,
-        run_id=run_id,
-        default_view=state["trace_view"],
-        default_query=state["trace_query"],
-    )
 else:
     log_event({"event": "nav_page_view", "page": "trace", "run_id": None})
-    st.info("No runs found.")
+    empty_states.trace_empty()
