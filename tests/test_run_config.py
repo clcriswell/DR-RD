@@ -15,7 +15,9 @@ def test_defaults():
     assert isinstance(cfg, RunConfig)
     assert cfg.mode == "standard"
     assert cfg.idea == ""
-    assert cfg.knowledge_sources == []
+    assert cfg.knowledge_sources == ["samples"]
+    assert cfg.budget_limit_usd is None
+    assert cfg.max_tokens == 8000
 
 
 def test_to_orchestrator_kwargs_minimal():
@@ -25,6 +27,8 @@ def test_to_orchestrator_kwargs_minimal():
     assert kw["idea"] == "x"
     assert kw["rag"] is True
     assert kw["knowledge_sources"] == []
+    assert kw["max_tokens"] == 8000
+    assert kw["budget_limit_usd"] is None
 
 
 def test_to_orchestrator_kwargs_with_advanced():
