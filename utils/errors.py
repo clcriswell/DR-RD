@@ -80,7 +80,7 @@ def make_safe_error(
         context["phase"] = phase
     if step_id:
         context["step_id"] = step_id
-    return SafeError(
+    safe = SafeError(
         kind=kind,
         user_message=KIND_MESSAGES.get(kind, KIND_MESSAGES["unknown"]),
         tech_message=tech_message,
@@ -88,6 +88,16 @@ def make_safe_error(
         support_id=support_id,
         context=context,
     )
+    try:
+        from utils.otel import current_ids
+
+        ids = current_ids()
+        if ids:
+            safe.context["trace_id"] = ids.get("trace_id")
+            safe.context["span_id"] = ids.get("span_id")
+    except Exception:
+        pass
+    return safe
 
 
 def as_json(safe: SafeError) -> bytes:

@@ -20,6 +20,7 @@ from utils.telemetry import (
 )
 from dataclasses import asdict
 from utils import safety as safety_utils
+from utils import otel
 
 import config.feature_flags as ff
 from core.agents.unified_registry import AGENT_REGISTRY
@@ -298,6 +299,7 @@ def execute_plan(
     ui_model: str | None = None,
     cancel: CancellationToken | None = None,
     deadline_ts: float | None = None,
+    run_id: str | None = None,
 ) -> Dict[str, str]:
     """Dispatch tasks to routed agents and collect their outputs."""
 
@@ -330,132 +332,149 @@ def execute_plan(
             role, AgentCls, model, routed = route_task(t, ui_model)
             handle = collector.start_item(routed, role, model)
         tid = routed.get("id") or f"T{handle+1:02d}"
-        collector.append_event(
-            handle,
-            "route",
-            {"planned_role": t.get("role"), "routed_role": role, "model": model},
-        )
-        try:
-            st.session_state["routing_report"].append(
-                {
-                    "task_id": tid,
-                    "planned_role": t.get("role"),
-                    "routed_role": role,
-                    "model": model,
-                }
-            )
-            st.session_state["live_status"][tid] = {
-                "done": False,
-                "progress": 0.0,
-                "tokens_in": 0,
-                "tokens_out": 0,
-                "cost_usd": 0.0,
-                "model": model,
-                "role": role,
-                "title": routed.get("title", ""),
-            }
-        except Exception:
-            pass
-        if save_decision_log:
-            log_decision(
-                project_id,
-                "route",
-                {"planned_role": t.get("role"), "title": routed.get("title", "")},
-            )
-        agent = agents.get(role)
-        if agent is None:
-            agent = AgentCls(model)
-            agents[role] = agent
-        collector.append_event(handle, "call", {"attempt": 1})
-        try:
-            out = _invoke_agent(agent, idea, routed, model=model)
-        except Exception as e:
-            safe_exc(logger, idea, f"invoke_agent[{role}]", e)
-            out = "out"
-        _check()
-        text = out if isinstance(out, str) else json.dumps(out)
-
-        def _retry_fn(rem: str) -> str:
-            collector.append_event(handle, "retry", {"attempt": 2})
-            collector.append_event(handle, "call", {"attempt": 2})
-            retry_task = dict(routed)
-            retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
-            return _invoke_agent(agent, idea, retry_task, model=model)
-
-        _check()
-        text, meta = validate_and_retry(role, routed, text, _retry_fn)
-        collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
-        answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
-        payload = extract_json_block(text) or {}
-        role_to_findings[role] = payload
-        norm = _normalize_evidence_payload(payload)
-        finding_text = ""
-        if isinstance(payload, dict):
-            finding_text = str(payload.get("findings") or "")
-        if not finding_text:
-            finding_text = text
-        finding_snip = finding_text.strip()[:240]
-        if evidence is not None:
-            evidence.add(
-                role=role,
-                task_title=routed.get("title", ""),
-                quotes=norm.get("quotes", []),
-                tokens_in=norm.get("tokens_in", 0),
-                tokens_out=norm.get("tokens_out", 0),
-                citations=norm.get("citations", []),
-                cost_usd=norm.get("cost", 0.0),
-            )
+        step_name = routed.get("title", "")
+        with otel.start_span(
+            "step.executor",
+            attrs={"run_id": run_id, "step_id": tid, "name": step_name},
+            run_id=run_id,
+        ) as span:
+            span.add_event("step.start", {"step_id": tid})
             collector.append_event(
                 handle,
-                "save_evidence",
-                {
-                    "quotes": len(norm.get("quotes", [])),
-                    "citations": len(norm.get("citations", [])),
-                },
+                "route",
+                {"planned_role": t.get("role"), "routed_role": role, "model": model},
             )
-        collector.finalize_item(
-            handle,
-            finding_snip,
-            payload if isinstance(payload, dict) else {},
-            norm.get("tokens_in", 0),
-            norm.get("tokens_out", 0),
-            norm.get("cost", 0.0),
-            norm.get("quotes", []),
-            norm.get("citations", []),
-        )
-        try:  # optional KB persistence
-            from core.reporting_bridge import kb_ingest
+            try:
+                st.session_state["routing_report"].append(
+                    {
+                        "task_id": tid,
+                        "planned_role": t.get("role"),
+                        "routed_role": role,
+                        "model": model,
+                    }
+                )
+                st.session_state["live_status"][tid] = {
+                    "done": False,
+                    "progress": 0.0,
+                    "tokens_in": 0,
+                    "tokens_out": 0,
+                    "cost_usd": 0.0,
+                    "model": model,
+                    "role": role,
+                    "title": routed.get("title", ""),
+                }
+            except Exception:
+                pass
+            if save_decision_log:
+                log_decision(
+                    project_id,
+                    "route",
+                    {"planned_role": t.get("role"), "title": routed.get("title", "")},
+                )
+            agent = agents.get(role)
+            if agent is None:
+                agent = AgentCls(model)
+                agents[role] = agent
+            collector.append_event(handle, "call", {"attempt": 1})
+            try:
+                out = _invoke_agent(agent, idea, routed, model=model)
+            except Exception as e:
+                span.set_attribute("status", "error")
+                span.record_exception(e)
+                safe_exc(logger, idea, f"invoke_agent[{role}]", e)
+                out = "out"
+            _check()
+            text = out if isinstance(out, str) else json.dumps(out)
 
-            kb_ingest(
-                role,
-                routed,
+            def _retry_fn(rem: str) -> str:
+                collector.append_event(handle, "retry", {"attempt": 2})
+                collector.append_event(handle, "call", {"attempt": 2})
+                retry_task = dict(routed)
+                retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
+                return _invoke_agent(agent, idea, retry_task, model=model)
+
+            _check()
+            text, meta = validate_and_retry(role, routed, text, _retry_fn)
+            collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
+            answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
+            payload = extract_json_block(text) or {}
+            role_to_findings[role] = payload
+            norm = _normalize_evidence_payload(payload)
+            finding_text = ""
+            if isinstance(payload, dict):
+                finding_text = str(payload.get("findings") or "")
+            if not finding_text:
+                finding_text = text
+            finding_snip = finding_text.strip()[:240]
+            if evidence is not None:
+                evidence.add(
+                    role=role,
+                    task_title=routed.get("title", ""),
+                    quotes=norm.get("quotes", []),
+                    tokens_in=norm.get("tokens_in", 0),
+                    tokens_out=norm.get("tokens_out", 0),
+                    citations=norm.get("citations", []),
+                    cost_usd=norm.get("cost", 0.0),
+                )
+                collector.append_event(
+                    handle,
+                    "save_evidence",
+                    {
+                        "quotes": len(norm.get("quotes", [])),
+                        "citations": len(norm.get("citations", [])),
+                    },
+                )
+            collector.finalize_item(
+                handle,
+                finding_snip,
                 payload if isinstance(payload, dict) else {},
-                {"model": model},
+                norm.get("tokens_in", 0),
+                norm.get("tokens_out", 0),
+                norm.get("cost", 0.0),
+                norm.get("quotes", []),
                 norm.get("citations", []),
             )
-        except Exception:
-            pass
-        try:
-            st.session_state["live_status"][tid] = {
-                "done": True,
-                "progress": 1.0,
-                "tokens_in": norm.get("tokens_in", 0),
-                "tokens_out": norm.get("tokens_out", 0),
-                "cost_usd": norm.get("cost", 0.0),
-                "model": model,
-                "role": role,
-                "title": routed.get("title", ""),
-            }
-        except Exception:
-            pass
-        if save_decision_log:
-            log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})
-        try:  # light budget telemetry
-            tracker = st.session_state.get("cost_tracker")
-            if tracker:
-                tracker.spend += float(norm.get("cost", 0.0))
-        except Exception:
-            pass
+            try:  # optional KB persistence
+                from core.reporting_bridge import kb_ingest
+
+                kb_ingest(
+                    role,
+                    routed,
+                    payload if isinstance(payload, dict) else {},
+                    {"model": model},
+                    norm.get("citations", []),
+                )
+            except Exception:
+                pass
+            try:
+                st.session_state["live_status"][tid] = {
+                    "done": True,
+                    "progress": 1.0,
+                    "tokens_in": norm.get("tokens_in", 0),
+                    "tokens_out": norm.get("tokens_out", 0),
+                    "cost_usd": norm.get("cost", 0.0),
+                    "model": model,
+                    "role": role,
+                    "title": routed.get("title", ""),
+                }
+            except Exception:
+                pass
+            if save_decision_log:
+                log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})
+            try:  # light budget telemetry
+                tracker = st.session_state.get("cost_tracker")
+                if tracker:
+                    tracker.spend += float(norm.get("cost", 0.0))
+            except Exception:
+                pass
+            span.add_event(
+                "step.end",
+                {
+                    "tokens_in": norm.get("tokens_in", 0),
+                    "tokens_out": norm.get("tokens_out", 0),
+                    "cost_usd": norm.get("cost", 0.0),
+                },
+            )
 
     norm_tasks = list(normalize_tasks(tasks))
     eval_round = 0
@@ -874,79 +893,146 @@ def run_stream(
     **kwargs,
 ):
     """Generator yielding structured events for streaming runs."""
-
+    otel.configure()
     cancel = cancel or CancellationToken()
-    stream_started(run_id)
     try:
-        # Planner phase
-        yield Event("phase_start", phase="planner")
-        tasks = generate_plan(idea, cancel=cancel, deadline_ts=deadline_ts)
-        text = json.dumps(tasks)
-        res = safety_utils.check_text(text)
-        meta = {}
-        if res.findings:
-            meta["safety"] = asdict(res)
-            safety_flagged_step(run_id, "planner", [f.category for f in res.findings])
-        trace_writer.append_step(
-            run_id,
-            {"phase": "planner", "summary": tasks, **({"safety": asdict(res)} if res.findings else {})},
-        )
-        yield Event("summary", phase="planner", text=text)
-        yield Event("step_end", phase="planner", step_id="planner", meta=meta)
-        yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
-        yield Event("phase_end", phase="planner")
+        from utils.session_store import get_session_id
+        session_id = get_session_id()
+    except Exception:
+        session_id = None
+    mode = kwargs.get("mode") or st.session_state.get("mode")
+    stream_started(run_id)
+    with otel.start_span(
+        "run",
+        attrs={"run_id": run_id, "mode": mode, "session_id": session_id},
+        run_id=run_id,
+    ):
+        try:
+            # Planner phase
+            with otel.start_span(
+                "phase.planner", attrs={"run_id": run_id, "phase": "planner"}
+            ):
+                yield Event("phase_start", phase="planner")
+                with otel.start_span(
+                    "step.planner",
+                    attrs={"run_id": run_id, "step_id": "planner", "name": "plan"},
+                    run_id=run_id,
+                ) as span:
+                    span.add_event("step.start", {"step_id": "planner"})
+                    try:
+                        tasks = generate_plan(idea, cancel=cancel, deadline_ts=deadline_ts)
+                    except TimeoutError as exc:
+                        span.set_attribute("status", "timeout")
+                        span.record_exception(exc)
+                        raise
+                    except RuntimeError as exc:
+                        span.set_attribute("status", "cancelled")
+                        span.record_exception(exc)
+                        raise
+                    span.add_event("step.end", {"tasks": len(tasks)})
+                text = json.dumps(tasks)
+                res = safety_utils.check_text(text)
+                meta = {}
+                if res.findings:
+                    meta["safety"] = asdict(res)
+                    safety_flagged_step(run_id, "planner", [f.category for f in res.findings])
+                trace_writer.append_step(
+                    run_id,
+                    {"phase": "planner", "summary": tasks, **({"safety": asdict(res)} if res.findings else {})},
+                )
+                yield Event("summary", phase="planner", text=text)
+                yield Event("step_end", phase="planner", step_id="planner", meta=meta)
+                yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
+                yield Event("phase_end", phase="planner")
 
-        # Executor phase
-        yield Event("phase_start", phase="executor")
-        answers = execute_plan(
-            idea,
-            tasks,
-            agents=agents or {},
-            cancel=cancel,
-            deadline_ts=deadline_ts,
-        )
-        text = json.dumps(answers)
-        res = safety_utils.check_text(text)
-        meta = {}
-        if res.findings:
-            meta["safety"] = asdict(res)
-            safety_flagged_step(run_id, "executor", [f.category for f in res.findings])
-        trace_writer.append_step(
-            run_id,
-            {"phase": "executor", "summary": answers, **({"safety": asdict(res)} if res.findings else {})},
-        )
-        yield Event("summary", phase="executor", text=text)
-        yield Event("step_end", phase="executor", step_id="executor", meta=meta)
-        yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
-        yield Event("phase_end", phase="executor")
+            # Executor phase
+            with otel.start_span(
+                "phase.executor", attrs={"run_id": run_id, "phase": "executor"}
+            ):
+                yield Event("phase_start", phase="executor")
+                with otel.start_span(
+                    "step.executor",
+                    attrs={"run_id": run_id, "step_id": "executor", "name": "execute"},
+                    run_id=run_id,
+                ) as span:
+                    span.add_event("step.start", {"step_id": "executor"})
+                    try:
+                        answers = execute_plan(
+                            idea,
+                            tasks,
+                            agents=agents or {},
+                            cancel=cancel,
+                            deadline_ts=deadline_ts,
+                            run_id=run_id,
+                        )
+                    except TimeoutError as exc:
+                        span.set_attribute("status", "timeout")
+                        span.record_exception(exc)
+                        raise
+                    except RuntimeError as exc:
+                        span.set_attribute("status", "cancelled")
+                        span.record_exception(exc)
+                        raise
+                    span.add_event("step.end", {"tasks": len(answers)})
+                text = json.dumps(answers)
+                res = safety_utils.check_text(text)
+                meta = {}
+                if res.findings:
+                    meta["safety"] = asdict(res)
+                    safety_flagged_step(run_id, "executor", [f.category for f in res.findings])
+                trace_writer.append_step(
+                    run_id,
+                    {"phase": "executor", "summary": answers, **({"safety": asdict(res)} if res.findings else {})},
+                )
+                yield Event("summary", phase="executor", text=text)
+                yield Event("step_end", phase="executor", step_id="executor", meta=meta)
+                yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
+                yield Event("phase_end", phase="executor")
 
-        # Synth phase
-        yield Event("phase_start", phase="synth")
-        final = compose_final_proposal(
-            idea,
-            answers,
-            cancel=cancel,
-            deadline_ts=deadline_ts,
-        )
-        res = safety_utils.check_text(final)
-        meta = {}
-        if res.findings:
-            meta["safety"] = asdict(res)
-            safety_flagged_step(run_id, "synth", [f.category for f in res.findings])
-        trace_writer.append_step(
-            run_id,
-            {"phase": "synth", "summary": final, **({"safety": asdict(res)} if res.findings else {})},
-        )
-        yield Event("summary", phase="synth", text=final)
-        yield Event("step_end", phase="synth", step_id="synth", meta=meta)
-        yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
-        yield Event("phase_end", phase="synth")
+            # Synth phase
+            with otel.start_span("phase.synth", attrs={"run_id": run_id, "phase": "synth"}):
+                yield Event("phase_start", phase="synth")
+                with otel.start_span(
+                    "step.synth",
+                    attrs={"run_id": run_id, "step_id": "synth", "name": "synth"},
+                    run_id=run_id,
+                ) as span:
+                    span.add_event("step.start", {"step_id": "synth"})
+                    try:
+                        final = compose_final_proposal(
+                            idea,
+                            answers,
+                            cancel=cancel,
+                            deadline_ts=deadline_ts,
+                        )
+                    except TimeoutError as exc:
+                        span.set_attribute("status", "timeout")
+                        span.record_exception(exc)
+                        raise
+                    except RuntimeError as exc:
+                        span.set_attribute("status", "cancelled")
+                        span.record_exception(exc)
+                        raise
+                    span.add_event("step.end", {})
+                res = safety_utils.check_text(final)
+                meta = {}
+                if res.findings:
+                    meta["safety"] = asdict(res)
+                    safety_flagged_step(run_id, "synth", [f.category for f in res.findings])
+                trace_writer.append_step(
+                    run_id,
+                    {"phase": "synth", "summary": final, **({"safety": asdict(res)} if res.findings else {})},
+                )
+                yield Event("summary", phase="synth", text=final)
+                yield Event("step_end", phase="synth", step_id="synth", meta=meta)
+                yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
+                yield Event("phase_end", phase="synth")
 
-        yield Event("done")
-        stream_completed(run_id, "done")
-    except Exception as exc:  # pragma: no cover - best effort
-        yield Event("error", text=str(exc))
-        stream_completed(run_id, "error")
+            yield Event("done")
+            stream_completed(run_id, "done")
+        except Exception as exc:  # pragma: no cover - best effort
+            yield Event("error", text=str(exc))
+            stream_completed(run_id, "error")
 
 def run_pipeline(idea: str, mode: str = "test", **kwargs):
     import logging
