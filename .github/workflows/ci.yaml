@@ -32,6 +32,12 @@ jobs:
         run: mypy .
       - name: Tests
         run: pytest -q
+      - name: heavy import guard
+        run: python scripts/check_heavy_imports.py
+      - name: importtime budget (smoke)
+        run: |
+          python -X importtime -c "import runpy; runpy.run_module('app', run_name='__main__')" 2> importtime.log
+          python scripts/profile_imports.py importtime.log --top 30
       - name: repo_map fresh
         run: python scripts/check_repo_map_clean.py
       - name: docs links

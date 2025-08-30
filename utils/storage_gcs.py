@@ -1,12 +1,16 @@
-from google.cloud import storage
+from utils.lazy_import import lazy
+
+_storage = lazy("google.cloud.storage")
 
 
 def _client():
     """Return a storage client using default credentials."""
-    return storage.Client()
+    return _storage.Client()
 
 
-def upload_bytes_to_gcs(data: bytes, filename: str, content_type: str, bucket_name: str, prefix: str = "rd_results/") -> str:
+def upload_bytes_to_gcs(
+    data: bytes, filename: str, content_type: str, bucket_name: str, prefix: str = "rd_results/"
+) -> str:
     """Upload data to a GCS bucket and return the public URL."""
     bkt = _client().bucket(bucket_name)
     blob = bkt.blob(prefix + filename)

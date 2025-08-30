@@ -1,21 +1,30 @@
 from __future__ import annotations
-import hashlib, time, re
-from typing import Any, Dict, List, Optional
 
-from google.cloud import firestore
-from google.oauth2 import service_account
+import hashlib
+import re
+import time
+from typing import TYPE_CHECKING, Any
+
 import streamlit as st
 
-_COLLECTION = "rd_projects"          # single namespace!
+from utils.lazy_import import lazy
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from google.cloud import firestore  # type: ignore
+
+_firestore = lazy("google.cloud.firestore")
+_service_account = lazy("google.oauth2.service_account")
+
+_COLLECTION = "rd_projects"  # single namespace!
 
 
 def _client() -> firestore.Client:
     try:
         info = dict(st.secrets["gcp_service_account"])
-        creds = service_account.Credentials.from_service_account_info(info)
-        return firestore.Client(credentials=creds, project=info["project_id"])
+        creds = _service_account.Credentials.from_service_account_info(info)
+        return _firestore.Client(credentials=creds, project=info["project_id"])
     except Exception:
-        return firestore.Client()            # fallback to ADC
+        return _firestore.Client()  # fallback to ADC
 
 
 def _slugify(name: str) -> str:
@@ -27,7 +36,7 @@ def _slugify(name: str) -> str:
 class FirestoreWorkspace:
     """Symbolic shared memory for one project."""
 
-    def __init__(self, project_id: str, name: Optional[str] = None):
+    def __init__(self, project_id: str, name: str | None = None):
         self.doc = _client().collection(_COLLECTION).document(project_id)
         if not self.doc.get().exists:
             if not name:
@@ -39,8 +48,8 @@ class FirestoreWorkspace:
                 {
                     "name": name,
                     "slug": slug,
-                    "updatedAt": firestore.SERVER_TIMESTAMP,
-                    "createdAt": firestore.SERVER_TIMESTAMP,
+                    "updatedAt": _firestore.SERVER_TIMESTAMP,
+                    "createdAt": _firestore.SERVER_TIMESTAMP,
                     "idea": "",
                     "tasks": [],  # [{id, role, task, status}]
                     "results": {},  # id -> result blob
@@ -51,10 +60,10 @@ class FirestoreWorkspace:
             )
 
     # ---------- helpers ----------
-    def read(self) -> Dict[str, Any]:
+    def read(self) -> dict[str, Any]:
         return self.doc.get().to_dict()
 
-    def patch(self, d: Dict[str, Any]):              # generic update
+    def patch(self, d: dict[str, Any]):  # generic update
         self.doc.update(d)
 
     def append(self, key: str, items: list):
@@ -64,10 +73,10 @@ class FirestoreWorkspace:
         self.patch({key: arr})
 
     # ---------- task queue ----------
-    def enqueue(self, tasks: List[Dict[str, str]]):
-        self.doc.update({"tasks": firestore.ArrayUnion(tasks)})
+    def enqueue(self, tasks: list[dict[str, str]]):
+        self.doc.update({"tasks": _firestore.ArrayUnion(tasks)})
 
-    def pop(self) -> Optional[Dict[str, str]]:
+    def pop(self) -> dict[str, str] | None:
         data = self.read()
         if not data["tasks"]:
             return None
@@ -80,7 +89,7 @@ class FirestoreWorkspace:
         self.doc.update({f"results.{tid}": result, f"scores.{tid}": score})
 
     def log(self, msg: str):
-        self.doc.update({"history": firestore.ArrayUnion([msg])})
+        self.doc.update({"history": _firestore.ArrayUnion([msg])})
 
     # ---------- utils ----------
     @staticmethod

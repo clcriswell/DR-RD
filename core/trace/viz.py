@@ -1,16 +1,22 @@
 """Helpers to transform trace bundles for UI visualization."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any
 
-import pandas as pd  # type: ignore
+from utils.lazy_import import lazy
 
 from .schema import TraceBundle
 
+if TYPE_CHECKING:  # pragma: no cover
+    import pandas as pd
 
-def to_rows(bundle: TraceBundle) -> List[Dict[str, Any]]:
+_pd = lazy("pandas")
+
+
+def to_rows(bundle: TraceBundle) -> list[dict[str, Any]]:
     """Flatten events to a list of dictionaries for tabular views."""
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for ev in bundle.events:
         rows.append(
             {
@@ -32,7 +38,7 @@ def to_rows(bundle: TraceBundle) -> List[Dict[str, Any]]:
 
 def to_dataframe(bundle: TraceBundle) -> pd.DataFrame:
     """Return a :class:`~pandas.DataFrame` of the bundle events."""
-    return pd.DataFrame(to_rows(bundle))
+    return _pd.DataFrame(to_rows(bundle))
 
 
 def durations_series(bundle: TraceBundle) -> pd.DataFrame:

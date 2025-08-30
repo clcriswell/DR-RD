@@ -6,16 +6,20 @@ import random
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Optional, Type
 
 import streamlit as st
-from openai import APIStatusError, OpenAI
 
 from core.budget import BudgetManager, CostTracker
 from core.token_meter import TokenMeter
 from utils.config import load_config
+from utils.lazy_import import lazy
+from utils.telemetry import usage_exceeded, usage_threshold_crossed
 from utils.usage import Usage, add_delta, thresholds
-from utils.telemetry import usage_threshold_crossed, usage_exceeded
+
+_openai = lazy("openai")
+_client_instance: Optional[Any] = None
+_SUPPORTS_RESPONSE_FORMAT: Optional[bool] = None
 
 logger = logging.getLogger(__name__)
 
@@ -26,17 +30,30 @@ if seed_env:
     except ValueError:
         pass
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "test"))
-# Some SDK versions lack support for the ``response_format`` parameter on the
-# Responses API.  Capture support status at import time so we can gracefully
-# omit the argument if unavailable.
-_SUPPORTS_RESPONSE_FORMAT = (
-    "response_format" in inspect.signature(client.responses.create).parameters
-)
-
 # OpenAI "web_search_preview" tool is only supported on specific models.
 # Keep this list conservative and explicit to avoid silent failures.
 SUPPORTED_OPENAI_SEARCH_MODELS: set[str] = {"gpt-4o-mini", "gpt-4o"}
+
+
+def _client() -> Any:
+    """Return a cached OpenAI client instance."""
+    global _client_instance
+    if _client_instance is None:
+        _client_instance = _openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY", "test"))
+    return _client_instance
+
+
+def _supports_response_format() -> bool:
+    """Return whether the Responses API supports ``response_format``."""
+    global _SUPPORTS_RESPONSE_FORMAT
+    if _SUPPORTS_RESPONSE_FORMAT is None:
+        try:
+            _SUPPORTS_RESPONSE_FORMAT = (
+                "response_format" in inspect.signature(_client().responses.create).parameters
+            )
+        except Exception:
+            _SUPPORTS_RESPONSE_FORMAT = False
+    return bool(_SUPPORTS_RESPONSE_FORMAT)
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
@@ -80,8 +97,8 @@ def _dry_stub(prompt: str) -> dict:
     return {"text": "[DRY_RUN] " + (prompt[:200] if isinstance(prompt, str) else "ok")}
 
 
-def _to_responses_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    converted: List[Dict[str, Any]] = []
+def _to_responses_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    converted: list[dict[str, Any]] = []
     for m in messages:
         content = m.get("content", "")
         if isinstance(content, str):
@@ -92,8 +109,8 @@ def _to_responses_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return converted
 
 
-def _to_chat_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    converted: List[Dict[str, Any]] = []
+def _to_chat_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    converted: list[dict[str, Any]] = []
     for m in messages:
         content = m.get("content", "")
         if isinstance(content, str):
@@ -199,15 +216,15 @@ def responses_json_schema_for(model_cls: Type[Any], name: str) -> dict:
 def call_openai(
     *,
     model: str,
-    messages: List[Dict[str, Any]],
-    response_format: Dict[str, Any] | None = None,
-    meta: Dict[str, Any] | None = None,
-    response_params: Dict[str, Any] | None = None,
-    tools: List[Dict[str, Any]] | None = None,
+    messages: list[dict[str, Any]],
+    response_format: dict[str, Any] | None = None,
+    meta: dict[str, Any] | None = None,
+    response_params: dict[str, Any] | None = None,
+    tools: list[dict[str, Any]] | None = None,
     tool_choice: Any | None = None,
     enable_web_search: bool | None = None,
     **kwargs,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
 
     request_id = uuid.uuid4().hex
@@ -270,6 +287,7 @@ def call_openai(
         if seed is not None and use_chat_for_seed and response_format is None:
             chat_params = {k: v for k, v in params.items() if k != "seed"}
             logger.info("Using chat.completions for seeded request")
+            client = _client()
             resp = client.chat.completions.create(
                 model=model,
                 messages=_to_chat_messages(messages),
@@ -281,7 +299,7 @@ def call_openai(
             return {"raw": resp, "text": text}
 
         params = _sanitize_responses_params(params)
-        if response_format is not None and _SUPPORTS_RESPONSE_FORMAT:
+        if response_format is not None and _supports_response_format():
             params["response_format"] = response_format
         mode = None
         try:
@@ -298,6 +316,7 @@ def call_openai(
         resp_params = {k: v for k, v in params.items() if k != "temperature"}
         logger.info("call_openai: model=%s api=Responses", effective_model)
         backoff = 0.1
+        client = _client()
         for attempt in range(4):
             try:
                 resp = client.responses.create(
@@ -308,7 +327,7 @@ def call_openai(
                 http_status_or_exc = getattr(resp, "http_status", 200)
                 text = extract_text(resp)
                 return {"raw": resp, "text": text}
-            except APIStatusError as e:
+            except _openai.APIStatusError as e:
                 http_status_or_exc = e.status_code
                 if e.status_code not in (404, 429, 500, 502, 503, 504):
                     raise
@@ -334,6 +353,7 @@ def call_openai(
         if "max_output_tokens" in chat_params and "max_tokens" not in chat_params:
             chat_params["max_tokens"] = chat_params.pop("max_output_tokens")
         logger.info("call_openai: model=%s api=Chat", effective_model)
+        client = _client()
         resp = client.chat.completions.create(
             model=effective_model, messages=_to_chat_messages(messages), **chat_params
         )
@@ -386,7 +406,12 @@ def log_usage(stage, model, pt, ct, cost=0.0):
     th = thresholds(usage, **limits)
     prev = st.session_state.get(
         "_usage_flags",
-        {"budget_crossed": False, "token_crossed": False, "budget_exceeded": False, "token_exceeded": False},
+        {
+            "budget_crossed": False,
+            "token_crossed": False,
+            "budget_exceeded": False,
+            "token_exceeded": False,
+        },
     )
     run_id = st.session_state.get("run_id")
     if th["budget_crossed"] and not prev["budget_crossed"]:
