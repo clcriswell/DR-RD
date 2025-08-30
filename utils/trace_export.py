@@ -16,6 +16,25 @@ def _safe_summary(text: str | None, max_len: int = 80) -> str:
     return text[:max_len]
 
 
+def flatten_trace_rows(trace: Sequence[Dict[str, Any]]) -> list[dict]:
+    """Return normalized rows for tabular exports."""
+    rows: list[dict] = []
+    for idx, step in enumerate(trace, 1):
+        rows.append(
+            {
+                "i": idx,
+                "phase": step.get("phase"),
+                "name": step.get("name"),
+                "status": step.get("status"),
+                "duration_ms": step.get("duration_ms"),
+                "tokens": step.get("tokens"),
+                "cost": step.get("cost"),
+                "summary": step.get("summary"),
+            }
+        )
+    return rows
+
+
 def to_json(trace: Sequence[Dict[str, Any]]) -> bytes:
     """Return the trace as JSON bytes."""
     return json.dumps(list(trace), ensure_ascii=False, indent=2).encode("utf-8")
@@ -23,6 +42,7 @@ def to_json(trace: Sequence[Dict[str, Any]]) -> bytes:
 
 def to_csv(trace: Sequence[Dict[str, Any]], run_id: str | None = None) -> bytes:
     """Return a CSV summary of the trace."""
+    rows = flatten_trace_rows(trace)
     output = io.StringIO()
     writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
     writer.writerow([
@@ -36,17 +56,17 @@ def to_csv(trace: Sequence[Dict[str, Any]], run_id: str | None = None) -> bytes:
         "cost",
         "summary_80chars",
     ])
-    for idx, step in enumerate(trace, 1):
+    for row in rows:
         writer.writerow([
             run_id,
-            step.get("phase"),
-            idx,
-            step.get("name"),
-            step.get("status"),
-            step.get("duration_ms"),
-            step.get("tokens"),
-            step.get("cost"),
-            _safe_summary(step.get("summary")),
+            row.get("phase"),
+            row.get("i"),
+            row.get("name"),
+            row.get("status"),
+            row.get("duration_ms"),
+            row.get("tokens"),
+            row.get("cost"),
+            _safe_summary(row.get("summary")),
         ])
     return output.getvalue().encode("utf-8")
 
@@ -110,4 +130,5 @@ __all__ = [
     "write_trace_json",
     "write_trace_csv",
     "write_trace_markdown",
+    "flatten_trace_rows",
 ]
