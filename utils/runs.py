@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple
+from datetime import datetime
 
 from .paths import artifact_path, ensure_run_dirs
 
@@ -111,3 +112,21 @@ def list_runs(limit: int = 200) -> list[dict]:
 def last_run_id() -> str | None:
     runs = list_runs(limit=1)
     return runs[0]["run_id"] if runs else None
+
+
+def run_options(limit: int = 200) -> Tuple[List[str], Dict[str, str]]:
+    """Return ``(options, labels)`` for run selectors."""
+
+    runs = list_runs(limit)
+    options = [r["run_id"] for r in runs]
+    labels: Dict[str, str] = {}
+    for r in runs:
+        ts = r.get("started_at", 0)
+        try:
+            dt = datetime.fromtimestamp(ts).isoformat()
+        except Exception:
+            dt = str(ts)
+        idea = (r.get("idea_preview") or "")[:40]
+        labels[r["run_id"]] = f"{r['run_id']} — {dt} — {idea}…"
+    return options, labels
+

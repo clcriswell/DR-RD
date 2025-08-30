@@ -22,10 +22,19 @@ def flatten_trace_rows(trace: Sequence[TraceStep]) -> list[dict]:
     """Return normalized rows for tabular exports.
 
     Each row contains the fields: i, id, parents, phase, name, status,
-    duration_ms, tokens, cost, summary, citations.
+    duration_ms, tokens, cost, summary, prompt, citations.
     """
     rows: list[dict] = []
     for idx, step in enumerate(trace, 1):
+        summary = step.get("summary")
+        if not summary:
+            summary = (
+                step.get("output")
+                or step.get("result")
+                or step.get("text")
+                or ""
+            )
+        prompt = step.get("prompt") or step.get("prompt_preview")
         rows.append(
             {
                 "i": idx,
@@ -37,7 +46,8 @@ def flatten_trace_rows(trace: Sequence[TraceStep]) -> list[dict]:
                 "duration_ms": step.get("duration_ms"),
                 "tokens": step.get("tokens"),
                 "cost": step.get("cost"),
-                "summary": step.get("summary"),
+                "summary": summary,
+                "prompt": prompt,
                 "citations": step.get("citations"),
             }
         )

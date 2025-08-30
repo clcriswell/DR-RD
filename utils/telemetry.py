@@ -603,6 +603,20 @@ def profile_set_default(name: str) -> None:
     log_event({"event": "profile_set_default", "name": name})
 
 
+def compare_opened(run_a: str, run_b: str) -> None:
+    """Emit a compare_opened telemetry event."""
+
+    log_event({"event": "compare_opened", "run_a": run_a, "run_b": run_b})
+
+
+def compare_export_clicked(run_a: str, run_b: str, fmt: str) -> None:
+    """Emit a compare_export_clicked telemetry event."""
+
+    log_event(
+        {"event": "compare_export_clicked", "run_a": run_a, "run_b": run_b, "format": fmt}
+    )
+
+
 __all__ = [
     "log_event",
     "list_files",
@@ -650,6 +664,8 @@ __all__ = [
     "notification_sent",
     "notifications_saved",
     "notification_test_sent",
+    "compare_opened",
+    "compare_export_clicked",
     "prompt_used",
     "prompt_preview",
     "prompt_bump",
