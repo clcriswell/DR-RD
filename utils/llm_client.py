@@ -9,6 +9,7 @@ from .retry import backoff, classify_error, should_retry
 from .circuit import status, record_failure, record_success, allow_half_open
 from .idempotency import key as idem_key, get as cache_get, put as cache_put
 from .telemetry import log_event
+from utils import otel
 
 
 def _call_provider(prov: str, model: str, payload: Mapping[str, Any], *, stream: bool) -> Any:
@@ -49,7 +50,31 @@ def chat(payload: Mapping[str, Any], *, mode: str, stream: bool = False,
             try:
                 log_event({"event": "llm_call_started", "provider": prov, "model": model,
                            "attempt": attempt, "run_id": run_id, "step_id": step_id})
-                resp = _call_provider(prov, model, payload, stream=stream)
+                with otel.start_span(
+                    "llm.call",
+                    attrs={
+                        "provider": prov,
+                        "model": model,
+                        "attempt": attempt,
+                        "stream": bool(stream),
+                        "run_id": run_id,
+                        "step_id": step_id,
+                    },
+                    run_id=run_id,
+                ) as span:
+                    try:
+                        resp = _call_provider(prov, model, payload, stream=stream)
+                    except Exception as exc:
+                        span.record_exception(exc)
+                        raise
+                    usage = getattr(resp, "usage", None)
+                    if usage:
+                        for k in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                            val = getattr(usage, k, None)
+                            if val is not None:
+                                span.set_attribute(k, val)
+                    if isinstance(resp, Mapping) and "cost_usd" in resp:
+                        span.set_attribute("cost_usd", resp["cost_usd"])
                 record_success(ck)
                 log_event({"event": "llm_call_succeeded", "provider": prov, "model": model,
                            "attempt": attempt, "run_id": run_id, "step_id": step_id})

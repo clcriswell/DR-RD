@@ -62,6 +62,15 @@ def log_event(ev: dict) -> None:
         ev.setdefault("session_id", get_session_id() or None)
     except Exception:
         pass
+    try:
+        from utils.otel import current_ids
+
+        ids = current_ids()
+        if ids:
+            ev.setdefault("trace_id", ids.get("trace_id"))
+            ev.setdefault("span_id", ids.get("span_id"))
+    except Exception:
+        pass
     ev = validate(ev)
     ev.setdefault("schema_version", CURRENT_SCHEMA_VERSION)
     ev.setdefault("ts", time.time())
