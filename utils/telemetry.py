@@ -1,25 +1,119 @@
+"""Telemetry logging utilities with schema validation and rotation."""
+from __future__ import annotations
+
 import json
 import os
+import threading
 import time
 from pathlib import Path
+from typing import List
+
+from .telemetry_schema import CURRENT_SCHEMA_VERSION, validate, upcast
 
 LOG_DIR = Path(os.getenv("TELEMETRY_LOG_DIR", ".dr_rd/telemetry"))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_PATH = LOG_DIR / "events.jsonl"
+
+_LOCK = threading.Lock()
+MAX_BYTES = int(os.getenv("TELEMETRY_MAX_BYTES", 25_000_000))
+
+
+def _day_stamp() -> str:
+    return time.strftime("%Y%m%d", time.gmtime())
+
+
+def _active_path() -> Path:
+    """Return the current log file path for today, rotating by size."""
+    day = _day_stamp()
+    base = LOG_DIR / f"events-{day}.jsonl"
+    p = base
+    part = 0
+    while p.exists() and p.stat().st_size >= MAX_BYTES:
+        part += 1
+        p = LOG_DIR / f"events-{day}.part{part}.jsonl"
+    return p
+
+
+def _rollover(p: Path) -> Path:
+    """Return next part file for the given path."""
+    name = p.name
+    if ".part" in name:
+        prefix, rest = name.split(".part", 1)
+        try:
+            num = int(rest.split(".")[0]) + 1
+        except ValueError:
+            num = 1
+        return p.with_name(f"{prefix}.part{num}.jsonl")
+    return p.with_name(p.stem + ".part1.jsonl")
 
 
 def log_event(ev: dict) -> None:
+    """Validate, version, and append a telemetry event."""
+    ev = validate(ev)
+    ev.setdefault("schema_version", CURRENT_SCHEMA_VERSION)
     ev.setdefault("ts", time.time())
     try:
         line = json.dumps(ev, ensure_ascii=False)
     except Exception:
         return
-    try:
-        with LOG_PATH.open("a", encoding="utf-8", errors="ignore") as f:
-            f.write(line + "\n")
-    except OSError:
-        pass
+    with _LOCK:
+        p = _active_path()
+        if p.exists() and p.stat().st_size + len(line) > MAX_BYTES:
+            p = _rollover(p)
+        lock_path = p.with_suffix(p.suffix + ".lock")
+        fh = None
+        try:
+            try:
+                fh = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+            except OSError:
+                fh = None  # best effort
+            with p.open("a", encoding="utf-8", errors="ignore") as f:
+                f.write(line + "\n")
+                f.flush()
+        finally:
+            if fh is not None:
+                os.close(fh)
+                try:
+                    os.remove(lock_path)
+                except OSError:
+                    pass
 
+
+def list_files(day: str | None = None) -> List[Path]:
+    pattern = f"events-{day}*" if day else "events-*.jsonl"
+    return sorted(LOG_DIR.glob(pattern))
+
+
+def read_events(limit: int | None = None, days: int = 7) -> List[dict]:
+    """Read recent events from log files.
+
+    Parameters
+    ----------
+    limit: optional maximum number of events to return.
+    days: how many days of logs to include, starting from today.
+    """
+    events: List[dict] = []
+    now = time.time()
+    for i in range(days):
+        day = time.strftime("%Y%m%d", time.gmtime(now - i * 86400))
+        files = list_files(day)
+        for p in files:
+            try:
+                with p.open("r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        try:
+                            ev = json.loads(line)
+                            ev = upcast(ev)
+                            events.append(ev)
+                        except Exception:
+                            continue
+                        if limit and len(events) >= limit:
+                            return events
+            except OSError:
+                continue
+    return events
+
+
+# Convenience event wrappers remain largely unchanged below.
 
 def flag_checked(name: str, value: bool) -> None:
     if os.getenv("TELEMETRY_DEBUG") == "1":
@@ -182,6 +276,8 @@ def run_favorited(run_id: str, favorite: bool) -> None:
 
 __all__ = [
     "log_event",
+    "list_files",
+    "read_events",
     "run_cancel_requested",
     "run_cancelled",
     "timeout_hit",
