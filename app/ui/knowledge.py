@@ -12,8 +12,9 @@ def _fmt_size(size: int) -> str:
 def table(items: list[dict]):
     removed: list[str] = []
     tag_updates: dict[str, list[str]] = {}
+    reindex: list[str] = []
     for it in items:
-        cols = st.columns([3, 1, 1, 2, 2, 1, 1])
+        cols = st.columns([3, 1, 1, 2, 2, 1, 1, 1])
         cols[0].write(it["name"])
         if it.get("pii_flag"):
             cols[0].caption("Possible PII detected")
@@ -23,11 +24,13 @@ def table(items: list[dict]):
         if new_tags != it.get("tags", []):
             tag_updates[it["id"]] = new_tags
         cols[4].write(datetime.fromtimestamp(it["created_at"]).strftime("%Y-%m-%d %H:%M"))
-        if cols[5].button("Remove", key=f"rm_{it['id']}"):
+        if cols[5].button("Reindex", key=f"rx_{it['id']}"):
+            reindex.append(it["id"])
+        if cols[6].button("Remove", key=f"rm_{it['id']}"):
             removed.append(it["id"])
         with open(it["path"], "rb") as fh:
-            cols[6].download_button("Download", fh, file_name=it["name"], key=f"dl_{it['id']}")
-    return removed, tag_updates
+            cols[7].download_button("Download", fh, file_name=it["name"], key=f"dl_{it['id']}")
+    return removed, tag_updates, reindex
 
 
 def uploader():

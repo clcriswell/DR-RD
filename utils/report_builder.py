@@ -108,6 +108,17 @@ def build_markdown_report(
     lines.append(trace_table(rows))
     lines.append("")
 
+    citations: list[str] = []
+    for step in trace:
+        for c in step.get("citations", []) or []:
+            snippet = (c.get("snippet", "") or "").replace("\n", " ")[:120]
+            citations.append(f"Doc {c.get('doc_id')} — {snippet}")
+    if citations:
+        lines.append("## Sources")
+        for c in citations:
+            lines.append(f"- {c}")
+        lines.append("")
+
     errors = [step for step in trace if step.get("status") == "error"]
     if errors:
         lines.append("## Errors")

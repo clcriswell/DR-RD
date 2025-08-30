@@ -6,6 +6,10 @@ from app.ui import knowledge as ui
 from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
 from utils import knowledge_store, upload_scan, uploads
+from utils import prefs
+from utils.embeddings import embed_texts
+from utils.rag import index as rag_index, textsplit
+from utils.telemetry import index_built, item_reindexed
 from utils.i18n import tr as t
 from utils.telemetry import (
     knowledge_added,
@@ -95,7 +99,7 @@ if st.button("Add files"):
 
 st.header("Your sources")
 items = knowledge_store.list_items()
-removed, tag_updates = ui.table(items)
+removed, tag_updates, reindex_ids = ui.table(items)
 for item_id in removed:
     if knowledge_store.remove_item(item_id):
         knowledge_removed(item_id)
@@ -104,3 +108,51 @@ for item_id, tags in tag_updates.items():
     knowledge_store.set_tags(item_id, tags)
     knowledge_tags_updated(item_id, len(tags))
     st.toast("Tags updated")
+
+prefs_cfg = prefs.load_prefs().get("retrieval", {})
+rag_index.init()
+with rag_index._conn() as c:
+    doc_count = c.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+    chunk_count = c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+st.caption(f"Index: {doc_count} docs, {chunk_count} chunks")
+
+def _embedder(chunks: list[str]):
+    if not prefs_cfg.get("use_embeddings"):
+        return None
+    return embed_texts(
+        chunks,
+        provider=prefs_cfg.get("embedding_provider", "openai"),
+        model=prefs_cfg.get("embedding_model", "text-embedding-3-small"),
+    )
+
+if st.button("Build/Refresh index"):
+    total_chunks = 0
+    for it in items:
+        text = knowledge_store.load_text(it["id"], max_chars=prefs_cfg.get("max_chars_per_doc"))
+        if not text:
+            continue
+        chunks = textsplit.split(text, size=prefs_cfg.get("chunk_size", 800), overlap=prefs_cfg.get("chunk_overlap", 120))
+        cnt = rag_index.upsert_document(
+            it["id"],
+            {"name": it.get("name"), "tags": it.get("tags", []), "path": it.get("path")},
+            chunks,
+            embedder=_embedder,
+        )
+        total_chunks += cnt
+    index_built(len(items), total_chunks)
+    st.toast(f"Indexed {len(items)} items ({total_chunks} chunks)")
+
+for item_id in reindex_ids:
+    text = knowledge_store.load_text(item_id, max_chars=prefs_cfg.get("max_chars_per_doc"))
+    if not text:
+        continue
+    it = knowledge_store.get_item(item_id) or {}
+    chunks = textsplit.split(text, size=prefs_cfg.get("chunk_size", 800), overlap=prefs_cfg.get("chunk_overlap", 120))
+    cnt = rag_index.upsert_document(
+        item_id,
+        {"name": it.get("name"), "tags": it.get("tags", []), "path": it.get("path")},
+        chunks,
+        embedder=_embedder,
+    )
+    item_reindexed(item_id, cnt)
+    st.toast("Reindexed item")

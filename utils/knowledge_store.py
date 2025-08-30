@@ -5,7 +5,9 @@ import json
 import secrets
 import time
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, Optional
+
+from .lazy_import import local_import
 
 ROOT = Path(".dr_rd/knowledge")
 UPLOADS = ROOT / "uploads"
@@ -115,6 +117,41 @@ def set_tags(item_id: str, tags: list[str]) -> dict:
     meta[item_id] = item
     _write_meta(meta)
     return item
+
+
+def load_text(item_id: str, *, max_chars: int | None = None) -> Optional[str]:
+    """Best effort load of item text for indexing.
+
+    Supports .txt, .md, .json, .csv, .pdf, .docx. Returns None on failure.
+    """
+    item = get_item(item_id)
+    if not item:
+        return None
+    path = Path(item.get("path", ""))
+    ext = path.suffix.lower()
+    try:
+        if ext in {".txt", ".md", ".json", ".csv"}:
+            text = path.read_text("utf-8", errors="ignore")
+        elif ext == ".pdf":
+            try:
+                pdf = local_import("pdfminer.high_level")
+                text = pdf.extract_text(str(path))
+            except Exception:
+                return None
+        elif ext == ".docx":
+            try:
+                docx = local_import("docx")
+                doc = docx.Document(str(path))
+                text = "\n".join(p.text for p in doc.paragraphs)
+            except Exception:
+                return None
+        else:
+            return None
+        if max_chars is not None:
+            return text[:max_chars]
+        return text
+    except Exception:
+        return None
 
 
 def as_choice_list() -> list[tuple[str, str]]:
