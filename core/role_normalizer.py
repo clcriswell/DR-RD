@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from difflib import get_close_matches
 from collections import Counter
-from typing import Dict, List, Set
+from difflib import get_close_matches
 
 # Map canonical role names to sets of specialist synonyms
-SYNONYMS: Dict[str, Set[str]] = {
+SYNONYMS: dict[str, set[str]] = {
     "Mechanical Systems Lead": {
         "Mechanical Engineer",
         "Manufacturing Engineer",
@@ -61,14 +60,14 @@ SYNONYMS: Dict[str, Set[str]] = {
 }
 
 # Precompute reverse lookup for synonyms (case-insensitive)
-_LOOKUP: Dict[str, str] = {}
+_LOOKUP: dict[str, str] = {}
 for canon, syns in SYNONYMS.items():
     _LOOKUP[canon.lower()] = canon
     for s in syns:
         _LOOKUP[s.lower()] = canon
 
 
-def normalize_role(name: str, allowed_roles: Set[str]) -> str:
+def normalize_role(name: str, allowed_roles: set[str]) -> str:
     """Map a specialist role name to a canonical allowed role.
 
     Parameters
@@ -99,15 +98,17 @@ def normalize_role(name: str, allowed_roles: Set[str]) -> str:
 
 
 def normalize_tasks(
-    tasks: List[Dict],
+    tasks: list[dict],
     *,
-    allowed_roles: Set[str],
+    allowed_roles: set[str],
     max_roles: int | None = None,
-) -> List[Dict]:
+) -> list[dict]:
     """Attach ``normalized_role`` to each task and optionally limit distinct roles."""
 
-    normalized: List[Dict] = []
+    normalized: list[dict] = []
     for t in tasks:
+        if not isinstance(t, dict):
+            t = {"description": str(t)}
         role = str(t.get("role", ""))
         norm = normalize_role(role, allowed_roles)
         normalized.append({**t, "normalized_role": norm})
@@ -123,12 +124,11 @@ def normalize_tasks(
     return normalized
 
 
-def group_by_role(tasks: List[Dict], *, key: str) -> Dict[str, List[Dict]]:
+def group_by_role(tasks: list[dict], *, key: str) -> dict[str, list[dict]]:
     """Group tasks by ``key`` value."""
 
-    grouped: Dict[str, List[Dict]] = {}
+    grouped: dict[str, list[dict]] = {}
     for t in tasks:
         role = t.get(key, "Synthesizer")
         grouped.setdefault(role, []).append(t)
     return grouped
-
