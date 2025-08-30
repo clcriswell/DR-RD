@@ -35,6 +35,7 @@ def flatten_trace_rows(trace: Sequence[TraceStep]) -> list[dict]:
                 "tokens": step.get("tokens"),
                 "cost": step.get("cost"),
                 "summary": step.get("summary"),
+                "citations": step.get("citations"),
             }
         )
     return rows
@@ -64,6 +65,7 @@ def to_csv(
         "tokens",
         "cost",
         "summary_80chars",
+        "citations_json",
     ])
     for row in rows:
         writer.writerow([
@@ -76,6 +78,7 @@ def to_csv(
             row.get("tokens"),
             row.get("cost"),
             _safe_summary(sanitizer(row.get("summary")) if sanitizer else row.get("summary")),
+            json.dumps(row.get("citations", []), ensure_ascii=False),
         ])
     return output.getvalue().encode("utf-8")
 

@@ -471,6 +471,22 @@ def notifications_saved(channels: list[str], events_count: int) -> None:
 
 def notification_test_sent(channel: str, ok: bool) -> None:
     log_event({"event": "notification_test_sent", "channel": channel, "ok": bool(ok)})
+
+
+def index_built(items: int, chunks: int) -> None:
+    log_event({"event": "index_built", "items": items, "chunks": chunks})
+
+
+def item_reindexed(id: str, chunks: int) -> None:
+    log_event({"event": "item_reindexed", "id": id, "chunks": chunks})
+
+
+def retrieval_query(q_len: int) -> None:
+    log_event({"event": "retrieval_query", "q_len": q_len})
+
+
+def retrieval_used(run_id: str, step_id: str, k: int, provider: str) -> None:
+    log_event({"event": "retrieval_used", "run_id": run_id, "step_id": step_id, "k": k, "provider": provider})
 __all__ = [
     "log_event",
     "list_files",
@@ -494,10 +510,14 @@ __all__ = [
     "knowledge_added",
     "knowledge_removed",
     "knowledge_tags_updated",
+    "index_built",
+    "item_reindexed",
     "safety_warned",
     "safety_blocked",
     "safety_flagged_step",
     "safety_export_blocked",
+    "retrieval_query",
+    "retrieval_used",
     "history_filter_changed",
     "history_export_clicked",
     "run_annotated",

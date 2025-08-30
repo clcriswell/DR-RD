@@ -52,11 +52,22 @@ DEFAULT_PREFS: dict[str, Any] = {
     },
     "storage": {"backend": "local", "bucket": "", "prefix": "dr_rd", "signed_url_ttl_sec": 600},
 
+    "retrieval": {
+        "enabled": True,
+        "top_k": 4,
+        "chunk_size": 800,
+        "chunk_overlap": 120,
+        "use_embeddings": True,
+        "embedding_provider": "openai",
+        "embedding_model": "text-embedding-3-small",
+        "max_chars_per_doc": 200000,
+    },
+
 
 
 }
 
-_ALLOWED_SECTIONS = {"defaults", "ui", "privacy", "notifications", "storage", "version"}
+_ALLOWED_SECTIONS = {"defaults", "ui", "privacy", "notifications", "storage", "retrieval", "version"}
 
 
 def _validate(raw: Mapping[str, Any] | None) -> dict:
@@ -120,7 +131,7 @@ def _validate(raw: Mapping[str, Any] | None) -> dict:
         for k, v in np["events"].items():
             events[k] = bool(raw_ev.get(k, v))
         np["events"] = events
-    for section in ("defaults", "ui", "privacy"):
+    for section in ("defaults", "ui", "privacy", "retrieval"):
         raw_section = raw.get(section)
         if not isinstance(raw_section, Mapping):
             continue
