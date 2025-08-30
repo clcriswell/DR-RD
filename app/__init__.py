@@ -12,6 +12,7 @@ from markdown_pdf import MarkdownPdf, Section
 from app.ui import components
 from app.ui.sidebar import render_sidebar
 from app.ui.trace_viewer import render_trace
+from app.ui import survey
 from config.agent_models import AGENT_MODEL_MAP
 import config.feature_flags as ff
 from core.agents.unified_registry import build_agents_unified
@@ -45,6 +46,7 @@ def get_agents():
 
 
 def main() -> None:
+    survey.render_usage_panel()
     components.help_once(
         "first_run_tip",
         "After you start, the app plans, executes tasks, then synthesizes a report.",
@@ -114,6 +116,7 @@ def main() -> None:
         st.markdown(final)
         trace = st.session_state.get("agent_trace", [])
         render_trace(trace, run_id)
+        survey.maybe_prompt_after_run(run_id)
     except Exception as e:  # pragma: no cover - UI display
         log_event({"event": "error_shown", "run_id": run_id, "where": "main", "message": str(e)})
         st.error(str(e))
