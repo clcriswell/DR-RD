@@ -9,12 +9,10 @@ invoke additional tools.
 from app import main
 
 
-def tool_router():
-    """Route directly to the main app."""
+def run() -> None:
+    """Launch the DR-RD Streamlit application."""
     main()
 
 
 if __name__ == "__main__":
-    tool_router()
-
-# Fields: problem constraint budget time allowed redaction
+    run()
