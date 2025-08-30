@@ -1,4 +1,3 @@
-import pytest
 from utils.prompts import runtime
 
 
@@ -10,6 +9,12 @@ def test_defaults_and_pin():
     assert len(pin["hash"]) == 64
 
 
-def test_missing_var():
-    with pytest.raises(KeyError):
-        runtime.render("executor", {})
+def test_executor_placeholder_task():
+    text, pin = runtime.render("executor", {})
+    assert "Complete the task:" in text
+    assert pin["id"] == "executor"
+
+
+def test_executor_with_task():
+    text, _ = runtime.render("executor", {"task": "do something"})
+    assert "do something" in text
