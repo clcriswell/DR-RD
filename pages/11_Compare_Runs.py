@@ -27,7 +27,8 @@ sel_b = col_b.selectbox(
     opts,
     index=opts.index(run_b) if run_b in opts else 0,
     format_func=lambda x: labels.get(x, x),
-)if sel_a != run_a or sel_b != run_b:
+)
+if sel_a != run_a or sel_b != run_b:
     qp["run_a"] = sel_a
     qp["run_b"] = sel_b
     st.rerun()
@@ -49,7 +50,7 @@ if run_a and run_b:
 
     st.subheader("Config changes")
     if cfg:
-        st.table([{ "path": p, "a": a_val, "b": b_val } for p, a_val, b_val in cfg])
+        st.table([{"path": p, "a": a_val, "b": b_val} for p, a_val, b_val in cfg])
     else:
         st.caption("No config differences")
 
