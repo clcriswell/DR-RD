@@ -6,18 +6,27 @@ import time
 from pathlib import Path
 from typing import Mapping
 
-from utils.cli import load_config, print_summary, exit_code
-from utils.env_snapshot import capture_env
-from utils.run_id import new_run_id
-from utils.paths import ensure_run_dirs, write_text
-from utils.runs import create_run_meta, complete_run_meta, load_run_meta
-from utils.run_config_io import to_lockfile
-from utils.run_reproduce import to_orchestrator_kwargs
-from utils import telemetry
 import core.orchestrator as orch
+from utils import telemetry
+from utils.cli import exit_code, load_config, print_summary
+from utils.env_snapshot import capture_env
+from utils.paths import ensure_run_dirs, write_text
+from utils.run_config_io import to_lockfile
+from utils.run_id import new_run_id
+from utils.run_reproduce import to_orchestrator_kwargs
+from utils.runs import complete_run_meta, create_run_meta, load_run_meta
 
 
-def run(cfg: Mapping, *, run_id: str | None = None, out_dir: str | None = None, deadline_sec: float | None = None, telemetry_enabled: bool = True, budget_usd: float | None = None, max_tokens: int | None = None) -> tuple[Mapping, Mapping | None]:
+def run(
+    cfg: Mapping,
+    *,
+    run_id: str | None = None,
+    out_dir: str | None = None,
+    deadline_sec: float | None = None,
+    telemetry_enabled: bool = True,
+    budget_usd: float | None = None,
+    max_tokens: int | None = None,
+) -> tuple[Mapping, Mapping | None]:
     """Execute a single run and return metadata and totals."""
     from utils import paths as paths_mod
 
@@ -38,7 +47,9 @@ def run(cfg: Mapping, *, run_id: str | None = None, out_dir: str | None = None, 
     write_text(rid, "env", "snapshot.json", json.dumps(capture_env()))
     create_run_meta(rid, mode=cfg.get("mode", "standard"), idea_preview=cfg.get("idea", "")[:120])
     if telemetry_enabled:
-        telemetry.log_event({"event": "run_created", "run_id": rid, "mode": cfg.get("mode", "standard")})
+        telemetry.log_event(
+            {"event": "run_created", "run_id": rid, "mode": cfg.get("mode", "standard")}
+        )
     kwargs = to_orchestrator_kwargs(locked)
     deadline_ts = time.time() + float(deadline_sec) if deadline_sec else None
     status = "error"
@@ -57,7 +68,12 @@ def run(cfg: Mapping, *, run_id: str | None = None, out_dir: str | None = None, 
     complete_run_meta(rid, status=status)
     if telemetry_enabled:
         telemetry.log_event({"event": "run_completed", "run_id": rid, "status": status})
-    meta = load_run_meta(rid) or {"run_id": rid, "status": status, "started_at": int(start), "completed_at": int(time.time())}
+    meta = load_run_meta(rid) or {
+        "run_id": rid,
+        "status": status,
+        "started_at": int(start),
+        "completed_at": int(time.time()),
+    }
     return meta, None
 
 
@@ -66,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--config", help="Path to JSON config")
     group.add_argument("--lockfile", help="Path to run_config.lock.json")
+    parser.add_argument("--profile", help="Apply named profile first")
     parser.add_argument("--mode", help="Override run mode")
     parser.add_argument("--deadline-sec", type=float, default=None)
     parser.add_argument("--budget-usd", type=float, default=None)
@@ -75,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-telemetry", action="store_true")
     args = parser.parse_args(argv)
 
-    cfg = load_config(args.config, args.lockfile)
+    cfg = load_config(args.config, args.lockfile, args.profile)
     if args.mode:
         cfg = dict(cfg)
         cfg["mode"] = args.mode
@@ -88,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         budget_usd=args.budget_usd,
         max_tokens=args.max_tokens,
     )
-    print_summary(meta, totals)
+    print_summary(meta, totals, profile=args.profile)
     return exit_code(meta.get("status", "error"))
 
 
