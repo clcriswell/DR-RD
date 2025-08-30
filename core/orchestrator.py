@@ -8,6 +8,15 @@ from utils.agent_json import extract_json_block, extract_json_strict
 from utils.logging import logger, safe_exc
 from utils.cancellation import CancellationToken
 from utils.timeouts import Deadline, with_deadline
+from utils.stream_events import Event
+from utils import trace_writer
+from utils.telemetry import (
+    run_resumed,
+    resume_failed,
+    stream_started,
+    stream_chunked,
+    stream_completed,
+)
 
 import config.feature_flags as ff
 from core.agents.unified_registry import AGENT_REGISTRY
@@ -32,7 +41,6 @@ from prompts.prompts import (
     SYNTHESIZER_TEMPLATE,
 )
 from utils import checkpoints
-from utils.telemetry import run_resumed, resume_failed
 
 evidence: EvidenceSet | None = None
 
@@ -852,6 +860,64 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
         checkpoints.mark_step_done(run_id, "synth", "synth")
     return final
 
+
+def run_stream(
+    idea: str,
+    *,
+    run_id: str,
+    agents: dict | None = None,
+    cancel: CancellationToken | None = None,
+    deadline_ts: float | None = None,
+    **kwargs,
+):
+    """Generator yielding structured events for streaming runs."""
+
+    cancel = cancel or CancellationToken()
+    stream_started(run_id)
+    try:
+        # Planner phase
+        yield Event("phase_start", phase="planner")
+        tasks = generate_plan(idea, cancel=cancel, deadline_ts=deadline_ts)
+        yield Event("summary", phase="planner", text=json.dumps(tasks))
+        trace_writer.append_step(run_id, {"phase": "planner", "summary": tasks})
+        yield Event("step_end", phase="planner", step_id="planner", meta={})
+        yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
+        yield Event("phase_end", phase="planner")
+
+        # Executor phase
+        yield Event("phase_start", phase="executor")
+        answers = execute_plan(
+            idea,
+            tasks,
+            agents=agents or {},
+            cancel=cancel,
+            deadline_ts=deadline_ts,
+        )
+        yield Event("summary", phase="executor", text=json.dumps(answers))
+        trace_writer.append_step(run_id, {"phase": "executor", "summary": answers})
+        yield Event("step_end", phase="executor", step_id="executor", meta={})
+        yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
+        yield Event("phase_end", phase="executor")
+
+        # Synth phase
+        yield Event("phase_start", phase="synth")
+        final = compose_final_proposal(
+            idea,
+            answers,
+            cancel=cancel,
+            deadline_ts=deadline_ts,
+        )
+        yield Event("summary", phase="synth", text=final)
+        trace_writer.append_step(run_id, {"phase": "synth", "summary": final})
+        yield Event("step_end", phase="synth", step_id="synth", meta={})
+        yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
+        yield Event("phase_end", phase="synth")
+
+        yield Event("done")
+        stream_completed(run_id, "done")
+    except Exception as exc:  # pragma: no cover - best effort
+        yield Event("error", text=str(exc))
+        stream_completed(run_id, "error")
 
 def run_pipeline(idea: str, mode: str = "test", **kwargs):
     import logging
