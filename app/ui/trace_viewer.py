@@ -37,7 +37,13 @@ def _normalize_step(step: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def render_trace(trace: Sequence[Dict[str, Any]], run_id: str | None = None, *, default_view: str = "summary") -> None:
+def render_trace(
+    trace: Sequence[Dict[str, Any]],
+    run_id: str | None = None,
+    *,
+    default_view: str = "summary",
+    page_size: int = 25,
+) -> None:
     steps = [_normalize_step(s) for s in trace]
     if not steps:
         st.markdown("### No trace yet")
@@ -45,6 +51,12 @@ def render_trace(trace: Sequence[Dict[str, Any]], run_id: str | None = None, *, 
         return
 
     total_steps = len(steps)
+
+    page_key = f"trace_page_{run_id}"
+    show_all_key = f"trace_show_all_{run_id}"
+    page = st.session_state.get(page_key, 1)
+    show_all = st.session_state.get(show_all_key, False)
+    limit = total_steps if show_all else page_size * page
 
     view_opts = ["Summary", "Raw", "Both"]
     view_index = view_opts.index(default_view.capitalize()) if default_view.capitalize() in view_opts else 0
@@ -127,14 +139,17 @@ def render_trace(trace: Sequence[Dict[str, Any]], run_id: str | None = None, *, 
     for s in filtered_steps:
         groups.setdefault(s["phase"], []).append(s)
 
+    shown = 0
     for phase, label in PHASE_LABELS.items():
         phase_steps = groups.get(phase) or []
         if not phase_steps:
             continue
+        display_steps = phase_steps if show_all else phase_steps[:limit]
+        shown += len(display_steps)
         expander = st.expander(label, expanded=expand_state.get(phase, False))
         with expander:
             total = len(phase_steps)
-            for idx, step in enumerate(phase_steps, 1):
+            for idx, step in enumerate(display_steps, 1):
                 status = STATUS_ICONS.get(step["status"], step["status"])
                 meta: List[str] = []
                 if step.get("duration_ms") is not None:
@@ -163,4 +178,29 @@ def render_trace(trace: Sequence[Dict[str, Any]], run_id: str | None = None, *, 
                         st.json(raw)
                     else:
                         st.code("" if raw is None else str(raw), language=None)
+
+    if not show_all and shown < len(filtered_steps):
+        if st.button("Load more", key=f"more_{run_id}", use_container_width=True):
+            st.session_state[page_key] = page + 1
+            log_event(
+                {
+                    "event": "trace_page_changed",
+                    "page": page + 1,
+                    "page_size": page_size,
+                    "total_steps": len(filtered_steps),
+                }
+            )
+
+    prev_show_all = show_all
+    show_all_new = st.checkbox("Show all", key=show_all_key, value=show_all)
+    if show_all_new != prev_show_all:
+        st.session_state[show_all_key] = show_all_new
+        log_event(
+            {
+                "event": "trace_page_changed",
+                "page": 0 if show_all_new else st.session_state.get(page_key, 1),
+                "page_size": page_size,
+                "total_steps": len(filtered_steps),
+            }
+        )
 

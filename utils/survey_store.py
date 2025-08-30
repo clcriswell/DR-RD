@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List
 
 import streamlit as st
+from .cache import cached_data
 
 SURVEYS_PATH = Path(".dr_rd/telemetry/surveys.jsonl")
 SURVEYS_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -65,6 +66,7 @@ def save_seq(run_id: str, score: int, comment: str | None) -> None:
     _write_record(record)
 
 
+@cached_data(ttl=30)
 def load_recent(n: int = 500) -> List[Dict]:
     if not SURVEYS_PATH.exists():
         return []

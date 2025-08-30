@@ -1,13 +1,11 @@
 """Metrics page."""
 from __future__ import annotations
 
-import json
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
 import streamlit as st
 
-from utils import survey_store
+from utils import metrics
 from utils.telemetry import log_event
 
 log_event({"event": "nav_page_view", "page": "metrics"})
@@ -20,32 +18,39 @@ start, end = st.date_input("Date range", value=(start_default, date.today()))
 start_ts = datetime.combine(start, datetime.min.time()).timestamp()
 end_ts = datetime.combine(end, datetime.max.time()).timestamp()
 
-# Load telemetry events
-events_path = Path(".dr_rd/telemetry/events.jsonl")
-events = []
-if events_path.exists():
-    with events_path.open("r", encoding="utf-8") as f:
-        for line in f:
-            ev = json.loads(line)
-            ts = ev.get("ts", 0)
-            if start_ts <= ts <= end_ts:
-                events.append(ev)
-
-runs = sum(1 for e in events if e.get("event") == "start_run")
-views = sum(1 for e in events if e.get("event") == "nav_page_view")
-errors = sum(1 for e in events if e.get("event") == "error_shown")
+events = [e for e in metrics.load_events() if start_ts <= e.get("ts", 0) <= end_ts]
+surveys = [s for s in metrics.load_surveys() if start_ts <= s.get("ts", 0) <= end_ts]
+agg = metrics.compute_aggregates(events, surveys)
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Runs", runs)
-col2.metric("Page views", views)
-col3.metric("Errors", errors)
+col1.metric("Runs", agg["runs"])
+col2.metric("Page views", agg["views"])
+col3.metric("Errors", agg["errors"])
 
-records = survey_store.load_recent(1000)
-records = [r for r in records if start_ts <= r.get("ts", 0) <= end_ts]
-agg = survey_store.compute_aggregates(records)
+st.subheader("Run Quality")
+st.table(
+    [
+        {
+            "error_rate": agg["error_rate"],
+            "success_rate": agg["success_rate"],
+            "avg_time_on_task": agg["avg_time_on_task"],
+        }
+    ]
+)
 
 st.subheader("Surveys")
-if records:
-    st.table(agg)
+if surveys:
+    st.table(
+        [
+            {
+                "sus_count": agg["sus_count"],
+                "sus_mean": agg["sus_mean"],
+                "sus_7_day_mean": agg["sus_7_day_mean"],
+                "seq_count": agg["seq_count"],
+                "seq_mean": agg["seq_mean"],
+                "seq_7_day_mean": agg["seq_7_day_mean"],
+            }
+        ]
+    )
 else:
     st.info("No survey data in range.")
