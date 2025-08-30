@@ -1,0 +1,40 @@
+name: ci
+on:
+  pull_request: {}
+  push:
+    branches: ["**"]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -r requirements-dev.txt
+      - name: Lint & format
+        run: pre-commit run --all-files
+      - name: Type check
+        run: mypy .
+      - name: Tests
+        run: pytest -q
+      - name: repo_map fresh
+        run: python scripts/check_repo_map_clean.py
+      - name: docs links
+        env:
+          NO_NET: ${{ github.event_name == 'pull_request' && '0' || '0' }}
+        run: python scripts/check_docs_links.py
