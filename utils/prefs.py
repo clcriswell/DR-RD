@@ -17,6 +17,7 @@ DEFAULT_PREFS: dict[str, Any] = {
         "budget_limit_usd": None,
         "max_tokens": None,
         "knowledge_sources": ["samples"],
+        "provider_model": {"provider": "openai", "model": "gpt-4o-mini"},
     },
     "ui": {
         "show_trace_by_default": True,
@@ -76,6 +77,17 @@ def _validate(raw: Mapping[str, Any] | None) -> dict:
             if key not in prefs[section]:
                 continue
             _coerce(section, key, value)
+
+    # Validate provider/model snapshot
+    try:
+        from . import providers as _providers
+
+        snap = raw.get("defaults", {}).get("provider_model") if isinstance(raw, Mapping) else None
+        sel = _providers.from_prefs_snapshot(snap) if snap else None
+        if sel:
+            prefs["defaults"]["provider_model"] = _providers.to_prefs_snapshot(*sel)
+    except Exception:
+        pass
 
     # Clamp trace_page_size
     tps = prefs["ui"]["trace_page_size"]

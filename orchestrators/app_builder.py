@@ -4,6 +4,7 @@ from typing import Dict, Tuple, List
 
 from core.model_router import pick_model, CallHints
 from core.llm_client import call_openai
+from utils.providers import get_active_model
 from app_builder.spec import AppSpec, PageSpec
 from app_builder.codegen import render_streamlit_app
 
@@ -29,13 +30,15 @@ Idea:
 """
 
 def plan_app_spec(idea: str, packages_extra: List[str] | None = None) -> AppSpec:
+    _prov, default_model = get_active_model("standard")
     sel = pick_model(CallHints(stage="plan", difficulty="normal"))
+    sel_model = sel.get("model") or default_model
     messages = [
         {"role": "system", "content": "You turn app ideas into minimal JSON specifications."},
         {"role": "user", "content": PROMPT.format(idea=idea)},
     ]
     result = call_openai(
-        model=sel["model"],
+        model=sel_model,
         messages=messages,
         **sel.get("params", {})
     )
