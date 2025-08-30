@@ -1,4 +1,5 @@
 """Reports and exports page."""
+
 from __future__ import annotations
 
 import io
@@ -7,13 +8,13 @@ from zipfile import ZipFile
 
 import streamlit as st
 
-from utils import bundle, report_builder
-from utils.paths import artifact_path, run_root
-from utils.runs import last_run_id, load_run_meta
-from utils.telemetry import log_event
 from app.ui import empty_states
 from app.ui.copy import t
-
+from utils import bundle, report_builder, run_reproduce
+from utils.paths import artifact_path, run_root
+from utils.query_params import encode_config
+from utils.runs import last_run_id, load_run_meta
+from utils.telemetry import log_event
 
 run_id = st.query_params.get("run_id") or last_run_id()
 
@@ -25,6 +26,16 @@ else:
     log_event({"event": "nav_page_view", "page": "reports", "run_id": run_id})
     st.title(t("reports_title"))
     st.caption(t("reports_caption"))
+
+    if st.button("Reproduce run", use_container_width=True):
+        try:
+            locked = run_reproduce.load_run_inputs(run_id)
+            kwargs = run_reproduce.to_orchestrator_kwargs(locked)
+            st.query_params.update(encode_config(kwargs) | {"view": "run", "origin_run_id": run_id})
+            st.toast("Prefilled from saved config. Review and start the run.")
+            log_event({"event": "reproduce_prep", "run_id": run_id})
+        except FileNotFoundError:
+            st.toast("Missing run lockfile", icon="⚠️")
 
     meta = load_run_meta(run_id) or {}
     trace_path = artifact_path(run_id, "trace", "json")
@@ -58,7 +69,9 @@ else:
     if not files and not summary_text:
         empty_states.reports_empty()
     else:
-        bundle_bytes = bundle.build_zip_bundle(run_id, [], read_bytes=_read_bytes, list_existing=_list_existing)
+        bundle_bytes = bundle.build_zip_bundle(
+            run_id, [], read_bytes=_read_bytes, list_existing=_list_existing
+        )
         with ZipFile(io.BytesIO(bundle_bytes)) as zf:
             bundle_count = len(zf.namelist())
 
@@ -80,7 +93,14 @@ else:
             use_container_width=True,
             help=t("bundle_download_help"),
         ):
-            log_event({"event": "export_clicked", "format": "zip", "run_id": run_id, "count": bundle_count})
+            log_event(
+                {
+                    "event": "export_clicked",
+                    "format": "zip",
+                    "run_id": run_id,
+                    "count": bundle_count,
+                }
+            )
 
         if files:
             st.subheader(t("artifacts_subheader"))

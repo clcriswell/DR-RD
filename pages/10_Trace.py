@@ -1,4 +1,5 @@
 """Trace page."""
+
 from __future__ import annotations
 
 import json
@@ -7,14 +8,15 @@ from urllib.parse import urlencode
 
 import streamlit as st
 
-from app.ui.trace_viewer import render_trace
 from app.ui import empty_states
 from app.ui.copy import t
-from utils.telemetry import log_event
+from app.ui.trace_viewer import render_trace
+from utils import run_reproduce
 from utils.paths import artifact_path
-from utils.runs import list_runs, last_run_id
-from utils.query_params import view_state_from_params, encode_config
+from utils.query_params import encode_config, view_state_from_params
 from utils.run_config import from_session, to_orchestrator_kwargs
+from utils.runs import last_run_id, list_runs
+from utils.telemetry import log_event
 
 state = view_state_from_params(st.query_params)
 runs = list_runs(limit=100)
@@ -27,12 +29,20 @@ st.caption(t("trace_caption"))
 
 if runs:
     labels = {
-        r["run_id"]: f"{r['run_id']} — {datetime.fromtimestamp(r['started_at']).isoformat()} — {r['idea_preview'][:40]}…"
+        r[
+            "run_id"
+        ]: f"{r['run_id']} — {datetime.fromtimestamp(r['started_at']).isoformat()} — {r['idea_preview'][:40]}…"
         for r in runs
     }
     options = list(labels.keys())
     index = options.index(run_id) if run_id in options else 0
-    selected = st.selectbox(t("run_label"), options, index=index, format_func=lambda x: labels[x], help=t("run_select_help"))
+    selected = st.selectbox(
+        t("run_label"),
+        options,
+        index=index,
+        format_func=lambda x: labels[x],
+        help=t("run_select_help"),
+    )
     if selected != run_id:
         st.query_params["run_id"] = selected
         log_event({"event": "run_selected", "run_id": selected})
@@ -47,7 +57,9 @@ if runs:
     if not trace:
         empty_states.trace_empty()
     else:
-        include_adv = st.checkbox(t("include_adv_label"), key="trace_share_adv", help=t("include_adv_help"))
+        include_adv = st.checkbox(
+            t("include_adv_label"), key="trace_share_adv", help=t("include_adv_help")
+        )
         if st.button(t("share_link_label"), key="trace_share", help=t("share_link_help")):
             cfg_dict = to_orchestrator_kwargs(from_session())
             if not include_adv:
@@ -67,6 +79,17 @@ if runs:
                     "included_adv": bool(include_adv),
                 }
             )
+        if st.button("Reproduce run", use_container_width=True):
+            try:
+                locked = run_reproduce.load_run_inputs(run_id)
+                kwargs = run_reproduce.to_orchestrator_kwargs(locked)
+                st.query_params.update(
+                    encode_config(kwargs) | {"view": "run", "origin_run_id": run_id}
+                )
+                st.toast("Prefilled from saved config. Review and start the run.")
+                log_event({"event": "reproduce_prep", "run_id": run_id})
+            except FileNotFoundError:
+                st.toast("Missing run lockfile", icon="⚠️")
         render_trace(
             trace,
             run_id=run_id,
