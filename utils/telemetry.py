@@ -147,6 +147,29 @@ def run_cancelled(run_id: str, phase: str | None = None) -> None:
     log_event(ev)
 
 
+def run_lock_acquired(run_id: str) -> None:
+    """Emit a run_lock_acquired telemetry event."""
+    log_event({"event": "run_lock_acquired", "run_id": run_id})
+
+
+def run_lock_released(run_id: str) -> None:
+    """Emit a run_lock_released telemetry event."""
+    log_event({"event": "run_lock_released", "run_id": run_id})
+
+
+def run_start_blocked(reason: str, run_id: str | None = None) -> None:
+    """Emit a run_start_blocked telemetry event."""
+    ev = {"event": "run_start_blocked", "reason": reason}
+    if run_id:
+        ev["run_id"] = run_id
+    log_event(ev)
+
+
+def run_duplicate_detected(run_id: str) -> None:
+    """Emit a run_duplicate_detected telemetry event."""
+    log_event({"event": "run_duplicate_detected", "run_id": run_id})
+
+
 def checkpoint_saved(run_id: str, phase: str, step_id: str | int) -> None:
     """Emit a checkpoint_saved telemetry event."""
     log_event({"event": "checkpoint_saved", "run_id": run_id, "phase": phase, "step_id": step_id})

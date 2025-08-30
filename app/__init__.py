@@ -31,14 +31,22 @@ from utils.telemetry import (
     demo_started,
     demo_completed,
     exp_overridden,
+    run_lock_acquired,
+    run_lock_released,
+    run_start_blocked,
+    run_duplicate_detected,
 )
 from utils.usage import Usage
 from utils.flags import is_enabled
 from utils.experiments import assign, force_from_params, exposure
 from utils.user_id import get_user_id
+from utils import session_guard
 
 inject_accessibility_baseline()
 live_region_container()
+
+st.session_state.setdefault("active_run", None)
+st.session_state.setdefault("submit_token", None)
 
 # quick open via button
 if st.button(
@@ -86,6 +94,21 @@ nav_variant = forced_nav or assign(uid, "exp_trace_nav")[0]
 exposure(log_event, uid, "exp_trace_nav", nav_variant, run_id=params.get("run_id"))
 if forced_nav:
     st.caption("Experiment override active.")
+
+active = st.session_state.get("active_run")
+qp_run = params.get("run_id")
+if qp_run and not active and session_guard.is_locked(qp_run):
+    st.info(f"Another tab may be watching run {qp_run}.")
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        if st.button("Take over", key="takeover"):
+            tok = session_guard.new_token()
+            session_guard.acquire(qp_run, tok)
+            st.session_state["active_run"] = {"run_id": qp_run, "token": tok, "status": "running"}
+            st.session_state["submit_token"] = tok
+            run_duplicate_detected(qp_run)
+    with c2:
+        st.markdown(f"[Open Trace](./Trace?run_id={qp_run})")
 
 if not st.session_state.get("_onboard_shown", False):
     try:
@@ -216,18 +239,32 @@ def main() -> None:
     cfg = render_sidebar()
     col_run, col_demo, col_share = st.columns([2, 2, 1])
     with col_run:
-        submitted = st.button(t("start_run_label"), type="primary", help=t("start_run_help"))
+        submitted = st.button(
+            t("start_run_label"),
+            type="primary",
+            help=t("start_run_help"),
+            disabled=st.session_state["active_run"] is not None
+            and st.session_state["active_run"].get("status") == "running",
+        )
     with col_demo:
         demo_submit = st.button(
             "Run demo",
             type="secondary",
             help="Play a recorded run with no cost",
+            disabled=st.session_state["active_run"] is not None
+            and st.session_state["active_run"].get("status") == "running",
         )
     with col_share:
         include_adv = st.checkbox(
             t("include_adv_label"), key="share_adv", help=t("include_adv_help")
         )
-        if st.button(t("share_link_label"), key="share_link", help=t("share_link_help")):
+        if st.button(
+            t("share_link_label"),
+            key="share_link",
+            help=t("share_link_help"),
+            disabled=st.session_state["active_run"] is not None
+            and st.session_state["active_run"].get("status") == "running",
+        ):
             qp = encode_config(to_orchestrator_kwargs(cfg))
             if not include_adv:
                 qp.pop("adv", None)
@@ -243,6 +280,31 @@ def main() -> None:
     if not (submitted or demo_submit) or not cfg.idea.strip():
         return
 
+    if st.session_state["active_run"] and st.session_state["active_run"].get("status") == "running":
+        st.warning("Run already in progress")
+        run_start_blocked("already_running", st.session_state["active_run"].get("run_id"))
+        return
+
+    qp_run = st.query_params.get("run_id")
+    if qp_run and session_guard.is_locked(qp_run):
+        st.info(f"Another tab may be watching run {qp_run}.")
+        run_start_blocked("cross_tab", qp_run)
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Resume watching this run", key="resume_existing"):
+                tok = session_guard.new_token()
+                session_guard.acquire(qp_run, tok)
+                st.session_state["active_run"] = {"run_id": qp_run, "token": tok, "status": "running"}
+                st.session_state["submit_token"] = tok
+                run_duplicate_detected(qp_run)
+                st.query_params["run_id"] = qp_run
+                st.switch_page("pages/10_Trace.py")
+        with col2:
+            if st.button("Start a new run", key="start_new_run"):
+                st.query_params.pop("run_id", None)
+                st.rerun()
+        return
+
     if demo_submit:
         cfg = replace(cfg, mode="demo")
 
@@ -256,7 +318,12 @@ def main() -> None:
     ff.RAG_ENABLED = kwargs["rag"]
     ff.ENABLE_LIVE_SEARCH = kwargs["live"]
 
+    submit_token = session_guard.new_token()
     run_id = new_run_id()
+    st.session_state["submit_token"] = submit_token
+    st.session_state["active_run"] = {"run_id": run_id, "token": submit_token, "status": "running"}
+    session_guard.acquire(run_id, submit_token)
+    run_lock_acquired(run_id)
     ensure_run_dirs(run_id)
     st.session_state["run_id"] = run_id
     st.query_params["run_id"] = run_id
@@ -359,6 +426,7 @@ def main() -> None:
                 "duration": time.time() - start,
             }
         )
+        session_guard.mark_heartbeat(run_id)
         live = meter.render_live(
             st.session_state["usage"],
             budget_limit_usd=kwargs.get("budget_limit_usd"),
@@ -388,6 +456,7 @@ def main() -> None:
                 "duration": time.time() - start,
             }
         )
+        session_guard.mark_heartbeat(run_id)
         live = meter.render_live(
             st.session_state["usage"],
             budget_limit_usd=kwargs.get("budget_limit_usd"),
@@ -416,6 +485,7 @@ def main() -> None:
                 "duration": time.time() - start,
             }
         )
+        session_guard.mark_heartbeat(run_id)
         live = meter.render_live(
             st.session_state["usage"],
             budget_limit_usd=kwargs.get("budget_limit_usd"),
@@ -428,6 +498,7 @@ def main() -> None:
         meter.render_summary(st.session_state["usage"])
         st.session_state["run_report"] = final
         st.query_params.update({"run_id": run_id, "view": "trace"})
+        st.session_state["active_run"]["status"] = "success"
         complete_run_meta(run_id, status="success")
         log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
         if origin_run_id:
@@ -465,6 +536,7 @@ def main() -> None:
         if current_box is not None:
             current_box.update(label="Cancelled", state="error")
         err = make_safe_error(e, run_id=run_id, phase=current_phase, step_id=None)
+        st.session_state["active_run"]["status"] = "cancelled"
         complete_run_meta(run_id, status="cancelled")
         run_cancelled(run_id, current_phase)
         log_event({"event": "run_completed", "run_id": run_id, "status": "cancelled"})
@@ -509,6 +581,7 @@ def main() -> None:
         if current_box is not None:
             current_box.update(label="Timeout", state="error")
         err = make_safe_error(e, run_id=run_id, phase=current_phase, step_id=None)
+        st.session_state["active_run"]["status"] = "timeout"
         complete_run_meta(run_id, status="timeout")
         timeout_hit(run_id, current_phase)
         log_event({"event": "run_completed", "run_id": run_id, "status": "timeout"})
@@ -553,6 +626,7 @@ def main() -> None:
         if current_box is not None:
             current_box.update(label="Error", state="error")
         err = make_safe_error(e, run_id=run_id, phase=current_phase, step_id=None)
+        st.session_state["active_run"]["status"] = "error"
         complete_run_meta(run_id, status="error")
         log_event({"event": "run_completed", "run_id": run_id, "status": "error"})
         if origin_run_id:
@@ -587,6 +661,12 @@ def main() -> None:
             st.query_params["run_id"] = err.context.get("run_id") or ""
             st.query_params["view"] = "trace"
             st.switch_page("pages/10_Trace.py")
+
+    finally:
+        session_guard.release(run_id)
+        run_lock_released(run_id)
+        st.session_state["active_run"] = None
+        st.session_state["submit_token"] = None
 
 
 def generate_pdf(markdown_text):
