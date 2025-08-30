@@ -13,8 +13,9 @@ from utils.i18n import tr as t
 from app.ui.trace_viewer import render_trace
 from utils import run_reproduce
 from utils.paths import artifact_path
-from utils.query_params import encode_config, view_state_from_params
-from utils.run_config import from_session, to_orchestrator_kwargs
+from utils.query_params import encode_config
+from utils.run_config import RunConfig, to_orchestrator_kwargs
+from utils.session_store import init_stores
 from utils.runs import last_run_id, list_runs
 from utils.telemetry import log_event
 from utils.flags import is_enabled
@@ -57,10 +58,10 @@ if act:
         }
     )
 
+run_store, view_store = init_stores()
 params = dict(st.query_params)
-state = view_state_from_params(params)
 runs = list_runs(limit=100)
-run_id = state["run_id"] or last_run_id()
+run_id = params.get("run_id") or last_run_id()
 if params.get("view") != "trace":
     st.query_params["view"] = "trace"
 
@@ -107,7 +108,7 @@ if runs:
             t("include_adv_label"), key="trace_share_adv", help=t("include_adv_help")
         )
         if st.button(t("share_link_label"), key="trace_share", help=t("share_link_help")):
-            cfg_dict = to_orchestrator_kwargs(from_session())
+            cfg_dict = to_orchestrator_kwargs(RunConfig(**run_store.as_dict()))
             if not include_adv:
                 cfg_dict.pop("advanced", None)
             qp = encode_config(cfg_dict)
@@ -140,15 +141,15 @@ if runs:
             render_trace(
                 trace,
                 run_id=run_id,
-                default_view=state["trace_view"],
-                default_query=state["trace_query"],
+                default_view=view_store.get("trace_view"),
+                default_query=view_store.get("trace_query"),
             )
         else:
             render_trace(
                 trace,
                 run_id=run_id,
-                default_view=state["trace_view"],
-                default_query=state["trace_query"],
+                default_view=view_store.get("trace_view"),
+                default_query=view_store.get("trace_query"),
             )
 else:
     log_event({"event": "nav_page_view", "page": "trace", "run_id": None})

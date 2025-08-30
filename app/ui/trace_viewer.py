@@ -8,6 +8,7 @@ import streamlit as st
 from utils import trace_export
 from utils.paths import artifact_path
 from utils.telemetry import log_event
+from utils.session_store import SessionStore
 
 PHASE_LABELS = {
     "planner": "Planner",
@@ -59,13 +60,24 @@ def render_trace(
     show_all = st.session_state.get(show_all_key, False)
     limit = total_steps if show_all else page_size * page
 
-    view_opts = ["Summary", "Raw", "Both"]
-    view_index = view_opts.index(default_view.capitalize()) if default_view.capitalize() in view_opts else 0
-    view = st.radio("View", view_opts, index=view_index, horizontal=True)
-
-    query = st.text_input(
-        "Filter steps", value=default_query, placeholder="Search in name or text…"
+    view_store = SessionStore(
+        "view",
+        defaults={"trace_view": "summary", "trace_query": "", "palette_open": False},
+        persist_keys={"trace_view", "trace_query"},
     )
+    view_val = view_store.get("trace_view", default_view)
+    view_opts = ["Summary", "Raw", "Both"]
+    view_index = view_opts.index(view_val.capitalize()) if view_val.capitalize() in view_opts else 0
+    view = st.radio("View", view_opts, index=view_index, horizontal=True)
+    if view.lower() != view_val:
+        view_store.set("trace_view", view.lower())
+
+    query_val = view_store.get("trace_query", default_query)
+    query = st.text_input(
+        "Filter steps", value=query_val, placeholder="Search in name or text…",
+    )
+    if query != query_val:
+        view_store.set("trace_query", query)
     phase_names = ["All"] + [PHASE_LABELS[p] for p in PHASE_LABELS]
     jump = st.radio("Jump to", phase_names, horizontal=True, index=0)
 
