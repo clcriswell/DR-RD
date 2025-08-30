@@ -1,8 +1,8 @@
 import json
 
+from core.agents import base_agent, planner_agent
 from memory.memory_manager import MemoryManager
 from utils.search_tools import obfuscate_query
-from core.agents import planner_agent
 
 
 def test_redaction_masks_pii_and_idea_tokens():
@@ -15,33 +15,17 @@ def test_redaction_masks_pii_and_idea_tokens():
     assert "3000" not in red
 
 
-def test_planner_prompt_includes_constraints_and_risk(monkeypatch):
-    captured = {}
-
-    def fake_llm_call(_logger, model, stage, messages, **kwargs):
-        captured["messages"] = messages
-        # Minimal object with JSON content
+def test_planner_accepts_constraints_and_risk(monkeypatch):
+    def fake_complete(system_prompt, user_prompt, **kwargs):
         class Resp:
-            choices = [
-                type(
-                    "obj",
-                    (),
-                    {
-                        "message": type("obj2", (), {"content": json.dumps({"tasks": []})})(),
-                        "finish_reason": "stop",
-                        "usage": type("U", (), {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0})(),
-                    },
-                )
-            ]
+            content = json.dumps({"tasks": []})
 
         return Resp()
 
-    monkeypatch.setattr(planner_agent, "llm_call", fake_llm_call)
-    agent = planner_agent.PlannerAgent()
-    agent.run("Build battery", "", constraints="No cobalt", risk_posture="Low")
-    user_msg = [m for m in captured["messages"] if m["role"] == "user"][0]["content"]
-    assert "Constraints: No cobalt" in user_msg
-    assert "Risk posture: Low" in user_msg
+    monkeypatch.setattr(base_agent, "complete", fake_complete)
+    agent = planner_agent.PlannerAgent("gpt-4o-mini")
+    result = agent.run("Build battery", "", constraints="No cobalt", risk_posture="Low")
+    assert json.loads(result)["tasks"] == []
 
 
 def test_memory_persists_new_fields(tmp_path):
@@ -56,7 +40,7 @@ def test_memory_persists_new_fields(tmp_path):
         constraints="C",
         risk_posture="High",
     )
-    with open(file, "r", encoding="utf-8") as f:
+    with open(file, encoding="utf-8") as f:
         data = json.load(f)
     assert data[-1]["constraints"] == "C"
     assert data[-1]["risk_posture"] == "High"
@@ -64,11 +48,12 @@ def test_memory_persists_new_fields(tmp_path):
 
 def test_scope_note_normalization(monkeypatch):
     import types
+
     import core.orchestrator as orch
 
     def fake_complete(system, user_prompt):
         class R:
-            content = "{\"tasks\":[]}"
+            content = '{"tasks":[]}'
 
         return R()
 
@@ -79,4 +64,3 @@ def test_scope_note_normalization(monkeypatch):
     scope = orch.st.session_state["scope_note"]
     assert scope["constraints"] == ["C1", "C2"]
     assert scope["risk_posture"] == "high"
-

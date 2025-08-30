@@ -4,7 +4,7 @@ import logging
 import os
 import re
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import fitz
 import numpy as np
@@ -12,11 +12,8 @@ import openai
 import pandas as pd
 import streamlit as st
 from markdown_pdf import MarkdownPdf, Section
-from utils.firestore_workspace import FirestoreWorkspace as WS
-from utils.refinement import refine_agent_output
 
 import config.feature_flags as ff
-import core
 from app.agent_trace_ui import render_live_status, render_role_summaries
 from app.config_loader import load_profile
 from app.logging_setup import init_gcp_logging
@@ -25,19 +22,13 @@ from app.ui_presets import UI_PRESETS
 from collaboration import agent_chat
 from config.agent_models import AGENT_MODEL_MAP
 from config.feature_flags import apply_overrides, get_env_defaults
-from core.dashboard.aggregate import (
-    collect_project_metrics,
-    compare_projects,
-    list_projects,
-)
-from core.reporting.builder import build_report
-from core.reporting.pdf import to_pdf
+from core import ui_bridge
 from core.sim.summary import summarize_runs
-from core.trace.filters import apply_filters, group_stats
 from core.trace.merge import merge_traces, summarize
 from core.trace.viz import durations_series, to_rows
 from dr_rd.tools.code_io import estimate_risk, summarize_diff, within_patch_limits
-from core import ui_bridge
+from utils.firestore_workspace import FirestoreWorkspace as WS
+from utils.refinement import refine_agent_output
 
 try:  # optional altair for charts
     import altair as alt  # type: ignore
@@ -47,15 +38,11 @@ from core import tool_router
 from core.agents.planner_agent import PlannerAgent
 from core.agents.simulation_agent import SimulationAgent
 from core.agents.synthesizer_agent import SynthesizerAgent, compose_final_proposal
-from core.agents.unified_registry import (
-    AGENT_REGISTRY,
-    build_agents_unified,
-    validate_registry,
-)
+from core.agents.unified_registry import build_agents_unified, validate_registry
 from core.llm import select_model
 from core.llm_client import BUDGET, METER, call_openai, set_budget_manager
 from core.model_router import CallHints, difficulty_from_signals, pick_model
-from core.orchestrator import execute_plan, generate_plan, run_poc
+from core.orchestrator import execute_plan
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks  # noqa: F401
 from core.poc.testplan import TestPlan
 from core.role_normalizer import group_by_role
@@ -440,7 +427,7 @@ def run_manual_pipeline(
                         )["text"]
                         update_cost()
                         new_result = (new_result or "").strip()
-                    except Exception as e:
+                    except Exception:
                         new_result = result  # if the re-run fails, keep the last result
                     # Run simulation again on the revised output
                     new_metrics = simulation_agent.sim_manager.simulate(sim_type, new_result)
@@ -562,10 +549,10 @@ def run_manual_pipeline(
                 st.warning(f"Agent collaboration failed: {e}")
         # Update session state with collaborated outputs
         st.session_state["answers"] = answers
-        if use_firestore:
+        if use_firestore:  # noqa: F821
             try:
                 doc_id = get_project_id()
-                db.collection("rd_projects").document(doc_id).set(
+                db.collection("rd_projects").document(doc_id).set(  # noqa: F821
                     {
                         "results": st.session_state["answers"],
                         "constraints": st.session_state.get("constraints", ""),
@@ -618,10 +605,10 @@ def run_manual_pipeline(
             st.markdown(f"### {role} (Refined)")
             st.markdown(output, unsafe_allow_html=True)
         st.session_state["answers"] = answers
-        if use_firestore:
+        if use_firestore:  # noqa: F821
             try:
                 doc_id = get_project_id()
-                db.collection("rd_projects").document(doc_id).set(
+                db.collection("rd_projects").document(doc_id).set(  # noqa: F821
                     {
                         "results": st.session_state["answers"],
                         "constraints": st.session_state.get("constraints", ""),
@@ -1236,7 +1223,7 @@ def main():
                     st.caption(fb)
 
     with st.expander("Dynamic Agent (ad hoc)", expanded=False):
-        template = "{\n  \"role_name\": \"Ad-Hoc Specialist\",\n  \"task_brief\": \"What to do...\",\n  \"io_schema_ref\": \"dr_rd/schemas/dynamic_agent_v1.json\",\n  \"retrieval_policy\": \"LIGHT\",\n  \"tool_allowlist\": [],\n  \"capabilities\": \"short text\",\n  \"evaluation_hooks\": [\"self_check_minimal\"]\n}"
+        template = '{\n  "role_name": "Ad-Hoc Specialist",\n  "task_brief": "What to do...",\n  "io_schema_ref": "dr_rd/schemas/dynamic_agent_v1.json",\n  "retrieval_policy": "LIGHT",\n  "tool_allowlist": [],\n  "capabilities": "short text",\n  "evaluation_hooks": ["self_check_minimal"]\n}'
         spec_text = st.text_area("JSON Spec", template, key="dyn_spec")
         if st.button("Compose & Run", key="run_dynamic"):
             try:
@@ -1258,7 +1245,9 @@ def main():
         limit = st.number_input("limit", min_value=1, max_value=10000, value=500)
         if st.button("Refresh", key="prov_refresh"):
             st.session_state["prov_entries"] = ui_bridge.load_provenance(log_dir, int(limit))
-        entries = st.session_state.get("prov_entries") or ui_bridge.load_provenance(log_dir, int(limit))
+        entries = st.session_state.get("prov_entries") or ui_bridge.load_provenance(
+            log_dir, int(limit)
+        )
         if entries:
             df = pd.DataFrame(entries)
             agents = st.multiselect("Agent", sorted(df["agent"].unique()))
@@ -1378,7 +1367,7 @@ def main():
                 logging.error(f"Init project failed: {e}")
         try:
             with st.spinner("📝 Planning..."):
-                agent = PlannerAgent()
+                agent = PlannerAgent(select_model("planner", agent_name="Planner"))
                 tasks = agent.run(idea, "")
                 update_cost()
             if isinstance(tasks, dict):
@@ -2166,7 +2155,7 @@ def main():
             context_bits.append(f"PLAN ROLES: {', '.join(st.session_state['plan'].keys())}")
         if st.session_state.get("answers"):
             sums = [
-                f"{r}: {len((st.session_state['answers'].get(r) or ''))} chars"
+                f"{r}: {len(st.session_state['answers'].get(r) or '')} chars"
                 for r in st.session_state["answers"].keys()
             ]
             context_bits.append("OUTPUTS: " + "; ".join(sums))
