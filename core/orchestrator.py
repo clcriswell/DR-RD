@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 import streamlit as st
 from utils.agent_json import extract_json_block, extract_json_strict
 from utils.logging import logger, safe_exc
+from utils.cancellation import CancellationToken
+from utils.timeouts import Deadline, with_deadline
 
 import config.feature_flags as ff
 from core.agents.unified_registry import AGENT_REGISTRY
@@ -77,6 +79,9 @@ def generate_plan(
     constraints: str | None = None,
     risk_posture: str | None = None,
     ui_model: str | None = None,
+    *,
+    cancel: CancellationToken | None = None,
+    deadline_ts: float | None = None,
 ) -> List[Dict[str, str]]:
     """Use the Planner to create and normalize a task list.
 
@@ -84,6 +89,16 @@ def generate_plan(
     policy.  The planner output is validated against :class:`Plan`; if the
     JSON is malformed a single retry with an explicit instruction is made.
     """
+
+    deadline = Deadline(deadline_ts)
+
+    def _check() -> None:
+        if cancel and cancel.is_set():
+            raise RuntimeError("cancelled")
+        if deadline and deadline.expired():
+            raise TimeoutError("deadline reached")
+
+    _check()
 
     policy = load_redaction_policy()
     constraint_list = [c.strip() for c in (constraints or "").splitlines() if c.strip()]
@@ -120,15 +135,18 @@ def generate_plan(
     response_format = responses_json_schema_for(Plan, "Plan")
 
     def _call(extra: str = "") -> List[Dict[str, str]]:
+        _check()
         try:
-            result = complete(
-                system_prompt,
-                user_prompt + extra,
-                model=model,
-                response_format=response_format,
-            )
+            with with_deadline(deadline):
+                result = complete(
+                    system_prompt,
+                    user_prompt + extra,
+                    model=model,
+                    response_format=response_format,
+                )
         except TypeError:  # backward compatibility for tests
-            result = complete(system_prompt, user_prompt + extra)
+            with with_deadline(deadline):
+                result = complete(system_prompt, user_prompt + extra)
         raw = result.content or "{}"
         data = extract_json_strict(raw)
         if alias_map:
@@ -162,6 +180,7 @@ def generate_plan(
     try:
         return _call()
     except Exception as e:
+        _check()
         try:
             msg = "\nMalformed JSON in prior response. Return valid JSON only."
             return _call(msg)
@@ -260,8 +279,20 @@ def execute_plan(
     save_evidence: bool = True,
     project_name: Optional[str] = None,
     ui_model: str | None = None,
+    cancel: CancellationToken | None = None,
+    deadline_ts: float | None = None,
 ) -> Dict[str, str]:
     """Dispatch tasks to routed agents and collect their outputs."""
+
+    deadline = Deadline(deadline_ts)
+
+    def _check() -> None:
+        if cancel and cancel.is_set():
+            raise RuntimeError("cancelled")
+        if deadline and deadline.expired():
+            raise TimeoutError("deadline reached")
+
+    _check()
 
     project_id = project_id or _slugify(idea)
     project_name = project_name or project_id
@@ -277,8 +308,10 @@ def execute_plan(
         pass
 
     def _run_task(t: Dict[str, str]) -> None:
-        role, AgentCls, model, routed = route_task(t, ui_model)
-        handle = collector.start_item(routed, role, model)
+        _check()
+        with with_deadline(deadline):
+            role, AgentCls, model, routed = route_task(t, ui_model)
+            handle = collector.start_item(routed, role, model)
         tid = routed.get("id") or f"T{handle+1:02d}"
         collector.append_event(
             handle,
@@ -322,6 +355,7 @@ def execute_plan(
         except Exception as e:
             safe_exc(logger, idea, f"invoke_agent[{role}]", e)
             out = "out"
+        _check()
         text = out if isinstance(out, str) else json.dumps(out)
 
         def _retry_fn(rem: str) -> str:
@@ -331,6 +365,7 @@ def execute_plan(
             retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
             return _invoke_agent(agent, idea, retry_task, model=model)
 
+        _check()
         text, meta = validate_and_retry(role, routed, text, _retry_fn)
         collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
         answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
@@ -409,6 +444,7 @@ def execute_plan(
     eval_round = 0
     evaluations: List[dict] = []
     while True:
+        _check()
         if ff.PARALLEL_EXEC_ENABLED:
             from types import SimpleNamespace
             from core.engine.executor import run_tasks
@@ -435,6 +471,7 @@ def execute_plan(
         else:
             for t in norm_tasks:
                 _run_task(t)
+                _check()
 
         follow_ups: List[Dict[str, str]] = []
         if ff.REFLECTION_ENABLED and role_to_findings:
@@ -474,6 +511,7 @@ def execute_plan(
             else:
                 continue
             _run_task(task)
+            _check()
 
         if not ff.EVALUATION_ENABLED:
             break
@@ -622,11 +660,28 @@ def execute_plan(
     return answers
 
 
-def compose_final_proposal(idea: str, answers: Dict[str, str]) -> str:
+def compose_final_proposal(
+    idea: str,
+    answers: Dict[str, str],
+    *,
+    cancel: CancellationToken | None = None,
+    deadline_ts: float | None = None,
+) -> str:
     """Combine agent outputs into a final proposal using the Synthesizer."""
+    deadline = Deadline(deadline_ts)
+
+    def _check() -> None:
+        if cancel and cancel.is_set():
+            raise RuntimeError("cancelled")
+        if deadline and deadline.expired():
+            raise TimeoutError("deadline reached")
+
+    _check()
     findings_md = "\n".join(f"### {r}\n{a}" for r, a in answers.items())
     prompt = SYNTHESIZER_TEMPLATE.format(idea=idea, findings_md=findings_md)
-    result = complete("You are an expert R&D writer.", prompt)
+    with with_deadline(deadline):
+        result = complete("You are an expert R&D writer.", prompt)
+    _check()
     final_markdown = (result.content or "").strip()
     run_id = st.session_state.get("run_id")
     if run_id:
@@ -663,6 +718,7 @@ def compose_final_proposal(idea: str, answers: Dict[str, str]) -> str:
         st.session_state["final_paths"] = out_paths
     except Exception as e:  # pragma: no cover - best effort
         logger.warning("Failed to build final bundle: %s", e)
+    _check()
     return final_markdown
 
 

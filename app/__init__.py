@@ -19,7 +19,13 @@ st.set_page_config(
 
 from app.ui.a11y import inject_accessibility_baseline, live_region_container
 from app.ui.copy import t
-from utils.telemetry import log_event
+from utils.telemetry import (
+    log_event,
+    run_cancel_requested,
+    run_cancelled,
+    timeout_hit,
+)
+from utils.cancellation import CancellationToken
 
 inject_accessibility_baseline()
 live_region_container()
@@ -175,6 +181,18 @@ def main() -> None:
             "budget": kwargs["budget"],
         }
     )
+    token = CancellationToken()
+    st.session_state[f"cancel_{run_id}"] = token
+    deadline_ts = None
+    stop = st.button(
+        "Stop run",
+        key=f"stop_{run_id}",
+        type="secondary",
+        use_container_width=True,
+    )
+    if stop:
+        token.cancel()
+        run_cancel_requested(run_id)
 
     progress = components.step_progress(3)
     progress(0, "Starting run")
@@ -187,7 +205,11 @@ def main() -> None:
         current_phase = "plan"
         with components.stage_status("Planning…") as box:
             current_box = box
-            tasks = generate_plan(kwargs["idea"])
+            tasks = generate_plan(
+                kwargs["idea"],
+                cancel=token,
+                deadline_ts=deadline_ts,
+            )
             box.update(label="Planning complete", state="complete")
         log_event({
             "event": "step_completed",
@@ -201,7 +223,13 @@ def main() -> None:
         current_phase = "exec"
         with components.stage_status("Executing…") as box:
             current_box = box
-            answers = execute_plan(kwargs["idea"], tasks, agents=get_agents())
+            answers = execute_plan(
+                kwargs["idea"],
+                tasks,
+                agents=get_agents(),
+                cancel=token,
+                deadline_ts=deadline_ts,
+            )
             box.update(label="Execution complete", state="complete")
         log_event({
             "event": "step_completed",
@@ -215,7 +243,12 @@ def main() -> None:
         current_phase = "synth"
         with components.stage_status("Synthesizing…") as box:
             current_box = box
-            final = compose_final_proposal(kwargs["idea"], answers)
+            final = compose_final_proposal(
+                kwargs["idea"],
+                answers,
+                cancel=token,
+                deadline_ts=deadline_ts,
+            )
             box.update(label="Synthesis complete", state="complete")
         log_event({
             "event": "step_completed",
@@ -246,6 +279,66 @@ def main() -> None:
             st.markdown("[Open Trace](./Trace)")
             st.caption("Use the Trace page to inspect step details.")
         survey.maybe_prompt_after_run(run_id)
+    except RuntimeError as e:  # pragma: no cover - UI display
+        if current_box is not None:
+            current_box.update(label="Cancelled", state="error")
+        err = make_safe_error(e, run_id=run_id, phase=current_phase, step_id=None)
+        complete_run_meta(run_id, status="cancelled")
+        run_cancelled(run_id, current_phase)
+        log_event({"event": "run_completed", "run_id": run_id, "status": "cancelled"})
+        log_event(
+            {
+                "event": "error_shown",
+                "support_id": err.support_id,
+                "kind": err.kind,
+                "where": err.context.get("phase"),
+                "run_id": err.context.get("run_id"),
+                "tech": err.tech_message[:200],
+            }
+        )
+        components.error_banner(err)
+        r1, r2 = st.columns([1, 1])
+        with r1:
+            retry = st.button("Retry run", type="primary", use_container_width=True)
+        with r2:
+            open_trace = st.button("Open trace", use_container_width=True)
+        if retry:
+            st.query_params["retry_of"] = err.context.get("run_id") or ""
+            st.rerun()
+        if open_trace:
+            st.query_params["run_id"] = err.context.get("run_id") or ""
+            st.query_params["view"] = "trace"
+            st.switch_page("pages/10_Trace.py")
+    except TimeoutError as e:  # pragma: no cover - UI display
+        if current_box is not None:
+            current_box.update(label="Timeout", state="error")
+        err = make_safe_error(e, run_id=run_id, phase=current_phase, step_id=None)
+        complete_run_meta(run_id, status="timeout")
+        timeout_hit(run_id, current_phase)
+        log_event({"event": "run_completed", "run_id": run_id, "status": "timeout"})
+        log_event(
+            {
+                "event": "error_shown",
+                "support_id": err.support_id,
+                "kind": err.kind,
+                "where": err.context.get("phase"),
+                "run_id": err.context.get("run_id"),
+                "tech": err.tech_message[:200],
+            }
+        )
+        components.error_banner(err)
+        r1, r2 = st.columns([1, 1])
+        with r1:
+            retry = st.button("Retry run", type="primary", use_container_width=True)
+        with r2:
+            open_trace = st.button("Open trace", use_container_width=True)
+        if retry:
+            st.query_params["retry_of"] = err.context.get("run_id") or ""
+            st.rerun()
+        if open_trace:
+            st.query_params["run_id"] = err.context.get("run_id") or ""
+            st.query_params["view"] = "trace"
+            st.switch_page("pages/10_Trace.py")
     except Exception as e:  # pragma: no cover - UI display
         if current_box is not None:
             current_box.update(label="Error", state="error")

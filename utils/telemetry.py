@@ -19,3 +19,24 @@ def log_event(ev: dict) -> None:
             f.write(line + "\n")
     except OSError:
         pass
+
+
+def run_cancel_requested(run_id: str) -> None:
+    """Emit a run_cancel_requested telemetry event."""
+    log_event({"event": "run_cancel_requested", "run_id": run_id})
+
+
+def run_cancelled(run_id: str, phase: str | None = None) -> None:
+    """Emit a run_cancelled telemetry event."""
+    ev = {"event": "run_cancelled", "run_id": run_id}
+    if phase:
+        ev["phase"] = phase
+    log_event(ev)
+
+
+def timeout_hit(run_id: str, phase: str | None = None) -> None:
+    """Emit a timeout_hit telemetry event."""
+    ev = {"event": "timeout_hit", "run_id": run_id}
+    if phase:
+        ev["phase"] = phase
+    log_event(ev)

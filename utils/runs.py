@@ -24,7 +24,11 @@ def create_run_meta(run_id: str, *, mode: str, idea_preview: str) -> None:
 
 
 def complete_run_meta(run_id: str, *, status: str) -> None:
-    """Mark a run as completed with status."""
+    """Mark a run as completed with ``status``.
+
+    ``status`` may be ``success``, ``error``, ``cancelled`` or ``timeout``.
+    ``completed_at`` is always recorded.
+    """
     path = artifact_path(run_id, "run", "json")
     if not path.exists():
         return
