@@ -49,6 +49,12 @@ def _rollover(p: Path) -> Path:
 
 def log_event(ev: dict) -> None:
     """Validate, version, and append a telemetry event."""
+    try:
+        from utils.session_store import get_session_id
+
+        ev.setdefault("session_id", get_session_id() or None)
+    except Exception:
+        pass
     ev = validate(ev)
     ev.setdefault("schema_version", CURRENT_SCHEMA_VERSION)
     ev.setdefault("ts", time.time())

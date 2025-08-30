@@ -11,6 +11,7 @@ import fitz
 import streamlit as st
 from markdown_pdf import MarkdownPdf, Section
 from utils.i18n import tr as t, set_locale, missing_keys
+from utils.session_store import init_stores, get_session_id  # noqa: F401
 
 st.set_page_config(
     page_title=t("app_title"),
@@ -44,6 +45,8 @@ from utils import session_guard
 
 inject_accessibility_baseline()
 live_region_container()
+
+run_store, view_store = init_stores()
 
 st.session_state.setdefault("active_run", None)
 st.session_state.setdefault("submit_token", None)
