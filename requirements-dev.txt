@@ -6,3 +6,6 @@ pytest-cov
 requests
 tomli; python_version<'3.11'
 pre-commit
+playwright
+pillow
+pyyaml
