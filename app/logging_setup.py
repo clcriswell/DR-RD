@@ -27,7 +27,9 @@ def init_gcp_logging() -> bool:
         return True
 
     logger = logging.getLogger()
-    if any(getattr(h, "__class__", None).__name__.lower().startswith("gcl") for h in logger.handlers):
+    if any(
+        getattr(h, "__class__", None).__name__.lower().startswith("gcl") for h in logger.handlers
+    ):
         _GCP_LOGGED = True
         return True
 
@@ -55,4 +57,3 @@ def init_gcp_logging() -> bool:
 
 
 __all__ = ["init_gcp_logging"]
-
