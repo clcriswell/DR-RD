@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Any, Dict
+from typing import Any
 
 import streamlit as st
 
 from app.ui_presets import UI_PRESETS
+from utils import knowledge_store
 from utils.run_config import RunConfig, defaults
 from utils.session_store import init_stores
 from utils.telemetry import log_event
-from utils import knowledge_store
 
 
 def render_sidebar() -> RunConfig:
@@ -61,7 +61,13 @@ def render_sidebar() -> RunConfig:
         _track_change("idea", idea)
         modes = list(UI_PRESETS.keys())
         current_mode = run_store.get("mode", modes[0])
-        mode = st.selectbox("Mode", modes, index=modes.index(current_mode) if current_mode in modes else 0, key="mode", help="Choose run mode")
+        mode = st.selectbox(
+            "Mode",
+            modes,
+            index=modes.index(current_mode) if current_mode in modes else 0,
+            key="mode",
+            help="Choose run mode",
+        )
         run_store.set("mode", mode)
         _track_change("mode", mode)
 
@@ -71,10 +77,11 @@ def render_sidebar() -> RunConfig:
             choices = builtins + knowledge_store.as_choice_list()
             options = [c[1] for c in choices]
             labels = {c[1]: c[0] for c in choices}
+            default_sources = [s for s in run_store.get("knowledge_sources", []) if s in options]
             sources = st.multiselect(
                 "Sources",
                 options,
-                default=run_store.get("knowledge_sources", []),
+                default=default_sources,
                 key="knowledge_sources",
                 format_func=lambda x: labels.get(x, x),
                 help="Select knowledge sources",
@@ -153,7 +160,7 @@ def render_sidebar() -> RunConfig:
         st.button("Reset to defaults", on_click=_reset, help="Restore default settings")
 
     data = run_store.as_dict()
-    adv: Dict[str, Any] = {
+    adv: dict[str, Any] = {
         "temperature": st.session_state.get("temperature", 0.0),
         "retries": st.session_state.get("retries", 0),
         "timeout": st.session_state.get("timeout", 0),
