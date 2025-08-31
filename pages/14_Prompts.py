@@ -70,4 +70,4 @@ if sel:
             prompt_saved(sel, new_version)
             prompt_edited(sel, new_version)
             st.success("Saved")
-            st.experimental_rerun()
+            st.rerun()
