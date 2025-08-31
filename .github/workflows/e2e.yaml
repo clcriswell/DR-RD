@@ -2,9 +2,17 @@ name: e2e
 on:
   pull_request: {}
   workflow_dispatch: {}
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_EXTERNAL: "1"
+      APP_BASE_URL: "http://localhost:8501"
+      APP_START_TIMEOUT_SEC: "180"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,10 +24,30 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install -r requirements-dev.txt
           python -m playwright install --with-deps chromium
-      - name: Start app and run E2E
-        env:
-          APP_EXTERNAL: "0"
-          APP_BASE_URL: "http://localhost:8501"
-          APP_START_CMD: "streamlit run app.py --server.port 8501 --server.headless true"
+      - name: Start app
         run: |
-          pytest -q e2e
+          nohup streamlit run app.py --server.port 8501 --server.headless true > app.log 2>&1 &
+          for i in $(seq 1 120); do
+            curl -f http://localhost:8501 && break
+            sleep 1
+            if [ $i -eq 120 ]; then echo "app failed to start"; exit 1; fi
+          done
+      - name: Run E2E tests
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: pytest -q e2e
+      - name: Upload app log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-log
+          path: app.log
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
