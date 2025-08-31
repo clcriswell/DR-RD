@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
-import os
+
 import requests
 
+from dr_rd.config.env import get_env
 from . import normalizer
 
 
@@ -27,7 +28,7 @@ def _search_epo_ops(query: Dict[str, Any], caps: Dict[str, Any]) -> List[Dict[st
     params = query.copy()
     timeout = int(caps.get("timeouts_s", 10))
     headers = {}
-    key = os.getenv("EPO_OPS_KEY")
+    key = get_env("EPO_OPS_KEY")
     if key:
         headers["Authorization"] = f"Bearer {key}"
     resp = requests.get(url, params=params, headers=headers, timeout=timeout)

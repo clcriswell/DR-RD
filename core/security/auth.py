@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from dr_rd.tenancy.models import Principal
+from dr_rd.config.env import get_env
 
 BASE_DIR = Path.home() / ".dr_rd" / "tenants"
 BASE_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,7 +32,7 @@ class ApiKey:
 
 
 def _hash_secret(secret: str) -> str:
-    salt = os.getenv("APIKEY_HASH_SALT", "drrd_salt")
+    salt = get_env("APIKEY_HASH_SALT", "drrd_salt") or "drrd_salt"
     return hmac.new(salt.encode(), secret.encode(), hashlib.sha256).hexdigest()
 
 

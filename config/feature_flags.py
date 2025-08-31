@@ -7,9 +7,11 @@ from pathlib import Path
 
 import yaml
 
+from dr_rd.config.env import get_env
+
 
 def _flag(name: str) -> bool:
-    return os.getenv(name, "false").lower() == "true"
+    return get_env(name, "false").lower() == "true"
 
 
 EVALUATORS_ENABLED = _flag("EVALUATORS_ENABLED")
@@ -25,7 +27,7 @@ ENABLE_LIVE_SEARCH = _flag("ENABLE_LIVE_SEARCH")
 LIVE_SEARCH_BACKEND: str = os.getenv("LIVE_SEARCH_BACKEND", "openai")
 LIVE_SEARCH_MAX_CALLS: int = 3
 LIVE_SEARCH_SUMMARY_TOKENS: int = 256
-SERPAPI_KEY: str = os.getenv("SERPAPI_KEY", "")
+SERPAPI_KEY: str = get_env("SERPAPI_KEY", "") or ""
 ENABLE_IMAGES = _flag("ENABLE_IMAGES")
 CODE_IO_ENABLED = _flag("CODE_IO_ENABLED")
 SIM_ENABLED = _flag("SIM_ENABLED")

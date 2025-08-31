@@ -7,7 +7,8 @@ import threading
 import time
 from pathlib import Path
 
-import streamlit as st
+import json
+from dr_rd.config.env import get_env
 
 from .cache import cached_data
 from .redaction import redact_text
@@ -15,10 +16,7 @@ from .redaction import redact_text
 SURVEYS_PATH = Path(".dr_rd/telemetry/surveys.jsonl")
 SURVEYS_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-try:  # pragma: no cover - secrets may not exist
-    _FF_FIRESTORE = bool(st.secrets.get("gcp_service_account"))
-except Exception:  # StreamlitSecretNotFoundError when no secrets file
-    _FF_FIRESTORE = False
+_FF_FIRESTORE = bool(get_env("GCP_SERVICE_ACCOUNT"))
 
 
 def _write_record(record: dict) -> None:
@@ -34,9 +32,10 @@ def _mirror_to_firestore(record: dict) -> None:  # pragma: no cover - best effor
         from google.cloud import firestore  # type: ignore
         from google.oauth2 import service_account  # type: ignore
 
-        creds = service_account.Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"]
-        )
+        creds_raw = get_env("GCP_SERVICE_ACCOUNT")
+        if not creds_raw:
+            return
+        creds = service_account.Credentials.from_service_account_info(json.loads(creds_raw))
         client = firestore.Client(credentials=creds, project=creds.project_id)
         client.collection("dr_rd_surveys").add(record)
     except Exception:

@@ -7,6 +7,8 @@ from typing import Any, Dict, Iterable, Optional
 
 import yaml
 
+from dr_rd.config.env import get_env
+
 from .pii import get_pii_patterns
 
 _CFG_PATH = os.path.join("config", "retention.yaml")
@@ -71,7 +73,7 @@ def derive_subject_key(record_or_text: Any, fields: Iterable[str], salt_env: str
             parts.append(f"{f}:{val}")
     if not parts:
         return None
-    salt = os.getenv(salt_env, "")
+    salt = get_env(salt_env, "") or ""
     if not salt:
         return None
     base = "|".join(sorted(parts))

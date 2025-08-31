@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import time
 from typing import Any, Iterator, Mapping, Optional
 
@@ -19,7 +18,9 @@ def _call_provider(prov: str, model: str, payload: Mapping[str, Any], *, stream:
             from openai import OpenAI
         except Exception as exc:  # pragma: no cover - environment guard
             raise RuntimeError('openai sdk missing') from exc
-        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        from dr_rd.config.env import require_env
+
+        client = OpenAI(api_key=require_env('OPENAI_API_KEY'))
         messages = payload.get('messages') or []
         if stream:
             return client.chat.completions.create(model=model, messages=messages, stream=True)

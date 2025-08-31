@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import streamlit as st
+import json
 
+from dr_rd.config.env import get_env
 from utils.lazy_import import lazy
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -24,9 +25,13 @@ def _get_client() -> firestore.Client | None:
     global _client
     if _client is None:
         try:
-            info = st.secrets["gcp_service_account"]
-            credentials = _service_account.Credentials.from_service_account_info(info)
-            _client = _firestore.Client(credentials=credentials)
+            info_raw = get_env("GCP_SERVICE_ACCOUNT")
+            if info_raw:
+                info = json.loads(info_raw)
+                credentials = _service_account.Credentials.from_service_account_info(info)
+                _client = _firestore.Client(credentials=credentials)
+            else:
+                _client = _firestore.Client()
         except Exception:
             try:
                 _client = _firestore.Client()

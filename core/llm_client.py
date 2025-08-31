@@ -39,7 +39,9 @@ def _client() -> Any:
     """Return a cached OpenAI client instance."""
     global _client_instance
     if _client_instance is None:
-        _client_instance = _openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY", "test"))
+        from dr_rd.config.env import get_env
+
+        _client_instance = _openai.OpenAI(api_key=get_env("OPENAI_API_KEY", "test"))
     return _client_instance
 
 

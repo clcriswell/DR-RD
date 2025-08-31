@@ -2,6 +2,8 @@
 
 # ruff: noqa: E402
 
+from dr_rd.config import env as _env  # noqa: F401
+
 import io
 import json
 import logging

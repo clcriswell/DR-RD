@@ -1,5 +1,8 @@
 [server]
-fileWatcherType = "none"
+headless = true
+fileWatcherType = "poll"  # helps on Windows/WSL
+# address = "0.0.0.0"
+# port = 8501
 
 [theme]
 primaryColor="#0B5FFF"

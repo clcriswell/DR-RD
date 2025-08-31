@@ -8,6 +8,7 @@ import uuid
 import re
 from difflib import SequenceMatcher
 
+from dr_rd.config.env import get_env
 from utils.config import load_config
 from filelock import FileLock
 
@@ -109,13 +110,13 @@ class MemoryManager:
         }
         try:  # pragma: no cover - optional Firestore
             if name:
-                import streamlit as st
                 from google.cloud import firestore
                 from google.oauth2 import service_account
 
-                if "gcp_service_account" in st.secrets:
+                creds_raw = get_env("GCP_SERVICE_ACCOUNT")
+                if creds_raw:
                     creds = service_account.Credentials.from_service_account_info(
-                        st.secrets["gcp_service_account"]
+                        json.loads(creds_raw)
                     )
                     db = firestore.Client(credentials=creds, project=creds.project_id)
                     doc_id = _slugify(name)
