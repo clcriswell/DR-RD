@@ -1,10 +1,9 @@
 import logging
-import core
+
 from config.agent_models import AGENT_MODEL_MAP
 from core.agents.unified_registry import build_agents_unified, ensure_canonical_agent_keys
-from core.router import choose_agent_for_task
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
-from core.roles import canonical_roles
+from core.router import choose_agent_for_task
 
 logger = logging.getLogger(__name__)
 
@@ -12,16 +11,18 @@ logger = logging.getLogger(__name__)
 def get_agents():
     agents = build_agents_unified(AGENT_MODEL_MAP, "gpt-4o-mini")
     agents = ensure_canonical_agent_keys(agents)
-    logger.info("Registered agents (unified): %s", sorted(core.agents.keys()))
+    logger.info("Registered agents (unified): %s", sorted(agents.keys()))
     return agents
 
-FALLBACK_ORDER = ["Research Scientist","Research","AI R&D Coordinator","Mechanical Systems Lead"]
+
+FALLBACK_ORDER = ["Research Scientist", "Research", "AI R&D Coordinator", "Mechanical Systems Lead"]
+
 
 def _pick_default_agent(agents: dict):
     for k in FALLBACK_ORDER:
         if k in agents:
             return k, agents[k]
-    k = next(iter(core.agents.keys()))
+    k = next(iter(agents.keys()))
     return k, agents[k]
 
 
@@ -30,7 +31,9 @@ def route_tasks(tasks_any, agents):
     tasks = normalize_tasks(normalize_plan_to_tasks(tasks_any))
     routed = []
     for t in tasks:
-        role = t["role"]; title = t["title"]; desc = t["description"]
+        role = t["role"]
+        title = t["title"]
+        desc = t["description"]
         rr, _ = choose_agent_for_task(role, title, desc)
         agent = agents.get(rr)
         if not agent:
@@ -47,13 +50,17 @@ def classic_execute(tasks, idea, agents):
 
     for rr, agent, t in routed:
         try:
-            out = agent.run(idea, {"role": rr, "title": t["title"], "description": t["description"]})
+            out = agent.run(
+                idea, {"role": rr, "title": t["title"], "description": t["description"]}
+            )
         except Exception as e:
             logger.exception("Agent %s failed: %s", rr, e)
             out = {"error": str(e)}
-        outputs.setdefault(rr, []).append({
-            "title": t["title"],
-            "description": t["description"],
-            "output": out,
-        })
+        outputs.setdefault(rr, []).append(
+            {
+                "title": t["title"],
+                "description": t["description"],
+                "output": out,
+            }
+        )
     return outputs
