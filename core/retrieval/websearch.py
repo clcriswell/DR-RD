@@ -2,6 +2,8 @@ from typing import Any, Dict, List, Tuple
 import os
 import logging
 
+from dr_rd.config.env import get_env
+
 from core.llm_client import call_openai
 
 log = logging.getLogger("drrd")
@@ -54,7 +56,7 @@ def openai_web_search(query: str, *, max_results: int = 5) -> Dict[str, Any]:
 def serpapi_web_search(query: str, *, max_results: int = 5) -> Dict[str, Any]:
     import requests
 
-    key = os.getenv("SERPAPI_API_KEY")
+    key = get_env("SERPAPI_API_KEY")
     if not key:
         raise WebSearchError("SERPAPI_API_KEY not configured")
     try:
@@ -88,7 +90,7 @@ def run_live_search(
             return openai_web_search(query, max_results=max_results), "openai_ok"
         except WebSearchError as e:
             reasons.append(f"openai_fail:{e}")
-            if os.getenv("SERPAPI_API_KEY"):
+            if get_env("SERPAPI_API_KEY"):
                 try:
                     return serpapi_web_search(query, max_results=max_results), "serpapi_fallback_ok"
                 except WebSearchError as e2:

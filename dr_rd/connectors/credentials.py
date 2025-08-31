@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Optional
 
+from dr_rd.config.env import get_env
 from dr_rd.tenancy.models import TenantContext
 
 
@@ -25,7 +25,7 @@ def get_credential(ctx: TenantContext, name: str) -> Optional[str]:
         f"DRRD_CRED_{name}".upper(),
     ]
     for key in env_keys:
-        val = os.getenv(key)
+        val = get_env(key)
         if val:
             return val
 

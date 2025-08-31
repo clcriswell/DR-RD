@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 
 import requests
 
+from dr_rd.config.env import get_env
 from dr_rd.cache.file_cache import cached
 
 _RATE_LIMITS: dict[str, list[float]] = defaultdict(list)
@@ -67,7 +68,7 @@ def http_json(
 
 def signed_headers(key_env: str, headers: dict[str, str] | None = None) -> dict[str, str]:
     headers = dict(headers or {})
-    key = os.getenv(key_env)
+    key = get_env(key_env)
     if key:
         headers["Authorization"] = f"Bearer {key}"
     return headers

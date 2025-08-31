@@ -6,6 +6,8 @@ from typing import Dict, List
 import requests
 from utils.logging import logger
 
+from dr_rd.config.env import get_env
+
 from core.llm_client import call_openai
 
 
@@ -49,7 +51,7 @@ def obfuscate_query(role: str, idea: str, q: str) -> str:
 def search_google(role: str, idea: str, q: str, k: int = 5) -> List[Dict]:
     """Query SerpAPI for Google results using a redacted query."""
 
-    key = os.getenv("SERPAPI_KEY")
+    key = get_env("SERPAPI_KEY")
     if not key:
         return []
 

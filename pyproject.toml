@@ -12,7 +12,9 @@ authors = [
 ]
 license = { text = "MIT" }
 dynamic = ["version"]
-dependencies = []
+dependencies = [
+    "python-dotenv>=1.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/openai/dr-rd"

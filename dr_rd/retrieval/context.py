@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any, Dict, List
-import os
+
+from dr_rd.config.env import get_env
 
 from core.llm_client import BUDGET
 from core.retrieval import budget as rbudget
@@ -119,7 +120,7 @@ def fetch_context(
                 )
                 web_used = False
                 reason = "live_search_error"
-                serp_key = os.getenv("SERPAPI_KEY")
+                serp_key = get_env("SERPAPI_KEY")
                 if str(cfg.get("live_search_backend")) == "serpapi" and serp_key:
                     backend = "serpapi"
                     raw = search_google(agent_name, "", query, k=rag_top_k)

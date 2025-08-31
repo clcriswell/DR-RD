@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Any, Dict, Tuple, Type
+
+from dr_rd.config.env import get_env
 
 import yaml
 
@@ -188,7 +189,7 @@ def route_task(
                 "retrieval_level": retrieval_level,
                 "top_k_applied": topk_map.get(retrieval_level, 0),
                 "per_doc_cap_tokens": RAG_CFG.get("per_doc_cap_tokens", 400),
-                "dense_enabled": bool(os.getenv("OPENAI_API_KEY")),
+                "dense_enabled": bool(get_env("OPENAI_API_KEY")),
                 "caps": {
                     "max_tool_calls": exec_cfg.get("max_tool_calls"),
                     "max_parallel_tools": route_cfg.get("max_parallel_tools"),

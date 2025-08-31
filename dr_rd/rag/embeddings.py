@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from pathlib import Path
 from typing import Dict
+
+from dr_rd.config.env import get_env
 
 try:
     from openai import OpenAI
@@ -24,7 +25,7 @@ def _hash(text: str) -> str:
 
 
 def embed(text: str) -> Dict[str, float] | None:
-    if not OpenAI or not os.getenv("OPENAI_API_KEY"):
+    if not OpenAI or not get_env("OPENAI_API_KEY"):
         return None
     key = _hash(text)
     cached = cache.get(key)

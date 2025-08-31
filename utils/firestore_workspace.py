@@ -5,8 +5,9 @@ import re
 import time
 from typing import TYPE_CHECKING, Any
 
-import streamlit as st
+import json
 
+from dr_rd.config.env import get_env
 from utils.lazy_import import lazy
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -20,11 +21,14 @@ _COLLECTION = "rd_projects"  # single namespace!
 
 def _client() -> firestore.Client:
     try:
-        info = dict(st.secrets["gcp_service_account"])
-        creds = _service_account.Credentials.from_service_account_info(info)
-        return _firestore.Client(credentials=creds, project=info["project_id"])
+        info_raw = get_env("GCP_SERVICE_ACCOUNT")
+        if info_raw:
+            info = json.loads(info_raw)
+            creds = _service_account.Credentials.from_service_account_info(info)
+            return _firestore.Client(credentials=creds, project=info["project_id"])
     except Exception:
-        return _firestore.Client()  # fallback to ADC
+        pass
+    return _firestore.Client()  # fallback to ADC
 
 
 def _slugify(name: str) -> str:

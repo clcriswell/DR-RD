@@ -10,13 +10,14 @@ dataclasses and ``search_and_summarize`` tuples.
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Optional, Protocol
-import os
 import json
 import logging
 import httpx
 
 from core.llm_client import call_openai
 from utils.search_tools import search_google, summarize_search
+
+from dr_rd.config.env import get_env
 
 log = logging.getLogger("drrd")
 
@@ -134,7 +135,7 @@ class SerpAPIWebSearchClient:
 
     def __init__(self, llm_model: str, api_key: Optional[str] = None):
         self.llm_model = llm_model
-        self.api_key = api_key or os.getenv("SERPAPI_API_KEY")
+        self.api_key = api_key or get_env("SERPAPI_API_KEY")
         if not self.api_key:
             raise RuntimeError("SERPAPI_API_KEY missing; cannot use SerpAPI fallback.")
 

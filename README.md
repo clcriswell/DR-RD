@@ -23,10 +23,14 @@ The planner now uses OpenAI's JSON mode for reliable parsing.
 ## Quick start (local)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/rnd_tool.git
-cd rnd_tool
-python -m venv .venv && source .venv/bin/activate   # PowerShell: .venv\Scripts\activate
+git clone https://github.com/clcriswell/DR-RD.git
+cd DR-RD
+python -m venv .venv
+# macOS/Linux
+source .venv/bin/activate
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-export OPENAI_API_KEY="sk-..."
+cp .env.example .env  # edit with your keys
 streamlit run app.py
 ```

@@ -6,6 +6,8 @@ import json
 import os
 import time
 from dataclasses import dataclass, asdict
+
+from dr_rd.config.env import get_env
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
@@ -39,7 +41,7 @@ _DEF_KEY = "dummy_audit_key"
 
 
 def _get_key() -> str:
-    return os.getenv("AUDIT_HMAC_KEY", _DEF_KEY)
+    return get_env("AUDIT_HMAC_KEY", _DEF_KEY)
 
 
 def _hmac(data: str) -> str:
