@@ -5,7 +5,7 @@ import time
 import pytest
 import requests
 
-from e2e.config import APP_BASE_URL, APP_START_CMD, APP_START_TIMEOUT_SEC
+from e2e.config import APP_BASE_URL, APP_START_CMD, APP_START_TIMEOUT_SEC, APP_LOG_FILE
 
 
 def _wait_ready(url: str, timeout: int) -> None:
@@ -27,7 +27,13 @@ def app_server():
     if ext:
         yield
         return
-    proc = subprocess.Popen(APP_START_CMD, shell=True)
+    log = open(APP_LOG_FILE, "a")
+    proc = subprocess.Popen(
+        APP_START_CMD,
+        shell=True,
+        stdout=log,
+        stderr=log,
+    )
     try:
         _wait_ready(APP_BASE_URL, APP_START_TIMEOUT_SEC)
         yield
@@ -37,6 +43,7 @@ def app_server():
             proc.wait(timeout=10)
         except Exception:
             proc.kill()
+        log.close()
 
 
 @pytest.fixture(scope="session")
