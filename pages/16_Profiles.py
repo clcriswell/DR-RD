@@ -41,14 +41,14 @@ for pr in profs:
             profiles.delete(pr.name)
             profile_saved(new_nm)
             profile_deleted(pr.name)
-            st.experimental_rerun()
+            st.rerun()
         raw = c3.text_area("Edit JSON", json.dumps(pr.data, indent=2), key=f"ed_{pr.name}")
         if c3.button("Update", key=f"ed_btn_{pr.name}"):
             try:
                 obj = json.loads(raw)
                 profiles.save(pr.name, obj.get("defaults", {}), obj.get("description", ""))
                 profile_saved(pr.name)
-                st.experimental_rerun()
+                st.rerun()
             except Exception:
                 c3.error("Invalid JSON")
         if st.session_state.get(f"del_{pr.name}"):
@@ -56,7 +56,7 @@ for pr in profs:
                 profiles.delete(pr.name)
                 profile_deleted(pr.name)
                 st.session_state.pop(f"del_{pr.name}")
-                st.experimental_rerun()
+                st.rerun()
         elif c4.button("Delete", key=f"del_{pr.name}"):
             st.session_state[f"del_{pr.name}"] = True
         if c5.button("Set as default", key=f"def_{pr.name}"):

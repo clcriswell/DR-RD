@@ -63,9 +63,18 @@ st.title(t("metrics_title"))
 st.caption(t("metrics_caption"))
 
 start_default = date.today() - timedelta(days=7)
-start, end = st.date_input(
+date_range = st.date_input(
     t("date_range_label"), value=(start_default, date.today()), help=t("metrics_date_help")
 )
+if isinstance(date_range, (list, tuple)):
+    if len(date_range) == 2:
+        start, end = date_range
+    elif len(date_range) == 1:
+        start = end = date_range[0]
+    else:
+        start = end = start_default
+else:
+    start = end = date_range
 start_ts = datetime.combine(start, datetime.min.time()).timestamp()
 end_ts = datetime.combine(end, datetime.max.time()).timestamp()
 
