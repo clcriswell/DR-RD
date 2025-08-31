@@ -226,6 +226,24 @@ def _check_secrets() -> tuple[str, str, str, str, str]:
             "gcp_service_account missing",
             "Set gcp_service_account in env or secrets",
         )
+    if isinstance(secret, dict):
+        try:
+            json.dumps(secret)
+            return (
+                "secrets",
+                "GCP service account",
+                "pass",
+                "gcp_service_account present",
+                "",
+            )
+        except Exception as e:
+            return (
+                "secrets",
+                "GCP service account",
+                "fail",
+                f"Invalid JSON: {e}",
+                "Provide valid JSON",
+            )
     try:
         json.loads(secret)
         return (
