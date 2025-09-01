@@ -131,9 +131,19 @@ else:
     summary_text = summary_path.read_text(encoding="utf-8") if summary_path.exists() else None
     if viewer_mode and summary_text:
         summary_text = redact_public(summary_text)
+    def _step_tokens(step: dict) -> int:
+        if step.get("tokens") is not None:
+            return int(step.get("tokens") or 0)
+        return int(step.get("tokens_in") or 0) + int(step.get("tokens_out") or 0)
+
+    def _step_cost(step: dict) -> float:
+        if step.get("cost") is not None:
+            return float(step.get("cost") or 0.0)
+        return float(step.get("cost_usd") or 0.0)
+
     totals = {
-        "tokens": sum((step.get("tokens") or 0) for step in trace),
-        "cost": sum((step.get("cost") or 0.0) for step in trace),
+        "tokens": sum(_step_tokens(step) for step in trace),
+        "cost": sum(_step_cost(step) for step in trace),
     }
     results = []
     for step in trace:
