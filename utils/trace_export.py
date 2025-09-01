@@ -35,6 +35,15 @@ def flatten_trace_rows(trace: Sequence[TraceStep]) -> list[dict]:
                 or ""
             )
         prompt = step.get("prompt") or step.get("prompt_preview")
+
+        tokens = step.get("tokens")
+        if tokens is None:
+            tokens = (step.get("tokens_in") or 0) + (step.get("tokens_out") or 0)
+
+        cost = step.get("cost")
+        if cost is None:
+            cost = step.get("cost_usd")
+
         rows.append(
             {
                 "i": idx,
@@ -44,8 +53,8 @@ def flatten_trace_rows(trace: Sequence[TraceStep]) -> list[dict]:
                 "name": step.get("name"),
                 "status": step.get("status"),
                 "duration_ms": step.get("duration_ms"),
-                "tokens": step.get("tokens"),
-                "cost": step.get("cost"),
+                "tokens": tokens,
+                "cost": cost,
                 "summary": summary,
                 "prompt": prompt,
                 "citations": step.get("citations"),
