@@ -7,12 +7,12 @@ the module can power both CLI tools and UI pages.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
 import difflib
 import json
 import math
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from .metrics import ensure_run_totals
 from .paths import artifact_path
@@ -22,14 +22,14 @@ from .trace_export import flatten_trace_rows
 
 @dataclass(frozen=True)
 class AlignedStep:
-    a_id: Optional[str]
-    b_id: Optional[str]
-    a: Optional[Dict[str, Any]]
-    b: Optional[Dict[str, Any]]
+    a_id: str | None
+    b_id: str | None
+    a: dict[str, Any] | None
+    b: dict[str, Any] | None
     similarity: float  # 0..1 on name/summary
 
 
-def load_run(run_id: str) -> Dict[str, Any]:
+def load_run(run_id: str) -> dict[str, Any]:
     """Load run metadata, lockfile, trace rows and totals.
 
     Returns a dict with keys ``run_id``, ``meta``, ``lock``,
@@ -63,7 +63,7 @@ def load_run(run_id: str) -> Dict[str, Any]:
     }
 
 
-def diff_configs(lock_a: Dict[str, Any], lock_b: Dict[str, Any]) -> List[Tuple[str, Any, Any]]:
+def diff_configs(lock_a: dict[str, Any], lock_b: dict[str, Any]) -> list[tuple[str, Any, Any]]:
     """Return list of ``(path, a, b)`` for keys that differ.
 
     Nested dicts are flattened using dotted paths.  Fields that are
@@ -80,8 +80,8 @@ def diff_configs(lock_a: Dict[str, Any], lock_b: Dict[str, Any]) -> List[Tuple[s
         "env_snapshot_hash",
     }
 
-    def _flatten(d: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
-        items: Dict[str, Any] = {}
+    def _flatten(d: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+        items: dict[str, Any] = {}
         for k, v in (d or {}).items():
             if k in ignore:
                 continue
@@ -94,7 +94,7 @@ def diff_configs(lock_a: Dict[str, Any], lock_b: Dict[str, Any]) -> List[Tuple[s
 
     flat_a = _flatten(lock_a or {})
     flat_b = _flatten(lock_b or {})
-    diffs: List[Tuple[str, Any, Any]] = []
+    diffs: list[tuple[str, Any, Any]] = []
     for path in sorted(set(flat_a) | set(flat_b)):
         a_val = flat_a.get(path)
         b_val = flat_b.get(path)
@@ -103,10 +103,10 @@ def diff_configs(lock_a: Dict[str, Any], lock_b: Dict[str, Any]) -> List[Tuple[s
     return diffs
 
 
-def diff_metrics(tot_a: Dict[str, Any], tot_b: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
+def diff_metrics(tot_a: dict[str, Any], tot_b: dict[str, Any]) -> dict[str, dict[str, float]]:
     """Compute deltas between two metric dictionaries."""
 
-    metrics: Dict[str, Dict[str, float]] = {}
+    metrics: dict[str, dict[str, float]] = {}
     for key in ("tokens", "cost_usd", "duration_s"):
         a = float(tot_a.get(key, 0.0))
         b = float(tot_b.get(key, 0.0))
@@ -120,15 +120,26 @@ def _sig(s: str) -> str:
     return s.lower()
 
 
-def align_steps(rows_a: List[Dict], rows_b: List[Dict]) -> List[AlignedStep]:
+def align_steps(rows_a: list[dict], rows_b: list[dict]) -> list[AlignedStep]:
     """Align steps by phase then by fuzzy name similarity.
 
     A greedy matcher pairs steps within the same phase using
     :class:`difflib.SequenceMatcher`.  Unpaired steps become gaps.
     """
 
-    result: List[AlignedStep] = []
-    phases = sorted({r.get("phase") for r in rows_a} | {r.get("phase") for r in rows_b})
+    result: list[AlignedStep] = []
+    # Some trace rows may not include a ``phase`` field.  ``sorted()`` cannot
+    # compare ``None`` with ``str`` so we normalise the set by excluding
+    # ``None`` values and append a ``None`` phase at the end if necessary.
+    phase_set = {
+        r.get("phase")
+        for r in rows_a + rows_b  # type: ignore[operator]
+        if r.get("phase") is not None
+    }
+    phases = sorted(phase_set)
+    if any(r.get("phase") is None for r in rows_a + rows_b):  # type: ignore[operator]
+        phases.append(None)
+
     for phase in phases:
         a_phase = [r for r in rows_a if r.get("phase") == phase]
         b_phase = [r for r in rows_b if r.get("phase") == phase]
@@ -157,7 +168,7 @@ def align_steps(rows_a: List[Dict], rows_b: List[Dict]) -> List[AlignedStep]:
     return result
 
 
-def diff_steps(a: Optional[Dict], b: Optional[Dict]) -> Dict[str, Any]:
+def diff_steps(a: dict | None, b: dict | None) -> dict[str, Any]:
     """Compare two step dicts."""
 
     a_dur = float(a.get("duration_ms") or 0 if a else 0)
@@ -182,15 +193,15 @@ def diff_steps(a: Optional[Dict], b: Optional[Dict]) -> Dict[str, Any]:
 
 
 def to_markdown(
-    run_a: Dict,
-    run_b: Dict,
-    cfg_diffs: List[Tuple[str, Any, Any]],
-    met_diffs: Dict[str, Dict[str, float]],
-    aligned: List[AlignedStep],
+    run_a: dict,
+    run_b: dict,
+    cfg_diffs: list[tuple[str, Any, Any]],
+    met_diffs: dict[str, dict[str, float]],
+    aligned: list[AlignedStep],
 ) -> str:
     """Render a Markdown comparison report."""
 
-    def _ts(meta: Dict[str, Any], key: str) -> str:
+    def _ts(meta: dict[str, Any], key: str) -> str:
         ts = meta.get(key)
         if not ts:
             return ""
@@ -199,19 +210,15 @@ def to_markdown(
         except Exception:
             return str(ts)
 
-    lines: List[str] = []
-    lines.append(
-        f"# Run Comparison {run_a['run_id']} vs {run_b['run_id']}\n"
-    )
+    lines: list[str] = []
+    lines.append(f"# Run Comparison {run_a['run_id']} vs {run_b['run_id']}\n")
     lines.append(
         f"- A started: {_ts(run_a['meta'], 'started_at')}\n- B started: {_ts(run_b['meta'], 'started_at')}\n"
     )
     lines.append("\n## Metrics\n")
     lines.append("|metric|a|b|delta|pct|\n|---|---:|---:|---:|---:|")
     for m, vals in met_diffs.items():
-        lines.append(
-            f"|{m}|{vals['a']}|{vals['b']}|{vals['delta']}|{vals['pct']*100:.1f}%|"
-        )
+        lines.append(f"|{m}|{vals['a']}|{vals['b']}|{vals['delta']}|{vals['pct']*100:.1f}%|")
 
     lines.append("\n## Config differences\n")
     if cfg_diffs:
@@ -227,12 +234,8 @@ def to_markdown(
     for step in aligned:
         phase = (step.a or step.b).get("phase") if (step.a or step.b) else ""
         diff = diff_steps(step.a, step.b)
-        a_lab = (
-            f"{step.a.get('name')} ({diff['a_status']})" if step.a else "—"
-        )
-        b_lab = (
-            f"{step.b.get('name')} ({diff['b_status']})" if step.b else "—"
-        )
+        a_lab = f"{step.a.get('name')} ({diff['a_status']})" if step.a else "—"
+        b_lab = f"{step.b.get('name')} ({diff['b_status']})" if step.b else "—"
         lines.append(
             f"|{phase}|{a_lab}|{b_lab}|{diff['d_duration_ms']}|{diff['d_tokens']}|{diff['d_cost']}|{diff['summary_ratio']*100:.1f}%|"
         )
@@ -249,4 +252,3 @@ __all__ = [
     "diff_steps",
     "to_markdown",
 ]
-

@@ -4,7 +4,16 @@ import streamlit as st
 def badge(result, *, where: str):
     if not result.findings:
         return
-    sev = max((f.severity for f in result.findings), default="low")
+    # ``result.findings`` may contain lightweight dicts when coming from
+    # JSON sources instead of rich objects.  Access ``severity`` via
+    # ``getattr``/``dict.get`` to support both shapes.
+    severities = []
+    for f in result.findings:
+        sev = getattr(f, "severity", None)
+        if sev is None and isinstance(f, dict):
+            sev = f.get("severity")
+        severities.append(sev or "low")
+    sev = max(severities, default="low")
     label = f"Safety: {sev.upper()} ({len(result.findings)})"
     st.caption(label)
 
