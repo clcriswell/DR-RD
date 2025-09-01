@@ -101,6 +101,23 @@ def _normalize_plan_payload(data: dict) -> dict:
             if "summary" in t and "title" not in t:
                 t["title"] = t.get("summary")
 
+            # Some legacy planners stuffed the task details into the ``role``
+            # field using a ``Role: task`` format. Split that into the new
+            # separate role/title/summary fields so validation succeeds.
+            if (
+                "role" in t
+                and "title" not in t
+                and "summary" not in t
+                and isinstance(t["role"], str)
+                and ":" in t["role"]
+            ):
+                role, task = t["role"].split(":", 1)
+                t["role"] = role.strip()
+                task = task.strip()
+                t.setdefault("title", task)
+                t.setdefault("summary", task)
+                t.setdefault("description", task)
+
         if missing:
             logger.info("Planner normalizer injected %d task IDs", missing)
     return data

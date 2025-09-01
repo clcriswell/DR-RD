@@ -24,3 +24,13 @@ def test_legacy_task_field_backfilled():
     t = validated.tasks[0]
     assert t.title == "Build prototype"
     assert t.summary == "Build prototype"
+
+
+def test_role_field_with_colon_split():
+    data = {"tasks": [{"role": "Product Manager: Draft updates"}]}
+    norm = _normalize_plan_payload(data)
+    validated = Plan.model_validate(norm)
+    t = validated.tasks[0]
+    assert t.role == "Product Manager"
+    assert t.title == "Draft updates"
+    assert t.summary == "Draft updates"
