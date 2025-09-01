@@ -29,7 +29,8 @@ def test_segmenter_empty_fields():
     assert tasks == []
 
 
-def test_segmenter_applies_redaction():
+def test_segmenter_applies_redaction(monkeypatch):
+    monkeypatch.setenv("DRRD_ENABLE_PROMPT_REDACTION", "1")
     brief = ConceptBrief(
         problem="problem",
         value="value",

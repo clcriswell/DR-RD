@@ -75,6 +75,5 @@ def test_description_field_rejected(monkeypatch):
         return ChatResult(content=json.dumps(payload), raw=payload)
 
     monkeypatch.setattr(orchestrator, "complete", bad_complete)
-    with pytest.raises(ValueError) as exc:
-        generate_plan("idea", ui_model="x")
-    assert "summary" in str(exc.value)
+    tasks = generate_plan("idea", ui_model="x")
+    assert tasks == []

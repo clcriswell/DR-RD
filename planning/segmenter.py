@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Dict, List
+import os
 
 from utils.redaction import load_policy as _load_policy, redact_text as _redact
 
@@ -32,12 +33,24 @@ DEFAULT_POLICY: Dict[str, Dict[str, str]] = {
 
 
 def load_redaction_policy() -> Dict[str, Dict[str, str]]:
-    """Load the redaction policy; fall back to an in-code default."""
+    """Load the redaction policy; fall back to an in-code default.
+
+    Redaction can be globally disabled by setting the environment variable
+    ``DRRD_ENABLE_PROMPT_REDACTION`` to a falsy value (default). When disabled,
+    all rules are returned with ``enabled=False`` so that callers can skip
+    redaction without altering call sites.
+    """
+
     path = Path(__file__).resolve().parents[1] / "config" / "redaction.yaml"
     try:
-        return _load_policy(path)
+        policy = _load_policy(path)
     except FileNotFoundError:
-        return DEFAULT_POLICY
+        policy = DEFAULT_POLICY
+
+    if os.getenv("DRRD_ENABLE_PROMPT_REDACTION", "").lower() not in {"1", "true", "yes"}:
+        for cfg in policy.values():
+            cfg["enabled"] = False
+    return policy
 
 
 def redact_text(policy: Dict[str, Dict[str, str]], text: str) -> str:
