@@ -43,13 +43,14 @@ def build_graph(rows: list[dict[str, Any]]) -> tuple[list[Node], list[Edge]]:
     for r in rows:
         sid = str(r.get("id") or f"s{r['i']}")
         status = str(r.get("status") or "unknown")
+        dur_ms = int(r.get("duration_ms") or 0)
         nodes.append(
             Node(
                 id=sid,
-                label=f"{r.get('name','step')}\\n{int(r.get('duration_ms',0))/1000:.1f}s",
+                label=f"{r.get('name','step')}\\n{dur_ms/1000:.1f}s",
                 phase=str(r.get("phase", "")),
                 status=status,
-                dur_ms=int(r.get("duration_ms", 0)),
+                dur_ms=dur_ms,
             )
         )
     # Index by phase for sequential edges
