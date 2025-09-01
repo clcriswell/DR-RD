@@ -16,6 +16,7 @@ from utils.config import load_config
 from utils.lazy_import import lazy
 from utils.telemetry import usage_exceeded, usage_threshold_crossed
 from utils.usage import Usage, add_delta, thresholds
+from utils.clients import get_cloud_logging_client
 
 _openai = lazy("openai")
 _client_instance: Optional[Any] = None
@@ -228,6 +229,19 @@ def call_openai(
     **kwargs,
 ) -> dict[str, Any]:
     """Call OpenAI with automatic routing between Responses and Chat APIs."""
+    from dr_rd.config.env import get_env
+
+    api_key = get_env("OPENAI_API_KEY")
+    if not api_key:
+        message = "OPENAI_API_KEY not configured"
+        logger.error(message)
+        try:
+            client = get_cloud_logging_client()
+            if client:
+                client.logger("drrd").log_text(message, severity="ERROR")
+        except Exception:
+            pass
+        return {"raw": {}, "text": ""}
 
     request_id = uuid.uuid4().hex
     t0 = time.monotonic()

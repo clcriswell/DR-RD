@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+import logging
 from collections.abc import Mapping
 
 import streamlit as st
 from dotenv import load_dotenv
+
+from utils.clients import get_cloud_logging_client
 
 load_dotenv()
 
@@ -52,15 +55,21 @@ def require_env(key: str) -> str:
     value = get_env(key)
     if value is None or value == "":
         message = f"Missing required environment variable: {key}"
+        logging.error(message)
+        try:
+            client = get_cloud_logging_client()
+            if client:
+                client.logger("drrd").log_text(message, severity="ERROR")
+        except Exception:
+            pass
         try:
             from streamlit.runtime.scriptrunner import get_script_run_ctx
 
             if get_script_run_ctx() is not None:
                 st.error(message)
-                st.stop()
         except Exception:
             pass
-        raise RuntimeError(message)
+        return ""
     return value
 
 
