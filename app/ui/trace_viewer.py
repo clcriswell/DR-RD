@@ -232,7 +232,6 @@ def render_trace(
     prev_show_all = show_all
     show_all_new = st.checkbox("Show all", key=show_all_key, value=show_all)
     if show_all_new != prev_show_all:
-        st.session_state[show_all_key] = show_all_new
         log_event(
             {
                 "event": "trace_page_changed",
