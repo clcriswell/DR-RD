@@ -20,7 +20,7 @@ aria_live_region()
 if st.button(
     "⌘K Command palette",
     key="cmd_btn",
-    use_container_width=False,
+    width="content",
     help="Open global search",
 ):
     log_event({"event": "palette_opened"})

@@ -18,7 +18,7 @@ aria_live_region()
 if st.button(
     "⌘K Command palette",
     key="cmd_btn",
-    use_container_width=False,
+    width="content",
     help="Open global search",
 ):
     log_event({"event": "palette_opened"})
@@ -61,7 +61,7 @@ if st.button("Run diagnostics", help="Run system diagnostics"):
     cols[2].metric("fail", report.summary.get("fail", 0))
     pd = local_import("pandas")
     df = pd.DataFrame([{"id": c.id, "name": c.name, "status": c.status} for c in report.checks])
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width="stretch")
     for c in report.checks:
         with st.expander(c.name):
             st.write(c.details)

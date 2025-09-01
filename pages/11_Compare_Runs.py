@@ -79,6 +79,6 @@ if run_a and run_b:
         "Download diff (.md)",
         data=md.encode("utf-8"),
         file_name=f"compare_{run_a}_{run_b}.md",
-        use_container_width=True,
+        width="stretch",
     ):
         compare_export_clicked(run_a, run_b, "md")

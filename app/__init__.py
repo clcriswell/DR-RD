@@ -105,7 +105,7 @@ if _c is None:
 if st.button(
     "⌘K Command palette",
     key="cmd_btn",
-    use_container_width=False,
+    width="content",
     help="Open global search",
 ):
     log_event({"event": "palette_opened"})
@@ -508,7 +508,7 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         "Stop run",
         key=f"stop_{run_id}",
         type="secondary",
-        use_container_width=True,
+        width="stretch",
     )
     if stop:
         token.cancel()
@@ -683,11 +683,11 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         components.error_banner(err)
         r1, r2, r3 = st.columns([1, 1, 1])
         with r1:
-            retry = st.button("Retry run", type="primary", use_container_width=True)
+            retry = st.button("Retry run", type="primary", width="stretch")
         with r2:
-            open_trace = st.button("Open trace", use_container_width=True)
+            open_trace = st.button("Open trace", width="stretch")
         with r3:
-            resume = st.button("Resume run", use_container_width=True)
+            resume = st.button("Resume run", width="stretch")
         if retry:
             st.query_params["retry_of"] = err.context.get("run_id") or ""
             st.rerun()
@@ -729,11 +729,11 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         components.error_banner(err)
         r1, r2, r3 = st.columns([1, 1, 1])
         with r1:
-            retry = st.button("Retry run", type="primary", use_container_width=True)
+            retry = st.button("Retry run", type="primary", width="stretch")
         with r2:
-            open_trace = st.button("Open trace", use_container_width=True)
+            open_trace = st.button("Open trace", width="stretch")
         with r3:
-            resume = st.button("Resume run", use_container_width=True)
+            resume = st.button("Resume run", width="stretch")
         if retry:
             st.query_params["retry_of"] = err.context.get("run_id") or ""
             st.rerun()
@@ -774,9 +774,9 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         components.error_banner(err)
         r1, r2 = st.columns([1, 1])
         with r1:
-            retry = st.button("Retry run", type="primary", use_container_width=True)
+            retry = st.button("Retry run", type="primary", width="stretch")
         with r2:
-            open_trace = st.button("Open trace", use_container_width=True)
+            open_trace = st.button("Open trace", width="stretch")
         if retry:
             st.query_params["retry_of"] = err.context.get("run_id") or ""
             st.rerun()

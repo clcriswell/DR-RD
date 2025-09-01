@@ -1,8 +1,8 @@
 import streamlit as st
 
-from utils.global_search import search, resolve_action
-from utils.telemetry import log_event
+from utils.global_search import resolve_action, search
 from utils.session_store import SessionStore
+from utils.telemetry import log_event
 
 
 def open_palette():
@@ -23,9 +23,10 @@ def open_palette():
             with col1:
                 st.write(f"**{r['label']}**  \n{r.get('hint','')}")
             with col2:
-                if st.button("Select", key=f"sel_{i}", use_container_width=True):
+                if st.button("Select", key=f"sel_{i}", width="stretch"):
                     act = resolve_action(r)
                     st.session_state["_cmd_action"] = act
                     st.rerun()
+
     _dlg()
     view_store.set("palette_open", False)
