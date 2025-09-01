@@ -249,8 +249,6 @@ def get_agents():
 
 
 def main() -> None:
-    from core.orchestrator import run_stream
-
     prefs = _apply_prefs()
     origin_run_id = st.query_params.get("origin_run_id")
     if st.session_state.get(QP_APPLIED_KEY) is not True:
@@ -465,7 +463,7 @@ def main() -> None:
     st.session_state["max_tokens"] = kwargs.get("max_tokens")
     st.session_state["usage"] = Usage()
     st.subheader("Live output")
-    from app.ui.live_log import render as render_live
+    _run(run_id, kwargs, prefs, origin_run_id)
 
 
 def send_note(
@@ -792,9 +790,6 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         run_lock_released(run_id)
         st.session_state["active_run"] = None
         st.session_state["submit_token"] = None
-
-
-_run(run_id, kwargs, prefs, origin_run_id)
 
 
 def generate_pdf(markdown_text):
