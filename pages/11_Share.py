@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import streamlit as st
 
+from dr_rd.config.env import get_env
 from utils.prefs import load_prefs
 from utils.share_links import make_link
 from utils.telemetry import share_link_created
@@ -29,7 +29,7 @@ else:
     ttl = int(st.number_input("TTL seconds", min_value=60, value=default_ttl))
 
 if st.button("Create link", disabled=not run_id or not scopes):
-    base = os.getenv("APP_BASE_URL", ".").rstrip("/")
+    base = get_env("APP_BASE_URL", ".").rstrip("/")
     link = make_link(base, run_id, scopes=scopes, ttl_sec=ttl)
     st.text_input("Share link", value=link, help="Copy this link to share", key="share_link_out")
     share_link_created(run_id, scopes, ttl)

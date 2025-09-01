@@ -10,13 +10,13 @@ init_gcp_logging()
 import io
 import json
 import logging
-import os
 import time
 
 import fitz
 import streamlit as st
 from markdown_pdf import MarkdownPdf, Section
 
+from dr_rd.config.env import get_env
 from utils.i18n import missing_keys, set_locale
 from utils.i18n import tr as t
 from utils.session_store import get_session_id, init_stores  # noqa: F401
@@ -474,10 +474,8 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
         "tokens": getattr(usage, "total_tokens", None),
         "cost_usd": getattr(usage, "cost_usd", None),
     }
-    base = os.getenv("APP_BASE_URL") or (
-        "https://dr-rnd.streamlit.app"
-        if os.getenv("STREAMLIT_RUNTIME")
-        else "http://localhost:8501"
+    base = get_env("APP_BASE_URL") or (
+        "https://dr-rnd.streamlit.app" if get_env("STREAMLIT_RUNTIME") else "http://localhost:8501"
     )
     url = f"{base}/?view=trace&run_id={run_id}"
     note = Note(
