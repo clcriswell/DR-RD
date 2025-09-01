@@ -130,8 +130,8 @@ def render_trace(
     for s in steps:
         haystack = " ".join(
             [
-                s.get("name") or "",
-                s.get("summary") or "",
+                str(s.get("name") or ""),
+                str(s.get("summary") or ""),
                 (
                     json.dumps(s.get("raw"), ensure_ascii=False)
                     if isinstance(s.get("raw"), dict)
