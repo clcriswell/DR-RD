@@ -9,6 +9,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Populate ``os.environ`` with Streamlit secrets so modules using ``os.getenv``
+# can transparently access credentials defined in ``st.secrets`` when running
+# on Streamlit Cloud.
+try:
+    for _k, _v in st.secrets.items():
+        if isinstance(_v, Mapping):
+            for _sk, _sv in _v.items():
+                os.environ.setdefault(_sk, str(_sv))
+        else:
+            os.environ.setdefault(_k, str(_v))
+except Exception:
+    # Accessing ``st.secrets`` can fail outside a Streamlit runtime; ignore.
+    pass
+
 
 def _from_secrets(key: str) -> str | None:
     try:

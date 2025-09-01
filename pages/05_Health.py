@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import os
-
 import streamlit as st
 
 from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
+from dr_rd.config.env import get_env
 from utils import health_check
 from utils.i18n import tr as t
 from utils.lazy_import import local_import
@@ -81,7 +80,7 @@ if st.button("Run diagnostics", help="Run system diagnostics"):
         mime="text/markdown",
     )
     log_event({"event": "health_check_run", "summary": report.summary})
-    if os.getenv("NO_NET") == "1":
+    if get_env("NO_NET") == "1":
         st.caption("Network tests skipped")
 else:
     st.write("Click to run diagnostics")

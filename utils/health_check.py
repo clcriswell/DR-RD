@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from dr_rd.config.env import get_env
+
 try:  # Python 3.11+
     import tomllib as toml  # type: ignore
 except Exception:  # pragma: no cover
@@ -209,7 +211,7 @@ def _check_telemetry() -> tuple[str, str, str, str, str]:
 
 @_time_it
 def _check_secrets() -> tuple[str, str, str, str, str]:
-    secret = os.environ.get("gcp_service_account")
+    secret = get_env("gcp_service_account")
     if not secret:
         secrets_path = Path(".streamlit/secrets.toml")
         if secrets_path.exists() and toml is not None:
@@ -265,7 +267,7 @@ def _check_secrets() -> tuple[str, str, str, str, str]:
 
 @_time_it
 def _check_network() -> tuple[str, str, str, str, str]:
-    if os.getenv("NO_NET") == "1":
+    if get_env("NO_NET") == "1":
         return (
             "network",
             "Network reachability",

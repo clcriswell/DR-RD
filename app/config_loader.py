@@ -6,13 +6,13 @@ release to avoid breaking imports.
 """
 
 import logging
-import os
 from pathlib import Path
 
 import yaml
 
 from config.feature_flags import apply_overrides
 from core.budget import CostTracker
+from dr_rd.config.env import get_env
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
@@ -24,14 +24,14 @@ def load_profile(mode: str | None = None) -> tuple[dict, CostTracker]:
     deprecation warning. Any unknown or missing mode also falls back to
     ``standard`` with a warning.
     """
-    env_mode = os.getenv("DRRD_MODE")
+    env_mode = get_env("DRRD_MODE")
     if env_mode and env_mode.lower() != "standard":
         logging.warning("DRRD_MODE '%s' is deprecated and maps to 'standard'.", env_mode)
     if mode is None:
         mode = env_mode
 
     modes_path = CONFIG_DIR / "modes.yaml"
-    prices_path = Path(os.getenv("PRICES_PATH", CONFIG_DIR / "prices.yaml"))
+    prices_path = Path(get_env("PRICES_PATH", str(CONFIG_DIR / "prices.yaml")))
 
     with open(modes_path) as fh:
         modes = yaml.safe_load(fh) or {}
@@ -58,13 +58,13 @@ def load_profile(mode: str | None = None) -> tuple[dict, CostTracker]:
     # FAISS defaults and env overrides
     mode_cfg.setdefault("faiss_index_local_dir", ".faiss_index")
     mode_cfg.setdefault("faiss_bootstrap_mode", "download")
-    env_uri = os.getenv("FAISS_INDEX_URI")
+    env_uri = get_env("FAISS_INDEX_URI")
     if env_uri:
         mode_cfg["faiss_index_uri"] = env_uri
-    env_dir = os.getenv("FAISS_INDEX_DIR")
+    env_dir = get_env("FAISS_INDEX_DIR")
     if env_dir:
         mode_cfg["faiss_index_local_dir"] = env_dir
-    env_boot = os.getenv("FAISS_BOOTSTRAP_MODE")
+    env_boot = get_env("FAISS_BOOTSTRAP_MODE")
     if env_boot:
         mode_cfg["faiss_bootstrap_mode"] = env_boot
 
