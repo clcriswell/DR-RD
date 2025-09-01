@@ -468,7 +468,9 @@ def main() -> None:
     from app.ui.live_log import render as render_live
 
 
-def _send_note(event: str, status: str, extra: dict | None = None) -> None:
+def send_note(
+    event: str, status: str, run_id: str, kwargs: dict, extra: dict | None = None
+) -> None:
     usage = st.session_state.get("usage")
     totals = {
         "tokens": getattr(usage, "total_tokens", None),
@@ -491,6 +493,8 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
     res = notify_dispatch(note, load_prefs())
     notification_sent(run_id, status, [k for k, v in res.items() if v], any(res.values()))
 
+
+def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> None:
     st.subheader("Live usage")
     live = meter.render_live(
         st.session_state["usage"],
@@ -612,7 +616,7 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
         st.session_state["active_run"]["status"] = "success"
         complete_run_meta(run_id, status="success")
         log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
-        _send_note("run_completed", "success")
+        send_note("run_completed", "success", run_id, kwargs)
         if origin_run_id:
             log_event(
                 {
@@ -658,7 +662,7 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
         log_event({"event": "run_completed", "run_id": run_id, "status": "cancelled"})
         evt = "budget_exceeded" if str(e) == "usage_exceeded" else "run_cancelled"
         status = "error" if evt == "budget_exceeded" else "cancelled"
-        _send_note(evt, status)
+        send_note(evt, status, run_id, kwargs)
         if origin_run_id:
             log_event(
                 {
@@ -704,7 +708,7 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
         complete_run_meta(run_id, status="timeout")
         timeout_hit(run_id, current_phase)
         log_event({"event": "run_completed", "run_id": run_id, "status": "timeout"})
-        _send_note("timeout", "timeout")
+        send_note("timeout", "timeout", run_id, kwargs)
         if origin_run_id:
             log_event(
                 {
@@ -749,7 +753,7 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
         st.session_state["active_run"]["status"] = "error"
         complete_run_meta(run_id, status="error")
         log_event({"event": "run_completed", "run_id": run_id, "status": "error"})
-        _send_note("run_failed", "error", {"error": e.__class__.__name__})
+        send_note("run_failed", "error", run_id, kwargs, {"error": e.__class__.__name__})
         if origin_run_id:
             log_event(
                 {
@@ -788,6 +792,9 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
         run_lock_released(run_id)
         st.session_state["active_run"] = None
         st.session_state["submit_token"] = None
+
+
+_run(run_id, kwargs, prefs, origin_run_id)
 
 
 def generate_pdf(markdown_text):
