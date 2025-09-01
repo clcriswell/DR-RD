@@ -3,6 +3,7 @@ import os
 import logging
 
 from dr_rd.config.env import get_env
+from utils.clients import get_cloud_logging_client
 
 from core.llm_client import call_openai
 
@@ -58,7 +59,21 @@ def serpapi_web_search(query: str, *, max_results: int = 5) -> Dict[str, Any]:
 
     key = get_env("SERPAPI_API_KEY")
     if not key:
-        raise WebSearchError("SERPAPI_API_KEY not configured")
+        message = "SERPAPI_API_KEY not configured"
+        log.error(message)
+        try:
+            client = get_cloud_logging_client()
+            if client:
+                client.logger("drrd").log_text(message, severity="ERROR")
+        except Exception:
+            pass
+        return {
+            "backend": "serpapi",
+            "query": query,
+            "results": [],
+            "tokens_in": 0,
+            "tokens_out": 0,
+        }
     try:
         params = {"engine": "google", "q": query, "num": max_results, "api_key": key}
         r = requests.get("https://serpapi.com/search", params=params, timeout=30)
@@ -90,11 +105,10 @@ def run_live_search(
             return openai_web_search(query, max_results=max_results), "openai_ok"
         except WebSearchError as e:
             reasons.append(f"openai_fail:{e}")
-            if get_env("SERPAPI_API_KEY"):
-                try:
-                    return serpapi_web_search(query, max_results=max_results), "serpapi_fallback_ok"
-                except WebSearchError as e2:
-                    reasons.append(f"serpapi_fail:{e2}")
+            try:
+                return serpapi_web_search(query, max_results=max_results), "serpapi_fallback_ok"
+            except WebSearchError as e2:
+                reasons.append(f"serpapi_fail:{e2}")
             return {"backend": "none", "query": query, "results": []}, ";".join(reasons)
     elif backend == "serpapi":
         try:

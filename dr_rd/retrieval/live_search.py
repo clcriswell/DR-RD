@@ -18,6 +18,7 @@ from core.llm_client import call_openai
 from utils.search_tools import search_google, summarize_search
 
 from dr_rd.config.env import get_env
+from utils.clients import get_cloud_logging_client
 
 log = logging.getLogger("drrd")
 
@@ -137,9 +138,19 @@ class SerpAPIWebSearchClient:
         self.llm_model = llm_model
         self.api_key = api_key or get_env("SERPAPI_API_KEY")
         if not self.api_key:
-            raise RuntimeError("SERPAPI_API_KEY missing; cannot use SerpAPI fallback.")
+            message = "SERPAPI_API_KEY missing; cannot use SerpAPI fallback."
+            log.error(message)
+            try:
+                client = get_cloud_logging_client()
+                if client:
+                    client.logger("drrd").log_text(message, severity="ERROR")
+            except Exception:
+                pass
+            self.api_key = None
 
     def search_and_summarize(self, query: str, num: int = 6) -> Dict[str, Any]:
+        if not self.api_key:
+            return {"text": "", "sources": []}
         params = {"engine": "google", "q": query, "num": num, "api_key": self.api_key}
         with httpx.Client(timeout=30) as client:
             r = client.get("https://serpapi.com/search.json", params=params)

@@ -9,6 +9,7 @@ from .circuit import status, record_failure, record_success, allow_half_open
 from .idempotency import key as idem_key, get as cache_get, put as cache_put
 from .telemetry import log_event
 from utils import otel
+from utils.clients import get_cloud_logging_client
 
 
 def _call_provider(prov: str, model: str, payload: Mapping[str, Any], *, stream: bool) -> Any:
@@ -32,6 +33,7 @@ def chat(payload: Mapping[str, Any], *, mode: str, stream: bool = False,
          run_id: str | None = None, step_id: str | None = None,
          cache_ttl_sec: Optional[int] = 300) -> Any | Iterator[Any]:
     chain = fallback_chain(mode)
+    last_exc: Exception | None = None
     for prov, model in chain:
         ck = model_key(prov, model)
         k = idem_key(prov, model, payload)
@@ -85,6 +87,7 @@ def chat(payload: Mapping[str, Any], *, mode: str, stream: bool = False,
                 return resp
             except Exception as exc:
                 kind = classify_error(exc)
+                last_exc = exc
                 log_event({"event": "llm_call_failed", "provider": prov, "model": model,
                            "attempt": attempt, "kind": kind,
                            "run_id": run_id, "step_id": step_id})
@@ -94,4 +97,12 @@ def chat(payload: Mapping[str, Any], *, mode: str, stream: bool = False,
                     break
                 time.sleep(backoff(attempt))
         log_event({"event": "llm_fallback", "provider": prov, "model": model})
-    raise RuntimeError("All providers/models failed")
+    message = "All providers/models failed"
+    try:
+        client = get_cloud_logging_client()
+        if client:
+            detail = str(last_exc) if last_exc else "unknown error"
+            client.logger("drrd").log_text(f"{message}: {detail}", severity="ERROR")
+    except Exception:
+        pass
+    return None
