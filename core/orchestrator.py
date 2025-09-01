@@ -77,15 +77,33 @@ def _invoke_agent(agent, idea: str, task: Dict[str, str], model: str | None = No
 
 
 def _normalize_plan_payload(data: dict) -> dict:
-    """Inject sequential task IDs and map summary -> description."""
+    """Inject sequential task IDs and backfill missing fields.
+
+    The Planner has historically returned slightly different keys for task
+    details (e.g. ``task`` or ``description`` instead of ``title`` / ``summary``).
+    This helper normalizes those variations so that :class:`Plan` validation is
+    resilient to older planner outputs.
+    """
     if isinstance(data, dict) and isinstance(data.get("tasks"), list):
         missing = 0
         for i, t in enumerate(data["tasks"], 1):
             if not t.get("id"):
                 t["id"] = f"T{i:02d}"
                 missing += 1
+
+            # Legacy field mapping: allow "task" or "description" to populate
+            # the newer title/summary fields.  This ensures backwards
+            # compatibility with planners that haven't migrated yet.
+            if "task" in t:
+                t.setdefault("title", t.get("task"))
+                t.setdefault("summary", t.get("task"))
+            if "description" in t and "summary" not in t:
+                t["summary"] = t.get("description")
             if "summary" in t and "description" not in t:
                 t["description"] = t.get("summary")
+            if "summary" in t and "title" not in t:
+                t["title"] = t.get("summary")
+
         if missing:
             logger.info("Planner normalizer injected %d task IDs", missing)
     return data

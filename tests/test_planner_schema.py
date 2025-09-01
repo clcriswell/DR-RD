@@ -15,3 +15,12 @@ def test_missing_ids_injected():
     norm = _normalize_plan_payload(data)
     validated = Plan.model_validate(norm)
     assert validated.tasks[0].id == "T01"
+
+
+def test_legacy_task_field_backfilled():
+    data = {"tasks": [{"role": "Engineer", "task": "Build prototype"}]}
+    norm = _normalize_plan_payload(data)
+    validated = Plan.model_validate(norm)
+    t = validated.tasks[0]
+    assert t.title == "Build prototype"
+    assert t.summary == "Build prototype"
