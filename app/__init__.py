@@ -29,11 +29,14 @@ st.set_page_config(
     menu_items={"About": "DR-RD — AI R&D Workbench"},
 )
 
+from dataclasses import asdict
+
 from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
 from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
 from utils import consent as _consent
-from utils import session_guard
+from utils import safety as safety_utils
+from utils import session_guard, trace_writer
 from utils.cancellation import CancellationToken
 from utils.experiments import assign, exposure, force_from_params
 from utils.flags import is_enabled
@@ -180,7 +183,7 @@ if not st.session_state.get("_onboard_shown", False):
     st.session_state["_onboard_shown"] = True
     log_event({"event": "onboarding_shown"})
 
-from dataclasses import asdict, replace
+from dataclasses import replace
 from urllib.parse import urlencode
 
 import config.feature_flags as ff
@@ -531,6 +534,16 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
                 deadline_ts=deadline_ts,
             )
             box.update(label="Planning complete", state="complete")
+        res = safety_utils.check_text(json.dumps(tasks))
+        trace_writer.append_step(
+            run_id,
+            {
+                "phase": "planner",
+                "summary": tasks,
+                "prompt_preview": st.session_state.pop("_last_prompt", None),
+                **({"safety": asdict(res)} if res.findings else {}),
+            },
+        )
         log_event(
             {
                 "event": "step_completed",
@@ -561,6 +574,16 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
                 deadline_ts=deadline_ts,
             )
             box.update(label="Execution complete", state="complete")
+        res = safety_utils.check_text(json.dumps(answers))
+        trace_writer.append_step(
+            run_id,
+            {
+                "phase": "executor",
+                "summary": answers,
+                "prompt_preview": st.session_state.pop("_last_prompt", None),
+                **({"safety": asdict(res)} if res.findings else {}),
+            },
+        )
         log_event(
             {
                 "event": "step_completed",
@@ -590,6 +613,16 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
                 deadline_ts=deadline_ts,
             )
             box.update(label="Synthesis complete", state="complete")
+        res = safety_utils.check_text(final)
+        trace_writer.append_step(
+            run_id,
+            {
+                "phase": "synth",
+                "summary": final,
+                "prompt_preview": st.session_state.pop("_last_prompt", None),
+                **({"safety": asdict(res)} if res.findings else {}),
+            },
+        )
         log_event(
             {
                 "event": "step_completed",
