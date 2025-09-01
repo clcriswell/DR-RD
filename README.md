@@ -34,3 +34,38 @@ pip install -r requirements.txt
 cp .env.example .env  # edit with your keys
 streamlit run app.py
 ```
+
+## Generating a development report
+
+The script `scripts/generate_dev_report.py` demonstrates a simple
+planning/execution loop and exports a PDF summarizing the steps along
+with recent commits.  Run it after making changes to produce a report
+at `reports/build/development_report.pdf`:
+
+```bash
+python scripts/generate_dev_report.py
+```
+
+## Running the development cycle
+
+For a structured planning → execution → reporting loop, use
+`scripts/run_dev_cycle.py`. It can run the cycle once or on a schedule
+and optionally obfuscate the source code by compiling it to bytecode.
+
+Run a single cycle:
+
+```bash
+python scripts/run_dev_cycle.py
+```
+
+Run the cycle every hour:
+
+```bash
+python scripts/run_dev_cycle.py --interval 3600
+```
+
+Include an obfuscation step:
+
+```bash
+python scripts/run_dev_cycle.py --obfuscate
+```
