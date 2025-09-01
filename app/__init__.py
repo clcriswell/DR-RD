@@ -490,21 +490,6 @@ def _send_note(event: str, status: str, extra: dict | None = None) -> None:
     )
     res = notify_dispatch(note, load_prefs())
     notification_sent(run_id, status, [k for k, v in res.items() if v], any(res.values()))
-    events = run_stream(
-        kwargs["idea"],
-        run_id=run_id,
-        agents=get_agents(),
-        prompt_texts=prompt_texts,
-        prompt_pins=prompt_pins,
-    )
-    render_live(events)
-    st.session_state["run_report"] = ""
-    st.session_state["active_run"]["status"] = "success"
-    complete_run_meta(run_id, status="success")
-    log_event({"event": "run_completed", "run_id": run_id, "status": "success"})
-    _send_note("run_completed", "success")
-    st.query_params.update({"run_id": run_id, "view": "trace"})
-    return
 
     st.subheader("Live usage")
     live = meter.render_live(
