@@ -33,7 +33,7 @@ aria_live_region()
 if st.button(
     "⌘K Command palette",
     key="cmd_btn",
-    use_container_width=False,
+    width="content",
     help="Open global search",
 ):
     log_event({"event": "palette_opened"})
@@ -203,7 +203,7 @@ def _load(run_id: str) -> tuple[dict, list[dict], dict, str]:
 
     col1, col2 = st.columns(2)
     if col1.download_button(
-        "Download diff CSV", to_csv(rows), file_name="run_diff.csv", use_container_width=True
+        "Download diff CSV", to_csv(rows), file_name="run_diff.csv", width="stretch"
     ):
         log_event(
             {
@@ -217,7 +217,7 @@ def _load(run_id: str) -> tuple[dict, list[dict], dict, str]:
         "Download summary Markdown",
         to_markdown(summary, rows),
         file_name="run_diff.md",
-        use_container_width=True,
+        width="stretch",
     ):
         log_event(
             {

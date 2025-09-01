@@ -25,7 +25,7 @@ aria_live_region()
 if st.button(
     "⌘K Command palette",
     key="cmd_btn",
-    use_container_width=False,
+    width="content",
     help="Open global search",
 ):
     log_event({"event": "palette_opened"})
@@ -154,7 +154,7 @@ if rows:
     )
     st.dataframe(
         df,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "Trace": st.column_config.LinkColumn("Trace"),

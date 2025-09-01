@@ -5,13 +5,14 @@ import streamlit as st
 from app.ui import knowledge as ui
 from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
-from utils import knowledge_store, upload_scan, uploads
-from utils import prefs
+from utils import knowledge_store, prefs, upload_scan, uploads
 from utils.embeddings import embed_texts
-from utils.rag import index as rag_index, textsplit
-from utils.telemetry import index_built, item_reindexed
 from utils.i18n import tr as t
+from utils.rag import index as rag_index
+from utils.rag import textsplit
 from utils.telemetry import (
+    index_built,
+    item_reindexed,
     knowledge_added,
     knowledge_removed,
     knowledge_tags_updated,
@@ -30,7 +31,7 @@ log_event({"event": "nav_page_view", "page": "knowledge"})
 if st.button(
     "⌘K Command palette",
     key="cmd_btn",
-    use_container_width=False,
+    width="content",
     help="Open global search",
 ):
     log_event({"event": "palette_opened"})
@@ -116,6 +117,7 @@ with rag_index._conn() as c:
     chunk_count = c.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
 st.caption(f"Index: {doc_count} docs, {chunk_count} chunks")
 
+
 def _embedder(chunks: list[str]):
     if not prefs_cfg.get("use_embeddings"):
         return None
@@ -125,13 +127,16 @@ def _embedder(chunks: list[str]):
         model=prefs_cfg.get("embedding_model", "text-embedding-3-small"),
     )
 
+
 if st.button("Build/Refresh index"):
     total_chunks = 0
     for it in items:
         text = knowledge_store.load_text(it["id"], max_chars=prefs_cfg.get("max_chars_per_doc"))
         if not text:
             continue
-        chunks = textsplit.split(text, size=prefs_cfg.get("chunk_size", 800), overlap=prefs_cfg.get("chunk_overlap", 120))
+        chunks = textsplit.split(
+            text, size=prefs_cfg.get("chunk_size", 800), overlap=prefs_cfg.get("chunk_overlap", 120)
+        )
         cnt = rag_index.upsert_document(
             it["id"],
             {"name": it.get("name"), "tags": it.get("tags", []), "path": it.get("path")},
@@ -147,7 +152,9 @@ for item_id in reindex_ids:
     if not text:
         continue
     it = knowledge_store.get_item(item_id) or {}
-    chunks = textsplit.split(text, size=prefs_cfg.get("chunk_size", 800), overlap=prefs_cfg.get("chunk_overlap", 120))
+    chunks = textsplit.split(
+        text, size=prefs_cfg.get("chunk_size", 800), overlap=prefs_cfg.get("chunk_overlap", 120)
+    )
     cnt = rag_index.upsert_document(
         item_id,
         {"name": it.get("name"), "tags": it.get("tags", []), "path": it.get("path")},

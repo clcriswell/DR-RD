@@ -66,6 +66,6 @@ def error_banner(err: SafeError):
             data=as_json(err),
             file_name=f"error_{err.support_id}.json",
             mime="application/json",
-            use_container_width=True,
+            width="stretch",
         )
     return True

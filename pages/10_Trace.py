@@ -8,10 +8,6 @@ from urllib.parse import urlencode
 
 import streamlit as st
 
-from utils.share_links import viewer_from_query
-from utils.redaction import redact_public
-from utils.telemetry import log_event
-
 from app.ui import empty_states
 from app.ui.a11y import aria_live_region, inject, main_start
 from app.ui.command_palette import open_palette
@@ -21,9 +17,12 @@ from utils.flags import is_enabled
 from utils.i18n import tr as t
 from utils.paths import artifact_path
 from utils.query_params import encode_config
+from utils.redaction import redact_public
 from utils.run_config import RunConfig, to_orchestrator_kwargs
 from utils.runs import last_run_id, list_runs
 from utils.session_store import init_stores
+from utils.share_links import viewer_from_query
+from utils.telemetry import log_event
 
 inject()
 main_start()
@@ -31,7 +30,13 @@ aria_live_region()
 
 viewer_mode, vinfo = viewer_from_query(dict(st.query_params))
 if viewer_mode:
-    log_event({"event": "share_link_accessed", "run_id": vinfo.get("rid"), "scopes": vinfo.get("scopes", [])})
+    log_event(
+        {
+            "event": "share_link_accessed",
+            "run_id": vinfo.get("rid"),
+            "scopes": vinfo.get("scopes", []),
+        }
+    )
     st.info("View only link. Some controls are disabled.")
 elif "error" in vinfo:
     if vinfo["error"] == "exp":
@@ -44,7 +49,7 @@ elif "error" in vinfo:
 if st.button(
     "⌘K Command palette",
     key="cmd_btn",
-    use_container_width=False,
+    width="content",
     help="Open global search",
 ):
     log_event({"event": "palette_opened"})
@@ -129,7 +134,7 @@ if runs:
     else:
         if meta.get("status") == "resumable" and not viewer_mode:
             st.info("This run can be resumed.")
-            if st.button("Resume run", use_container_width=True):
+            if st.button("Resume run", width="stretch"):
                 st.query_params.update({"resume_from": run_id, "view": "run"})
                 st.switch_page("app.py")
         if not viewer_mode:
@@ -155,7 +160,7 @@ if runs:
                         "included_adv": bool(include_adv),
                     }
                 )
-            if st.button("Reproduce run", use_container_width=True):
+            if st.button("Reproduce run", width="stretch"):
                 try:
                     locked = run_reproduce.load_run_inputs(run_id)
                     kwargs = run_reproduce.to_orchestrator_kwargs(locked)

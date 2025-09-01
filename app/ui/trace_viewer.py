@@ -215,11 +215,10 @@ def render_trace(
                 if step.get("citations"):
                     with st.expander("Sources"):
                         for c in step.get("citations", []):
-                            st.markdown(
-                                f"- Doc {c.get('doc_id')} — {c.get('snippet','')}")
+                            st.markdown(f"- Doc {c.get('doc_id')} — {c.get('snippet','')}")
 
     if not show_all and shown < len(filtered_steps):
-        if st.button("Load more", key=f"more_{run_id}", use_container_width=True):
+        if st.button("Load more", key=f"more_{run_id}", width="stretch"):
             st.session_state[page_key] = page + 1
             log_event(
                 {
