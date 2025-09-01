@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
+from typing import Any
 
 import jsonschema
-from utils.logging import logger
+
 from config import feature_flags
-from dr_rd.prompting.prompt_factory import PromptFactory
 from core.agents.base_agent import LLMRoleAgent
+from dr_rd.prompting.prompt_factory import PromptFactory
+from utils.logging import logger
 
 
 class PromptFactoryAgent(LLMRoleAgent):
@@ -16,17 +17,17 @@ class PromptFactoryAgent(LLMRoleAgent):
 
     _factory = PromptFactory()
 
-    def run_with_spec(self, spec: Dict[str, Any], **kwargs) -> str:
+    def run_with_spec(self, spec: dict[str, Any], **kwargs) -> str:
         prompt = self._factory.build_prompt(spec)
         schema_path = prompt.get("io_schema_ref")
-        with open(schema_path, "r", encoding="utf-8") as fh:
+        with open(schema_path, encoding="utf-8") as fh:
             schema = json.load(fh)
         user = prompt["user"]
         for attempt in range(2):
             raw = super().act(
                 prompt["system"],
                 user,
-                llm_hints=prompt.get("llm_hints"),
+                **(prompt.get("llm_hints") or {}),
                 **kwargs,
             )
             try:
@@ -49,7 +50,6 @@ class PromptFactoryAgent(LLMRoleAgent):
                 return json.dumps(data)
             if attempt == 0:
                 user = (
-                    user
-                    + "\nThe previous output was invalid or missing citations. Fix to schema."
+                    user + "\nThe previous output was invalid or missing citations. Fix to schema."
                 )
         return raw
