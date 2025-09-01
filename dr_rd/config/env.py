@@ -2,21 +2,27 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional
+from collections.abc import Mapping
 
-from dotenv import load_dotenv
 import streamlit as st
+from dotenv import load_dotenv
 
 load_dotenv()
 
-def _from_secrets(key: str) -> Optional[str]:
+
+def _from_secrets(key: str) -> str | None:
     try:
         for k, v in st.secrets.items():
             if k.lower() == key.lower():
-                return v if isinstance(v, str) else json.dumps(v)
+                if isinstance(v, str):
+                    return v
+                if isinstance(v, Mapping):
+                    return json.dumps(dict(v))
+                return json.dumps(v)
     except Exception:
         return None
     return None
+
 
 def get_env(key: str, default: str | None = None) -> str | None:
     value = os.getenv(key)
@@ -26,6 +32,7 @@ def get_env(key: str, default: str | None = None) -> str | None:
     if secret_val is not None:
         return secret_val
     return default
+
 
 def require_env(key: str) -> str:
     value = get_env(key)
@@ -41,5 +48,6 @@ def require_env(key: str) -> str:
             pass
         raise RuntimeError(message)
     return value
+
 
 __all__ = ["get_env", "require_env"]
