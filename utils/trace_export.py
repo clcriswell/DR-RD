@@ -147,7 +147,10 @@ def to_markdown(
             if meta:
                 header += f" ({', '.join(meta)})"
             lines.append(header)
-            summary = step.get("summary") or ""
+            raw_summary = step.get("summary")
+            if not raw_summary:
+                raw_summary = step.get("output") or step.get("result") or step.get("text") or ""
+            summary = _safe_summary(raw_summary, max_len=10_000)
             if sanitizer:
                 summary = sanitizer(summary)
             if len(summary) <= 200:
