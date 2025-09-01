@@ -30,12 +30,14 @@ def _coerce_to_list(raw: Any) -> List[Dict[str, Any]]:
             if not role or not isinstance(items, list):
                 continue
             for it in items:
-                out.append({
+                task = {
                     "role": role,
                     "title": (it or {}).get("title", ""),
                     "description": (it or {}).get("description", ""),
-                    "tool_request": (it or {}).get("tool_request"),
-                })
+                }
+                if (it or {}).get("tool_request"):
+                    task["tool_request"] = (it or {}).get("tool_request")
+                out.append(task)
         return out
     if isinstance(raw, list):
         return list(raw)
@@ -53,14 +55,14 @@ def normalize_plan_to_tasks(raw: Any) -> List[Dict[str, Any]]:
             continue  # e.g., "role"/"title"/"description" as role -> drop
         if len(title.strip()) < 3 or len(desc.strip()) < 3:
             continue
-        out.append(
-            {
-                "role": role,
-                "title": title.strip(),
-                "description": desc.strip(),
-                "tool_request": it.get("tool_request"),
-            }
-        )
+        task = {
+            "role": role,
+            "title": title.strip(),
+            "description": desc.strip(),
+        }
+        if it.get("tool_request"):
+            task["tool_request"] = it.get("tool_request")
+        out.append(task)
     return out
 
 def normalize_tasks(tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -77,12 +79,12 @@ def normalize_tasks(tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if key in seen:
             continue
         seen.add(key)
-        deduped.append(
-            {
-                "role": role,
-                "title": title,
-                "description": desc,
-                "tool_request": t.get("tool_request"),
-            }
-        )
+        task = {
+            "role": role,
+            "title": title,
+            "description": desc,
+        }
+        if t.get("tool_request"):
+            task["tool_request"] = t.get("tool_request")
+        deduped.append(task)
     return deduped

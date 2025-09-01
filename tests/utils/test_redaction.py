@@ -1,7 +1,8 @@
 from planning.segmenter import load_redaction_policy, redact_text
 
 
-def test_ipv6_and_address_redaction_idempotent():
+def test_ipv6_and_address_redaction_idempotent(monkeypatch):
+    monkeypatch.setenv("DRRD_ENABLE_PROMPT_REDACTION", "1")
     policy = load_redaction_policy()
     text = "Reach me at 2001:0db8:85a3:0000:0000:8a2e:0370:7334\n123 Main St"  # IPv6 and address
     red1 = redact_text(policy, text)

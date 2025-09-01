@@ -54,10 +54,7 @@ class ResumeNotPossible(Exception):
 
 def _invoke_agent(agent, idea: str, task: Dict[str, str], model: str | None = None) -> str:
     """Call an agent with best-effort interface detection."""
-    from core.agents.base_agent import LLMRoleAgent
 
-    if isinstance(agent, LLMRoleAgent):
-        return "out"
     text = f"{task.get('title', '')}: {task.get('description', '')}"
     # Preferred call signatures
     for name in ("run", "act", "execute", "__call__"):
