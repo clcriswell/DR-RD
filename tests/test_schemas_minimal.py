@@ -41,5 +41,5 @@ def test_task_spec_instantiation():
 
 
 def test_plan_requires_id_and_summary():
-    plan = Plan(tasks=[Task(id="T1", role="R", title="T", summary="S")])
+    plan = Plan(tasks=[Task(id="T1", title="R", summary="S")])
     assert plan.tasks[0].id == "T1"
