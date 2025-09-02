@@ -105,43 +105,6 @@ if _c is None:
                 )
                 st.rerun()
 
-# quick open via button
-if st.button(
-    "⌘K Command palette",
-    key="cmd_btn",
-    width="content",
-    help="Open global search",
-):
-    log_event({"event": "palette_opened"})
-    open_palette()
-
-# auto open via query param
-if st.query_params.get("cmd") == "1":
-    log_event({"event": "palette_opened", "source": "qp"})
-    open_palette()
-    st.query_params.pop("cmd", None)
-
-act = st.session_state.pop("_cmd_action", None)
-if act:
-    if act["action"] == "switch_page":
-        st.switch_page(act["params"]["page"])
-    elif act["action"] == "set_params":
-        st.query_params.update(act["params"])
-        st.rerun()
-    elif act["action"] == "copy":
-        st.code(act["params"]["text"], language=None)
-        st.toast("Copied link")
-    elif act["action"] == "start_demo":
-        st.query_params.update({"mode": "demo", "view": "run"})
-        st.toast("Demo mode selected. Review and start.")
-    log_event(
-        {
-            "event": "palette_executed",
-            "kind": act.get("kind"),
-            "action": act["action"],
-        }
-    )
-
 params = dict(st.query_params)
 uid = get_user_id()
 forced_nav = force_from_params(params, "exp_trace_nav")
@@ -282,6 +245,42 @@ def main() -> None:
             }.get(view_state["view"])
             if target:
                 st.switch_page(target)
+
+    # Command palette controls
+    if st.button(
+        "⌘K Command palette",
+        key="cmd_btn",
+        width="content",
+        help="Open global search",
+    ):
+        log_event({"event": "palette_opened"})
+        open_palette()
+
+    if st.query_params.get("cmd") == "1":
+        log_event({"event": "palette_opened", "source": "qp"})
+        open_palette()
+        st.query_params.pop("cmd", None)
+
+    act = st.session_state.pop("_cmd_action", None)
+    if act:
+        if act["action"] == "switch_page":
+            st.switch_page(act["params"]["page"])
+        elif act["action"] == "set_params":
+            st.query_params.update(act["params"])
+            st.rerun()
+        elif act["action"] == "copy":
+            st.code(act["params"]["text"], language=None)
+            st.toast("Copied link")
+        elif act["action"] == "start_demo":
+            st.query_params.update({"mode": "demo", "view": "run"})
+            st.toast("Demo mode selected. Review and start.")
+        log_event(
+            {
+                "event": "palette_executed",
+                "kind": act.get("kind"),
+                "action": act["action"],
+            }
+        )
 
     survey.render_usage_panel()
     components.help_once(
