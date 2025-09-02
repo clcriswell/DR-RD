@@ -51,19 +51,27 @@ class ResumeNotPossible(Exception):
     pass
 
 
-def _invoke_agent(agent, idea: str, task: Dict[str, str], model: str | None = None) -> str:
-    """Call an agent with best-effort interface detection."""
+def _invoke_agent(agent, context: str, task: Dict[str, str], model: str | None = None) -> str:
+    """Call an agent with best-effort interface detection.
 
-    text = f"{task.get('title', '')}: {task.get('description', '')}"
-    # Preferred call signatures
+    ``context`` and ``task`` are pseudonymized before invocation and the
+    resulting alias map is attached to ``task`` for later rehydration.
+    """
+
+    pseudo_payload, alias_map = pseudonymize_for_model({"context": context, "task": task})
+    pseudo_context = pseudo_payload["context"]
+    pseudo_task = pseudo_payload["task"]
+    task["alias_map"] = alias_map
+
+    text = f"{pseudo_task.get('title', '')}: {pseudo_task.get('description', '')}"
     for name in ("run", "act", "execute", "__call__"):
         fn = getattr(agent, name, None)
         if callable(fn):
             try:
-                return fn(idea, task, model=model)
+                return fn(pseudo_context, pseudo_task, model=model)
             except TypeError:
                 try:
-                    return fn(idea, task)
+                    return fn(pseudo_context, pseudo_task)
                 except TypeError:
                     try:
                         return fn(text)
@@ -343,6 +351,7 @@ def execute_plan(
     agents = agents or {}
     answers: Dict[str, str] = {}
     role_to_findings: Dict[str, dict] = {}
+    alias_maps: Dict[str, Dict[str, str]] = {}
     evidence = EvidenceSet(project_id=project_id) if save_evidence else None
     collector = AgentTraceCollector(project_id=project_id)
     prompt_previews: list[str] = []
@@ -405,7 +414,8 @@ def execute_plan(
             prompt_previews.append(preview[:4000])
             collector.append_event(handle, "call", {"attempt": 1})
             try:
-                out = _invoke_agent(agent, idea, routed, model=model)
+                context = routed.get("context", idea)
+                out = _invoke_agent(agent, context, routed, model=model)
             except Exception as e:
                 span.set_attribute("status", "error")
                 span.record_exception(e)
@@ -419,12 +429,13 @@ def execute_plan(
                 collector.append_event(handle, "call", {"attempt": 2})
                 retry_task = dict(routed)
                 retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
-                return _invoke_agent(agent, idea, retry_task, model=model)
+                return _invoke_agent(agent, context, retry_task, model=model)
 
             _check()
             text, meta = validate_and_retry(role, routed, text, _retry_fn)
             collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
             answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
+            alias_maps[role] = routed.get("alias_map", {})
             payload = extract_json_block(text) or {}
             role_to_findings[role] = payload
             norm = _normalize_evidence_payload(payload)
@@ -550,9 +561,14 @@ def execute_plan(
                     "role": "Reflection",
                     "title": "Review",
                     "description": json.dumps(role_to_findings),
+                    "context": json.dumps(role_to_findings),
                 }
                 try:
-                    ref_out = _invoke_agent(reflection_agent, idea, ref_task)
+                    ref_out = _invoke_agent(
+                        reflection_agent,
+                        ref_task.get("context", idea),
+                        ref_task,
+                    )
                 except Exception as e:
                     safe_exc(logger, idea, "invoke_agent[Reflection]", e)
                     ref_out = "no further tasks"
@@ -728,6 +744,10 @@ def execute_plan(
             write_trace_markdown(run_id, trace_data)
     except Exception:
         pass
+    try:
+        st.session_state["alias_maps"] = alias_maps
+    except Exception:
+        pass
     return answers
 
 
@@ -749,7 +769,19 @@ def compose_final_proposal(
 
     _check()
     findings_md = "\n".join(f"### {r}\n{a}" for r, a in answers.items())
-    prompt = SYNTHESIZER_TEMPLATE.format(idea=idea, findings_md=findings_md)
+    alias_map: Dict[str, str] = {}
+    try:
+        for m in st.session_state.get("alias_maps", {}).values():
+            alias_map.update(m)
+    except Exception:
+        pass
+    pseudo_payload, extra_map = pseudonymize_for_model(
+        {"idea": idea, "findings_md": findings_md}
+    )
+    alias_map.update(extra_map)
+    prompt = SYNTHESIZER_TEMPLATE.format(
+        idea=pseudo_payload["idea"], findings_md=pseudo_payload["findings_md"]
+    )
     system_prompt = st.session_state.get("prompt_texts", {}).get(
         "synthesizer", "You are an expert R&D writer."
     )
@@ -761,6 +793,8 @@ def compose_final_proposal(
         result = complete(system_prompt, prompt)
     _check()
     final_markdown = (result.content or "").strip()
+    if alias_map:
+        final_markdown = rehydrate_output(final_markdown, alias_map)
     run_id = st.session_state.get("run_id")
     if run_id:
         from utils.paths import write_text

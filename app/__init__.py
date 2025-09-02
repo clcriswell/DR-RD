@@ -10,6 +10,7 @@ init_gcp_logging()
 import io
 import json
 import logging
+import os
 import time
 
 import fitz
@@ -368,6 +369,9 @@ def main() -> None:
         cfg = replace(cfg, mode="demo")
 
     kwargs = to_orchestrator_kwargs(cfg)
+    os.environ["DRRD_PSEUDONYMIZE_TO_MODEL"] = (
+        "1" if kwargs.get("pseudonymize_to_model", True) else "0"
+    )
     resume_from = st.query_params.pop("resume_from", None)
     if resume_from:
         kwargs["resume_from"] = resume_from

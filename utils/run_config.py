@@ -23,6 +23,7 @@ class RunConfig:
     verbose_planner: bool = False
     auto_export_trace: bool = False
     auto_export_report: bool = False
+    pseudonymize_to_model: bool = True
     advanced: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -67,6 +68,7 @@ def to_orchestrator_kwargs(cfg: RunConfig) -> Dict[str, Any]:
         "budget_limit_usd": cfg.budget_limit_usd,
         "max_tokens": cfg.max_tokens,
         "knowledge_sources": list(cfg.knowledge_sources),
+        "pseudonymize_to_model": cfg.pseudonymize_to_model,
     }
     kwargs.update(cfg.advanced)
     return kwargs

@@ -6,6 +6,8 @@ import inspect
 import logging
 from typing import Callable, Tuple
 
+from core.privacy import pseudonymize_for_model
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,17 +39,21 @@ def invoke_agent(agent, *, task: dict, model: str | None = None, meta: dict | No
     accepted parameters.
     """
 
-    name = (meta or {}).get("agent") or type(agent).__name__
+    meta = meta or {}
+    pseudo_task, alias_map = pseudonymize_for_model(task)
+    meta["alias_map"] = alias_map
+
+    name = meta.get("agent") or type(agent).__name__
     method_name, fn = resolve_invoker(agent)
     logger.info("invoke agent=%s via=%s", name, method_name)
 
     try:
-        return fn(task=task, model=model, meta=meta)
+        return fn(task=pseudo_task, model=model, meta=meta)
     except TypeError:
         sig = inspect.signature(fn)
         kwargs = {}
         if "task" in sig.parameters:
-            kwargs["task"] = task
+            kwargs["task"] = pseudo_task
         if "model" in sig.parameters:
             kwargs["model"] = model
         if "meta" in sig.parameters:

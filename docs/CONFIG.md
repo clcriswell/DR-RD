@@ -20,6 +20,11 @@ per-artifact TTLs, PII detection patterns and erasure parameters. Tenants may
 override values via `config/tenants/{org}/{workspace}/retention.yaml`.
 Set the `PRIVACY_SALT` environment variable to derive stable subject hashes.
 
+`DRRD_PSEUDONYMIZE_TO_MODEL` controls per-field aliasing before any model call.
+When set (default), sensitive entities are replaced with placeholders like
+`[PERSON_1]`. The Streamlit sidebar exposes an "Alias sensitive entities" toggle
+which writes this flag for the current run.
+
 Diagnostics for trace diffing read thresholds from `config/diagnostics.yaml`:
 
 - `latency.warn_ms` / `latency.fail_ms`
