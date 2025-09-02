@@ -12,7 +12,7 @@ User idea → Planner → Router/Registry → Executor → Summarization → Syn
 
 ### Runtime Modes
 - **standard**: target cost USD 2.5
-Deprecated aliases: test, deep
+
 
 ## Agent Roster
 | Role | Module | Contract |
@@ -56,4 +56,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-09-02T06:07:13.364285Z from commit d44303e_
+_Last generated at 2025-09-02T19:57:40.702578Z from commit 2bc8e93_

@@ -43,6 +43,7 @@ from utils.telemetry import (
     stream_started,
 )
 from utils.timeouts import Deadline, with_deadline
+from orchestrators.executor import execute as exec_artifacts
 
 evidence: EvidenceSet | None = None
 
@@ -746,6 +747,10 @@ def execute_plan(
         st.session_state["alias_maps"] = alias_maps
     except Exception:
         pass
+    try:
+        exec_artifacts(tasks, {"run_id": run_id or "", "idea": idea})
+    except Exception:
+        logger.warning("executor artifacts failed", exc_info=True)
     return answers
 
 

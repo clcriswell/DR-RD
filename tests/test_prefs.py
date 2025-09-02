@@ -25,10 +25,10 @@ def test_save_and_load_roundtrip(tmp_path, monkeypatch):
     _patch_config(tmp_path, monkeypatch)
     data = prefs.DEFAULT_PREFS.copy()
     data["defaults"] = data["defaults"].copy()
-    data["defaults"]["mode"] = "deep"
+    data["defaults"]["mode"] = "standard"
     prefs.save_prefs(data)
     loaded = prefs.load_prefs()
-    assert loaded["defaults"]["mode"] == "deep"
+    assert loaded["defaults"]["mode"] == "standard"
     assert loaded["version"] == prefs.DEFAULT_PREFS["version"]
 
 
@@ -55,11 +55,11 @@ def test_merge_defaults(tmp_path, monkeypatch):
     _patch_config(tmp_path, monkeypatch)
     data = prefs.DEFAULT_PREFS.copy()
     data["defaults"] = data["defaults"].copy()
-    data["defaults"]["mode"] = "test"
+    data["defaults"]["mode"] = "standard"
     prefs.save_prefs(data)
     base = {"mode": "standard", "max_tokens": 8000, "budget_limit_usd": None, "knowledge_sources": []}
     merged = prefs.merge_defaults(base)
-    assert merged["mode"] == "test"
+    assert merged["mode"] == "standard"
     assert merged["max_tokens"] is None
     assert "budget_limit_usd" in merged
 

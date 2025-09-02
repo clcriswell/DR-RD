@@ -37,7 +37,11 @@ def _get_agent_registry() -> dict[str, str]:
     import types
 
     if "streamlit" not in sys.modules:
-        sys.modules["streamlit"] = types.SimpleNamespace()
+        def _cr(func=None, *a, **k):
+            if func:
+                return func
+            return lambda f: f
+        sys.modules["streamlit"] = types.SimpleNamespace(cache_resource=_cr)
     if "openai" not in sys.modules:
 
         class _Resp:
@@ -145,7 +149,6 @@ def build_repo_map() -> dict:
         ],
         "architecture": "Planner → Router/Registry → Executor → Summarization → Synthesizer",
         "runtime_modes": modes,
-        "mode_aliases": aliases,
         "env_flags": [
             "DRRD_MODE (deprecated shim)",
             "RAG_ENABLED",
@@ -169,6 +172,8 @@ def build_repo_map() -> dict:
         ),
         "rules_ref": "docs/REPO_RULES.md",
     }
+    if aliases:
+        data["mode_aliases"] = aliases
     return data
 
 

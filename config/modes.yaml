@@ -17,6 +17,4 @@ standard: &standard
   enable_images: false
   graph_enabled: false
 
-test: *standard  # DEPRECATED: alias to 'standard'; will be removed next release
-deep: *standard  # DEPRECATED: alias to 'standard'; will be removed next release
-# redaction time
+# Only the standard profile is supported.

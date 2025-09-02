@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import dataclasses
 from typing import Any
+from pathlib import Path
+import os
 
 import streamlit as st
 
@@ -57,40 +59,41 @@ def render_sidebar() -> RunConfig:
             key="idea",
             help="What should the agents work on?",
         )
-        run_store.set("idea", idea)
-        _track_change("idea", idea)
-        modes = list(UI_PRESETS.keys())
-        current_mode = run_store.get("mode", modes[0])
-        mode = st.selectbox(
-            "Mode",
-            modes,
-            index=modes.index(current_mode) if current_mode in modes else 0,
-            key="mode",
-            help="Choose run mode",
-        )
-        run_store.set("mode", mode)
-        _track_change("mode", mode)
+        legacy_mode = run_store.get("mode")
+        if legacy_mode not in ("", "standard"):
+            st.warning(f"Mode '{legacy_mode}' is deprecated; using 'standard'.", icon="⚠️")
+        run_store.set("mode", "standard")
+        _track_change("mode", "standard")
 
         with st.expander("Knowledge"):
             knowledge_store.init_store()
-            builtins = [("Samples", "samples")]
-            choices = builtins + knowledge_store.as_choice_list()
-            options = [c[1] for c in choices]
-            labels = {c[1]: c[0] for c in choices}
-            default_sources = [s for s in run_store.get("knowledge_sources", []) if s in options]
-            sources = st.multiselect(
-                "Sources",
-                options,
-                default=default_sources,
-                key="knowledge_sources",
-                format_func=lambda x: labels.get(x, x),
-                help="Select knowledge sources",
+            defaults_sel = set(run_store.get("knowledge_sources", []))
+            samples = st.checkbox("Samples", value="samples" in defaults_sel, key="kn_samples")
+            connectors_enabled = bool(os.getenv("CONNECTORS_CONFIGURED"))
+            connectors = st.checkbox(
+                "Connectors",
+                value="connectors" in defaults_sel and connectors_enabled,
+                disabled=not connectors_enabled,
+                key="kn_connectors",
+                help="Configure connectors in Settings → Connectors",
             )
+            uploads = st.checkbox("Uploads", value="uploads" in defaults_sel, key="kn_uploads")
+            sources: list[str] = []
+            if samples:
+                sources.append("samples")
+            if connectors:
+                sources.append("connectors")
+            if uploads:
+                sources.append("uploads")
+                uploaded_files = st.file_uploader("Upload files", accept_multiple_files=True, key="kn_upload_files")
+                if uploaded_files:
+                    upload_dir = Path(".dr_rd/uploads")
+                    upload_dir.mkdir(parents=True, exist_ok=True)
+                    for f in uploaded_files:
+                        (upload_dir / f.name).write_bytes(f.getvalue())
+                        # TODO: queue indexing of new files
             run_store.set("knowledge_sources", sources)
             _track_change("knowledge_sources", sources)
-            with st.expander("Manage sources"):
-                st.caption("Manage advanced sources here.")
-
         with st.expander("Diagnostics"):
             show_agent_trace = st.checkbox(
                 "Show agent trace",

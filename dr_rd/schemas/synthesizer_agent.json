@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Synthesizer Agent",
+  "type": "object",
+  "properties": {
+    "summary": {"type": "string"},
+    "key_points": {"type": "array", "items": {"type": "string"}},
+    "contradictions": {"type": "array", "items": {"type": "string"}},
+    "confidence": {"type": "number"},
+    "sources": {"type": "array", "items": {"type": "string"}},
+    "citations_json": {"type": "string"}
+  },
+  "required": ["summary", "key_points", "citations_json"],
+  "additionalProperties": false
+}
