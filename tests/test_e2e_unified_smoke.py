@@ -43,7 +43,7 @@ def _run_once(monkeypatch, caplog, fetch_resp):
 
 
 def test_e2e_unified_smoke(monkeypatch, caplog):
-    monkeypatch.setenv("DRRD_MODE", "deep")
+    monkeypatch.setenv("DRRD_MODE", "legacy")
     m1 = pick_model_for_stage("exec")
     monkeypatch.setenv("DRRD_MODE", "bogus")
     m2 = pick_model_for_stage("exec")

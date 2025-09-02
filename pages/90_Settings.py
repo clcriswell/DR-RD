@@ -2,6 +2,7 @@
 
 import copy
 import json
+import os
 
 import streamlit as st
 
@@ -90,12 +91,8 @@ def _flatten(d: dict, prefix: str = "", out: dict | None = None) -> dict:
 
 # Defaults for new runs
 st.subheader("Defaults for new runs")
-mode = st.selectbox(
-    t("mode_label"),
-    ["standard", "test", "deep"],
-    index=["standard", "test", "deep"].index(prefs["defaults"].get("mode", "standard")),
-    help=t("mode_help"),
-)
+st.caption("Mode: standard")
+mode = "standard"
 max_tokens = st.number_input(
     t("max_tokens_label"),
     min_value=0,
@@ -110,12 +107,32 @@ budget_limit = st.number_input(
     value=prefs["defaults"].get("budget_limit_usd") or 0.0,
     help=t("budget_limit_help"),
 )
-knowledge_sources = st.multiselect(
-    t("knowledge_sources_label"),
-    ["samples", "uploads", "connectors"],
-    default=prefs["defaults"].get("knowledge_sources", []),
-    help=t("knowledge_sources_help"),
+ks_defaults = set(prefs["defaults"].get("knowledge_sources", []))
+ks_samples = st.checkbox(
+    "Samples",
+    value="samples" in ks_defaults,
+    key="pref_samples",
 )
+connectors_enabled = bool(os.getenv("CONNECTORS_CONFIGURED"))
+ks_connectors = st.checkbox(
+    "Connectors",
+    value="connectors" in ks_defaults and connectors_enabled,
+    disabled=not connectors_enabled,
+    key="pref_connectors",
+    help="Configure connectors in Settings → Connectors",
+)
+ks_uploads = st.checkbox(
+    "Uploads",
+    value="uploads" in ks_defaults,
+    key="pref_uploads",
+)
+knowledge_sources = []
+if ks_samples:
+    knowledge_sources.append("samples")
+if ks_connectors:
+    knowledge_sources.append("connectors")
+if ks_uploads:
+    knowledge_sources.append("uploads")
 
 # UI behavior
 st.subheader("UI behavior")

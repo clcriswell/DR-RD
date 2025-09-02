@@ -18,7 +18,7 @@ def test_round_trip_simple_fields():
     }
     cfg = {
         "idea": "hello",
-        "mode": "deep",
+        "mode": "standard",
         "budget_limit_usd": 2.5,
         "max_tokens": 8000,
         "knowledge_sources": ["local", "samples"],
@@ -27,7 +27,7 @@ def test_round_trip_simple_fields():
     dec = decode_config(enc)
     merged = merge_into_defaults(defaults, dec)
     assert merged["idea"] == "hello"
-    assert merged["mode"] == "deep"
+    assert merged["mode"] == "standard"
     assert isinstance(merged["budget_limit_usd"], float)
     assert isinstance(merged["max_tokens"], int)
     assert merged["knowledge_sources"] == ["local", "samples"]

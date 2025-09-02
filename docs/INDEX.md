@@ -2,6 +2,8 @@
 
 Quick links to core documentation:
 
+The runtime operates solely in *standard* mode. Each run can draw from Samples, Connectors, and Uploads knowledge sources and produces `build_spec.md` and `work_plan.md` artifacts.
+
 - [Playbook](ARCHITECTURE.md)
 - [Configuration](CONFIG.md)
 - [RAG Pipeline](RAG_PIPELINE.md)

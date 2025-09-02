@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-09-02T06:07:13.364285Z'
-git_sha: d44303e0691fe7f2b024cde477f1706481d49ec6
+generated_at: '2025-09-02T19:57:40.702578Z'
+git_sha: 2bc8e93525a37d6cbbbf348658f862e3b31ca576
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -33,9 +33,6 @@ runtime_modes:
     faiss_index_uri: ''
     enable_images: false
     graph_enabled: false
-mode_aliases:
-- test
-- deep
 env_flags:
 - DRRD_MODE (deprecated shim)
 - RAG_ENABLED
@@ -184,7 +181,21 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
+- path: orchestrators/spec_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
 - path: orchestrators/app_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/executor.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -198,7 +209,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/spec_builder.py
+- path: orchestrators/__init__.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -212,20 +223,6 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/__init__.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/summarization/integrator.py
-  role: Summarization
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
 - path: core/summarization/role_summarizer.py
   role: Summarization
   responsibilities: []
@@ -234,6 +231,13 @@ modules:
   invoked_by: []
   invokes: []
 - path: core/summarization/schemas.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/integrator.py
   role: Summarization
   responsibilities: []
   inputs: []

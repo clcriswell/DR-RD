@@ -36,18 +36,16 @@ flowchart LR
 ## Configuration
 Most run-time options live in the sidebar:
 - **Project idea** – free‑form text describing the goal.
-- **Mode** – selects presets that control target cost, retrieval, and search behavior.
-- **Knowledge sources** – choose built-in or uploaded sources for RAG.
+- **Knowledge sources** – toggle Samples, Connectors, and Uploads for retrieval.
 - **Diagnostics** – toggle agent trace and verbose planner output.
 - **Exports** – auto-export trace or report after a run.
 - **Advanced options** – temperature, retries, and overall timeout.
-
-Modes are defined in `config/modes.yaml` and include switches for vector search and live web search.
+Runs always execute in the standard profile defined in `config/modes.yaml`.
 
 ## Using the App
 1. Enter an idea in the sidebar and adjust settings.
 2. Click **Run** (from the main page) to generate a plan, execute tasks, and view results.
-3. Review the synthesized proposal in the main panel.
+3. Review the synthesized proposal and associated artifacts (`build_spec.md` and `work_plan.md`) in the main panel.
 
 ## Agent Trace
 When **Show agent trace** is enabled, a Trace page becomes available:
@@ -60,7 +58,10 @@ When **Show agent trace** is enabled, a Trace page becomes available:
 The system first queries a FAISS vector index when retrieval is enabled. If no context is found and live search is on, a web search backend such as OpenAI or SerpAPI provides additional snippets. Both pathways respect retrieval budgets to avoid excessive calls.
 
 ## Budgets and Cost Meter
-Each mode targets a total cost (e.g., $2.50 for *standard*). The cost meter estimates remaining budget before a run and shows actual vs. projected spend afterward.
+The standard profile targets a total cost (e.g., $2.50). The cost meter estimates remaining budget before a run and shows actual vs. projected spend afterward.
+
+## Metrics
+Every model call returns token usage and cost data from the provider. Per-step totals are aggregated into the trace and displayed on the Reports page.
 
 ## Export and Downloads
 - Automatic export options produce trace files or markdown reports on completion.
