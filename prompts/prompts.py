@@ -15,8 +15,8 @@ PLANNER_USER_PROMPT_TEMPLATE = (
     # Schema: dr_rd/schemas/planner_agent.json
     "Project idea: {idea}{constraints_section}{risk_section}\n"
     "Break the project into role-specific tasks. "
-    'Output ONLY JSON matching {{"tasks": [...]}} with at least 3 tasks. '
-    'If you cannot produce at least 3 tasks, return an error message explaining what info is missing.'
+    'Output ONLY JSON matching {{"tasks": [...]}} with at least 4 tasks. '
+    'If you cannot produce at least 4 tasks, return an error message explaining what info is missing.'
 )
 
 SYNTHESIZER_TEMPLATE = """\
