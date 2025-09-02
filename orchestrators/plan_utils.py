@@ -93,5 +93,8 @@ def _post(tasks: List[Dict[str, str]], backfill: bool, dedupe: bool) -> List[Dic
                     "description": f"Draft first actionable tasks for {miss} to advance the project.",
                 }
             )
+    for t in tasks:
+        t.setdefault("field", t["role"].lower().replace(" ", "_"))
+        t.setdefault("context", t.get("description", ""))
     return tasks
 

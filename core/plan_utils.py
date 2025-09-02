@@ -88,5 +88,9 @@ def normalize_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         }
         if t.get("tool_request"):
             task["tool_request"] = t.get("tool_request")
+        if t.get("field"):
+            task["field"] = t.get("field")
+        if t.get("context"):
+            task["context"] = t.get("context")
         deduped.append(task)
     return deduped

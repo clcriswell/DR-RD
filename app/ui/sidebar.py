@@ -108,6 +108,14 @@ def render_sidebar() -> RunConfig:
             )
             run_store.set("verbose_planner", verbose_planner)
             _track_change("verbose_planner", verbose_planner)
+            aliasing = st.checkbox(
+                "Alias sensitive entities",
+                value=run_store.get("pseudonymize_to_model", True),
+                key="pseudonymize_to_model",
+                help="Show placeholder labels like [PERSON_1] in outputs",
+            )
+            run_store.set("pseudonymize_to_model", aliasing)
+            _track_change("pseudonymize_to_model", aliasing)
 
         with st.expander("Exports"):
             auto_export_trace = st.checkbox(
