@@ -31,4 +31,6 @@ def test_flatten_trace_rows():
         "summary",
         "prompt",
         "citations",
+        "planned_tasks",
+        "routed_tasks",
     }

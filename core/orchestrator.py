@@ -187,32 +187,35 @@ def generate_plan(
         data = extract_json_strict(raw)
         if alias_map:
             data = rehydrate_output(data, alias_map)
-        try:
-            plan = Plan.model_validate(data)
-        except Exception as e:
-            from pydantic import ValidationError
+        data = _normalize_plan_payload(data)
+        from pydantic import ValidationError
 
-            if isinstance(e, ValidationError):
-                errors = len(e.errors())
-                data = _normalize_plan_payload(data)
-                try:
-                    plan = Plan.model_validate(data)
-                except ValidationError as e2:
-                    dump_dir = Path("debug/logs")
-                    dump_dir.mkdir(parents=True, exist_ok=True)
-                    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
-                    dump_path = dump_dir / f"planner_payload_{ts}.json"
-                    dump_path.write_text(json.dumps(data, indent=2))
-                    logger.error(
-                        "planner.validation_failed",
-                        extra={"errors": errors, "dump_path": str(dump_path)},
-                    )
-                    raise ValueError(
-                        f"Planner JSON validation failed; payload dumped to {dump_path.name}"
-                    ) from e2
-            else:
-                raise
-        return normalize_tasks(normalize_plan_to_tasks(plan.model_dump()["tasks"]))
+        try:
+            plan = Plan.model_validate(data, strict=True)
+        except ValidationError as e:
+            dump_dir = Path("debug/logs")
+            dump_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
+            dump_path = dump_dir / f"planner_payload_{ts}.json"
+            dump_path.write_text(json.dumps(data, indent=2))
+            logger.error(
+                "planner.validation_failed",
+                extra={"errors": len(e.errors()), "dump_path": str(dump_path)},
+            )
+            raise ValueError("Planner JSON validation failed") from e
+        tasks = normalize_tasks(normalize_plan_to_tasks(plan.model_dump()["tasks"]))
+        try:
+            st.session_state["plan_tasks"] = list(tasks)
+        except Exception:
+            pass
+        run_id = st.session_state.get("run_id", "latest")
+        from utils.paths import write_text
+
+        try:
+            write_text(run_id, "plan", "json", json.dumps(plan.model_dump(), indent=2))
+        except Exception:
+            pass
+        return tasks
 
     system_prompt = st.session_state.get("prompt_texts", {}).get("planner", "You are the Planner.")
     if pseudo_flag:
@@ -381,14 +384,16 @@ def execute_plan(
                 {"planned_role": t.get("role"), "routed_role": role, "model": model},
             )
             try:
-                st.session_state["routing_report"].append(
-                    {
-                        "task_id": tid,
-                        "planned_role": t.get("role"),
-                        "routed_role": role,
-                        "model": model,
-                    }
-                )
+                unknown = routed.get("route_decision", {}).get("unknown_role")
+                entry = {
+                    "task_id": tid,
+                    "planned_role": t.get("role"),
+                    "routed_role": role,
+                    "model": model,
+                }
+                if unknown:
+                    entry["unknown_role"] = unknown
+                st.session_state["routing_report"].append(entry)
                 st.session_state["live_status"][tid] = {
                     "done": False,
                     "progress": 0.0,
@@ -517,6 +522,10 @@ def execute_plan(
             )
 
     norm_tasks = list(normalize_tasks(tasks))
+    try:
+        trace_writer.flush_phase_meta(run_id or "", "router", {"routed_tasks": len(norm_tasks)})
+    except Exception:
+        pass
     eval_round = 0
     evaluations: List[dict] = []
     while True:
@@ -748,7 +757,7 @@ def execute_plan(
     except Exception:
         pass
     try:
-        exec_artifacts(tasks, {"run_id": run_id or "", "idea": idea})
+        exec_artifacts(norm_tasks, {"run_id": run_id or "", "idea": idea})
     except Exception:
         logger.warning("executor artifacts failed", exc_info=True)
     return answers
@@ -958,7 +967,21 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
             if step.get("phase") == "planner" and isinstance(step.get("summary"), list):
                 tasks = step["summary"]
                 break
+    if not tasks:
+        trace_writer.append_step(
+            run_id,
+            {"phase": "planner", "summary": [], "planned_tasks": 0, "error": "planner_empty_or_invalid"},
+        )
+        try:
+            trace_writer.flush_phase_meta(run_id, "planner", {"planned_tasks": 0})
+        except Exception:
+            pass
     agents = kwargs.get("agents") or {}
+    if not tasks:
+        from utils.paths import write_text
+
+        write_text(run_id, "report", "md", "planner_empty_or_invalid\n")
+        return ""
     results: Dict[str, str] = {}
     if start["executor"] == 0:
         results = execute_plan(idea, tasks, agents)
@@ -1029,22 +1052,37 @@ def run_stream(
                 if res.findings:
                     meta["safety"] = asdict(res)
                     safety_flagged_step(run_id, "planner", [f.category for f in res.findings])
-                trace_writer.append_step(
-                    run_id,
-                    {
-                        "phase": "planner",
-                        "summary": tasks,
-                        "prompt_preview": st.session_state.pop("_last_prompt", None),
-                        **({"safety": asdict(res)} if res.findings else {}),
-                    },
-                )
+                step_data = {
+                    "phase": "planner",
+                    "summary": tasks,
+                    "prompt_preview": st.session_state.pop("_last_prompt", None),
+                    "planned_tasks": len(tasks),
+                    **({"safety": asdict(res)} if res.findings else {}),
+                }
+                if not tasks:
+                    step_data["error"] = "planner_empty_or_invalid"
+                trace_writer.append_step(run_id, step_data)
+                try:
+                    trace_writer.flush_phase_meta(run_id, "planner", {"planned_tasks": len(tasks)})
+                except Exception:
+                    pass
                 yield Event("summary", phase="planner", text=text)
-                yield Event("step_end", phase="planner", step_id="planner", meta=meta)
+                meta_err = meta
+                if not tasks:
+                    meta_err = {"error": "planner_empty_or_invalid"}
+                    from utils.paths import write_text
+
+                    write_text(run_id, "report", "md", "planner_empty_or_invalid\n")
+                yield Event("step_end", phase="planner", step_id="planner", meta=meta_err)
                 yield Event(
                     "usage_delta",
                     meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0},
                 )
                 yield Event("phase_end", phase="planner")
+                if not tasks:
+                    yield Event("error", text="planner_empty_or_invalid")
+                    stream_completed(run_id, "error")
+                    return
 
             # Executor phase
             with otel.start_span("phase.executor", attrs={"run_id": run_id, "phase": "executor"}):
@@ -1079,15 +1117,14 @@ def run_stream(
                 if res.findings:
                     meta["safety"] = asdict(res)
                     safety_flagged_step(run_id, "executor", [f.category for f in res.findings])
-                trace_writer.append_step(
-                    run_id,
-                    {
-                        "phase": "executor",
-                        "summary": answers,
-                        "prompt_preview": st.session_state.pop("_last_prompt", None),
-                        **({"safety": asdict(res)} if res.findings else {}),
-                    },
-                )
+                step_data = {
+                    "phase": "executor",
+                    "summary": answers,
+                    "prompt_preview": st.session_state.pop("_last_prompt", None),
+                    "routed_tasks": len(tasks),
+                    **({"safety": asdict(res)} if res.findings else {}),
+                }
+                trace_writer.append_step(run_id, step_data)
                 yield Event("summary", phase="executor", text=text)
                 yield Event("step_end", phase="executor", step_id="executor", meta=meta)
                 yield Event(

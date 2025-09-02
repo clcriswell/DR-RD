@@ -24,6 +24,8 @@ def execute(plan: List[Dict[str, Any]], ctx: Dict[str, Any]) -> Dict[str, Path]:
     """Write ``build_spec.md`` and ``work_plan.md`` artifacts for a run."""
     run_id = ctx.get("run_id", "latest")
     idea = ctx.get("idea", "")
+    if not plan:
+        return {}
     tasks_md = "\n".join(f"- {t.get('title','')}" for t in plan)
     context = {"idea": idea, "tasks": tasks_md}
 
