@@ -19,6 +19,13 @@ def _read_trace(p: Path) -> list[Any]:
     return []
 
 
+def read_trace(run_id: str) -> list[Any]:
+    """Return the saved trace list for ``run_id`` or an empty list."""
+
+    p = trace_path(run_id)
+    return _read_trace(p) if p.exists() else []
+
+
 def _atomic_write(p: Path, data: list[Any]) -> None:
     tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -52,4 +59,4 @@ def flush_phase_meta(run_id: str, phase: str, meta: Mapping[str, Any]) -> None:
     _atomic_write(p, existing)
 
 
-__all__ = ["trace_path", "append_step", "flush_phase_meta"]
+__all__ = ["trace_path", "append_step", "flush_phase_meta", "read_trace"]

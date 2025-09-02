@@ -947,6 +947,12 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
     if start["planner"] == 0:
         tasks = generate_plan(idea)
         checkpoints.mark_step_done(run_id, "planner", "plan")
+    elif resume_from:
+        # When resuming after planning, recover the plan from the prior trace
+        for step in trace_writer.read_trace(resume_from):
+            if step.get("phase") == "planner" and isinstance(step.get("summary"), list):
+                tasks = step["summary"]
+                break
     agents = kwargs.get("agents") or {}
     results: Dict[str, str] = {}
     if start["executor"] == 0:
