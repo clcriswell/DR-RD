@@ -1,8 +1,10 @@
 import json
-from typing import Any, Dict, List
+from typing import Any
+
 from .roles import canonicalize, normalize_role
 
-def _coerce_to_list(raw: Any) -> List[Dict[str, Any]]:
+
+def _coerce_to_list(raw: Any) -> list[dict[str, Any]]:
     # Accept str (JSON), dict (single task or role->list), list
     if raw is None:
         return []
@@ -21,10 +23,10 @@ def _coerce_to_list(raw: Any) -> List[Dict[str, Any]]:
         raw = data
     if isinstance(raw, dict):
         # Could be single task object OR role->list mapping
-        if {"role","title","description"} <= set(map(str.lower, raw.keys())):
+        if {"id", "title", "summary"} <= set(map(str.lower, raw.keys())):
             return [raw]
         # role -> list-of-{title,description}
-        out: List[Dict[str, Any]] = []
+        out: list[dict[str, Any]] = []
         for role_key, items in (raw or {}).items():
             role = normalize_role(role_key)
             if not role or not isinstance(items, list):
@@ -43,21 +45,20 @@ def _coerce_to_list(raw: Any) -> List[Dict[str, Any]]:
         return list(raw)
     return []
 
-def normalize_plan_to_tasks(raw: Any) -> List[Dict[str, Any]]:
+
+def normalize_plan_to_tasks(raw: Any) -> list[dict[str, Any]]:
     items = _coerce_to_list(raw)
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for it in items:
-        role = canonicalize(normalize_role((it or {}).get("role")))
-        title = (it or {}).get("title", "") or ""
-        desc = (it or {}).get("description", "") or ""
-        # Filter out the “exploded char stream” and junk:
+        role = canonicalize(normalize_role((it or {}).get("title")))
+        desc = (it or {}).get("summary", "") or ""
         if not role:
-            continue  # e.g., "role"/"title"/"description" as role -> drop
-        if len(title.strip()) < 3 or len(desc.strip()) < 3:
+            continue
+        if len(desc.strip()) < 3:
             continue
         task = {
             "role": role,
-            "title": title.strip(),
+            "title": desc.strip(),
             "description": desc.strip(),
         }
         if it.get("tool_request"):
@@ -65,10 +66,11 @@ def normalize_plan_to_tasks(raw: Any) -> List[Dict[str, Any]]:
         out.append(task)
     return out
 
-def normalize_tasks(tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+def normalize_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Canonicalize roles and deduplicate tasks."""
     seen = set()
-    deduped: List[Dict[str, Any]] = []
+    deduped: list[dict[str, Any]] = []
     for t in tasks:
         role = canonicalize(normalize_role((t or {}).get("role")))
         title = (t or {}).get("title", "")

@@ -1,40 +1,45 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
+from pydantic.config import ConfigDict
 
 
 class ScopeNote(BaseModel):
     """Metadata captured from the intake UI about the project scope."""
 
     idea: str
-    constraints: List[str]
-    time_budget_hours: Optional[float] = None
-    cost_budget_usd: Optional[float] = None
+    constraints: list[str]
+    time_budget_hours: float | None = None
+    cost_budget_usd: float | None = None
     risk_posture: Literal["low", "medium", "high"]
-    redaction_rules: Optional[List[str]] = None
+    redaction_rules: list[str] | None = None
 
 
 class Task(BaseModel):
     """Single task item produced by the planner."""
 
     id: str
-    role: str
-    title: str
-    summary: str
-    description: Optional[str] = None
-    inputs: Optional[Dict[str, Any]] = None
-    dependencies: List[str] = Field(default_factory=list)
-    stop_rules: List[str] = Field(default_factory=list)
-    tags: List[str] = Field(default_factory=list)
-    tool_request: Optional[Dict[str, Any]] = None
+    title: str = Field(validation_alias=AliasChoices("title", "role", "name"))
+    summary: str = Field(
+        validation_alias=AliasChoices("summary", "objective", "description", "goal")
+    )
+    inputs: dict[str, Any] | None = None
+    dependencies: list[str] = Field(default_factory=list)
+    stop_rules: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    tool_request: dict[str, Any] | None = None
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
 
 class Plan(BaseModel):
     """Planner response schema."""
 
-    tasks: List[Task] = Field(min_length=1)
+    tasks: list[Task] = Field(min_length=1)
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
 
 class ConceptBrief(BaseModel):
@@ -56,8 +61,8 @@ class RoleCard(BaseModel):
 class TaskSpec(BaseModel):
     role: str
     task: str
-    inputs: Optional[dict[str, Any]] = None
-    stop_rules: Optional[list[str]] = None
+    inputs: dict[str, Any] | None = None
+    stop_rules: list[str] | None = None
 
 
 __all__ = [

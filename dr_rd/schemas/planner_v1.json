@@ -9,11 +9,11 @@
       "items": {
         "type": "object",
         "properties": {
+          "id": {"type": "string"},
           "title": {"type": "string"},
-          "desc": {"type": "string"},
-          "role_hint": {"type": "string"}
+          "summary": {"type": "string"}
         },
-        "required": ["title", "desc"],
+        "required": ["id", "title", "summary"],
         "additionalProperties": false
       }
     },

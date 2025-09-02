@@ -1,37 +1,23 @@
 import json
 import os
 import re
+from dataclasses import asdict
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
-from utils.agent_json import extract_json_block, extract_json_strict
-from utils.logging import logger, safe_exc
-from utils.cancellation import CancellationToken
-from utils.timeouts import Deadline, with_deadline
-from utils.stream_events import Event
-from utils import trace_writer
-from utils.telemetry import (
-    run_resumed,
-    resume_failed,
-    stream_started,
-    stream_chunked,
-    stream_completed,
-    safety_flagged_step,
-)
-from dataclasses import asdict
-from utils import safety as safety_utils
-from utils import otel
 
 import config.feature_flags as ff
-from core.agents.unified_registry import AGENT_REGISTRY
 from core.agents.evaluation_agent import EvaluationAgent
+from core.agents.unified_registry import AGENT_REGISTRY
 from core.evaluation.self_check import validate_and_retry
 from core.llm import complete, select_model
 from core.llm_client import responses_json_schema_for
 from core.observability import (
+    AgentTraceCollector,
     EvidenceSet,
     build_coverage,
-    AgentTraceCollector,
 )
 from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from core.privacy import pseudonymize_for_model, rehydrate_output
@@ -43,7 +29,20 @@ from prompts.prompts import (
     PLANNER_USER_PROMPT_TEMPLATE,
     SYNTHESIZER_TEMPLATE,
 )
-from utils import checkpoints
+from utils import checkpoints, otel, trace_writer
+from utils import safety as safety_utils
+from utils.agent_json import extract_json_block, extract_json_strict
+from utils.cancellation import CancellationToken
+from utils.logging import logger, safe_exc
+from utils.stream_events import Event
+from utils.telemetry import (
+    resume_failed,
+    run_resumed,
+    safety_flagged_step,
+    stream_completed,
+    stream_started,
+)
+from utils.timeouts import Deadline, with_deadline
 
 evidence: EvidenceSet | None = None
 
@@ -74,13 +73,7 @@ def _invoke_agent(agent, idea: str, task: Dict[str, str], model: str | None = No
 
 
 def _normalize_plan_payload(data: dict) -> dict:
-    """Inject sequential task IDs and backfill missing fields.
-
-    The Planner has historically returned slightly different keys for task
-    details (e.g. ``task`` or ``description`` instead of ``title`` / ``summary``).
-    This helper normalizes those variations so that :class:`Plan` validation is
-    resilient to older planner outputs.
-    """
+    """Inject sequential task IDs and backfill missing fields."""
     if isinstance(data, dict) and isinstance(data.get("tasks"), list):
         missing = 0
         for i, t in enumerate(data["tasks"], 1):
@@ -88,35 +81,20 @@ def _normalize_plan_payload(data: dict) -> dict:
                 t["id"] = f"T{i:02d}"
                 missing += 1
 
-            # Legacy field mapping: allow "task" or "description" to populate
-            # the newer title/summary fields.  This ensures backwards
-            # compatibility with planners that haven't migrated yet.
-            if "task" in t:
-                t.setdefault("title", t.get("task"))
-                t.setdefault("summary", t.get("task"))
-            if "description" in t and "summary" not in t:
-                t["summary"] = t.get("description")
-            if "summary" in t and "description" not in t:
-                t["description"] = t.get("summary")
-            if "summary" in t and "title" not in t:
-                t["title"] = t.get("summary")
+            if "title" not in t:
+                for key in ("role", "name"):
+                    if t.get(key):
+                        t["title"] = t[key]
+                        break
+            if "summary" not in t:
+                for key in ("objective", "description"):
+                    if t.get(key):
+                        t["summary"] = t[key]
+                        break
+            t.setdefault("summary", "")
 
-            # Some legacy planners stuffed the task details into the ``role``
-            # field using a ``Role: task`` format. Split that into the new
-            # separate role/title/summary fields so validation succeeds.
-            if (
-                "role" in t
-                and "title" not in t
-                and "summary" not in t
-                and isinstance(t["role"], str)
-                and ":" in t["role"]
-            ):
-                role, task = t["role"].split(":", 1)
-                t["role"] = role.strip()
-                task = task.strip()
-                t.setdefault("title", task)
-                t.setdefault("summary", task)
-                t.setdefault("description", task)
+            for key in ("role", "name", "objective", "description"):
+                t.pop(key, None)
 
         if missing:
             logger.info("Planner normalizer injected %d task IDs", missing)
@@ -200,29 +178,36 @@ def generate_plan(
         data = extract_json_strict(raw)
         if alias_map:
             data = rehydrate_output(data, alias_map)
-        data = _normalize_plan_payload(data)
         try:
-            Plan.model_validate(data)
+            plan = Plan.model_validate(data)
         except Exception as e:
             from pydantic import ValidationError
 
             if isinstance(e, ValidationError):
-                if not data.get("tasks"):
-                    return []
-                fields = [".".join(map(str, err.get("loc", []))) for err in e.errors()[:3]]
-                raise ValueError(
-                    "Planner JSON validation failed: missing " + ", ".join(fields)
-                ) from e
-            raise
-        return normalize_tasks(normalize_plan_to_tasks(data["tasks"]))
+                errors = len(e.errors())
+                data = _normalize_plan_payload(data)
+                try:
+                    plan = Plan.model_validate(data)
+                except ValidationError as e2:
+                    dump_dir = Path("debug/logs")
+                    dump_dir.mkdir(parents=True, exist_ok=True)
+                    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
+                    dump_path = dump_dir / f"planner_payload_{ts}.json"
+                    dump_path.write_text(json.dumps(data, indent=2))
+                    logger.error(
+                        "planner.validation_failed",
+                        extra={"errors": errors, "dump_path": str(dump_path)},
+                    )
+                    raise ValueError(
+                        f"Planner JSON validation failed; payload dumped to {dump_path.name}"
+                    ) from e2
+            else:
+                raise
+        return normalize_tasks(normalize_plan_to_tasks(plan.model_dump()["tasks"]))
 
-    system_prompt = st.session_state.get("prompt_texts", {}).get(
-        "planner", "You are the Planner."
-    )
+    system_prompt = st.session_state.get("prompt_texts", {}).get("planner", "You are the Planner.")
     if pseudo_flag:
-        system_prompt += (
-            "\nPlaceholders like [PERSON_1], [ORG_1] are entity aliases. Use them verbatim. Do not invent values."
-        )
+        system_prompt += "\nPlaceholders like [PERSON_1], [ORG_1] are entity aliases. Use them verbatim. Do not invent values."
 
     user_prompt = PLANNER_USER_PROMPT_TEMPLATE.format(
         idea=sn.idea,
@@ -526,6 +511,7 @@ def execute_plan(
         _check()
         if ff.PARALLEL_EXEC_ENABLED:
             from types import SimpleNamespace
+
             from core.engine.executor import run_tasks
 
             exec_tasks: List[Dict[str, str]] = []
@@ -614,7 +600,9 @@ def execute_plan(
         }
         result = eval_agent.run(idea, answers, role_to_findings, context=context)
         collector.append_event(handle, "evaluation", result.get("score", {}))
-        collector.finalize_item(handle, "; ".join(result.get("findings", [])), result, 0, 0, 0.0, [], [])
+        collector.finalize_item(
+            handle, "; ".join(result.get("findings", [])), result, 0, 0, 0.0, [], []
+        )
         evaluations.append(result)
         if save_decision_log:
             log_decision(
@@ -688,9 +676,8 @@ def execute_plan(
             pass
     enable_build = os.environ.get("DRRD_ENABLE_BUILD_SPEC", "false").lower() == "true"
     if enable_build:
-        from utils.reportgen import render, write_csv
-
         from orchestrators.spec_builder import assemble_from_agent_payloads
+        from utils.reportgen import render, write_csv
 
         sdd, impl = assemble_from_agent_payloads(project_name, idea, answers)
         out_dir = f"audits/{project_id}/build"
@@ -827,8 +814,10 @@ def run_poc(project_id: str, test_plan):
     from core.poc.results import PoCReport, TestResult
     from core.poc.testplan import TestPlan
     from memory.memory_manager import MemoryManager
-    from simulation import simulation_manager  # noqa: F401 - ensure registry hooks
-    from simulation import runner
+    from simulation import (
+        runner,
+        simulation_manager,  # noqa: F401 - ensure registry hooks
+    )
 
     if not isinstance(test_plan, TestPlan):
         test_plan = TestPlan.parse_obj(test_plan)
@@ -952,6 +941,7 @@ def run_stream(
     cancel = cancel or CancellationToken()
     try:
         from utils.session_store import get_session_id
+
         session_id = get_session_id()
     except Exception:
         session_id = None
@@ -971,9 +961,7 @@ def run_stream(
     ):
         try:
             # Planner phase
-            with otel.start_span(
-                "phase.planner", attrs={"run_id": run_id, "phase": "planner"}
-            ):
+            with otel.start_span("phase.planner", attrs={"run_id": run_id, "phase": "planner"}):
                 yield Event("phase_start", phase="planner")
                 with otel.start_span(
                     "step.planner",
@@ -1009,13 +997,14 @@ def run_stream(
                 )
                 yield Event("summary", phase="planner", text=text)
                 yield Event("step_end", phase="planner", step_id="planner", meta=meta)
-                yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
+                yield Event(
+                    "usage_delta",
+                    meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0},
+                )
                 yield Event("phase_end", phase="planner")
 
             # Executor phase
-            with otel.start_span(
-                "phase.executor", attrs={"run_id": run_id, "phase": "executor"}
-            ):
+            with otel.start_span("phase.executor", attrs={"run_id": run_id, "phase": "executor"}):
                 yield Event("phase_start", phase="executor")
                 with otel.start_span(
                     "step.executor",
@@ -1058,7 +1047,10 @@ def run_stream(
                 )
                 yield Event("summary", phase="executor", text=text)
                 yield Event("step_end", phase="executor", step_id="executor", meta=meta)
-                yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
+                yield Event(
+                    "usage_delta",
+                    meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0},
+                )
                 yield Event("phase_end", phase="executor")
 
             # Synth phase
@@ -1102,7 +1094,10 @@ def run_stream(
                 )
                 yield Event("summary", phase="synth", text=final)
                 yield Event("step_end", phase="synth", step_id="synth", meta=meta)
-                yield Event("usage_delta", meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0})
+                yield Event(
+                    "usage_delta",
+                    meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0},
+                )
                 yield Event("phase_end", phase="synth")
 
             yield Event("done")
@@ -1110,6 +1105,7 @@ def run_stream(
         except Exception as exc:  # pragma: no cover - best effort
             yield Event("error", text=str(exc))
             stream_completed(run_id, "error")
+
 
 def run_pipeline(idea: str, mode: str = "test", **kwargs):
     import logging
