@@ -102,6 +102,7 @@ KEYWORDS: Dict[str, str] = {
 ALIASES: Dict[str, str] = {
     "manufacturing technician": "Research Scientist",
     "quantum physicist": "Research Scientist",
+    "physicist": "Research Scientist",
 }
 
 
@@ -177,6 +178,8 @@ def route_task(
     out.setdefault("stop_rules", task.get("stop_rules", []))
 
     route_decision: Dict[str, Any] = {"selected_role": role}
+    if role == "Dynamic Specialist" and planned and planned not in AGENT_REGISTRY:
+        route_decision["unknown_role"] = planned
     if feature_flags.COST_GOVERNANCE_ENABLED:
         budgets = _load_budgets()
         exec_cfg = budgets.get("exec", {})

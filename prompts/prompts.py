@@ -7,6 +7,7 @@ PLANNER_SYSTEM_PROMPT = (
     "If a task clearly needs repository reading/patch planning, numerical simulation/Monte Carlo, or image/video analysis, you may include an optional tool_request object with the tool name (read_repo | plan_patch | simulate | analyze_image | analyze_video) and minimal params. "
     'When background research is required, you may also add "retrieval_request": true and/or "queries": ["..."] to hint the orchestrator. '
     'For patent or regulatory needs, tasks may include optional ip_request {"query":str,...} and/or compliance_request {"profile_ids":[...],"min_coverage":float}. '
+    'All tasks MUST include non-empty string fields id, title, and summary and MAY NOT include any extra keys. '
     'Output ONLY JSON matching this schema: {"tasks":[{"id":"T01","title":"CTO","summary":"Assess feasibility"}]}.'
 )
 
@@ -14,7 +15,8 @@ PLANNER_USER_PROMPT_TEMPLATE = (
     # Schema: dr_rd/schemas/planner_agent.json
     "Project idea: {idea}{constraints_section}{risk_section}\n"
     "Break the project into role-specific tasks. "
-    'Output ONLY JSON matching {{"tasks": [...]}}.'
+    'Output ONLY JSON matching {{"tasks": [...]}} with at least 3 tasks. '
+    'If you cannot produce at least 3 tasks, return an error message explaining what info is missing.'
 )
 
 SYNTHESIZER_TEMPLATE = """\
