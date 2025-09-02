@@ -1,6 +1,6 @@
 # Build Spec & Work Plan
 
-When enabled, DR-RD emits a build specification package alongside the final proposal. The package contains:
+DR-RD emits a build specification package alongside the final proposal. The package contains:
 
 - `SDD.md` – System Design Doc with requirements, interfaces and risks.
 - `ImplementationPlan.md` – work items, milestones and rollback notes.
@@ -10,6 +10,4 @@ When enabled, DR-RD emits a build specification package alongside the final prop
 
 All files are written under `audits/<project_slug>/build/`.
 
-## Enabling
-
-Set environment variable `DRRD_ENABLE_BUILD_SPEC=true` or check **Generate Build Spec & Work Plan** in the *Build Spec* expander of the UI before running domain experts. After execution, download links for these files appear in the app.
+The build spec and work plan are generated automatically. After a run completes, download links for these files appear in the app.
