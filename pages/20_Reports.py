@@ -220,7 +220,7 @@ else:
         with ZipFile(io.BytesIO(bundle_bytes)) as zf:
             bundle_count = len(zf.namelist())
 
-        if "artifacts" in scopes:
+        if not viewer_mode or "artifacts" in scopes:
             col_md, col_html, col_ipynb, col_zip = st.columns(4)
             if col_md.download_button(
                 t("download_report"),
@@ -282,5 +282,5 @@ else:
                         key=path.name,
                         help=t("bundle_download_help"),
                     )
-        else:
+        elif viewer_mode:
             st.info("Downloads disabled for this link.")
