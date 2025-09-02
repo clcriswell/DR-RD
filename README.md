@@ -15,6 +15,10 @@ prototype or development plan.
 See the docs index in [docs/INDEX.md](docs/INDEX.md) for more information.
 New contributors should start with the [Migration Guide](docs/MIGRATION_GUIDE_v1_to_v2.md).
 
+## Get Started
+For a short setup guide, see [docs/QUICKSTART.md](docs/QUICKSTART.md). The full
+user guide is available at [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
+
 _Current repo state_
 **Step 1:** Minimal Streamlit front-end + “Creation Planner” prompt.
 
