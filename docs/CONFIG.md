@@ -303,3 +303,27 @@ Runtime dependencies live in `requirements.in` and development tooling in `dev-r
 License reports are produced by `scripts/check_licenses.py` and written to `reports/licenses.json`.
 
 CI enforces license and vulnerability gates. `pip-licenses` and `pip-audit` write reports to `reports/licenses.json` and `reports/pip-audit.json`. Builds fail on HIGH/CRITICAL vulnerabilities unless `AUDIT_ALLOW_HIGH=1` (default `0`).
+
+## Streamlit App Controls
+The sidebar fields map to run-time configuration values:
+
+| UI Control | Config Field | Description |
+|------------|--------------|-------------|
+| Project idea | `RunConfig.idea` | Core prompt sent to the planner |
+| Mode | `RunConfig.mode` | Selects preset cost and search behaviour |
+| Knowledge sources | `RunConfig.knowledge_sources` | List of vector stores used for retrieval |
+| Show agent trace | `RunConfig.show_agent_trace` | Display detailed step logs |
+| Auto export trace | `RunConfig.auto_export_trace` | Save trace files when a run completes |
+| Auto export report | `RunConfig.auto_export_report` | Save markdown report after completion |
+| Temperature | `advanced.temperature` | Sampling temperature passed to models |
+| Retries | `advanced.retries` | Maximum retry attempts for API calls |
+| Timeout (s) | `advanced.timeout` | Overall run timeout in seconds |
+
+## Key Environment Variables
+| Variable | Purpose |
+|----------|---------|
+| `OPENAI_API_KEY` | Access to OpenAI models and embeddings |
+| `SERPAPI_KEY` | Enables SerpAPI live search backend |
+| `RAG_ENABLED` | Toggles vector index retrieval |
+| `ENABLE_LIVE_SEARCH` | Allows web search fallback |
+| `BUDGET_PROFILE` | Chooses cost profile such as `low`, `standard`, or `high` |
