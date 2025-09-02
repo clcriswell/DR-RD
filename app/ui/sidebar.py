@@ -59,6 +59,8 @@ def render_sidebar() -> RunConfig:
             key="idea",
             help="What should the agents work on?",
         )
+        run_store.set("idea", idea)
+        _track_change("idea", idea)
         legacy_mode = run_store.get("mode")
         if legacy_mode not in ("", "standard"):
             st.warning(f"Mode '{legacy_mode}' is deprecated; using 'standard'.", icon="⚠️")
