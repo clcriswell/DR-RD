@@ -9,9 +9,10 @@ from pathlib import Path
 
 from .lazy_import import local_import
 
-ROOT = Path(".dr_rd/knowledge")
+# Store metadata alongside uploads under the hidden .dr_rd directory.
+META = Path(".dr_rd/knowledge/meta.json")
+ROOT = META.parent
 UPLOADS = ROOT / "uploads"
-META = ROOT / "meta.json"
 
 
 def init_store() -> None:
@@ -36,7 +37,9 @@ def _write_meta(data: Mapping[str, dict]) -> None:
     META.parent.mkdir(parents=True, exist_ok=True)
     tmp = META.parent / (META.stem + ".tmp")
     try:
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         tmp.replace(META)
     finally:
         if tmp.exists():

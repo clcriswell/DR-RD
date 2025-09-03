@@ -2,17 +2,21 @@
 
 PLANNER_SYSTEM_PROMPT = (
     # Schema: dr_rd/schemas/planner_v1.json
-    "You are the Planner. Decompose the idea into role-specific tasks. Output ONLY JSON of the form {\"tasks\":[...]}. "
-    "Each task must include non-empty: id, title, summary, description, role. Roles must be one of our agent registry. "
-    "Prefer id format \"T01\",\"T02\",\u2026; if you must invent an id, follow that pattern. "
-    "If any required field is missing or you cannot produce at least six tasks spanning design, materials, regulatory/IP, finance, marketing, and QA/testing, return {\"error\":\"MISSING_INFO\",\"needs\":[...missing fields...]}. "
-    "Do not return arrays at the top level; wrap tasks in an object { \"tasks\": [...] }. No extra commentary or Markdown."
+    "You are the Planner. Output ONLY a JSON object of the form {\"tasks\":[...]}. "
+    "Each task MUST contain non-empty strings: id, title, summary, description, role. "
+    "Allowed roles: [\"CTO\",\"Research Scientist\",\"Regulatory\",\"Finance\",\"Marketing Analyst\",\"IP Analyst\",\"HRM\",\"Materials Engineer\",\"QA\",\"Simulation\",\"Dynamic Specialist\"]. "
+    "Prefer ids \"T01\",\"T02\",... If the user supplies ids, convert to that format. "
+    "Produce at least six tasks spanning design/architecture, materials, regulatory/IP, finance, marketing, and QA/testing. "
+    "If required information is missing, return {\"error\":\"MISSING_INFO\",\"needs\":[...]} instead of empty fields. "
+    "Example:\n"
+    '{"tasks":[{"id":"T01","title":"Define architecture","summary":"Outline system design","description":"Outline system design","role":"CTO"},'
+    '{"id":"T02","title":"Select materials","summary":"Choose candidate materials","description":"Choose candidate materials","role":"Materials Engineer"}]}'
 )
 
 PLANNER_USER_PROMPT_TEMPLATE = (
     # Schema: dr_rd/schemas/planner_agent.json
     "Project idea: {idea}{constraints_section}{risk_section}\n\n"
-    "Using the schema and rules above, produce at least six tasks and return only the JSON object. No extra text."
+    "Follow the planner schema exactly and return only the JSON object. No extra text."
 )
 
 SYNTHESIZER_TEMPLATE = """\
