@@ -111,7 +111,7 @@ def test_generate_plan_updates_state(monkeypatch):
         )
     }
     reload_app(monkeypatch, st, patches)
-    plan = st.session_state["plan"]
+    plan = st.session_state["plan_tasks"]
     assert any(t == {"role": "CTO", "title": "t1", "description": "d1"} for t in plan)
     # Unknown roles may remain when normalization is relaxed
     st.warning.assert_not_called()
@@ -119,7 +119,7 @@ def test_generate_plan_updates_state(monkeypatch):
 
 def test_run_domain_experts(monkeypatch):
     state = {
-        "plan": [
+        "plan_tasks": [
             {"role": "CTO", "title": "task", "description": "desc"},
             {"role": "Finance", "title": "budget", "description": "plan"},
         ]

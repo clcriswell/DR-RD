@@ -52,14 +52,14 @@ def normalize_plan_to_tasks(raw: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for it in items:
         if isinstance(it, dict) and "role" in it and "description" in it:
-            role = canonicalize(normalize_role(it.get("role")))
+            role = canonicalize(normalize_role(it.get("role"))) or "Dynamic Specialist"
             title = it.get("title", it.get("description", "")).strip()
             desc = it.get("description", "").strip()
         else:
-            role = canonicalize(normalize_role((it or {}).get("title")))
+            role = canonicalize(normalize_role((it or {}).get("title"))) or "Dynamic Specialist"
             desc = (it or {}).get("summary", "") or ""
             title = desc.strip()
-        if not role or len(desc.strip()) < 3:
+        if len(desc.strip()) < 3:
             continue
         task = {
             "id": (it or {}).get("id"),
@@ -78,11 +78,9 @@ def normalize_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen = set()
     deduped: list[dict[str, Any]] = []
     for t in tasks:
-        role = canonicalize(normalize_role((t or {}).get("role")))
+        role = canonicalize(normalize_role((t or {}).get("role"))) or "Dynamic Specialist"
         title = (t or {}).get("title", "")
         desc = (t or {}).get("description", "")
-        if not role:
-            continue
         key = (role, title, desc, json.dumps(t.get("tool_request", {}), sort_keys=True))
         if key in seen:
             continue

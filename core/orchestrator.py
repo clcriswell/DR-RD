@@ -263,18 +263,18 @@ def generate_plan(
             pass
 
         try:
-            st.session_state["plan_tasks"] = list(norm_tasks)
+            st.session_state["plan_tasks"] = list(tasks_exec)
             st.session_state["raw_planned_tasks"] = raw_count
-            st.session_state["normalized_tasks_count"] = len(norm_tasks)
+            st.session_state["normalized_tasks_count"] = len(tasks_exec)
         except Exception:
             pass
         from utils.paths import write_text
 
         try:
-            write_text(run_id, "plan", "json", json.dumps({"tasks": norm_tasks}, indent=2))
+            write_text(run_id, "plan", "json", json.dumps({"tasks": tasks_exec}, indent=2))
         except Exception:
             pass
-        if not norm_tasks:
+        if not tasks_exec:
             raise ValueError("planner.no_tasks")
         return tasks_exec
 
@@ -415,28 +415,21 @@ def execute_plan(
 
     project_id = project_id or _slugify(idea)
     project_name = project_name or project_id
-    exec_tasks = [t for t in tasks if isinstance(t, dict)]
+    exec_tasks = list(tasks)
     if not exec_tasks:
         try:
             trace_writer.append_step(
                 run_id,
-                {
-                    "phase": "executor",
-                    "summary": [],
-                    "meta": {"reason": "no_executable_tasks"},
-                },
+                {"phase": "executor", "summary": [], "meta": {"reason": "no_executable_tasks"}},
             )
             trace_writer.flush_phase_meta(
                 run_id,
                 "executor",
-                {
-                    "routed_tasks": 0,
-                    "exec_tasks": 0,
-                    "reason": "no_executable_tasks",
-                },
+                {"routed_tasks": 0, "exec_tasks": 0, "reason": "no_executable_tasks"},
             )
         except Exception:
             pass
+    
         raise ValueError("No executable tasks after planning/routing")
     agents = agents or {}
     tasks = exec_tasks
@@ -931,7 +924,7 @@ def compose_final_proposal(
 
         slug = st.session_state.get("project_slug", _slugify(idea))
         project_id = slug
-        tasks = st.session_state.get("plan_tasks") or st.session_state.get("plan") or []
+        tasks = st.session_state.get("plan_tasks") or []
         artifacts = {
             "evidence": f"audits/{slug}/evidence.json",
             "coverage": f"audits/{slug}/coverage.csv",
@@ -1074,9 +1067,10 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
     empty_fields = 0
     if start["planner"] == 0:
         try:
-            tasks = generate_plan(idea)
+            generate_plan(idea)
         except ValueError:
-            tasks = []
+            pass
+        tasks = st.session_state.get("plan_tasks", [])
         empty_fields = st.session_state.pop("plan_empty_fields", 0)
         checkpoints.mark_step_done(run_id, "planner", "plan")
     elif resume_from:
@@ -1085,6 +1079,8 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
             if step.get("phase") == "planner" and isinstance(step.get("summary"), list):
                 tasks = step["summary"]
                 break
+        st.session_state["plan_tasks"] = list(tasks)
+    tasks = st.session_state.get("plan_tasks", [])
     if not tasks:
         trace_writer.append_step(
             run_id,
@@ -1116,7 +1112,11 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
             pass
         return ""
     results: dict[str, str] = {}
+    if not resume_from:
+        assert start["executor"] == 0, "Executor phase unexpectedly skipped"
     if start["executor"] == 0:
+        tasks = st.session_state.get("plan_tasks", [])
+        assert tasks, "Normalized tasks unexpectedly empty — check planner/normalizer handoff"
         results = execute_plan(idea, tasks, agents)
         checkpoints.mark_step_done(run_id, "executor", "exec")
     final = ""
@@ -1169,7 +1169,8 @@ def run_stream(
                 ) as span:
                     span.add_event("step.start", {"step_id": "planner"})
                     try:
-                        tasks = generate_plan(idea, cancel=cancel, deadline_ts=deadline_ts)
+                        generate_plan(idea, cancel=cancel, deadline_ts=deadline_ts)
+                        tasks = st.session_state.get("plan_tasks", [])
                     except TimeoutError as exc:
                         span.set_attribute("status", "timeout")
                         span.record_exception(exc)
@@ -1256,6 +1257,12 @@ def run_stream(
                     run_id=run_id,
                 ) as span:
                     span.add_event("step.start", {"step_id": "executor"})
+                    tasks = st.session_state.get("plan_tasks", [])
+                    logger.info(
+                        "Planner counters: planned=%d normalized=%d", raw_planned, normalized_count
+                    )
+                    logger.info("Executor starting with tasks=%d", len(tasks))
+                    assert tasks, "Normalized tasks unexpectedly empty — check planner/normalizer handoff"
                     try:
                         answers = execute_plan(
                             idea,
@@ -1378,8 +1385,10 @@ def run_pipeline(idea: str, mode: str = "test", **kwargs):
     logging.warning(
         "core.orchestrator.run_pipeline is deprecated; mode parameter ignored; using unified pipeline."
     )
-    tasks = generate_plan(idea)
+    generate_plan(idea)
+    tasks = st.session_state.get("plan_tasks", [])
     agents = kwargs.get("agents") or {}
+    assert tasks, "Normalized tasks unexpectedly empty — check planner/normalizer handoff"
     answers = execute_plan(idea, tasks, agents)
     final = compose_final_proposal(idea, answers)
     return final, answers, []
