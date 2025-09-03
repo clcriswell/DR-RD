@@ -39,7 +39,7 @@ def run_parallel(tasks):
     state = DummyState()
     pending = list(tasks)
     while pending:
-        executed, pending = run_tasks(pending, 2, state)
+        executed, pending = run_tasks(pending, state)
         pending = list(pending)
     return state
 

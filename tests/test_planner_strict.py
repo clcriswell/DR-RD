@@ -1,13 +1,16 @@
 import json
 from pathlib import Path
 
+import json
+from pathlib import Path
+
 import pytest
 
 import core.orchestrator as orch
 
 
 class DummyResp:
-    content = json.dumps({"tasks": [{"id": "T01"}]})
+    content = json.dumps({"tasks": [{"id": "T01", "title": "Do"}]})
 
 
 def test_planner_strict_validation(monkeypatch):

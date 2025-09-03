@@ -203,9 +203,26 @@ def generate_plan(
                 extra={"errors": len(e.errors()), "dump_path": str(dump_path)},
             )
             raise ValueError("Planner JSON validation failed") from e
-        tasks = normalize_tasks(normalize_plan_to_tasks(plan.model_dump()["tasks"]))
+
+        raw_tasks = plan.model_dump()["tasks"]
+        empty_fields = sum(
+            1 for t in raw_tasks if not t.get("title", "").strip() or not t.get("summary", "").strip()
+        )
+        if empty_fields:
+            dump_dir = Path("debug/logs")
+            dump_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
+            dump_path = dump_dir / f"planner_payload_{ts}.json"
+            dump_path.write_text(json.dumps(data, indent=2))
+            logger.error(
+                "planner.validation_failed_empty",
+                extra={"empty_fields": empty_fields, "dump_path": str(dump_path)},
+            )
+            raise ValueError("Planner JSON validation failed")
+        tasks = normalize_tasks(normalize_plan_to_tasks(raw_tasks))
         try:
             st.session_state["plan_tasks"] = list(tasks)
+            st.session_state["plan_empty_fields"] = empty_fields
         except Exception:
             pass
         run_id = st.session_state.get("run_id", "latest")
@@ -526,6 +543,22 @@ def execute_plan(
         trace_writer.flush_phase_meta(run_id or "", "router", {"routed_tasks": len(norm_tasks)})
     except Exception:
         pass
+    if len(norm_tasks) == 0:
+        trace_writer.append_step(
+            run_id or "",
+            {
+                "phase": "executor",
+                "summary": {},
+                "routed_tasks": 0,
+                "exec_tasks": 0,
+                "meta": {"reason": "no_executable_tasks"},
+            },
+        )
+        try:
+            trace_writer.flush_phase_meta(run_id or "", "executor", {"exec_tasks": 0})
+        except Exception:
+            pass
+        raise ValueError("No executable tasks after planning/routing")
     eval_round = 0
     evaluations: List[dict] = []
     while True:
@@ -553,7 +586,7 @@ def execute_plan(
                     _run_task(task)
                     return None, 0.0
 
-            run_tasks(exec_tasks, max_workers=min(4, len(exec_tasks)), state=_State())
+            run_tasks(exec_tasks, state=_State())
         else:
             for t in norm_tasks:
                 _run_task(t)
@@ -756,10 +789,11 @@ def execute_plan(
         st.session_state["alias_maps"] = alias_maps
     except Exception:
         pass
-    try:
-        exec_artifacts(norm_tasks, {"run_id": run_id or "", "idea": idea})
-    except Exception:
-        logger.warning("executor artifacts failed", exc_info=True)
+    if norm_tasks:
+        try:
+            exec_artifacts(norm_tasks, {"run_id": run_id or "", "idea": idea})
+        except Exception:
+            logger.warning("executor artifacts failed", exc_info=True)
     return answers
 
 
@@ -958,8 +992,13 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
         ff.ENABLE_LIVE_SEARCH,
     )
     tasks: List[Dict[str, str]] = []
+    empty_fields = 0
     if start["planner"] == 0:
-        tasks = generate_plan(idea)
+        try:
+            tasks = generate_plan(idea)
+        except ValueError:
+            tasks = []
+        empty_fields = st.session_state.pop("plan_empty_fields", 0)
         checkpoints.mark_step_done(run_id, "planner", "plan")
     elif resume_from:
         # When resuming after planning, recover the plan from the prior trace
@@ -970,10 +1009,18 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
     if not tasks:
         trace_writer.append_step(
             run_id,
-            {"phase": "planner", "summary": [], "planned_tasks": 0, "error": "planner_empty_or_invalid"},
+            {
+                "phase": "planner",
+                "summary": [],
+                "planned_tasks": 0,
+                "empty_fields": empty_fields,
+                "error": "planner_empty_or_invalid",
+            },
         )
         try:
-            trace_writer.flush_phase_meta(run_id, "planner", {"planned_tasks": 0})
+            trace_writer.flush_phase_meta(
+                run_id, "planner", {"planned_tasks": 0, "empty_fields": empty_fields}
+            )
         except Exception:
             pass
     agents = kwargs.get("agents") or {}
@@ -1045,7 +1092,12 @@ def run_stream(
                         span.set_attribute("status", "cancelled")
                         span.record_exception(exc)
                         raise
+                    except ValueError as exc:
+                        span.set_attribute("status", "error")
+                        span.record_exception(exc)
+                        tasks = []
                     span.add_event("step.end", {"tasks": len(tasks)})
+                empty_fields = st.session_state.pop("plan_empty_fields", 0)
                 text = json.dumps(tasks)
                 res = safety_utils.check_text(text)
                 meta = {}
@@ -1057,13 +1109,16 @@ def run_stream(
                     "summary": tasks,
                     "prompt_preview": st.session_state.pop("_last_prompt", None),
                     "planned_tasks": len(tasks),
+                    "empty_fields": empty_fields,
                     **({"safety": asdict(res)} if res.findings else {}),
                 }
                 if not tasks:
                     step_data["error"] = "planner_empty_or_invalid"
                 trace_writer.append_step(run_id, step_data)
                 try:
-                    trace_writer.flush_phase_meta(run_id, "planner", {"planned_tasks": len(tasks)})
+                    trace_writer.flush_phase_meta(
+                        run_id, "planner", {"planned_tasks": len(tasks), "empty_fields": empty_fields}
+                    )
                 except Exception:
                     pass
                 yield Event("summary", phase="planner", text=text)
@@ -1110,6 +1165,19 @@ def run_stream(
                         span.set_attribute("status", "cancelled")
                         span.record_exception(exc)
                         raise
+                    except ValueError as exc:
+                        span.set_attribute("status", "error")
+                        span.record_exception(exc)
+                        meta_err = {"error": "no_executable_tasks"}
+                        yield Event("step_end", phase="executor", step_id="executor", meta=meta_err)
+                        yield Event(
+                            "usage_delta",
+                            meta={"prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0},
+                        )
+                        yield Event("phase_end", phase="executor")
+                        yield Event("error", text="no_executable_tasks")
+                        stream_completed(run_id, "error")
+                        return
                     span.add_event("step.end", {"tasks": len(answers)})
                 text = json.dumps(answers)
                 res = safety_utils.check_text(text)
@@ -1122,9 +1190,14 @@ def run_stream(
                     "summary": answers,
                     "prompt_preview": st.session_state.pop("_last_prompt", None),
                     "routed_tasks": len(tasks),
+                    "exec_tasks": len(answers),
                     **({"safety": asdict(res)} if res.findings else {}),
                 }
                 trace_writer.append_step(run_id, step_data)
+                try:
+                    trace_writer.flush_phase_meta(run_id, "executor", {"exec_tasks": len(answers)})
+                except Exception:
+                    pass
                 yield Event("summary", phase="executor", text=text)
                 yield Event("step_end", phase="executor", step_id="executor", meta=meta)
                 yield Event(

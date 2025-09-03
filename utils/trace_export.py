@@ -67,6 +67,8 @@ def flatten_trace_rows(trace: Sequence[TraceStep]) -> list[dict]:
                 "citations": step.get("citations"),
                 "planned_tasks": step.get("planned_tasks"),
                 "routed_tasks": step.get("routed_tasks"),
+                "empty_fields": step.get("empty_fields"),
+                "exec_tasks": step.get("exec_tasks"),
             }
         )
     return rows

@@ -43,7 +43,6 @@ def merge_results(
 
 def run_tasks(
     tasks: List[Task],
-    max_workers: int,
     state: Any,
     log: Callable[[str], None] | None = None,
 ) -> Tuple[List[Tuple[Task, float]], List[Task]]:
@@ -55,8 +54,6 @@ def run_tasks(
         Tasks to consider for execution. Each task is a ``dict`` containing at
         least ``id`` and ``task`` fields. Optional fields include ``priority``,
         ``created_at`` and ``depends_on``.
-    max_workers:
-        Maximum number of worker threads to use.
     state:
         Orchestrator state that exposes ``_execute`` and ``ws`` (workspace).
     log:
@@ -70,6 +67,9 @@ def run_tasks(
         satisfied.
     """
 
+    if not tasks:
+        return [], []
+
     ready: List[Task] = []
     pending: List[Task] = []
     current_state = state.ws.read()
@@ -82,6 +82,7 @@ def run_tasks(
         else:
             pending.append(t)
 
+    max_workers = max(1, min(4, len(tasks)))
     results: List[TaskResult] = []
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_map = {pool.submit(state._execute, t): t for t in ready}
