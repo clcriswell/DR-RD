@@ -102,7 +102,7 @@ def _normalize_plan_payload(data: dict) -> dict:
                         break
             t.setdefault("summary", "")
 
-            for key in ("role", "name", "objective", "description"):
+            for key in ("role", "name", "objective"):
                 t.pop(key, None)
 
         if missing:
@@ -203,8 +203,10 @@ def generate_plan(
                 extra={"errors": len(e.errors()), "dump_path": str(dump_path)},
             )
             raise ValueError("Planner JSON validation failed") from e
-
-        raw_tasks = plan.model_dump()["tasks"]
+        raw_tasks = data.get("tasks", [])
+        for t in raw_tasks:
+            if not t.get("description"):
+                t["description"] = t.get("summary", "")
         empty_fields = sum(
             1 for t in raw_tasks if not t.get("title", "").strip() or not t.get("summary", "").strip()
         )
@@ -220,16 +222,29 @@ def generate_plan(
             )
             raise ValueError("Planner JSON validation failed")
         tasks = normalize_tasks(normalize_plan_to_tasks(raw_tasks))
+        if raw_tasks and len(tasks) == 0:
+            dump_dir = Path("debug/logs")
+            dump_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
+            dump_path = dump_dir / f"planner_payload_{ts}.json"
+            dump_path.write_text(json.dumps(data, indent=2))
+            logger.error(
+                "planner.normalization_zero",
+                extra={"dump_path": str(dump_path)},
+            )
+            raise ValueError("Planner normalization produced 0 tasks")
         try:
             st.session_state["plan_tasks"] = list(tasks)
             st.session_state["plan_empty_fields"] = empty_fields
+            st.session_state["raw_planned_tasks"] = len(raw_tasks)
+            st.session_state["normalized_tasks_count"] = len(tasks)
         except Exception:
             pass
         run_id = st.session_state.get("run_id", "latest")
         from utils.paths import write_text
 
         try:
-            write_text(run_id, "plan", "json", json.dumps(plan.model_dump(), indent=2))
+            write_text(run_id, "plan", "json", json.dumps({"tasks": raw_tasks}, indent=2))
         except Exception:
             pass
         return tasks
@@ -1013,13 +1028,16 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
                 "phase": "planner",
                 "summary": [],
                 "planned_tasks": 0,
+                "normalized_tasks": 0,
                 "empty_fields": empty_fields,
                 "error": "planner_empty_or_invalid",
             },
         )
         try:
             trace_writer.flush_phase_meta(
-                run_id, "planner", {"planned_tasks": 0, "empty_fields": empty_fields}
+                run_id,
+                "planner",
+                {"planned_tasks": 0, "normalized_tasks": 0, "empty_fields": empty_fields},
             )
         except Exception:
             pass
@@ -1098,6 +1116,8 @@ def run_stream(
                         tasks = []
                     span.add_event("step.end", {"tasks": len(tasks)})
                 empty_fields = st.session_state.pop("plan_empty_fields", 0)
+                raw_planned = st.session_state.pop("raw_planned_tasks", len(tasks))
+                normalized_count = st.session_state.pop("normalized_tasks_count", len(tasks))
                 text = json.dumps(tasks)
                 res = safety_utils.check_text(text)
                 meta = {}
@@ -1108,7 +1128,8 @@ def run_stream(
                     "phase": "planner",
                     "summary": tasks,
                     "prompt_preview": st.session_state.pop("_last_prompt", None),
-                    "planned_tasks": len(tasks),
+                    "planned_tasks": raw_planned,
+                    "normalized_tasks": normalized_count,
                     "empty_fields": empty_fields,
                     **({"safety": asdict(res)} if res.findings else {}),
                 }
@@ -1117,7 +1138,13 @@ def run_stream(
                 trace_writer.append_step(run_id, step_data)
                 try:
                     trace_writer.flush_phase_meta(
-                        run_id, "planner", {"planned_tasks": len(tasks), "empty_fields": empty_fields}
+                        run_id,
+                        "planner",
+                        {
+                            "planned_tasks": raw_planned,
+                            "normalized_tasks": normalized_count,
+                            "empty_fields": empty_fields,
+                        },
                     )
                 except Exception:
                     pass
@@ -1195,7 +1222,11 @@ def run_stream(
                 }
                 trace_writer.append_step(run_id, step_data)
                 try:
-                    trace_writer.flush_phase_meta(run_id, "executor", {"exec_tasks": len(answers)})
+                    trace_writer.flush_phase_meta(
+                        run_id,
+                        "executor",
+                        {"routed_tasks": len(tasks), "exec_tasks": len(answers)},
+                    )
                 except Exception:
                     pass
                 yield Event("summary", phase="executor", text=text)
