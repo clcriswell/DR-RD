@@ -617,6 +617,22 @@ def compare_export_clicked(run_a: str, run_b: str, fmt: str) -> None:
     )
 
 
+def tasks_planned(count: int) -> None:
+    log_event({"event": "tasks_planned", "count": int(count)})
+
+
+def tasks_normalized(count: int) -> None:
+    log_event({"event": "tasks_normalized", "count": int(count)})
+
+
+def tasks_routed(count: int) -> None:
+    log_event({"event": "tasks_routed", "count": int(count)})
+
+
+def tasks_executable(count: int) -> None:
+    log_event({"event": "tasks_executable", "count": int(count)})
+
+
 __all__ = [
     "log_event",
     "list_files",
@@ -671,6 +687,10 @@ __all__ = [
     "prompt_bump",
     "prompt_saved",
     "prompt_edited",
+    "tasks_planned",
+    "tasks_normalized",
+    "tasks_routed",
+    "tasks_executable",
 ]
 
 

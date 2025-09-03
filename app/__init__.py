@@ -539,7 +539,11 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
                 )
             except ValueError as e:
                 box.update(label="Planning failed", state="error")
-                st.error(str(e))
+                msg = {
+                    "planner.normalization_zero": "Planner produced tasks but normalization removed them.",
+                    "planner.no_tasks": "Planner returned no tasks.",
+                }.get(str(e), str(e))
+                st.error(msg)
                 return
             box.update(label="Planning complete", state="complete")
         res = safety_utils.check_text(json.dumps(tasks))
@@ -584,7 +588,10 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
                 )
             except ValueError as e:
                 box.update(label="Execution failed", state="error")
-                st.error(str(e))
+                msg = {
+                    "no_executable_tasks": "No executable tasks after routing.",
+                }.get(str(e), str(e))
+                st.error(msg)
                 return
             box.update(label="Execution complete", state="complete")
         res = safety_utils.check_text(json.dumps(answers))
