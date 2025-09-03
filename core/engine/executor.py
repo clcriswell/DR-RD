@@ -12,6 +12,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
+from utils.telemetry import tasks_executable
+
 Task = Dict[str, Any]
 TaskResult = Tuple[Task, Any, float]  # (task, result, score)
 
@@ -70,7 +72,6 @@ def run_tasks(
     if not tasks:
         return [], []
 
-    max_workers = max(1, min(4, len(tasks)))
     ready: List[Task] = []
     pending: List[Task] = []
     current_state = state.ws.read()
@@ -82,6 +83,11 @@ def run_tasks(
                 log(f"▶️ {t['role']} – {t['task'][:60]}…")
         else:
             pending.append(t)
+    tasks_executable(len(ready))
+    if not ready:
+        return [], tasks
+
+    max_workers = min(4, len(ready))
     results: List[TaskResult] = []
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_map = {pool.submit(state._execute, t): t for t in ready}

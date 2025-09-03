@@ -13,6 +13,7 @@ import yaml
 
 from config import feature_flags
 from dr_rd.telemetry import metrics
+from utils.telemetry import tasks_routed
 from core.agents.invoke import invoke_agent
 from core.agents.unified_registry import AGENT_REGISTRY, get_agent
 from core.llm import select_model
@@ -104,6 +105,8 @@ ALIASES: Dict[str, str] = {
     "manufacturing technician": "Research Scientist",
     "quantum physicist": "Research Scientist",
     "physicist": "Research Scientist",
+    "researcher": "Research Scientist",
+    "scientist": "Research Scientist",
     "engineer": "CTO",
     "software developer": "CTO",
     "product designer": "Research Scientist",
@@ -211,6 +214,7 @@ def route_task(
         retrieval_level=str(route_decision.get("retrieval_level")),
         caps=json.dumps(route_decision.get("caps", {})),
     )
+    tasks_routed(1)
     try:
         st.session_state.setdefault("routing_report", []).append(
             {"task_id": task.get("id"), "planned_role": planned, "routed_role": role}

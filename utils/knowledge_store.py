@@ -32,7 +32,8 @@ def _read_meta() -> dict[str, dict]:
 
 
 def _write_meta(data: Mapping[str, dict]) -> None:
-    tmp = META.with_name("meta.json.tmp")
+    META.parent.mkdir(parents=True, exist_ok=True)
+    tmp = META.parent / (META.name + ".tmp")
     try:
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(META)

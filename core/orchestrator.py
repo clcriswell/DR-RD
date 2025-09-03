@@ -41,6 +41,8 @@ from utils.telemetry import (
     safety_flagged_step,
     stream_completed,
     stream_started,
+    tasks_planned,
+    tasks_normalized,
 )
 from utils.timeouts import Deadline, with_deadline
 from orchestrators.executor import execute as exec_artifacts
@@ -221,7 +223,9 @@ def generate_plan(
                 extra={"empty_fields": empty_fields, "dump_path": str(dump_path)},
             )
             raise ValueError("Planner JSON validation failed")
+        tasks_planned(len(raw_tasks))
         tasks = normalize_tasks(normalize_plan_to_tasks(raw_tasks))
+        tasks_normalized(len(tasks))
         if raw_tasks and len(tasks) == 0:
             dump_dir = Path("debug/logs")
             dump_dir.mkdir(parents=True, exist_ok=True)
@@ -232,7 +236,7 @@ def generate_plan(
                 "planner.normalization_zero",
                 extra={"dump_path": str(dump_path)},
             )
-            raise ValueError("Planner normalization produced 0 tasks")
+            raise ValueError("planner.normalization_zero")
         try:
             st.session_state["plan_tasks"] = list(tasks)
             st.session_state["plan_empty_fields"] = empty_fields
@@ -245,8 +249,11 @@ def generate_plan(
 
         try:
             write_text(run_id, "plan", "json", json.dumps({"tasks": raw_tasks}, indent=2))
+            write_text(run_id, "plan.normalized", "json", json.dumps({"tasks": tasks}, indent=2))
         except Exception:
             pass
+        if not tasks:
+            raise ValueError("planner.no_tasks")
         return tasks
 
     system_prompt = st.session_state.get("prompt_texts", {}).get("planner", "You are the Planner.")
@@ -267,6 +274,8 @@ def generate_plan(
     try:
         return _call()
     except Exception as e:
+        if isinstance(e, ValueError) and str(e).startswith("planner."):
+            raise
         _check()
         try:
             msg = "\nMalformed JSON in prior response. Return valid JSON only."

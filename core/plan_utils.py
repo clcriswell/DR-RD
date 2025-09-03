@@ -23,7 +23,8 @@ def _coerce_to_list(raw: Any) -> list[dict[str, Any]]:
         raw = data
     if isinstance(raw, dict):
         # Could be single task object OR role->list mapping
-        if {"id", "title", "summary"} <= set(map(str.lower, raw.keys())):
+        keys_lower = {k.lower() for k in raw.keys()}
+        if {"id", "title", "summary"} <= keys_lower or {"role", "title", "description"} <= keys_lower:
             return [raw]
         # role -> list-of-{title,description}
         out: list[dict[str, Any]] = []
@@ -50,15 +51,20 @@ def normalize_plan_to_tasks(raw: Any) -> list[dict[str, Any]]:
     items = _coerce_to_list(raw)
     out: list[dict[str, Any]] = []
     for it in items:
-        role = canonicalize(normalize_role((it or {}).get("title")))
-        desc = (it or {}).get("summary", "") or ""
-        if not role:
-            continue
-        if len(desc.strip()) < 3:
+        if isinstance(it, dict) and "role" in it and "description" in it:
+            role = canonicalize(normalize_role(it.get("role")))
+            title = it.get("title", it.get("description", "")).strip()
+            desc = it.get("description", "").strip()
+        else:
+            role = canonicalize(normalize_role((it or {}).get("title")))
+            desc = (it or {}).get("summary", "") or ""
+            title = desc.strip()
+        if not role or len(desc.strip()) < 3:
             continue
         task = {
+            "id": (it or {}).get("id"),
             "role": role,
-            "title": desc.strip(),
+            "title": title,
             "description": desc.strip(),
         }
         if it.get("tool_request"):
@@ -82,6 +88,7 @@ def normalize_tasks(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         seen.add(key)
         task = {
+            "id": t.get("id"),
             "role": role,
             "title": title,
             "description": desc,

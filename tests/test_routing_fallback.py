@@ -2,6 +2,7 @@ import streamlit as st
 
 import core.orchestrator as orch
 from core.agents.unified_registry import AGENT_REGISTRY
+from core.router import route_task
 
 
 class DummyAgent:
@@ -20,4 +21,11 @@ def test_routing_fallback_logs_unknown_role(monkeypatch):
     orch.execute_plan("idea", tasks, agents={})
     report = st.session_state["routing_report"]
     assert report[0]["routed_role"] == "Dynamic Specialist"
-    assert report[0]["unknown_role"] == "Mystery"
+    assert report[0]["planned_role"] == "Mystery"
+
+
+def test_keyword_from_summary():
+    st.session_state.clear()
+    task = {"id": "T1", "title": "Budget", "summary": "Plan budget", "role": None}
+    role, cls, model, routed = route_task(task)
+    assert role == "Finance"
