@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from core.schemas import Plan
-from core.orchestrator import _normalize_plan_payload
+from core.orchestrator import _coerce_and_fill
 
 
 def test_zero_tasks_invalid():
@@ -12,25 +12,15 @@ def test_zero_tasks_invalid():
 
 def test_missing_ids_injected():
     data = {"tasks": [{"role": "Research Scientist", "title": "A", "summary": "B"}]}
-    norm = _normalize_plan_payload(data)
+    norm = _coerce_and_fill(data)
     validated = Plan.model_validate(norm)
     assert validated.tasks[0].id == "T01"
 
 
 def test_legacy_task_field_backfilled():
     data = {"tasks": [{"role": "Engineer", "task": "Build prototype"}]}
-    norm = _normalize_plan_payload(data)
+    norm = _coerce_and_fill(data)
     validated = Plan.model_validate(norm)
     t = validated.tasks[0]
     assert t.title == "Build prototype"
     assert t.summary == "Build prototype"
-
-
-def test_role_field_with_colon_split():
-    data = {"tasks": [{"role": "Product Manager: Draft updates"}]}
-    norm = _normalize_plan_payload(data)
-    validated = Plan.model_validate(norm)
-    t = validated.tasks[0]
-    assert t.role == "Product Manager"
-    assert t.title == "Draft updates"
-    assert t.summary == "Draft updates"

@@ -29,7 +29,7 @@ class DummyAgent:
 def test_trace_capture(monkeypatch):
     st.session_state.clear()
 
-    def fake_choose(role, title, desc, ui_model=None):
+    def fake_choose(role, title, desc, summary=None, ui_model=None, task=None):
         return role or "CTO", DummyAgent, "gpt-4o-mini"
 
     monkeypatch.setattr("core.router.choose_agent_for_task", fake_choose)

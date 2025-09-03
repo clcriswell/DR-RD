@@ -122,9 +122,13 @@ ALIASES: dict[str, str] = {
 
 ROLE_SYNONYMS: dict[str, str] = {
     "Project Manager": "Planner",
+    "project manager": "Planner",
     "Program Manager": "Planner",
+    "program manager": "Planner",
     "Product Manager": "Planner",
+    "product manager": "Planner",
     "Risk Manager": "Regulatory",
+    "risk manager": "Regulatory",
     "Software Developer": "CTO",
     "Engineer": "CTO",
     "Developer": "CTO",
@@ -136,13 +140,20 @@ ROLE_SYNONYMS: dict[str, str] = {
 def _alias(role: str | None) -> str | None:
     if not role:
         return role
-    return ALIASES.get(role.strip().lower(), role)
+    r = role.strip()
+    low = r.lower()
+    for prefix in ("dev_", "qa_", "mkt_"):
+        if low.startswith(prefix):
+            low = prefix[:-1]
+            return ALIASES.get(low, low)
+    return ALIASES.get(low, r)
 
 
 def choose_agent_for_task(
     planned_role: str | None,
     title: str,
-    description: str,
+    description: str | None,
+    summary: str | None = None,
     ui_model: str | None = None,
     task: dict[str, str] | None = None,
 ) -> tuple[str, type, str]:
@@ -186,7 +197,7 @@ def choose_agent_for_task(
             return hint, AGENT_REGISTRY[hint], model
 
     # 3) Keyword heuristics over title + description/summary
-    text = f"{title} {description}".lower()
+    text = f"{title} {description or summary or ''}".lower()
     for kw, role in KEYWORDS.items():
         if kw in text and role in AGENT_REGISTRY:
             model = select_model("agent", ui_model, agent_name=role)
@@ -204,8 +215,11 @@ def route_task(
     planned = task.get("role")
     if task.get("hints", {}).get("simulation_domain"):
         planned = "Simulation"
-    desc = task.get("description") or task.get("summary") or ""
-    role, cls, model = choose_agent_for_task(planned, task.get("title", ""), desc, ui_model, task)
+    desc = task.get("description")
+    summary = task.get("summary")
+    role, cls, model = choose_agent_for_task(
+        planned, task.get("title", ""), desc, summary, ui_model, task
+    )
     out = dict(task)
     out["role"] = role
     out.setdefault("stop_rules", task.get("stop_rules", []))

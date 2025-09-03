@@ -34,7 +34,7 @@ def route_tasks(tasks_any, agents):
         role = t["role"]
         title = t["title"]
         desc = t["description"]
-        rr, _ = choose_agent_for_task(role, title, desc)
+        rr, _ = choose_agent_for_task(role, title, desc, None)
         agent = agents.get(rr)
         if not agent:
             rr, agent = _pick_default_agent(agents)

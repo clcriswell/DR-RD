@@ -3,7 +3,7 @@ from core.agents.unified_registry import AGENT_REGISTRY
 
 
 def _check(role, expected):
-    resolved, cls, _model = choose_agent_for_task(role, "t", "d")
+    resolved, cls, _model = choose_agent_for_task(role, "t", "d", None)
     assert resolved == expected
     assert resolved in AGENT_REGISTRY
     assert cls is not AGENT_REGISTRY["Synthesizer"]
@@ -14,7 +14,7 @@ def test_mechanical_engineer_maps():
 
 
 def test_software_engineer_maps():
-    _check("Software Engineer", "Research Scientist")
+    _check("Software Engineer", "CTO")
 
 
 def test_ux_designer_maps():

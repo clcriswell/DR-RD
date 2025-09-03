@@ -21,10 +21,17 @@ class Task(BaseModel):
     """Single task item produced by the planner."""
 
     id: str
-    title: str = Field(validation_alias=AliasChoices("title", "role", "name"))
-    summary: str = Field(
-        validation_alias=AliasChoices("summary", "objective", "description", "goal")
+    title: str = Field(
+        min_length=1, validation_alias=AliasChoices("title", "role", "name")
     )
+    summary: str = Field(
+        min_length=1,
+        validation_alias=AliasChoices("summary", "objective", "description", "goal"),
+    )
+    description: str = Field(
+        min_length=1, validation_alias=AliasChoices("description", "detail", "details")
+    )
+    role: str = Field(min_length=1)
     inputs: dict[str, Any] | None = None
     dependencies: list[str] = Field(default_factory=list)
     stop_rules: list[str] = Field(default_factory=list)
