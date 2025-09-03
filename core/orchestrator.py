@@ -105,8 +105,8 @@ def _coerce_and_fill(data: dict | list) -> dict:
             continue
         tid = str(t.get("id") or f"T{i:02d}")
         title = (t.get("title") or "").strip()
-        summary = (t.get("summary") or "").strip()
-        description = (t.get("description") or summary).strip()
+        summary = (t.get("summary") or t.get("description") or "").strip()
+        description = (t.get("description") or t.get("summary") or "").strip()
         role = (t.get("role") or "Dynamic Specialist").strip()
         if title == "" or summary == "":
             continue
