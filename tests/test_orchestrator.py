@@ -1,6 +1,11 @@
 from unittest.mock import Mock, patch
 
-from core.orchestrator import compose_final_proposal, execute_plan, generate_plan
+from core.orchestrator import (
+    _invoke_agent,
+    compose_final_proposal,
+    execute_plan,
+    generate_plan,
+)
 
 
 @patch("core.orchestrator.complete")
@@ -9,7 +14,9 @@ def test_generate_plan_parses_llm_output(mock_complete):
         content='{"tasks": [{"role": "CTO", "title": "Plan", "summary": "Design"}]}'
     )
     tasks = generate_plan("new idea")
-    assert tasks == [{"role": "CTO", "title": "Plan", "description": "Design"}]
+    assert tasks == [
+        {"id": "T01", "role": "CTO", "title": "Plan", "description": "Design"}
+    ]
     mock_complete.assert_called_once()
 
 
@@ -46,6 +53,16 @@ def test_execute_plan_routes_and_invokes_agents(mock_route, mock_invoke):
     answers = execute_plan("idea", tasks, agents={}, ui_model=None)
     assert answers["Research Scientist"] == "t1-out\n\nt2-out"
     assert mock_route.call_count == 2
+
+
+def test_invoke_agent_handles_string_task():
+    class DummyAgent:
+        def run(self, context, task, model=None):
+            assert isinstance(task, dict)
+            return f"{task.get('title')}-{task.get('description')}"
+
+    out = _invoke_agent(DummyAgent(), "ctx", "simple task")
+    assert out == "simple task-simple task"
 
 
 @patch("core.orchestrator.complete")
