@@ -29,3 +29,17 @@ def test_keyword_from_summary():
     task = {"id": "T1", "title": "Budget", "summary": "Plan budget", "role": None}
     role, cls, model, routed = route_task(task)
     assert role == "Finance"
+
+
+def test_keyword_from_description():
+    st.session_state.clear()
+    task = {"id": "T1", "title": "Budget", "description": "Plan budget", "role": None}
+    role, cls, model, routed = route_task(task)
+    assert role == "Finance"
+
+
+def test_unknown_role_falls_back():
+    st.session_state.clear()
+    task = {"id": "T1", "title": "Do", "summary": "stuff", "role": "Mystery"}
+    role, cls, model, routed = route_task(task)
+    assert role == "Dynamic Specialist"

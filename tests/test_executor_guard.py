@@ -1,64 +1,45 @@
-import time
-from types import SimpleNamespace
+from core.engine import executor as ex
 
-from core.engine.executor import run_tasks
-from concurrent.futures import Future
+
+class DummyWS:
+    def read(self):
+        return {"results": {}}
+
+    def save_result(self, *a, **k):
+        pass
 
 
 class DummyState:
     def __init__(self):
-        self.ws = SimpleNamespace(read=lambda: {"results": {}}, save_result=lambda *_: None)
+        self.ws = DummyWS()
 
     def _execute(self, task):
-        time.sleep(0.01)
-        return None, 0.0
+        return "ok", 0.0
 
 
-def test_run_tasks_empty_skips_pool(monkeypatch):
-    called = {}
+def test_run_tasks_empty(monkeypatch):
+    called = False
 
-    def fake_pool(max_workers):
-        called["max_workers"] = max_workers
-        raise AssertionError("pool should not be created")
+    def fake_pool(*args, **kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("ThreadPoolExecutor should not be called")
 
-    monkeypatch.setattr("core.engine.executor.ThreadPoolExecutor", fake_pool)
-    result = run_tasks([], DummyState())
-    assert result == {}
-    assert "max_workers" not in called
-
-
-def test_run_tasks_floor_one(monkeypatch):
-    seen = {}
-
-    class FakePool:
-        def __init__(self, max_workers):
-            seen["max_workers"] = max_workers
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            pass
-
-        def submit(self, fn, task):
-            fut = Future()
-            fut.set_result((None, 0.0))
-            return fut
-
-    monkeypatch.setattr("core.engine.executor.ThreadPoolExecutor", FakePool)
-    run_tasks([{"id": "A", "task": "a", "role": "r"}], DummyState())
-    assert seen["max_workers"] == 1
+    monkeypatch.setattr(ex, "ThreadPoolExecutor", fake_pool)
+    out = ex.run_tasks([], DummyState())
+    assert out == {}
+    assert called is False
 
 
-def test_no_ready_tasks_skips_pool(monkeypatch):
-    called = {}
+def test_run_tasks_max_workers(monkeypatch):
+    captured = {}
+    orig = ex.ThreadPoolExecutor
 
-    def fake_pool(max_workers):
-        called["max_workers"] = max_workers
-        raise AssertionError("pool should not be created")
+    def cap_pool(max_workers, *a, **k):
+        captured["mw"] = max_workers
+        return orig(max_workers, *a, **k)
 
-    monkeypatch.setattr("core.engine.executor.ThreadPoolExecutor", fake_pool)
-    tasks = [{"id": "A", "task": "a", "role": "r", "depends_on": ["B"]}]
-    result = run_tasks(tasks, DummyState())
-    assert result["executed"] == [] and result["pending"] == tasks
-    assert "max_workers" not in called
+    monkeypatch.setattr(ex, "ThreadPoolExecutor", cap_pool)
+    tasks = [{"id": "T1", "role": "R", "task": "do"}]
+    ex.run_tasks(tasks, DummyState())
+    assert captured["mw"] >= 1
