@@ -28,9 +28,10 @@ def read_trace(run_id: str) -> list[Any]:
 
 def _atomic_write(p: Path, data: bytes | str) -> None:
     from .paths import ensure_dir
+    import uuid
 
     ensure_dir(p.parent)
-    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp = p.with_suffix(p.suffix + f".{uuid.uuid4().hex}.tmp")
     if isinstance(data, bytes):
         tmp.write_bytes(data)
     else:
