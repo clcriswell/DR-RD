@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Mapping, Any
+from typing import Any, Mapping
 
 
 def trace_path(run_id: str) -> Path:
@@ -27,11 +27,10 @@ def read_trace(run_id: str) -> list[Any]:
 
 
 def _atomic_write(p: Path, data: bytes | str) -> None:
-    from .paths import ensure_dir
-    import uuid
+    """Write *data* to *p* atomically, creating parent directories."""
 
-    ensure_dir(p.parent)
-    tmp = p.with_suffix(p.suffix + f".{uuid.uuid4().hex}.tmp")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
     if isinstance(data, bytes):
         tmp.write_bytes(data)
     else:

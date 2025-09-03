@@ -7,17 +7,23 @@ from dr_rd.prompting.prompt_registry import RetrievalPolicy
 
 
 class MaterialsEngineerAgent(PromptFactoryAgent):
-    def act(self, idea: str, task: Any = None, **kwargs) -> str:
+    """Prompt-based agent for materials tasks with a simple call signature."""
+
+    def __call__(self, task: Any, model: str | None = None, meta: dict | None = None) -> str:
+        idea = ""
+        if isinstance(meta, dict):
+            idea = meta.get("context", "")
+        text = task.get("description", "") if isinstance(task, dict) else str(task or "")
         spec = {
             "role": "Materials Engineer",
-            "task": str(task or ""),
-            "inputs": {"idea": idea, "task": str(task or "")},
+            "task": text,
+            "inputs": {"idea": idea, "task": text},
             "io_schema_ref": "dr_rd/schemas/materials_engineer_v1.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "materials selection",
             "evaluation_hooks": ["self_check_minimal"],
         }
-        return super().run_with_spec(spec, **kwargs)
+        return super().run_with_spec(spec, model=model)
 
-    def run(self, idea: str, task: Any, **kwargs) -> str:
-        return self.act(idea, task, **kwargs)
+    def run(self, task: Any, model: str) -> str:  # pragma: no cover - compatibility
+        return self.__call__(task, model=model)

@@ -54,6 +54,7 @@ evidence: EvidenceSet | None = None
 class ResumeNotPossible(Exception):
     pass
 
+
 def _coerce_and_fill(data: dict | list) -> dict:
     """Coerce planner output into a normalized task object.
 
@@ -216,9 +217,7 @@ def generate_plan(
         run_id = st.session_state.get("run_id", "latest")
         try:
             run_dir = ensure_run_dirs(run_id)
-            (run_dir / "plan.json").write_text(
-                json.dumps({"tasks": norm_tasks}, indent=2)
-            )
+            (run_dir / "plan.json").write_text(json.dumps({"tasks": norm_tasks}, indent=2))
         except Exception:
             pass
         try:
@@ -465,7 +464,6 @@ def execute_plan(
                     task_pseudo,
                     model=model,
                     meta={"context": pseudo.get("context")},
-                    run_id=run_id or "",
                 )
             except Exception as e:
                 span.set_attribute("status", "error")
@@ -501,7 +499,9 @@ def execute_plan(
                 collector.append_event(handle, "call", {"attempt": 2})
                 retry_task = dict(routed)
                 retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
-                pseudo2, alias_map2 = pseudonymize_for_model({"context": context, "task": retry_task})
+                pseudo2, alias_map2 = pseudonymize_for_model(
+                    {"context": context, "task": retry_task}
+                )
                 retry_task["alias_map"] = alias_map2
                 trace_writer.append_step(
                     run_id or "",
@@ -518,7 +518,6 @@ def execute_plan(
                         pseudo2.get("task", {}),
                         model=model,
                         meta={"context": pseudo2.get("context")},
-                        run_id=run_id or "",
                     )
                 except Exception as e:
                     trace_writer.append_step(
@@ -709,7 +708,6 @@ def execute_plan(
                         reflection_agent,
                         pseudo_r.get("task", {}),
                         meta={"context": pseudo_r.get("context")},
-                        run_id=run_id or "",
                     )
                     trace_writer.append_step(
                         run_id or "",
