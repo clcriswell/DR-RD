@@ -1,63 +1,71 @@
 import inspect
-import json
+from typing import Any
+
 from utils import trace_writer
 
 
-def _resolve_callable(agent):
+def invoke_agent_safely(agent: Any, task: dict, model: Any = None, meta: Any = None):
+    """Invoke *agent* with kwargs matching its signature.
+
+    Preference order for callables: ``__call__`` → ``run`` → ``act``.
+    Only parameters explicitly declared on the callable are passed.  Supported
+    names are grouped as:
+
+    - task-like: ``task``, ``input``, ``spec``, ``params`` → ``task``
+    - model-like: ``model``, ``llm``, ``client`` → ``model``
+    - meta-like: ``meta``, ``ctx``, ``context`` → ``meta``
+    """
+
+    fn = None
     for name in ("__call__", "run", "act"):
-        fn = getattr(agent, name, None)
-        if callable(fn):
-            return fn
-    return None
-
-
-def invoke_agent_safely(agent, task, model=None, meta=None, run_id: str = ""):
-    fn = _resolve_callable(agent)
+        candidate = getattr(agent, name, None)
+        if callable(candidate):
+            fn = candidate
+            break
     if fn is None:
         role = task.get("role") if isinstance(task, dict) else None
+        task_id = task.get("id") if isinstance(task, dict) else None
         try:
             trace_writer.append_step(
-                run_id,
+                "",
                 {
                     "phase": "executor",
                     "event": "agent_error",
                     "role": role,
-                    "task_id": task.get("id") if isinstance(task, dict) else None,
-                    "error": "no_callable_interface",
+                    "task_id": task_id,
+                    "error": "uncallable agent",
                 },
             )
         except Exception:
             pass
-        raise RuntimeError(f"{agent.__class__.__name__} has no callable interface")
+        raise RuntimeError("uncallable agent")
+
     sig = inspect.signature(fn)
-    params = list(sig.parameters.values())
+    mapping: dict[str, Any] = {}
+    for name in sig.parameters:
+        if name == "self":
+            continue
+        if name in {"task", "input", "spec", "params"}:
+            mapping[name] = task
+        elif name in {"model", "llm", "client"}:
+            mapping[name] = model
+        elif name in {"meta", "ctx", "context"}:
+            mapping[name] = meta
+
+    bound = sig.bind_partial(**mapping)
     try:
-        if len(params) == 1:
-            name = params[0].name
-            if name in {"spec", "payload"}:
-                spec = {"task": task, "model": model, "meta": meta}
-                return fn(spec)
-            try:
-                return fn(task)
-            except TypeError:
-                spec = {"task": task, "model": model, "meta": meta}
-                return fn(spec)
-        if len(params) == 2:
-            return fn(task, model)
-        if len(params) == 3:
-            return fn(task, model, meta)
-        spec = {"task": task, "model": model, "meta": meta}
-        return fn(spec)
-    except Exception as e:
+        return fn(**bound.arguments)
+    except Exception as e:  # pragma: no cover - exercised in tests
         role = task.get("role") if isinstance(task, dict) else None
+        task_id = task.get("id") if isinstance(task, dict) else None
         try:
             trace_writer.append_step(
-                run_id,
+                "",
                 {
                     "phase": "executor",
                     "event": "agent_error",
                     "role": role,
-                    "task_id": task.get("id") if isinstance(task, dict) else None,
+                    "task_id": task_id,
                     "error": str(e),
                 },
             )

@@ -8,14 +8,13 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional, Type
 
-
 from core.budget import BudgetManager, CostTracker
 from core.token_meter import TokenMeter
+from utils.clients import get_cloud_logging_client
 from utils.config import load_config
 from utils.lazy_import import lazy
 from utils.telemetry import usage_exceeded, usage_threshold_crossed
 from utils.usage import Usage, add_delta, thresholds
-from utils.clients import get_cloud_logging_client
 
 _openai = lazy("openai")
 _client_instance: Optional[Any] = None
@@ -308,6 +307,9 @@ def call_openai(
                 tool_choice = "auto"
 
         params = {**(response_params or {}), **kwargs}
+        for k in ["provider", "json_strict", "tool_use", "extra_keys"]:
+            if k in params:
+                params.pop(k, None)
         if "llm_hints" in params:
             params.pop("llm_hints", None)
             logger.info("Ignoring unsupported param: llm_hints")
@@ -350,6 +352,8 @@ def call_openai(
             "input": _to_responses_input(messages),
             **resp_params,
         }
+        allowed_payload = {"model", "input"} | _ALLOWED_RESPONSE_KEYS
+        payload = {k: v for k, v in payload.items() if k in allowed_payload}
         logger.info("call_openai: model=%s api=Responses", effective_model)
         backoff = 0.1
         client = _client()
@@ -359,10 +363,8 @@ def call_openai(
                 http_status_or_exc = getattr(resp, "http_status", 200)
                 text = extract_text(resp)
                 return {"raw": resp, "text": text}
-            except TypeError as e:
-                logger.error(
-                    "OpenAI kwargs error", extra={"keys": sorted(payload.keys())}
-                )
+            except TypeError:
+                logger.error("OpenAI kwargs error", extra={"keys": sorted(payload.keys())})
                 raise
             except _openai.APIStatusError as e:
                 http_status_or_exc = e.status_code

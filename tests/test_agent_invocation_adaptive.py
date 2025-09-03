@@ -1,9 +1,7 @@
 import pytest
 
-import pytest
-
 from core.agents.runtime import invoke_agent_safely
-from utils import trace_writer, paths
+from utils import paths, trace_writer
 
 
 class TaskOnly:
@@ -23,7 +21,7 @@ class TaskModelMeta:
 
 class SpecOnly:
     def __call__(self, spec):
-        return spec["task"]["id"]
+        return spec["id"]
 
 
 class BadAgent:
@@ -36,20 +34,18 @@ class BadAgent:
         (TaskOnly(), {}, "T"),
         (TaskModel(), {"model": "m"}, "m"),
         (TaskModelMeta(), {"model": "m", "meta": {"foo": "bar"}}, "bar"),
-        (SpecOnly(), {"model": "m"}, "T"),
+        (SpecOnly(), {}, "T"),
     ],
 )
-def test_invoke_agent_variants(agent, kwargs, expected, tmp_path, monkeypatch):
-    paths.RUNS_ROOT = tmp_path
+def test_invoke_agent_variants(agent, kwargs, expected):
     task = {"id": "T", "role": "X"}
-    assert invoke_agent_safely(agent, task, run_id="R1", **kwargs) == expected
+    assert invoke_agent_safely(agent, task, **kwargs) == expected
 
 
-def test_uncallable_agent_logs_error(tmp_path, monkeypatch):
-    paths.RUNS_ROOT = tmp_path
-    paths.ensure_run_dirs("R2")
+def test_uncallable_agent_logs_error(tmp_path):
+    paths.RUNS_ROOT = tmp_path / ".dr_rd" / "runs"
     task = {"id": "T2", "role": "Y"}
     with pytest.raises(RuntimeError):
-        invoke_agent_safely(BadAgent(), task, run_id="R2")
-    trace = trace_writer.read_trace("R2")
+        invoke_agent_safely(BadAgent(), task)
+    trace = trace_writer.read_trace("")
     assert any(e.get("event") == "agent_error" for e in trace)
