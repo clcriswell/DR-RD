@@ -47,30 +47,15 @@ def run_tasks(
     tasks: List[Task],
     state: Any,
     log: Callable[[str], None] | None = None,
-) -> Tuple[List[Tuple[Task, float]], List[Task]]:
+) -> Dict[str, Any]:
     """Execute ``tasks`` concurrently when possible.
 
-    Parameters
-    ----------
-    tasks:
-        Tasks to consider for execution. Each task is a ``dict`` containing at
-        least ``id`` and ``task`` fields. Optional fields include ``priority``,
-        ``created_at`` and ``depends_on``.
-    state:
-        Orchestrator state that exposes ``_execute`` and ``ws`` (workspace).
-    log:
-        Optional logger used for maintaining the existing log format.
-
-    Returns
-    -------
-    executed, pending:
-        ``executed`` is a list of ``(task, score)`` tuples for tasks that were
-        run. ``pending`` contains tasks whose dependencies were not yet
-        satisfied.
+    Returns a dict with ``executed`` and ``pending`` lists.  If ``tasks`` is
+    empty, an empty dict is returned.
     """
 
     if not tasks:
-        return [], []
+        return {}
 
     ready: List[Task] = []
     pending: List[Task] = []
@@ -85,9 +70,9 @@ def run_tasks(
             pending.append(t)
     tasks_executable(len(ready))
     if not ready:
-        return [], tasks
+        return {"executed": [], "pending": tasks}
 
-    max_workers = min(4, len(ready))
+    max_workers = max(1, min(4, len(tasks)))
     results: List[TaskResult] = []
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_map = {pool.submit(state._execute, t): t for t in ready}
@@ -101,4 +86,4 @@ def run_tasks(
         merge_results(state, task, res, score, log)
         executed.append((task, score))
 
-    return executed, pending
+    return {"executed": executed, "pending": pending}

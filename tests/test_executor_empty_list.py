@@ -10,6 +10,6 @@ def test_executor_handles_empty_task_list():
         def _execute(self, task):  # pragma: no cover - not called
             return None, 0.0
 
-    executed, pending = run_tasks([], state=State())
-    assert executed == [] and pending == []
+    result = run_tasks([], state=State())
+    assert result == {}
 
