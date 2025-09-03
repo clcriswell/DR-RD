@@ -188,8 +188,13 @@ def choose_agent_for_task(
         prefix_map = {
             "DEV": "CTO",
             "DEVELOPER": "CTO",
+            "ENG": "CTO",
             "QA": "QA",
             "MKT": "Marketing Analyst",
+            "IP": "IP Analyst",
+            "REG": "Regulatory",
+            "MAT": "Materials Engineer",
+            "SIM": "Simulation",
         }
         hint = prefix_map.get(prefix)
         if hint and hint in AGENT_REGISTRY:
@@ -197,7 +202,8 @@ def choose_agent_for_task(
             return hint, AGENT_REGISTRY[hint], model
 
     # 3) Keyword heuristics over title + description/summary
-    text = f"{title} {description or summary or ''}".lower()
+    routing_text = f"{title} {description or summary or ''}"
+    text = routing_text.lower()
     for kw, role in KEYWORDS.items():
         if kw in text and role in AGENT_REGISTRY:
             model = select_model("agent", ui_model, agent_name=role)
@@ -229,7 +235,7 @@ def route_task(
         route_decision["unknown_role"] = planned
     if task.get("id"):
         prefix = task["id"].split("_")[0].split("-")[0].upper()
-        prefix_map = {"DEV", "DEVELOPER", "QA", "MKT"}
+        prefix_map = {"DEV", "DEVELOPER", "ENG", "QA", "MKT", "IP", "REG", "MAT", "SIM"}
         if prefix in prefix_map:
             route_decision["id_prefix"] = prefix
     if feature_flags.COST_GOVERNANCE_ENABLED:

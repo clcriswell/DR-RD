@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 from pydantic.config import ConfigDict
 
 
@@ -39,6 +39,14 @@ class Task(BaseModel):
     tool_request: dict[str, Any] | None = None
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    @field_validator("title", "summary", "description", "role")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be empty")
+        return v
 
 
 class Plan(BaseModel):

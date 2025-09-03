@@ -45,4 +45,4 @@ def test_schema_violation(monkeypatch):
     monkeypatch.setattr(orchestrator, "complete", bad_complete)
     with pytest.raises(ValueError) as exc:
         generate_plan("idea", ui_model="x")
-    assert "missing" in str(exc.value)
+    assert "planner.normalization_zero" in str(exc.value)

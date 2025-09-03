@@ -98,6 +98,7 @@ def _coerce_and_fill(data: dict) -> dict:
         tid = str(t.get("id", "")).strip()
         if not tid:
             tid = f"T{seq:02d}"
+            logger.info("planner.id_injected", extra={"id": tid})
         seq += 1
 
         title = str(
@@ -228,7 +229,22 @@ def generate_plan(
             raise ValueError("planner.error_returned")
         if alias_map:
             raw_data = rehydrate_output(raw_data, alias_map)
+        orig_tasks = raw_data.get("tasks", [])
         data = _coerce_and_fill(raw_data)
+        norm_tasks = data.get("tasks", [])
+        tasks_planned(len(orig_tasks))
+        if orig_tasks and not norm_tasks:
+            tasks_normalized(0)
+            dump_dir = Path("debug/logs")
+            dump_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
+            dump_path = dump_dir / f"planner_payload_{ts}.json"
+            dump_path.write_text(json.dumps(raw_data, indent=2))
+            logger.error(
+                "planner.normalization_zero",
+                extra={"dump_path": str(dump_path)},
+            )
+            raise ValueError("planner.normalization_zero")
         from pydantic import ValidationError
 
         try:
@@ -243,10 +259,7 @@ def generate_plan(
                 "planner.validation_failed",
                 extra={"errors": len(e.errors()), "dump_path": str(dump_path)},
             )
-            raise ValueError("Planner JSON validation failed") from e
-        orig_tasks = raw_data.get("tasks", [])
-        norm_tasks = data.get("tasks", [])
-        tasks_planned(len(orig_tasks))
+            raise ValueError("missing required fields") from e
         tasks = normalize_tasks(normalize_plan_to_tasks(norm_tasks))
         tasks_normalized(len(tasks))
         run_id = st.session_state.get("run_id", "latest")
@@ -432,10 +445,27 @@ def execute_plan(
 
     project_id = project_id or _slugify(idea)
     project_name = project_name or project_id
-    if not tasks:
-        logger.info("execute_plan called with no tasks")
-        return {}
+    exec_tasks = [t for t in tasks if isinstance(t, dict)]
+    if not exec_tasks:
+        try:
+            trace_writer.append_step(
+                run_id,
+                {"phase": "executor", "summary": [], "reason": "no_executable_tasks"},
+            )
+            trace_writer.flush_phase_meta(
+                run_id,
+                "executor",
+                {
+                    "routed_tasks": 0,
+                    "exec_tasks": 0,
+                    "reason": "no_executable_tasks",
+                },
+            )
+        except Exception:
+            pass
+        raise ValueError("No executable tasks after planning/routing")
     agents = agents or {}
+    tasks = exec_tasks
     answers: dict[str, str] = {}
     role_to_findings: dict[str, dict] = {}
     alias_maps: dict[str, dict[str, str]] = {}
