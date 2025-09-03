@@ -2,7 +2,9 @@ import core.router as router
 
 def _choose(task_id, title="Task", summary="Do work"):
     t = {"id": task_id, "title": title, "summary": summary}
-    role, _cls, _model = router.choose_agent_for_task(None, title, summary, task=t)
+    role, _cls, _model = router.choose_agent_for_task(
+        None, title, None, summary, task=t
+    )
     return role
 
 

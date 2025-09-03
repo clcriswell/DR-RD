@@ -19,7 +19,7 @@ def test_summary_backfilled(monkeypatch):
 
 def test_description_backfilled():
     data = {"tasks": [{"id": "T01", "title": "CTO", "description": "Build"}]}
-    out = orch._normalize_plan_payload(data)
+    out = orch._coerce_and_fill(data)
     assert out["tasks"][0]["summary"] == "Build"
 
 

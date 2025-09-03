@@ -2,24 +2,17 @@
 
 PLANNER_SYSTEM_PROMPT = (
     # Schema: dr_rd/schemas/planner_v1.json
-    "You are the Planner AI. Break the user's idea into discrete tasks spanning different domains such as architecture/design, materials, regulatory/IP, finance/budgeting, marketing, and QA/testing. "
-    "Output must be ONLY JSON matching {\"tasks\": [...]} with no extra commentary or Markdown. "
-    "Each task MUST provide non-empty string fields id, title, summary, description, and role. "
-    "Field meanings: id – short identifier (prefer T01, T02, ...), title – 5-7 word task name, summary – one-sentence overview, description – 1-3 sentence detail, role – one of CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst, HRM, Materials Engineer, QA, Simulation, Dynamic Specialist. "
-    "Optional fields include inputs (object), dependencies (array of ids), stop_rules (array of strings), and tags (array of strings). "
-    "Produce at least six tasks covering design/architecture, materials, compliance/regulatory/IP, cost/finance, marketing, and QA/testing. Unknown domains must use the role Dynamic Specialist. "
-    "If any required field is missing or information is insufficient to craft all tasks, return {\"error\":\"MISSING_INFO\",\"needs\":[...missing_fields...]}. "
-    "No placeholders or blank strings."
-    "\nExample (illustrative only, actual content must differ):\n"
-    '{"tasks": [{"id": "T01", "title": "Draft system architecture", "summary": "Outline major components", "description": "Define high-level modules and interfaces for the product.", "role": "CTO"}, '
-    '{"id": "T02", "title": "Estimate materials cost", "summary": "Calculate key material expenses", "description": "Compile a bill of materials with cost estimates.", "role": "Finance", "dependencies": ["T01"]}, '
-    '{"id": "T03", "title": "Assess regulatory pathway", "summary": "Review standards and approvals", "description": "Identify applicable regulations and required certifications.", "role": "Regulatory"}]}\n'
+    "You are the Planner. Decompose the idea into role-specific tasks. Output ONLY JSON of the form {\"tasks\":[...]}. "
+    "Each task must include non-empty: id, title, summary, description, role. Roles must be one of our agent registry. "
+    "Prefer id format \"T01\",\"T02\",\u2026; if you must invent an id, follow that pattern. "
+    "If any required field is missing or you cannot produce at least six tasks spanning design, materials, regulatory/IP, finance, marketing, and QA/testing, return {\"error\":\"MISSING_INFO\",\"needs\":[...missing fields...]}. "
+    "Do not return arrays at the top level; wrap tasks in an object { \"tasks\": [...] }. No extra commentary or Markdown."
 )
 
 PLANNER_USER_PROMPT_TEMPLATE = (
     # Schema: dr_rd/schemas/planner_agent.json
     "Project idea: {idea}{constraints_section}{risk_section}\n\n"
-    "Using the schema and guidelines above, break this idea into at least six role-specific tasks and return only the JSON object. Do not include any extra text."
+    "Using the schema and rules above, produce at least six tasks and return only the JSON object. No extra text."
 )
 
 SYNTHESIZER_TEMPLATE = """\

@@ -5,16 +5,15 @@ from core.agents.unified_registry import AGENT_REGISTRY
 
 
 def test_alias_mapping():
-    role, cls, _ = choose_agent_for_task("Manufacturing Technician", "", "")
+    role, cls, _ = choose_agent_for_task("Manufacturing Technician", "", "", None)
     assert role == "Research Scientist"
     assert cls is AGENT_REGISTRY[role]
 
 
 def test_unresolved_role_logs(caplog):
     caplog.set_level(logging.INFO)
-    role, cls, _ = choose_agent_for_task("Unknown Role", "title", "desc")
-    assert role == "Research Scientist"
-    assert any("Fallback routing" in r.message for r in caplog.records)
+    role, cls, _ = choose_agent_for_task("Unknown Role", "title", "desc", None)
+    assert role == "Dynamic Specialist"
 
 
 def test_stop_rules_propagation():

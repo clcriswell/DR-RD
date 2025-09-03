@@ -83,39 +83,67 @@ def _invoke_agent(agent, context: str, task: dict[str, str], model: str | None =
     raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
 
 
-def _normalize_plan_payload(data: dict) -> dict:
-    """Inject sequential task IDs and backfill missing fields."""
-    if isinstance(data, dict) and isinstance(data.get("tasks"), list):
-        missing = 0
-        normalized: list[dict] = []
-        for i, t in enumerate(data["tasks"], 1):
-            if not t.get("id"):
-                t["id"] = f"T{i:02d}"
-                missing += 1
+def _coerce_and_fill(data: dict) -> dict:
+    """Normalize planner output without dropping tasks for minor issues."""
+    tasks = data.get("tasks") if isinstance(data, dict) else None
+    if not isinstance(tasks, list):
+        data["tasks"] = []
+        return data
 
-            if "title" not in t:
-                for key in ("role", "name"):
-                    if t.get(key):
-                        t["title"] = t[key]
-                        break
+    normalized: list[dict] = []
+    seq = 1
+    for t in tasks:
+        if not isinstance(t, dict):
+            continue
+        tid = str(t.get("id", "")).strip()
+        if not tid:
+            tid = f"T{seq:02d}"
+        seq += 1
 
-            if not t.get("description") and t.get("summary"):
-                t["description"] = t["summary"]
-            if not t.get("summary") and t.get("description"):
-                t["summary"] = t["description"]
+        title = str(
+            t.get("title")
+            or t.get("name")
+            or t.get("task")
+            or t.get("role")
+            or ""
+        ).strip()
+        summary = str(
+            t.get("summary")
+            or t.get("objective")
+            or t.get("description")
+            or t.get("task")
+            or ""
+        ).strip()
+        description = str(t.get("description") or summary).strip()
+        role = str(t.get("role") or "Dynamic Specialist").strip() or "Dynamic Specialist"
 
-            for key in ("id", "title", "summary", "description"):
-                if isinstance(t.get(key), str):
-                    t[key] = t[key].strip()
+        if not summary:
+            summary = description
+        if not description:
+            description = summary
 
-            if t.get("title") and t.get("summary"):
-                for key in ("role", "name", "objective"):
-                    t.pop(key, None)
-                normalized.append(t)
+        title = title.strip()
+        summary = summary.strip()
+        description = description.strip()
+        role = role.strip()
 
-        data["tasks"] = normalized
-        if missing:
-            logger.info("Planner normalizer injected %d task IDs", missing)
+        if not title or not summary:
+            continue
+
+        nt: dict[str, Any] = {
+            "id": tid,
+            "title": title,
+            "summary": summary,
+            "description": description,
+            "role": role,
+            "dependencies": t.get("dependencies", []) or [],
+            "inputs": t.get("inputs"),
+            "stop_rules": t.get("stop_rules", []) or [],
+            "tags": t.get("tags", []) or [],
+        }
+        normalized.append(nt)
+
+    data["tasks"] = normalized
     return data
 
 
@@ -194,9 +222,13 @@ def generate_plan(
                 result = complete(system_prompt, user_prompt + extra)
         raw = result.content or "{}"
         raw_data = extract_json_strict(raw)
+        if isinstance(raw_data, list):
+            raw_data = {"tasks": raw_data}
+        if isinstance(raw_data, dict) and raw_data.get("error"):
+            raise ValueError("planner.error_returned")
         if alias_map:
             raw_data = rehydrate_output(raw_data, alias_map)
-        data = _normalize_plan_payload(raw_data)
+        data = _coerce_and_fill(raw_data)
         from pydantic import ValidationError
 
         try:

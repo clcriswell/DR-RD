@@ -64,10 +64,10 @@ def test_ip_agent_contract(mock_call):
 
 def test_router_dispatches_to_new_agents():
     role1, cls1, _ = choose_agent_for_task(
-        None, "Analyze competitor pricing and market segments", ""
+        None, "Analyze competitor pricing and market segments", "", None
     )
     assert cls1.__name__ == "MarketingAgent" and role1 == "Marketing Analyst"
     role2, cls2, _ = choose_agent_for_task(
-        None, "Review patent claims for novelty", ""
+        None, "Review patent claims for novelty", "", None
     )
     assert cls2.__name__ == "IPAnalystAgent" and role2 == "IP Analyst"
