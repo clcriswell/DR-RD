@@ -10,9 +10,9 @@ vars:
     required: false
     default: ""
 template: |
-  You are the planner. Produce a minimal plan.
-  Each task must have a non-empty id, title, and summary.
-  If you cannot provide a value for a field, return an error instead of an empty string.
+  You are the Planner. Produce a minimal plan.
+  Each task must include non-empty id, title, and summary fields.
+  Return an error instead of empty strings when unsure.
   Tone: {tone}
   {knowledge_hint}
 changelog:
