@@ -54,16 +54,27 @@ class ResumeNotPossible(Exception):
     pass
 
 
-def _invoke_agent(agent, context: str, task: dict[str, str], model: str | None = None) -> str:
+def _invoke_agent(agent, context: str, task: dict[str, str] | str, model: str | None = None) -> str:
     """Call an agent with best-effort interface detection.
 
     ``context`` and ``task`` are pseudonymized before invocation and the
     resulting alias map is attached to ``task`` for later rehydration.
+
+    Historically ``task`` was assumed to be a mapping, but in practice some
+    callers may provide a simple string.  To avoid attribute errors inside
+    agents, string tasks are wrapped in a minimal dict before processing.
     """
+
+    if isinstance(task, str):
+        task = {"title": task, "description": task}
 
     pseudo_payload, alias_map = pseudonymize_for_model({"context": context, "task": task})
     pseudo_context = pseudo_payload["context"]
     pseudo_task = pseudo_payload["task"]
+
+    if isinstance(pseudo_task, str):
+        pseudo_task = {"title": pseudo_task, "description": pseudo_task}
+
     task["alias_map"] = alias_map
 
     text = f"{pseudo_task.get('title', '')}: {pseudo_task.get('description', '')}"
@@ -429,7 +440,7 @@ def execute_plan(
             )
         except Exception:
             pass
-    
+
         raise ValueError("No executable tasks after planning/routing")
     agents = agents or {}
     tasks = exec_tasks
@@ -1262,7 +1273,9 @@ def run_stream(
                         "Planner counters: planned=%d normalized=%d", raw_planned, normalized_count
                     )
                     logger.info("Executor starting with tasks=%d", len(tasks))
-                    assert tasks, "Normalized tasks unexpectedly empty — check planner/normalizer handoff"
+                    assert (
+                        tasks
+                    ), "Normalized tasks unexpectedly empty — check planner/normalizer handoff"
                     try:
                         answers = execute_plan(
                             idea,
