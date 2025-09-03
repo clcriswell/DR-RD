@@ -531,11 +531,16 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         current_phase = "plan"
         with components.stage_status("Planning…") as box:
             current_box = box
-            tasks = generate_plan(
-                kwargs["idea"],
-                cancel=token,
-                deadline_ts=deadline_ts,
-            )
+            try:
+                tasks = generate_plan(
+                    kwargs["idea"],
+                    cancel=token,
+                    deadline_ts=deadline_ts,
+                )
+            except ValueError as e:
+                box.update(label="Planning failed", state="error")
+                st.error(str(e))
+                return
             box.update(label="Planning complete", state="complete")
         res = safety_utils.check_text(json.dumps(tasks))
         trace_writer.append_step(
@@ -569,13 +574,18 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         current_phase = "exec"
         with components.stage_status("Executing…") as box:
             current_box = box
-            answers = execute_plan(
-                kwargs["idea"],
-                tasks,
-                agents=get_agents(),
-                cancel=token,
-                deadline_ts=deadline_ts,
-            )
+            try:
+                answers = execute_plan(
+                    kwargs["idea"],
+                    tasks,
+                    agents=get_agents(),
+                    cancel=token,
+                    deadline_ts=deadline_ts,
+                )
+            except ValueError as e:
+                box.update(label="Execution failed", state="error")
+                st.error(str(e))
+                return
             box.update(label="Execution complete", state="complete")
         res = safety_utils.check_text(json.dumps(answers))
         trace_writer.append_step(

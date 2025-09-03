@@ -32,6 +32,7 @@ def test_flatten_trace_rows():
         "prompt",
         "citations",
         "planned_tasks",
+        "normalized_tasks",
         "routed_tasks",
         "empty_fields",
         "exec_tasks",

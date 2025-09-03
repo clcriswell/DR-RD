@@ -8,7 +8,7 @@ PLANNER_SYSTEM_PROMPT = (
     'When background research is required, you may also add "retrieval_request": true and/or "queries": ["..."] to hint the orchestrator. '
     'For patent or regulatory needs, tasks may include optional ip_request {"query":str,...} and/or compliance_request {"profile_ids":[...],"min_coverage":float}. '
     'All tasks MUST include non-empty string fields id, title, and summary and MAY NOT include any extra keys. '
-    'Do not return placeholders or empty strings. If information is insufficient, return an error explaining what is missing instead of emitting empty fields. '
+    'Do not return placeholders or empty strings. If information is insufficient or you cannot craft at least four valid tasks, return an error message instead. '
     'Output ONLY JSON matching this schema: {"tasks":[{"id":"T01","title":"CTO","summary":"Assess feasibility"}]}.'
 )
 
@@ -17,7 +17,7 @@ PLANNER_USER_PROMPT_TEMPLATE = (
     "Project idea: {idea}{constraints_section}{risk_section}\n"
     "Break the project into role-specific tasks. Every task must include non-empty id, title, and summary fields. Do not use placeholders or empty strings. "
     'Output ONLY JSON matching {{"tasks": [...]}} with at least 4 tasks. '
-    'If you cannot produce at least 4 tasks or lack info for any required field, return an error message explaining what info is missing.'
+    'If you cannot produce at least 4 valid tasks or lack info for any required field, return an error message instead of empty strings.'
 )
 
 SYNTHESIZER_TEMPLATE = """\

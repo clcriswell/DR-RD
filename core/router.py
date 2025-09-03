@@ -17,6 +17,7 @@ from core.agents.invoke import invoke_agent
 from core.agents.unified_registry import AGENT_REGISTRY, get_agent
 from core.llm import select_model
 from core.roles import canonicalize
+import streamlit as st
 
 logger = logging.getLogger(__name__)
 BUDGETS: Dict[str, Any] | None = None
@@ -173,8 +174,9 @@ def route_task(
     planned = task.get("role")
     if task.get("hints", {}).get("simulation_domain"):
         planned = "Simulation"
+    desc = task.get("description") or task.get("summary") or ""
     role, cls, model = choose_agent_for_task(
-        planned, task.get("title", ""), task.get("description", ""), ui_model
+        planned, task.get("title", ""), desc, ui_model
     )
     out = dict(task)
     out["role"] = role
@@ -209,6 +211,12 @@ def route_task(
         retrieval_level=str(route_decision.get("retrieval_level")),
         caps=json.dumps(route_decision.get("caps", {})),
     )
+    try:
+        st.session_state.setdefault("routing_report", []).append(
+            {"task_id": task.get("id"), "planned_role": planned, "routed_role": role}
+        )
+    except Exception:
+        pass
     return role, cls, model, out
 
 

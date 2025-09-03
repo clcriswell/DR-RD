@@ -70,6 +70,7 @@ def run_tasks(
     if not tasks:
         return [], []
 
+    max_workers = max(1, min(4, len(tasks)))
     ready: List[Task] = []
     pending: List[Task] = []
     current_state = state.ws.read()
@@ -81,8 +82,6 @@ def run_tasks(
                 log(f"▶️ {t['role']} – {t['task'][:60]}…")
         else:
             pending.append(t)
-
-    max_workers = max(1, min(4, len(tasks)))
     results: List[TaskResult] = []
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_map = {pool.submit(state._execute, t): t for t in ready}
