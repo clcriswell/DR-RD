@@ -103,6 +103,20 @@ def build_markdown_report(
         lines.append(f"- Cost: ${cost:.4f}")
     lines.append("")
 
+    if any(k in totals for k in ["planned_tasks", "normalized_tasks", "routed_tasks", "exec_tasks"]):
+        lines.append("## Task counts")
+        lines.append("| planned | normalized | routed | executed |")
+        lines.append("|---|---|---|---|")
+        lines.append(
+            "| {p} | {n} | {r} | {e} |".format(
+                p=totals.get("planned_tasks", ""),
+                n=totals.get("normalized_tasks", ""),
+                r=totals.get("routed_tasks", ""),
+                e=totals.get("exec_tasks", ""),
+            )
+        )
+        lines.append("")
+
     rows = flatten_trace_rows(trace)
     lines.append("## Trace summary table")
     lines.append(trace_table(rows))

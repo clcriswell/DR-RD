@@ -11,5 +11,5 @@ def test_executor_handles_empty_task_list():
             return None, 0.0
 
     result = run_tasks([], state=State())
-    assert result == {}
+    assert result == {"executed": [], "pending": []}
 

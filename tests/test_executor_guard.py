@@ -27,7 +27,7 @@ def test_run_tasks_empty(monkeypatch):
 
     monkeypatch.setattr(ex, "ThreadPoolExecutor", fake_pool)
     out = ex.run_tasks([], DummyState())
-    assert out == {}
+    assert out == {"executed": [], "pending": []}
     assert called is False
 
 

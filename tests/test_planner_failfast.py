@@ -17,6 +17,12 @@ def test_summary_backfilled(monkeypatch):
     assert tasks[0]["description"] == "Build"
 
 
+def test_description_backfilled():
+    data = {"tasks": [{"id": "T01", "title": "CTO", "description": "Build"}]}
+    out = orch._normalize_plan_payload(data)
+    assert out["tasks"][0]["summary"] == "Build"
+
+
 class _NoIdResp:
     content = json.dumps({"tasks": [{"title": "CTO", "summary": "Build"}]})
 
@@ -26,6 +32,17 @@ def test_missing_id_backfilled(monkeypatch):
     monkeypatch.setattr(orch, "select_model", lambda *a, **k: "test")
     tasks = orch.generate_plan("idea")
     assert tasks[0]["id"].startswith("T")
+
+
+class _PrefixedIdResp:
+    content = json.dumps({"tasks": [{"id": "DEV_1", "title": "CTO", "summary": "Build"}]})
+
+
+def test_prefixed_id_survives(monkeypatch):
+    monkeypatch.setattr(orch, "complete", lambda *a, **k: _PrefixedIdResp())
+    monkeypatch.setattr(orch, "select_model", lambda *a, **k: "test")
+    tasks = orch.generate_plan("idea")
+    assert tasks[0]["id"] == "DEV_1"
 
 
 class _BadResp:

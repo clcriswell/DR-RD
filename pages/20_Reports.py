@@ -145,6 +145,21 @@ else:
         "tokens": sum(_step_tokens(step) for step in trace),
         "cost": sum(_step_cost(step) for step in trace),
     }
+    phase_meta = {}
+    meta_path = run_root(run_id) / "phase_meta.json"
+    if meta_path.exists():
+        try:
+            phase_meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            phase_meta = {}
+    totals.update(
+        {
+            "planned_tasks": phase_meta.get("planner", {}).get("planned_tasks"),
+            "normalized_tasks": phase_meta.get("planner", {}).get("normalized_tasks"),
+            "routed_tasks": phase_meta.get("router", {}).get("routed_tasks"),
+            "exec_tasks": phase_meta.get("executor", {}).get("exec_tasks"),
+        }
+    )
     results = []
     for step in trace:
         if isinstance(step.get("safety"), dict):

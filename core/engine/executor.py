@@ -52,11 +52,12 @@ def run_tasks(
     """Execute ``tasks`` concurrently when possible.
 
     Returns a dict with ``executed`` and ``pending`` lists.  If ``tasks`` is
-    empty, an empty dict is returned.
+    empty, both lists are empty.
     """
 
     if not tasks:
-        return {}
+        tasks_executable(0)
+        return {"executed": [], "pending": []}
 
     ready: list[Task] = []
     pending: list[Task] = []
