@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Mapping
 
 import core.orchestrator as orch
+import streamlit as st
 from utils import telemetry
 from utils.cli import exit_code, load_config, print_summary
 from utils.env_snapshot import capture_env
@@ -55,7 +56,9 @@ def run(
     status = "error"
     start = time.time()
     try:
-        tasks = orch.generate_plan(kwargs["idea"], deadline_ts=deadline_ts)
+        orch.generate_plan(kwargs["idea"], deadline_ts=deadline_ts)
+        tasks = st.session_state.get("plan_tasks", [])
+        assert tasks, "Normalized tasks unexpectedly empty — check planner/normalizer handoff"
         answers = orch.execute_plan(kwargs["idea"], tasks, deadline_ts=deadline_ts)
         orch.compose_final_proposal(kwargs["idea"], answers)
         status = "success"

@@ -2,6 +2,8 @@ import logging
 import os
 from typing import Set
 
+# Strict mode may reject unmapped roles.  Setting HRM_STRICT_ROLE_NORMALIZATION=false
+# is recommended unless strict behavior is explicitly desired.
 STRICT = os.getenv("HRM_STRICT_ROLE_NORMALIZATION", "false").lower() == "true"
 
 CANON = {
@@ -28,6 +30,7 @@ CANON = {
     "human resources": "HRM",
     "materials engineer": "Materials Engineer",
     "reflection": "Reflection",
+    "dynamic specialist": "Dynamic Specialist",
 }
 
 # Additional explicit role remappings to stop Synthesizer fallbacks. The keys
@@ -64,7 +67,7 @@ def normalize_role(role: str | None) -> str | None:
     low = r.lower()
     hit = CANON.get(low)
     if STRICT:
-        return hit
+        return hit or r
     return hit or r
 
 
@@ -92,4 +95,5 @@ def canonical_roles() -> Set[str]:
         "HRM",
         "Materials Engineer",
         "Reflection",
+        "Dynamic Specialist",
     }

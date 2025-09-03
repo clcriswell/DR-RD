@@ -181,6 +181,9 @@ def choose_agent_for_task(
     if role and role in AGENT_REGISTRY:
         model = select_model("agent", ui_model, agent_name=role)
         return role, AGENT_REGISTRY[role], model
+    if planned_role:
+        model = select_model("agent", ui_model, agent_name="Dynamic Specialist")
+        return "Dynamic Specialist", AGENT_REGISTRY["Dynamic Specialist"], model
 
     # 2) ID prefix hint
     if task and task.get("id"):
@@ -202,8 +205,7 @@ def choose_agent_for_task(
             return hint, AGENT_REGISTRY[hint], model
 
     # 3) Keyword heuristics over title + description/summary
-    routing_text = f"{title} {(description or summary or '')}".strip()
-    text = routing_text.lower()
+    text = f"{title} {(task.get('description') or task.get('summary') or '')}".strip().lower()
     for kw, role in KEYWORDS.items():
         if kw in text and role in AGENT_REGISTRY:
             model = select_model("agent", ui_model, agent_name=role)
@@ -231,13 +233,6 @@ def route_task(
     out.setdefault("stop_rules", task.get("stop_rules", []))
 
     route_decision: dict[str, Any] = {"selected_role": role}
-    if role == "Dynamic Specialist" and planned and planned not in AGENT_REGISTRY:
-        route_decision["unknown_role"] = planned
-    if task.get("id"):
-        prefix = task["id"].split("_")[0].split("-")[0].upper()
-        prefix_map = {"DEV", "DEVELOPER", "ENG", "QA", "MKT", "IP", "REG", "MAT", "SIM"}
-        if prefix in prefix_map:
-            route_decision["id_prefix"] = prefix
     if feature_flags.COST_GOVERNANCE_ENABLED:
         budgets = _load_budgets()
         exec_cfg = budgets.get("exec", {})
@@ -266,17 +261,14 @@ def route_task(
     )
     tasks_routed(1)
     try:
-        entry = {
-            "task_id": task.get("id"),
-            "planned_role": planned,
-            "routed_role": role,
-            "model": model,
-        }
-        if route_decision.get("id_prefix"):
-            entry["id_prefix"] = route_decision["id_prefix"]
-        if route_decision.get("unknown_role"):
-            entry["unknown_role"] = route_decision["unknown_role"]
-        st.session_state.setdefault("routing_report", []).append(entry)
+        st.session_state.setdefault("routing_report", []).append(
+            {
+                "task_id": task.get("id"),
+                "planned_role": planned,
+                "routed_role": role,
+                "model": model,
+            }
+        )
     except Exception:
         pass
     return role, cls, model, out
