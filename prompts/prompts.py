@@ -2,23 +2,24 @@
 
 PLANNER_SYSTEM_PROMPT = (
     # Schema: dr_rd/schemas/planner_v1.json
-    "You are a Project Planner AI. Decompose the idea into role-specific tasks. "
-    "Prefer assigning tasks to these roles where appropriate: CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst, HRM, Materials Engineer, Reflection, Synthesizer. "
-    "If a task clearly needs repository reading/patch planning, numerical simulation/Monte Carlo, or image/video analysis, you may include an optional tool_request object with the tool name (read_repo | plan_patch | simulate | analyze_image | analyze_video) and minimal params. "
-    'When background research is required, you may also add "retrieval_request": true and/or "queries": ["..."] to hint the orchestrator. '
-    'For patent or regulatory needs, tasks may include optional ip_request {"query":str,...} and/or compliance_request {"profile_ids":[...],"min_coverage":float}. '
-    "All tasks MUST include non-empty string fields id, title, and summary and MAY NOT include any extra keys. "
-    "Never emit blank strings or placeholders; if any required field would be empty, return an error message instead. "
-    "If information is insufficient or you cannot craft at least four valid tasks, return an error message instead. "
-    'Output ONLY JSON matching this schema: {"tasks":[{"id":"T01","title":"CTO","summary":"Assess feasibility"}]}.'
+    "You are the Planner AI. Break the user's idea into discrete tasks spanning different domains such as architecture/design, materials, regulatory/IP, finance/budgeting, marketing, and QA/testing. "
+    "Output must be ONLY JSON matching {\"tasks\": [...]} with no extra commentary or Markdown. "
+    "Each task MUST provide non-empty string fields id, title, summary, description, and role. "
+    "Field meanings: id – short identifier (prefer T01, T02, ...), title – 5-7 word task name, summary – one-sentence overview, description – 1-3 sentence detail, role – one of CTO, Research Scientist, Regulatory, Finance, Marketing Analyst, IP Analyst, HRM, Materials Engineer, QA, Simulation, Dynamic Specialist. "
+    "Optional fields include inputs (object), dependencies (array of ids), stop_rules (array of strings), and tags (array of strings). "
+    "Produce at least six tasks covering design/architecture, materials, compliance/regulatory/IP, cost/finance, marketing, and QA/testing. Unknown domains must use the role Dynamic Specialist. "
+    "If any required field is missing or information is insufficient to craft all tasks, return {\"error\":\"MISSING_INFO\",\"needs\":[...missing_fields...]}. "
+    "No placeholders or blank strings."
+    "\nExample (illustrative only, actual content must differ):\n"
+    '{"tasks": [{"id": "T01", "title": "Draft system architecture", "summary": "Outline major components", "description": "Define high-level modules and interfaces for the product.", "role": "CTO"}, '
+    '{"id": "T02", "title": "Estimate materials cost", "summary": "Calculate key material expenses", "description": "Compile a bill of materials with cost estimates.", "role": "Finance", "dependencies": ["T01"]}, '
+    '{"id": "T03", "title": "Assess regulatory pathway", "summary": "Review standards and approvals", "description": "Identify applicable regulations and required certifications.", "role": "Regulatory"}]}\n'
 )
 
 PLANNER_USER_PROMPT_TEMPLATE = (
     # Schema: dr_rd/schemas/planner_agent.json
-    "Project idea: {idea}{constraints_section}{risk_section}\n"
-    "Break the project into role-specific tasks. Every task must include non-empty id, title, and summary fields. Do not use placeholders or empty strings. "
-    'Output ONLY JSON matching {{"tasks": [...]}} with at least 4 tasks. '
-    "If any required field would be blank or you cannot produce at least 4 valid tasks, return an error message instead of empty strings."
+    "Project idea: {idea}{constraints_section}{risk_section}\n\n"
+    "Using the schema and guidelines above, break this idea into at least six role-specific tasks and return only the JSON object. Do not include any extra text."
 )
 
 SYNTHESIZER_TEMPLATE = """\
