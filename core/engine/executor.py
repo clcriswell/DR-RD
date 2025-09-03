@@ -9,16 +9,17 @@ performs state mutations.  The unified orchestrator uses this helper when
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable, Dict, Iterable, List, Tuple
+from typing import Any
 
 from utils.telemetry import tasks_executable
 
-Task = Dict[str, Any]
-TaskResult = Tuple[Task, Any, float]  # (task, result, score)
+Task = dict[str, Any]
+TaskResult = tuple[Task, Any, float]  # (task, result, score)
 
 
-def _deps_satisfied(task: Task, state: Dict[str, Any]) -> bool:
+def _deps_satisfied(task: Task, state: dict[str, Any]) -> bool:
     """Return ``True`` if all dependencies for ``task`` have been satisfied."""
     deps: Iterable[str] = task.get("depends_on", [])
     if not deps:
@@ -27,7 +28,7 @@ def _deps_satisfied(task: Task, state: Dict[str, Any]) -> bool:
     return all(d in completed for d in deps)
 
 
-def _sort_key(item: TaskResult) -> Tuple[int, float, str]:
+def _sort_key(item: TaskResult) -> tuple[int, float, str]:
     """Sorting key implementing the deterministic merge policy."""
     t = item[0]
     return (-int(t.get("priority", 0)), float(t.get("created_at", 0)), t.get("id", ""))
@@ -44,10 +45,10 @@ def merge_results(
 
 
 def run_tasks(
-    tasks: List[Task],
+    tasks: list[Task],
     state: Any,
     log: Callable[[str], None] | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Execute ``tasks`` concurrently when possible.
 
     Returns a dict with ``executed`` and ``pending`` lists.  If ``tasks`` is
@@ -57,8 +58,8 @@ def run_tasks(
     if not tasks:
         return {}
 
-    ready: List[Task] = []
-    pending: List[Task] = []
+    ready: list[Task] = []
+    pending: list[Task] = []
     current_state = state.ws.read()
 
     for t in tasks:
@@ -73,7 +74,7 @@ def run_tasks(
         return {"executed": [], "pending": tasks}
 
     max_workers = max(1, min(4, len(tasks)))
-    results: List[TaskResult] = []
+    results: list[TaskResult] = []
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_map = {pool.submit(state._execute, t): t for t in ready}
         for fut in as_completed(future_map):
@@ -81,7 +82,7 @@ def run_tasks(
             res, score = fut.result()
             results.append((task, res, score))
 
-    executed: List[Tuple[Task, float]] = []
+    executed: list[tuple[Task, float]] = []
     for task, res, score in sorted(results, key=_sort_key):
         merge_results(state, task, res, score, log)
         executed.append((task, score))

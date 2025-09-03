@@ -5,31 +5,32 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Tuple, Type
+from typing import Any
 
-from dr_rd.config.env import get_env
-
+import streamlit as st
 import yaml
 
 from config import feature_flags
-from dr_rd.telemetry import metrics
-from utils.telemetry import tasks_routed
 from core.agents.invoke import invoke_agent
 from core.agents.unified_registry import AGENT_REGISTRY, get_agent
 from core.llm import select_model
 from core.roles import canonicalize
-import streamlit as st
+from dr_rd.config.env import get_env
+from dr_rd.telemetry import metrics
+from utils.telemetry import tasks_routed
 
 logger = logging.getLogger(__name__)
-BUDGETS: Dict[str, Any] | None = None
-RAG_CFG = yaml.safe_load(Path("config/rag.yaml").read_text()) if Path("config/rag.yaml").exists() else {}
+BUDGETS: dict[str, Any] | None = None
+RAG_CFG = (
+    yaml.safe_load(Path("config/rag.yaml").read_text()) if Path("config/rag.yaml").exists() else {}
+)
 
 
-def _load_budgets() -> Dict[str, Any]:
+def _load_budgets() -> dict[str, Any]:
     global BUDGETS
     if BUDGETS is None:
         cfg_path = Path(__file__).resolve().parents[1] / "config" / "budgets.yaml"
-        with open(cfg_path, "r", encoding="utf-8") as fh:
+        with open(cfg_path, encoding="utf-8") as fh:
             BUDGETS = yaml.safe_load(fh) or {}
     profile = feature_flags.BUDGET_PROFILE
     return BUDGETS.get(profile, {})
@@ -41,7 +42,7 @@ def _load_budgets() -> Dict[str, Any]:
 # Map lowercase keywords to the canonical role they imply.  This dictionary is
 # intentionally small; it only covers a few common business domains and can be
 # extended as needed.
-KEYWORDS: Dict[str, str] = {
+KEYWORDS: dict[str, str] = {
     "market": "Marketing Analyst",
     "customer": "Marketing Analyst",
     "patent": "IP Analyst",
@@ -101,7 +102,7 @@ KEYWORDS: Dict[str, str] = {
 }
 
 # Common role aliases to canonical registry roles
-ALIASES: Dict[str, str] = {
+ALIASES: dict[str, str] = {
     "manufacturing technician": "Research Scientist",
     "quantum physicist": "Research Scientist",
     "physicist": "Research Scientist",
@@ -109,11 +110,13 @@ ALIASES: Dict[str, str] = {
     "scientist": "Research Scientist",
     "engineer": "CTO",
     "software developer": "CTO",
+    "software engineer": "CTO",
+    "developer": "CTO",
     "product designer": "Research Scientist",
 }
 
 
-ROLE_SYNONYMS: Dict[str, str] = {
+ROLE_SYNONYMS: dict[str, str] = {
     "Project Manager": "Planner",
     "Program Manager": "Planner",
     "Product Manager": "Planner",
@@ -132,8 +135,8 @@ def choose_agent_for_task(
     title: str,
     description: str,
     ui_model: str | None = None,
-    task: Dict[str, str] | None = None,
-) -> Tuple[str, Type, str]:
+    task: dict[str, str] | None = None,
+) -> tuple[str, type, str]:
     """Return the canonical role, agent class, and model for a task.
 
     Parameters
@@ -160,7 +163,7 @@ def choose_agent_for_task(
         return role, AGENT_REGISTRY[role], model
 
     # 2) Keyword heuristics over title + description/summary
-    text = f"{title} {(description or (task.get('summary', '') if task else ''))}".lower()
+    text = f"{title} {description}".lower()
     for kw, role in KEYWORDS.items():
         if kw in text and role in AGENT_REGISTRY:
             model = select_model("agent", ui_model, agent_name=role)
@@ -172,21 +175,19 @@ def choose_agent_for_task(
 
 
 def route_task(
-    task: Dict[str, str], ui_model: str | None = None
-) -> Tuple[str, Type, str, Dict[str, str]]:
+    task: dict[str, str], ui_model: str | None = None
+) -> tuple[str, type, str, dict[str, str]]:
     """Resolve role/agent for a task dict without dropping fields."""
     planned = task.get("role")
     if task.get("hints", {}).get("simulation_domain"):
         planned = "Simulation"
     desc = task.get("description") or task.get("summary") or ""
-    role, cls, model = choose_agent_for_task(
-        planned, task.get("title", ""), desc, ui_model, task
-    )
+    role, cls, model = choose_agent_for_task(planned, task.get("title", ""), desc, ui_model, task)
     out = dict(task)
     out["role"] = role
     out.setdefault("stop_rules", task.get("stop_rules", []))
 
-    route_decision: Dict[str, Any] = {"selected_role": role}
+    route_decision: dict[str, Any] = {"selected_role": role}
     if role == "Dynamic Specialist" and planned and planned not in AGENT_REGISTRY:
         route_decision["unknown_role"] = planned
     if feature_flags.COST_GOVERNANCE_ENABLED:
@@ -225,19 +226,19 @@ def route_task(
     return role, cls, model, out
 
 
-def dispatch(task: Dict[str, str], ui_model: str | None = None):
+def dispatch(task: dict[str, str], ui_model: str | None = None):
     """Dispatch ``task`` to the appropriate agent instance.
 
     The task's ``role`` is normalised via ``ALIASES`` and ``ROLE_SYNONYMS``
-    before lookup.  Unknown roles fall back to ``Research Scientist``.  If the
+    before lookup.  Unknown roles fall back to ``Dynamic Specialist``.  If the
     resolved agent lacks a callable interface, a single warning is logged and the
-    task is rerouted to ``Research Scientist``.
+    task is rerouted to ``Dynamic Specialist``.
     """
 
     role = canonicalize(_alias(task.get("role")))
     if role:
         role = ROLE_SYNONYMS.get(role, role)
-    canonical = role if role in AGENT_REGISTRY else "Research Scientist"
+    canonical = role if role in AGENT_REGISTRY else "Dynamic Specialist"
 
     model = select_model("agent", ui_model, agent_name=canonical)
     meta = {"purpose": "agent", "agent": canonical, "role": task.get("role")}
@@ -245,11 +246,11 @@ def dispatch(task: Dict[str, str], ui_model: str | None = None):
     try:
         return invoke_agent(agent, task=task, model=model, meta=meta)
     except TypeError as e:
-        if canonical != "Research Scientist":
+        if canonical != "Dynamic Specialist":
             logger.warning("Uncallable agent %s: %s", canonical, e)
-            fb = get_agent("Research Scientist")
-            fb_model = select_model("agent", ui_model, agent_name="Research Scientist")
-            fb_meta = {**meta, "agent": "Research Scientist", "fallback_from": canonical}
+            fb = get_agent("Dynamic Specialist")
+            fb_model = select_model("agent", ui_model, agent_name="Dynamic Specialist")
+            fb_meta = {**meta, "agent": "Dynamic Specialist", "fallback_from": canonical}
             return invoke_agent(fb, task=task, model=fb_model, meta=fb_meta)
         raise
 

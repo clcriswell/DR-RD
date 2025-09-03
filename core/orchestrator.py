@@ -4,7 +4,7 @@ import re
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import streamlit as st
 
@@ -24,6 +24,7 @@ from core.privacy import pseudonymize_for_model, rehydrate_output
 from core.router import route_task
 from core.schemas import Plan, ScopeNote
 from memory.decision_log import log_decision
+from orchestrators.executor import execute as exec_artifacts
 from planning.segmenter import load_redaction_policy, redact_text
 from prompts.prompts import (
     PLANNER_USER_PROMPT_TEMPLATE,
@@ -41,11 +42,10 @@ from utils.telemetry import (
     safety_flagged_step,
     stream_completed,
     stream_started,
-    tasks_planned,
     tasks_normalized,
+    tasks_planned,
 )
 from utils.timeouts import Deadline, with_deadline
-from orchestrators.executor import execute as exec_artifacts
 
 evidence: EvidenceSet | None = None
 
@@ -54,7 +54,7 @@ class ResumeNotPossible(Exception):
     pass
 
 
-def _invoke_agent(agent, context: str, task: Dict[str, str], model: str | None = None) -> str:
+def _invoke_agent(agent, context: str, task: dict[str, str], model: str | None = None) -> str:
     """Call an agent with best-effort interface detection.
 
     ``context`` and ``task`` are pseudonymized before invocation and the
@@ -87,6 +87,7 @@ def _normalize_plan_payload(data: dict) -> dict:
     """Inject sequential task IDs and backfill missing fields."""
     if isinstance(data, dict) and isinstance(data.get("tasks"), list):
         missing = 0
+        normalized: list[dict] = []
         for i, t in enumerate(data["tasks"], 1):
             if not t.get("id"):
                 t["id"] = f"T{i:02d}"
@@ -97,20 +98,18 @@ def _normalize_plan_payload(data: dict) -> dict:
                     if t.get(key):
                         t["title"] = t[key]
                         break
-            if "summary" not in t:
-                for key in ("objective", "description"):
-                    if t.get(key):
-                        t["summary"] = t[key]
-                        break
+
             if not t.get("description") and t.get("summary"):
                 t["description"] = t["summary"]
             if not t.get("summary") and t.get("description"):
                 t["summary"] = t["description"]
-            t.setdefault("summary", "")
 
-            for key in ("role", "name", "objective"):
-                t.pop(key, None)
+            if t.get("title", "").strip() and t.get("summary", "").strip():
+                for key in ("role", "name", "objective"):
+                    t.pop(key, None)
+                normalized.append(t)
 
+        data["tasks"] = normalized
         if missing:
             logger.info("Planner normalizer injected %d task IDs", missing)
     return data
@@ -124,7 +123,7 @@ def generate_plan(
     *,
     cancel: CancellationToken | None = None,
     deadline_ts: float | None = None,
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Use the Planner to create and normalize a task list.
 
     The input idea/constraints are pre-redacted according to the redaction
@@ -176,7 +175,7 @@ def generate_plan(
 
     response_format = responses_json_schema_for(Plan, "Plan")
 
-    def _call(extra: str = "") -> List[Dict[str, str]]:
+    def _call(extra: str = "") -> list[dict[str, str]]:
         _check()
         try:
             with with_deadline(deadline):
@@ -190,52 +189,36 @@ def generate_plan(
             with with_deadline(deadline):
                 result = complete(system_prompt, user_prompt + extra)
         raw = result.content or "{}"
-        data = extract_json_strict(raw)
+        raw_data = extract_json_strict(raw)
         if alias_map:
-            data = rehydrate_output(data, alias_map)
-        data = _normalize_plan_payload(data)
+            raw_data = rehydrate_output(raw_data, alias_map)
+        data = _normalize_plan_payload(raw_data)
         from pydantic import ValidationError
 
         try:
-            plan = Plan.model_validate(data, strict=True)
+            Plan.model_validate(data, strict=True)
         except ValidationError as e:
             dump_dir = Path("debug/logs")
             dump_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
             dump_path = dump_dir / f"planner_payload_{ts}.json"
-            dump_path.write_text(json.dumps(data, indent=2))
+            dump_path.write_text(json.dumps(raw_data, indent=2))
             logger.error(
                 "planner.validation_failed",
                 extra={"errors": len(e.errors()), "dump_path": str(dump_path)},
             )
             raise ValueError("Planner JSON validation failed") from e
-        raw_tasks = data.get("tasks", [])
-        for t in raw_tasks:
-            if not t.get("description"):
-                t["description"] = t.get("summary", "")
-        empty_fields = sum(
-            1 for t in raw_tasks if not t.get("title", "").strip() or not t.get("summary", "").strip()
-        )
-        if empty_fields:
-            dump_dir = Path("debug/logs")
-            dump_dir.mkdir(parents=True, exist_ok=True)
-            ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
-            dump_path = dump_dir / f"planner_payload_{ts}.json"
-            dump_path.write_text(json.dumps(data, indent=2))
-            logger.error(
-                "planner.validation_failed_empty",
-                extra={"empty_fields": empty_fields, "dump_path": str(dump_path)},
-            )
-            raise ValueError("Planner JSON validation failed")
-        tasks_planned(len(raw_tasks))
-        tasks = normalize_tasks(normalize_plan_to_tasks(raw_tasks))
+        orig_tasks = raw_data.get("tasks", [])
+        norm_tasks = data.get("tasks", [])
+        tasks_planned(len(orig_tasks))
+        tasks = normalize_tasks(normalize_plan_to_tasks(norm_tasks))
         tasks_normalized(len(tasks))
-        if raw_tasks and len(tasks) == 0:
+        if orig_tasks and len(tasks) == 0:
             dump_dir = Path("debug/logs")
             dump_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
             dump_path = dump_dir / f"planner_payload_{ts}.json"
-            dump_path.write_text(json.dumps(data, indent=2))
+            dump_path.write_text(json.dumps(raw_data, indent=2))
             logger.error(
                 "planner.normalization_zero",
                 extra={"dump_path": str(dump_path)},
@@ -243,8 +226,7 @@ def generate_plan(
             raise ValueError("planner.normalization_zero")
         try:
             st.session_state["plan_tasks"] = list(tasks)
-            st.session_state["plan_empty_fields"] = empty_fields
-            st.session_state["raw_planned_tasks"] = len(raw_tasks)
+            st.session_state["raw_planned_tasks"] = len(orig_tasks)
             st.session_state["normalized_tasks_count"] = len(tasks)
         except Exception:
             pass
@@ -252,8 +234,7 @@ def generate_plan(
         from utils.paths import write_text
 
         try:
-            write_text(run_id, "plan", "json", json.dumps({"tasks": raw_tasks}, indent=2))
-            write_text(run_id, "plan.normalized", "json", json.dumps({"tasks": tasks}, indent=2))
+            write_text(run_id, "plan", "json", json.dumps({"tasks": tasks}, indent=2))
         except Exception:
             pass
         if not tasks:
@@ -295,7 +276,7 @@ def _slugify(name: str) -> str:
     return s[:64] or "project"
 
 
-def _normalize_evidence_payload(payload: Any) -> Dict[str, Any]:
+def _normalize_evidence_payload(payload: Any) -> dict[str, Any]:
     """Normalize evidence payloads of various shapes into a dict.
 
     Accepts dict, list[dict], list[tuple], or list[str]. Always returns a dict
@@ -303,10 +284,10 @@ def _normalize_evidence_payload(payload: Any) -> Dict[str, Any]:
     and ``raw``.
     """
 
-    quotes: List[Any] = []
+    quotes: list[Any] = []
     tokens_in = 0
     tokens_out = 0
-    citations: List[Any] = []
+    citations: list[Any] = []
     cost = 0.0
 
     if isinstance(payload, dict):
@@ -371,18 +352,18 @@ def _normalize_evidence_payload(payload: Any) -> Dict[str, Any]:
 
 def execute_plan(
     idea: str,
-    tasks: List[Dict[str, str]],
-    agents: Dict[str, object] | None = None,
+    tasks: list[dict[str, str]],
+    agents: dict[str, object] | None = None,
     *,
-    project_id: Optional[str] = None,
+    project_id: str | None = None,
     save_decision_log: bool = True,
     save_evidence: bool = True,
-    project_name: Optional[str] = None,
+    project_name: str | None = None,
     ui_model: str | None = None,
     cancel: CancellationToken | None = None,
     deadline_ts: float | None = None,
     run_id: str | None = None,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Dispatch tasks to routed agents and collect their outputs."""
 
     deadline = Deadline(deadline_ts)
@@ -397,10 +378,13 @@ def execute_plan(
 
     project_id = project_id or _slugify(idea)
     project_name = project_name or project_id
+    if not tasks:
+        logger.info("execute_plan called with no tasks")
+        return {}
     agents = agents or {}
-    answers: Dict[str, str] = {}
-    role_to_findings: Dict[str, dict] = {}
-    alias_maps: Dict[str, Dict[str, str]] = {}
+    answers: dict[str, str] = {}
+    role_to_findings: dict[str, dict] = {}
+    alias_maps: dict[str, dict[str, str]] = {}
     evidence = EvidenceSet(project_id=project_id) if save_evidence else None
     collector = AgentTraceCollector(project_id=project_id)
     prompt_previews: list[str] = []
@@ -410,7 +394,7 @@ def execute_plan(
     except Exception:
         pass
 
-    def _run_task(t: Dict[str, str]) -> None:
+    def _run_task(t: dict[str, str]) -> None:
         _check()
         with with_deadline(deadline):
             role, AgentCls, model, routed = route_task(t, ui_model)
@@ -588,7 +572,7 @@ def execute_plan(
             pass
         raise ValueError("No executable tasks after planning/routing")
     eval_round = 0
-    evaluations: List[dict] = []
+    evaluations: list[dict] = []
     while True:
         _check()
         if ff.PARALLEL_EXEC_ENABLED:
@@ -596,7 +580,7 @@ def execute_plan(
 
             from core.engine.executor import run_tasks
 
-            exec_tasks: List[Dict[str, str]] = []
+            exec_tasks: list[dict[str, str]] = []
             for i, t in enumerate(norm_tasks, 1):
                 tmp = dict(t)
                 tmp.setdefault("id", f"T{i:02d}")
@@ -610,7 +594,7 @@ def execute_plan(
                         save_result=lambda _id, _res, _score: None,
                     )
 
-                def _execute(self, task: Dict[str, str]):
+                def _execute(self, task: dict[str, str]):
                     _run_task(task)
                     return None, 0.0
 
@@ -620,7 +604,7 @@ def execute_plan(
                 _run_task(t)
                 _check()
 
-        follow_ups: List[Dict[str, str]] = []
+        follow_ups: list[dict[str, str]] = []
         if ff.REFLECTION_ENABLED and role_to_findings:
             reflection_cls = AGENT_REGISTRY.get("Reflection")
             if reflection_cls:
@@ -827,7 +811,7 @@ def execute_plan(
 
 def compose_final_proposal(
     idea: str,
-    answers: Dict[str, str],
+    answers: dict[str, str],
     *,
     cancel: CancellationToken | None = None,
     deadline_ts: float | None = None,
@@ -843,15 +827,13 @@ def compose_final_proposal(
 
     _check()
     findings_md = "\n".join(f"### {r}\n{a}" for r, a in answers.items())
-    alias_map: Dict[str, str] = {}
+    alias_map: dict[str, str] = {}
     try:
         for m in st.session_state.get("alias_maps", {}).values():
             alias_map.update(m)
     except Exception:
         pass
-    pseudo_payload, extra_map = pseudonymize_for_model(
-        {"idea": idea, "findings_md": findings_md}
-    )
+    pseudo_payload, extra_map = pseudonymize_for_model({"idea": idea, "findings_md": findings_md})
     alias_map.update(extra_map)
     prompt = SYNTHESIZER_TEMPLATE.format(
         idea=pseudo_payload["idea"], findings_md=pseudo_payload["findings_md"]
@@ -1019,7 +1001,7 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
         ff.RAG_ENABLED,
         ff.ENABLE_LIVE_SEARCH,
     )
-    tasks: List[Dict[str, str]] = []
+    tasks: list[dict[str, str]] = []
     empty_fields = 0
     if start["planner"] == 0:
         try:
@@ -1060,7 +1042,7 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
 
         write_text(run_id, "report", "md", "planner_empty_or_invalid\n")
         return ""
-    results: Dict[str, str] = {}
+    results: dict[str, str] = {}
     if start["executor"] == 0:
         results = execute_plan(idea, tasks, agents)
         checkpoints.mark_step_done(run_id, "executor", "exec")

@@ -4,8 +4,8 @@ import hashlib
 import json
 import secrets
 import time
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Iterable, Mapping, Optional
 
 from .lazy_import import local_import
 
@@ -18,6 +18,7 @@ def init_store() -> None:
     """Ensure the knowledge store directories and metadata file exist."""
     ROOT.mkdir(parents=True, exist_ok=True)
     UPLOADS.mkdir(parents=True, exist_ok=True)
+    META.parent.mkdir(parents=True, exist_ok=True)
     if not META.exists():
         _write_meta({})
 
@@ -33,7 +34,7 @@ def _read_meta() -> dict[str, dict]:
 
 def _write_meta(data: Mapping[str, dict]) -> None:
     META.parent.mkdir(parents=True, exist_ok=True)
-    tmp = META.parent / (META.name + ".tmp")
+    tmp = META.with_suffix(".tmp")
     try:
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(META)
@@ -120,7 +121,7 @@ def set_tags(item_id: str, tags: list[str]) -> dict:
     return item
 
 
-def load_text(item_id: str, *, max_chars: int | None = None) -> Optional[str]:
+def load_text(item_id: str, *, max_chars: int | None = None) -> str | None:
     """Best effort load of item text for indexing.
 
     Supports .txt, .md, .json, .csv, .pdf, .docx. Returns None on failure.

@@ -48,6 +48,8 @@ class _DropResp:
 
 
 def test_normalization_zero(monkeypatch):
+    for p in Path("debug/logs").glob("planner_payload_*.json"):
+        p.unlink()
     monkeypatch.setattr(orch, "complete", lambda *a, **k: _DropResp())
     monkeypatch.setattr(orch, "select_model", lambda *a, **k: "test")
     monkeypatch.setattr(orch, "normalize_plan_to_tasks", lambda x: x)
@@ -55,4 +57,5 @@ def test_normalization_zero(monkeypatch):
     with pytest.raises(ValueError) as e:
         orch.generate_plan("idea")
     assert str(e.value) == "planner.normalization_zero"
-
+    dumps = list(Path("debug/logs").glob("planner_payload_*.json"))
+    assert dumps, "payload dump not created"
