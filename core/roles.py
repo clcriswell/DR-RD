@@ -31,6 +31,8 @@ CANON = {
     "materials engineer": "Materials Engineer",
     "reflection": "Reflection",
     "dynamic specialist": "Dynamic Specialist",
+    "qa": "QA",
+    "quality assurance": "QA",
 }
 
 # Additional explicit role remappings to stop Synthesizer fallbacks. The keys
@@ -46,13 +48,8 @@ CANONICAL = {
     "Software Engineer": "Research Scientist",
     # UX/UI planning feeds into market analysis for the product.
     "UX/UI Designer": "Marketing Analyst",
-    # QA work relates to compliance and regulatory oversight.
-    "Quality Assurance": "Regulatory",
     # Materials research is handled by the Mechanical Systems Lead today.
     "Materials Scientist": "Mechanical Systems Lead",
-    # Quality assurance and consistency review maps to Reflection agent.
-    "QA": "Reflection",
-    "Quality Assurance": "Reflection",
     # HR related planning maps to HRM agent
     "Human Resources": "HRM",
 }

@@ -717,22 +717,19 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         return
     except RuntimeError as e:  # pragma: no cover - UI display
         if current_box is not None:
-            current_box.update(label="Cancelled", state="error")
+            current_box.update(label="Error", state="error")
         err = make_safe_error(e, run_id=run_id, phase=current_phase, step_id=None)
-        st.session_state["active_run"]["status"] = "cancelled"
-        complete_run_meta(run_id, status="cancelled")
-        run_cancelled(run_id, current_phase)
-        log_event({"event": "run_completed", "run_id": run_id, "status": "cancelled"})
-        evt = "budget_exceeded" if str(e) == "usage_exceeded" else "run_cancelled"
-        status = "error" if evt == "budget_exceeded" else "cancelled"
-        send_note(evt, status, run_id, kwargs)
+        st.session_state["active_run"]["status"] = "error"
+        complete_run_meta(run_id, status="error")
+        log_event({"event": "run_completed", "run_id": run_id, "status": "error"})
+        send_note("run_failed", "error", run_id, kwargs)
         if origin_run_id:
             log_event(
                 {
                     "event": "reproduce_completed",
                     "run_id": run_id,
                     "origin_run_id": origin_run_id,
-                    "status": "cancelled",
+                    "status": "error",
                 }
             )
         log_event(

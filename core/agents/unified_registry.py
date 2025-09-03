@@ -132,7 +132,14 @@ def choose_agent_for_task(
 ) -> Tuple[str, BaseAgent]:
     from core.router import choose_agent_for_task as router_choose
 
-    resolved, _cls, _model = router_choose(planned_role, title, desc or "", None)
+    resolved, _cls, _model = router_choose(
+        planned_role,
+        title,
+        desc or "",
+        None,
+        None,
+        {"title": title, "description": desc or "", "role": planned_role},
+    )
     agent = agents.get(resolved) or agents.get("Research Scientist")
     return resolved, agent
 
