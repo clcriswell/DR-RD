@@ -103,6 +103,9 @@ ALIASES: Dict[str, str] = {
     "manufacturing technician": "Research Scientist",
     "quantum physicist": "Research Scientist",
     "physicist": "Research Scientist",
+    "engineer": "CTO",
+    "software developer": "CTO",
+    "product designer": "Research Scientist",
 }
 
 

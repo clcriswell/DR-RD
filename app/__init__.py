@@ -686,6 +686,15 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
             st.markdown("[Open Trace](./Trace)")
             st.caption("Use the Trace page to inspect step details.")
         survey.maybe_prompt_after_run(run_id)
+    except ValueError as e:  # pragma: no cover - planner/executor validation
+        if current_box is not None:
+            current_box.update(label="Error", state="error")
+        st.session_state["active_run"]["status"] = "error"
+        complete_run_meta(run_id, status="error")
+        st.error(
+            f"Run {run_id} failed: {e}. Planner must produce non-empty title/summary for each task.",
+        )
+        return
     except RuntimeError as e:  # pragma: no cover - UI display
         if current_box is not None:
             current_box.update(label="Cancelled", state="error")

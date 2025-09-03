@@ -47,3 +47,8 @@ Scoreboard files:
 - Adjust provider/model or budget limits to control spend.
 
 Artifacts live under `.dr_rd/eval/{timestamp}/`.
+
+## Planner Validation & Telemetry
+The evaluation harness now fails fast if the planner returns no tasks or omits
+required fields. Each run records `planned_tasks`, `empty_fields`,
+`routed_tasks`, and `exec_tasks` counts in the trace and report summary.

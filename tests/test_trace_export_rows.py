@@ -33,4 +33,6 @@ def test_flatten_trace_rows():
         "citations",
         "planned_tasks",
         "routed_tasks",
+        "empty_fields",
+        "exec_tasks",
     }
