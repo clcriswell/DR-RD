@@ -22,10 +22,11 @@ def load(run_id: str) -> Optional[Dict[str, Any]]:
 
 
 def _atomic_write(p: Path, obj: Dict[str, Any]) -> None:
-    tmp = p.with_suffix(".tmp")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, p)
+    tmp.replace(p)
 
 
 def init(run_id: str, *, phases: list[str]) -> Dict[str, Any]:

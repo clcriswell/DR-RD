@@ -225,7 +225,7 @@ def save_prefs(prefs: Mapping[str, Any]) -> None:
     """Validate and atomically write preferences."""
     data = _validate(prefs)
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = CONFIG_PATH.with_suffix(".tmp")
+    tmp = CONFIG_PATH.with_suffix(CONFIG_PATH.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     tmp.replace(CONFIG_PATH)

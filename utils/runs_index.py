@@ -58,7 +58,7 @@ def build_index() -> List[Dict]:
     """Build the runs index and cache it."""
     rows = scan_runs()
     _INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = _INDEX_PATH.with_suffix(".tmp")
+    tmp = _INDEX_PATH.with_suffix(_INDEX_PATH.suffix + ".tmp")
     tmp.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
     tmp.replace(_INDEX_PATH)
     return rows

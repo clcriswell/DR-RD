@@ -45,7 +45,7 @@ def set(telemetry: bool, surveys: bool) -> Consent:
         "surveys": bool(surveys),
         "updated_at": time.time(),
     }
-    tmp = CONSENT_PATH.with_suffix(".tmp")
+    tmp = CONSENT_PATH.with_suffix(CONSENT_PATH.suffix + ".tmp")
     tmp.write_text(json.dumps(obj, ensure_ascii=False), encoding="utf-8")
     tmp.replace(CONSENT_PATH)
     return get()

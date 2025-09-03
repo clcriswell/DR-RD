@@ -433,19 +433,6 @@ def execute_plan(
                 "route",
                 {"planned_role": t.get("role"), "routed_role": role, "model": model},
             )
-            try:
-                st.session_state["live_status"][tid] = {
-                    "done": False,
-                    "progress": 0.0,
-                    "tokens_in": 0,
-                    "tokens_out": 0,
-                    "cost_usd": 0.0,
-                    "model": model,
-                    "role": role,
-                    "title": routed.get("title", ""),
-                }
-            except Exception:
-                pass
             if save_decision_log:
                 log_decision(
                     project_id,
@@ -473,12 +460,17 @@ def execute_plan(
                 },
             )
             try:
-                out = invoke_agent_safely(agent, task_pseudo, model=model, meta={"context": pseudo.get("context")})
+                out = invoke_agent_safely(
+                    agent,
+                    task_pseudo,
+                    model=model,
+                    meta={"context": pseudo.get("context")},
+                    run_id=run_id or "",
+                )
             except Exception as e:
                 span.set_attribute("status", "error")
                 span.record_exception(e)
                 safe_exc(logger, idea, f"invoke_agent[{role}]", e)
-                st.error(f"Run {run_id} agent {role} failed: {e}")
                 trace_writer.append_step(
                     run_id or "",
                     {
@@ -487,9 +479,10 @@ def execute_plan(
                         "role": role,
                         "task_id": routed.get("id"),
                         "ok": False,
+                        "error": str(e),
                     },
                 )
-                raise
+                raise RuntimeError(f"agent {role} failed") from e
             trace_writer.append_step(
                 run_id or "",
                 {
@@ -525,6 +518,7 @@ def execute_plan(
                         pseudo2.get("task", {}),
                         model=model,
                         meta={"context": pseudo2.get("context")},
+                        run_id=run_id or "",
                     )
                 except Exception as e:
                     trace_writer.append_step(
@@ -535,10 +529,10 @@ def execute_plan(
                             "role": role,
                             "task_id": retry_task.get("id"),
                             "ok": False,
+                            "error": str(e),
                         },
                     )
-                    st.error(f"Run {run_id} agent {role} failed: {e}")
-                    raise
+                    raise RuntimeError(f"agent {role} failed") from e
                 trace_writer.append_step(
                     run_id or "",
                     {
@@ -603,19 +597,6 @@ def execute_plan(
                     {"model": model},
                     norm.get("citations", []),
                 )
-            except Exception:
-                pass
-            try:
-                st.session_state["live_status"][tid] = {
-                    "done": True,
-                    "progress": 1.0,
-                    "tokens_in": norm.get("tokens_in", 0),
-                    "tokens_out": norm.get("tokens_out", 0),
-                    "cost_usd": norm.get("cost", 0.0),
-                    "model": model,
-                    "role": role,
-                    "title": routed.get("title", ""),
-                }
             except Exception:
                 pass
             if save_decision_log:
@@ -728,6 +709,7 @@ def execute_plan(
                         reflection_agent,
                         pseudo_r.get("task", {}),
                         meta={"context": pseudo_r.get("context")},
+                        run_id=run_id or "",
                     )
                     trace_writer.append_step(
                         run_id or "",
@@ -748,10 +730,11 @@ def execute_plan(
                             "role": "Reflection",
                             "task_id": ref_task.get("id"),
                             "ok": False,
+                            "error": str(e),
                         },
                     )
                     safe_exc(logger, idea, "invoke_agent[Reflection]", e)
-                    ref_out = "no further tasks"
+                    raise RuntimeError("Reflection agent failed") from e
                 ref_text = ref_out if isinstance(ref_out, str) else json.dumps(ref_out)
                 if "no further tasks" not in ref_text.lower():
                     try:

@@ -1,6 +1,5 @@
 import inspect
 import json
-import streamlit as st
 from utils import trace_writer
 
 
@@ -12,10 +11,9 @@ def _resolve_callable(agent):
     return None
 
 
-def invoke_agent_safely(agent, task, model=None, meta=None):
+def invoke_agent_safely(agent, task, model=None, meta=None, run_id: str = ""):
     fn = _resolve_callable(agent)
     if fn is None:
-        run_id = st.session_state.get("run_id", "")
         role = task.get("role") if isinstance(task, dict) else None
         try:
             trace_writer.append_step(
@@ -51,7 +49,6 @@ def invoke_agent_safely(agent, task, model=None, meta=None):
         spec = {"task": task, "model": model, "meta": meta}
         return fn(spec)
     except Exception as e:
-        run_id = st.session_state.get("run_id", "")
         role = task.get("role") if isinstance(task, dict) else None
         try:
             trace_writer.append_step(

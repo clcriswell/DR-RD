@@ -62,10 +62,15 @@ def run_root(run_id: str) -> Path:
     return RUNS_ROOT / run_id
 
 
+def ensure_dir(p: Path) -> Path:
+    """Ensure directory ``p`` exists and return it."""
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
 def ensure_run_dirs(run_id: str) -> Path:
     path = run_root(run_id)
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return ensure_dir(path)
 
 
 def artifact_path(run_id: str, name: str, ext: str) -> Path:
