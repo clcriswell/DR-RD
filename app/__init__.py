@@ -539,10 +539,11 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
                 )
             except ValueError as e:
                 box.update(label="Planning failed", state="error")
+                reason = str(e)
                 msg = {
                     "planner.normalization_zero": f"Planner produced tasks but normalization removed them (run {run_id}).",
-                    "planner.no_tasks": "Planner returned no tasks.",
-                }.get(str(e), str(e))
+                    "planner.no_tasks": f"Planner returned no tasks (run {run_id}).",
+                }.get(reason, f"{reason} (run {run_id})")
                 st.error(msg)
                 return
             box.update(label="Planning complete", state="complete")
@@ -588,9 +589,11 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
                 )
             except ValueError as e:
                 box.update(label="Execution failed", state="error")
+                reason = str(e)
                 msg = {
-                    "no_executable_tasks": "No executable tasks after routing.",
-                }.get(str(e), str(e))
+                    "no_executable_tasks": f"No executable tasks after routing (run {run_id}).",
+                    "No executable tasks after planning/routing": f"No executable tasks after routing (run {run_id}).",
+                }.get(reason, f"{reason} (run {run_id})")
                 st.error(msg)
                 return
             box.update(label="Execution complete", state="complete")

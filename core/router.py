@@ -113,6 +113,10 @@ ALIASES: dict[str, str] = {
     "software engineer": "CTO",
     "developer": "CTO",
     "product designer": "Research Scientist",
+    "quality analyst": "QA",
+    "qa": "QA",
+    "dev": "CTO",
+    "mkt": "Marketing Analyst",
 }
 
 
@@ -121,6 +125,11 @@ ROLE_SYNONYMS: dict[str, str] = {
     "Program Manager": "Planner",
     "Product Manager": "Planner",
     "Risk Manager": "Regulatory",
+    "Software Developer": "CTO",
+    "Engineer": "CTO",
+    "Developer": "CTO",
+    "Quality Analyst": "QA",
+    "Marketing": "Marketing Analyst",
 }
 
 
@@ -162,14 +171,28 @@ def choose_agent_for_task(
         model = select_model("agent", ui_model, agent_name=role)
         return role, AGENT_REGISTRY[role], model
 
-    # 2) Keyword heuristics over title + description/summary
+    # 2) ID prefix hint
+    if task and task.get("id"):
+        prefix = task["id"].split("_")[0].split("-")[0].upper()
+        prefix_map = {
+            "DEV": "CTO",
+            "DEVELOPER": "CTO",
+            "QA": "QA",
+            "MKT": "Marketing Analyst",
+        }
+        hint = prefix_map.get(prefix)
+        if hint and hint in AGENT_REGISTRY:
+            model = select_model("agent", ui_model, agent_name=hint)
+            return hint, AGENT_REGISTRY[hint], model
+
+    # 3) Keyword heuristics over title + description/summary
     text = f"{title} {description}".lower()
     for kw, role in KEYWORDS.items():
         if kw in text and role in AGENT_REGISTRY:
             model = select_model("agent", ui_model, agent_name=role)
             return role, AGENT_REGISTRY[role], model
 
-    # 3) Fallback to Dynamic Specialist
+    # 4) Fallback to Dynamic Specialist
     model = select_model("agent", ui_model, agent_name="Dynamic Specialist")
     return "Dynamic Specialist", AGENT_REGISTRY["Dynamic Specialist"], model
 
@@ -190,6 +213,11 @@ def route_task(
     route_decision: dict[str, Any] = {"selected_role": role}
     if role == "Dynamic Specialist" and planned and planned not in AGENT_REGISTRY:
         route_decision["unknown_role"] = planned
+    if task.get("id"):
+        prefix = task["id"].split("_")[0].split("-")[0].upper()
+        prefix_map = {"DEV", "DEVELOPER", "QA", "MKT"}
+        if prefix in prefix_map:
+            route_decision["id_prefix"] = prefix
     if feature_flags.COST_GOVERNANCE_ENABLED:
         budgets = _load_budgets()
         exec_cfg = budgets.get("exec", {})
@@ -218,9 +246,17 @@ def route_task(
     )
     tasks_routed(1)
     try:
-        st.session_state.setdefault("routing_report", []).append(
-            {"task_id": task.get("id"), "planned_role": planned, "routed_role": role}
-        )
+        entry = {
+            "task_id": task.get("id"),
+            "planned_role": planned,
+            "routed_role": role,
+            "model": model,
+        }
+        if route_decision.get("id_prefix"):
+            entry["id_prefix"] = route_decision["id_prefix"]
+        if route_decision.get("unknown_role"):
+            entry["unknown_role"] = route_decision["unknown_role"]
+        st.session_state.setdefault("routing_report", []).append(entry)
     except Exception:
         pass
     return role, cls, model, out

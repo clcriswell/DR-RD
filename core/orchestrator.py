@@ -104,7 +104,11 @@ def _normalize_plan_payload(data: dict) -> dict:
             if not t.get("summary") and t.get("description"):
                 t["summary"] = t["description"]
 
-            if t.get("title", "").strip() and t.get("summary", "").strip():
+            for key in ("id", "title", "summary", "description"):
+                if isinstance(t.get(key), str):
+                    t[key] = t[key].strip()
+
+            if t.get("title") and t.get("summary"):
                 for key in ("role", "name", "objective"):
                     t.pop(key, None)
                 normalized.append(t)
@@ -213,6 +217,24 @@ def generate_plan(
         tasks_planned(len(orig_tasks))
         tasks = normalize_tasks(normalize_plan_to_tasks(norm_tasks))
         tasks_normalized(len(tasks))
+        run_id = st.session_state.get("run_id", "latest")
+        try:
+            trace_writer.append_step(
+                run_id,
+                {
+                    "phase": "planner",
+                    "summary": tasks,
+                    "planned_tasks": len(orig_tasks),
+                    "normalized_tasks": len(tasks),
+                },
+            )
+            trace_writer.flush_phase_meta(
+                run_id,
+                "planner",
+                {"planned_tasks": len(orig_tasks), "normalized_tasks": len(tasks)},
+            )
+        except Exception:
+            pass
         if orig_tasks and len(tasks) == 0:
             dump_dir = Path("debug/logs")
             dump_dir.mkdir(parents=True, exist_ok=True)
@@ -413,16 +435,6 @@ def execute_plan(
                 {"planned_role": t.get("role"), "routed_role": role, "model": model},
             )
             try:
-                unknown = routed.get("route_decision", {}).get("unknown_role")
-                entry = {
-                    "task_id": tid,
-                    "planned_role": t.get("role"),
-                    "routed_role": role,
-                    "model": model,
-                }
-                if unknown:
-                    entry["unknown_role"] = unknown
-                st.session_state["routing_report"].append(entry)
                 st.session_state["live_status"][tid] = {
                     "done": False,
                     "progress": 0.0,
@@ -553,6 +565,7 @@ def execute_plan(
     norm_tasks = list(normalize_tasks(tasks))
     try:
         trace_writer.flush_phase_meta(run_id or "", "router", {"routed_tasks": len(norm_tasks)})
+        trace_writer.flush_phase_meta(run_id or "", "executor", {"exec_tasks": len(norm_tasks)})
     except Exception:
         pass
     if len(norm_tasks) == 0:
@@ -571,6 +584,13 @@ def execute_plan(
         except Exception:
             pass
         raise ValueError("No executable tasks after planning/routing")
+    try:
+        trace_writer.append_step(
+            run_id or "",
+            {"phase": "executor", "exec_tasks": len(norm_tasks), "summary": {}},
+        )
+    except Exception:
+        pass
     eval_round = 0
     evaluations: list[dict] = []
     while True:
@@ -782,6 +802,19 @@ def execute_plan(
         pass
 
     trace_data = collector.as_dicts()
+    try:
+        routing_report = st.session_state.get("routing_report", [])
+        trace_writer.append_step(
+            run_id or "",
+            {"phase": "router", "summary": routing_report, "routed_tasks": len(routing_report)},
+        )
+        trace_writer.flush_phase_meta(
+            run_id or "",
+            "router",
+            {"routed_tasks": len(routing_report), "routing_report": routing_report},
+        )
+    except Exception:
+        pass
     try:
         st.session_state["agent_trace"] = trace_data
         run_id = st.session_state.get("run_id")
