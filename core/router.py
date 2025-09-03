@@ -115,6 +115,7 @@ ALIASES: dict[str, str] = {
     "product designer": "Research Scientist",
     "quality analyst": "QA",
     "qa": "QA",
+    "quality assurance": "QA",
     "dev": "CTO",
     "mkt": "Marketing Analyst",
 }
@@ -157,63 +158,17 @@ def choose_agent_for_task(
     ui_model: str | None = None,
     task: dict[str, str] | None = None,
 ) -> tuple[str, type, str]:
-    """Return the canonical role, agent class, and model for a task.
+    """Return the canonical role, agent class, and model for a task."""
 
-    Parameters
-    ----------
-    planned_role:
-        Role suggested by upstream planning.  If this matches a key in
-        ``AGENT_REGISTRY`` it is returned immediately.
-    title / description:
-        Text describing the task.  These are scanned for keywords if no exact
-        role match is found.
-
-    Returns
-    -------
-    Tuple[str, Type]
-        The resolved role name and its agent class.
-    """
-
-    # 1) Exact match on planned_role via the central registry
+    _routing_text = f"{title} {(task.get('description') or task.get('summary') or '')}".strip()
     role = canonicalize(_alias(planned_role))
     if role:
         role = ROLE_SYNONYMS.get(role, role)
-    if role and role in AGENT_REGISTRY:
-        model = select_model("agent", ui_model, agent_name=role)
-        return role, AGENT_REGISTRY[role], model
-    if planned_role:
+    if not role or role not in AGENT_REGISTRY:
         model = select_model("agent", ui_model, agent_name="Dynamic Specialist")
         return "Dynamic Specialist", AGENT_REGISTRY["Dynamic Specialist"], model
-
-    # 2) ID prefix hint
-    if task and task.get("id"):
-        prefix = task["id"].split("_")[0].split("-")[0].upper()
-        prefix_map = {
-            "DEV": "CTO",
-            "DEVELOPER": "CTO",
-            "ENG": "CTO",
-            "QA": "QA",
-            "MKT": "Marketing Analyst",
-            "IP": "IP Analyst",
-            "REG": "Regulatory",
-            "MAT": "Materials Engineer",
-            "SIM": "Simulation",
-        }
-        hint = prefix_map.get(prefix)
-        if hint and hint in AGENT_REGISTRY:
-            model = select_model("agent", ui_model, agent_name=hint)
-            return hint, AGENT_REGISTRY[hint], model
-
-    # 3) Keyword heuristics over title + description/summary
-    text = f"{title} {(task.get('description') or task.get('summary') or '')}".strip().lower()
-    for kw, role in KEYWORDS.items():
-        if kw in text and role in AGENT_REGISTRY:
-            model = select_model("agent", ui_model, agent_name=role)
-            return role, AGENT_REGISTRY[role], model
-
-    # 4) Fallback to Dynamic Specialist
-    model = select_model("agent", ui_model, agent_name="Dynamic Specialist")
-    return "Dynamic Specialist", AGENT_REGISTRY["Dynamic Specialist"], model
+    model = select_model("agent", ui_model, agent_name=role)
+    return role, AGENT_REGISTRY[role], model
 
 
 def route_task(

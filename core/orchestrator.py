@@ -10,6 +10,7 @@ import streamlit as st
 
 import config.feature_flags as ff
 from core.agents.evaluation_agent import EvaluationAgent
+from core.agents.runtime import invoke_agent_safely
 from core.agents.unified_registry import AGENT_REGISTRY
 from core.evaluation.self_check import validate_and_retry
 from core.llm import complete, select_model
@@ -19,7 +20,6 @@ from core.observability import (
     EvidenceSet,
     build_coverage,
 )
-from core.plan_utils import normalize_plan_to_tasks, normalize_tasks
 from core.privacy import pseudonymize_for_model, rehydrate_output
 from core.router import route_task
 from core.schemas import Plan, ScopeNote
@@ -35,6 +35,7 @@ from utils import safety as safety_utils
 from utils.agent_json import extract_json_block, extract_json_strict
 from utils.cancellation import CancellationToken
 from utils.logging import logger, safe_exc
+from utils.paths import ensure_run_dirs
 from utils.stream_events import Event
 from utils.telemetry import (
     resume_failed,
@@ -52,47 +53,6 @@ evidence: EvidenceSet | None = None
 
 class ResumeNotPossible(Exception):
     pass
-
-
-def _invoke_agent(agent, context: str, task: dict[str, str] | str, model: str | None = None) -> str:
-    """Call an agent with best-effort interface detection.
-
-    ``context`` and ``task`` are pseudonymized before invocation and the
-    resulting alias map is attached to ``task`` for later rehydration.
-
-    Historically ``task`` was assumed to be a mapping, but in practice some
-    callers may provide a simple string.  To avoid attribute errors inside
-    agents, string tasks are wrapped in a minimal dict before processing.
-    """
-
-    if isinstance(task, str):
-        task = {"title": task, "description": task}
-
-    pseudo_payload, alias_map = pseudonymize_for_model({"context": context, "task": task})
-    pseudo_context = pseudo_payload["context"]
-    pseudo_task = pseudo_payload["task"]
-
-    if isinstance(pseudo_task, str):
-        pseudo_task = {"title": pseudo_task, "description": pseudo_task}
-
-    task["alias_map"] = alias_map
-
-    text = f"{pseudo_task.get('title', '')}: {pseudo_task.get('description', '')}"
-    for name in ("run", "act", "execute", "__call__"):
-        fn = getattr(agent, name, None)
-        if callable(fn):
-            try:
-                return fn(pseudo_context, pseudo_task, model=model)
-            except TypeError:
-                try:
-                    return fn(pseudo_context, pseudo_task)
-                except TypeError:
-                    try:
-                        return fn(text)
-                    except TypeError:
-                        continue
-    raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
-
 
 def _coerce_and_fill(data: dict | list) -> dict:
     """Coerce planner output into a normalized task object.
@@ -254,13 +214,25 @@ def generate_plan(
             raise ValueError("missing required fields") from e
 
         run_id = st.session_state.get("run_id", "latest")
-        tasks_exec = normalize_tasks(normalize_plan_to_tasks(norm_tasks))
+        try:
+            run_dir = ensure_run_dirs(run_id)
+            (run_dir / "plan.json").write_text(
+                json.dumps({"tasks": norm_tasks}, indent=2)
+            )
+        except Exception:
+            pass
+        try:
+            st.session_state["plan_tasks"] = list(norm_tasks)
+            st.session_state["raw_planned_tasks"] = raw_count
+            st.session_state["normalized_tasks_count"] = len(norm_tasks)
+        except Exception:
+            pass
         try:
             trace_writer.append_step(
                 run_id,
                 {
                     "phase": "planner",
-                    "summary": tasks_exec,
+                    "summary": norm_tasks,
                     "planned_tasks": raw_count,
                     "normalized_tasks": len(norm_tasks),
                 },
@@ -272,22 +244,9 @@ def generate_plan(
             )
         except Exception:
             pass
-
-        try:
-            st.session_state["plan_tasks"] = list(tasks_exec)
-            st.session_state["raw_planned_tasks"] = raw_count
-            st.session_state["normalized_tasks_count"] = len(tasks_exec)
-        except Exception:
-            pass
-        from utils.paths import write_text
-
-        try:
-            write_text(run_id, "plan", "json", json.dumps({"tasks": tasks_exec}, indent=2))
-        except Exception:
-            pass
-        if not tasks_exec:
+        if not norm_tasks:
             raise ValueError("planner.no_tasks")
-        return tasks_exec
+        return norm_tasks
 
     system_prompt = st.session_state.get("prompt_texts", {}).get("planner", "You are the Planner.")
     if pseudo_flag:
@@ -500,14 +459,47 @@ def execute_plan(
             preview = f"{routed.get('title', '')}: {routed.get('description', '')}"
             prompt_previews.append(preview[:4000])
             collector.append_event(handle, "call", {"attempt": 1})
+            context = routed.get("context", idea)
+            pseudo, alias_map = pseudonymize_for_model({"context": context, "task": routed})
+            task_pseudo = pseudo.get("task", {})
+            routed["alias_map"] = alias_map
+            trace_writer.append_step(
+                run_id or "",
+                {
+                    "phase": "executor",
+                    "event": "agent_start",
+                    "role": role,
+                    "task_id": routed.get("id"),
+                },
+            )
             try:
-                context = routed.get("context", idea)
-                out = _invoke_agent(agent, context, routed, model=model)
+                out = invoke_agent_safely(agent, task_pseudo, model=model, meta={"context": pseudo.get("context")})
             except Exception as e:
                 span.set_attribute("status", "error")
                 span.record_exception(e)
                 safe_exc(logger, idea, f"invoke_agent[{role}]", e)
-                out = "out"
+                st.error(f"Run {run_id} agent {role} failed: {e}")
+                trace_writer.append_step(
+                    run_id or "",
+                    {
+                        "phase": "executor",
+                        "event": "agent_end",
+                        "role": role,
+                        "task_id": routed.get("id"),
+                        "ok": False,
+                    },
+                )
+                raise
+            trace_writer.append_step(
+                run_id or "",
+                {
+                    "phase": "executor",
+                    "event": "agent_end",
+                    "role": role,
+                    "task_id": routed.get("id"),
+                    "ok": True,
+                },
+            )
             _check()
             text = out if isinstance(out, str) else json.dumps(out)
 
@@ -516,7 +508,48 @@ def execute_plan(
                 collector.append_event(handle, "call", {"attempt": 2})
                 retry_task = dict(routed)
                 retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
-                return _invoke_agent(agent, context, retry_task, model=model)
+                pseudo2, alias_map2 = pseudonymize_for_model({"context": context, "task": retry_task})
+                retry_task["alias_map"] = alias_map2
+                trace_writer.append_step(
+                    run_id or "",
+                    {
+                        "phase": "executor",
+                        "event": "agent_start",
+                        "role": role,
+                        "task_id": retry_task.get("id"),
+                    },
+                )
+                try:
+                    result = invoke_agent_safely(
+                        agent,
+                        pseudo2.get("task", {}),
+                        model=model,
+                        meta={"context": pseudo2.get("context")},
+                    )
+                except Exception as e:
+                    trace_writer.append_step(
+                        run_id or "",
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": role,
+                            "task_id": retry_task.get("id"),
+                            "ok": False,
+                        },
+                    )
+                    st.error(f"Run {run_id} agent {role} failed: {e}")
+                    raise
+                trace_writer.append_step(
+                    run_id or "",
+                    {
+                        "phase": "executor",
+                        "event": "agent_end",
+                        "role": role,
+                        "task_id": retry_task.get("id"),
+                        "ok": True,
+                    },
+                )
+                return result
 
             _check()
             text, meta = validate_and_retry(role, routed, text, _retry_fn)
@@ -602,7 +635,7 @@ def execute_plan(
                 },
             )
 
-    norm_tasks = list(normalize_tasks(tasks))
+    norm_tasks = list(tasks)
     try:
         trace_writer.flush_phase_meta(run_id or "", "router", {"routed_tasks": len(norm_tasks)})
         trace_writer.flush_phase_meta(run_id or "", "executor", {"exec_tasks": len(norm_tasks)})
@@ -678,13 +711,45 @@ def execute_plan(
                     "description": json.dumps(role_to_findings),
                     "context": json.dumps(role_to_findings),
                 }
+                trace_writer.append_step(
+                    run_id or "",
+                    {
+                        "phase": "executor",
+                        "event": "agent_start",
+                        "role": "Reflection",
+                        "task_id": ref_task.get("id"),
+                    },
+                )
                 try:
-                    ref_out = _invoke_agent(
+                    pseudo_r, _ = pseudonymize_for_model(
+                        {"context": ref_task.get("context", idea), "task": ref_task}
+                    )
+                    ref_out = invoke_agent_safely(
                         reflection_agent,
-                        ref_task.get("context", idea),
-                        ref_task,
+                        pseudo_r.get("task", {}),
+                        meta={"context": pseudo_r.get("context")},
+                    )
+                    trace_writer.append_step(
+                        run_id or "",
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": "Reflection",
+                            "task_id": ref_task.get("id"),
+                            "ok": True,
+                        },
                     )
                 except Exception as e:
+                    trace_writer.append_step(
+                        run_id or "",
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": "Reflection",
+                            "task_id": ref_task.get("id"),
+                            "ok": False,
+                        },
+                    )
                     safe_exc(logger, idea, "invoke_agent[Reflection]", e)
                     ref_out = "no further tasks"
                 ref_text = ref_out if isinstance(ref_out, str) else json.dumps(ref_out)
