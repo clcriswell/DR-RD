@@ -202,7 +202,7 @@ def choose_agent_for_task(
             return hint, AGENT_REGISTRY[hint], model
 
     # 3) Keyword heuristics over title + description/summary
-    routing_text = f"{title} {description or summary or ''}"
+    routing_text = f"{title} {(description or summary or '')}".strip()
     text = routing_text.lower()
     for kw, role in KEYWORDS.items():
         if kw in text and role in AGENT_REGISTRY:

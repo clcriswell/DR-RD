@@ -83,69 +83,59 @@ def _invoke_agent(agent, context: str, task: dict[str, str], model: str | None =
     raise AttributeError(f"{agent.__class__.__name__} has no callable interface")
 
 
-def _coerce_and_fill(data: dict) -> dict:
-    """Normalize planner output without dropping tasks for minor issues."""
+def _coerce_and_fill(data: dict | list) -> dict:
+    """Coerce planner output into a normalized task object.
+
+    ``data`` may be a list or dict.  Tasks are cleaned and missing fields filled
+    without dropping entries unless ``title`` or ``summary`` are blank after
+    stripping.  Any additional keys on task objects are preserved.
+    """
+
+    if isinstance(data, list):
+        data = {"tasks": data}
+
     tasks = data.get("tasks") if isinstance(data, dict) else None
     if not isinstance(tasks, list):
-        data["tasks"] = []
-        return data
+        tasks = []
 
-    normalized: list[dict] = []
-    seq = 1
-    for t in tasks:
+    raw_count = len(tasks)
+    norm_tasks: list[dict[str, Any]] = []
+    for i, t in enumerate(tasks, 1):
         if not isinstance(t, dict):
             continue
-        tid = str(t.get("id", "")).strip()
-        if not tid:
-            tid = f"T{seq:02d}"
-            logger.info("planner.id_injected", extra={"id": tid})
-        seq += 1
-
-        title = str(
-            t.get("title")
-            or t.get("name")
-            or t.get("task")
-            or t.get("role")
-            or ""
-        ).strip()
-        summary = str(
-            t.get("summary")
-            or t.get("objective")
-            or t.get("description")
-            or t.get("task")
-            or ""
-        ).strip()
-        description = str(t.get("description") or summary).strip()
-        role = str(t.get("role") or "Dynamic Specialist").strip() or "Dynamic Specialist"
-
-        if not summary:
-            summary = description
-        if not description:
-            description = summary
-
-        title = title.strip()
-        summary = summary.strip()
-        description = description.strip()
-        role = role.strip()
-
-        if not title or not summary:
+        tid = str(t.get("id") or f"T{i:02d}")
+        title = (t.get("title") or "").strip()
+        summary = (t.get("summary") or "").strip()
+        description = (t.get("description") or summary).strip()
+        role = (t.get("role") or "Dynamic Specialist").strip()
+        if title == "" or summary == "":
             continue
+        nt = dict(t)
+        nt.update(
+            {
+                "id": tid,
+                "title": title,
+                "summary": summary,
+                "description": description,
+                "role": role,
+            }
+        )
+        norm_tasks.append(nt)
 
-        nt: dict[str, Any] = {
-            "id": tid,
-            "title": title,
-            "summary": summary,
-            "description": description,
-            "role": role,
-            "dependencies": t.get("dependencies", []) or [],
-            "inputs": t.get("inputs"),
-            "stop_rules": t.get("stop_rules", []) or [],
-            "tags": t.get("tags", []) or [],
-        }
-        normalized.append(nt)
+    norm = {"tasks": norm_tasks, "_raw_count": raw_count}
 
-    data["tasks"] = normalized
-    return data
+    if raw_count > 0 and len(norm_tasks) == 0:
+        dump_dir = Path("debug/logs")
+        dump_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
+        dump_path = dump_dir / f"planner_payload_{ts}.json"
+        try:
+            dump_path.write_text(json.dumps(data, indent=2))
+        except Exception:
+            pass
+        raise ValueError("planner.normalization_zero")
+
+    return norm
 
 
 def generate_plan(
@@ -229,22 +219,13 @@ def generate_plan(
             raise ValueError("planner.error_returned")
         if alias_map:
             raw_data = rehydrate_output(raw_data, alias_map)
-        orig_tasks = raw_data.get("tasks", [])
+
         data = _coerce_and_fill(raw_data)
+        raw_count = data.pop("_raw_count", 0)
         norm_tasks = data.get("tasks", [])
-        tasks_planned(len(orig_tasks))
-        if orig_tasks and not norm_tasks:
-            tasks_normalized(0)
-            dump_dir = Path("debug/logs")
-            dump_dir.mkdir(parents=True, exist_ok=True)
-            ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
-            dump_path = dump_dir / f"planner_payload_{ts}.json"
-            dump_path.write_text(json.dumps(raw_data, indent=2))
-            logger.error(
-                "planner.normalization_zero",
-                extra={"dump_path": str(dump_path)},
-            )
-            raise ValueError("planner.normalization_zero")
+        tasks_planned(raw_count)
+        tasks_normalized(len(norm_tasks))
+
         from pydantic import ValidationError
 
         try:
@@ -260,53 +241,42 @@ def generate_plan(
                 extra={"errors": len(e.errors()), "dump_path": str(dump_path)},
             )
             raise ValueError("missing required fields") from e
-        tasks = normalize_tasks(normalize_plan_to_tasks(norm_tasks))
-        tasks_normalized(len(tasks))
+
         run_id = st.session_state.get("run_id", "latest")
+        tasks_exec = normalize_tasks(normalize_plan_to_tasks(norm_tasks))
         try:
             trace_writer.append_step(
                 run_id,
                 {
                     "phase": "planner",
-                    "summary": tasks,
-                    "planned_tasks": len(orig_tasks),
-                    "normalized_tasks": len(tasks),
+                    "summary": tasks_exec,
+                    "planned_tasks": raw_count,
+                    "normalized_tasks": len(norm_tasks),
                 },
             )
             trace_writer.flush_phase_meta(
                 run_id,
                 "planner",
-                {"planned_tasks": len(orig_tasks), "normalized_tasks": len(tasks)},
+                {"planned_tasks": raw_count, "normalized_tasks": len(norm_tasks)},
             )
         except Exception:
             pass
-        if orig_tasks and len(tasks) == 0:
-            dump_dir = Path("debug/logs")
-            dump_dir.mkdir(parents=True, exist_ok=True)
-            ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
-            dump_path = dump_dir / f"planner_payload_{ts}.json"
-            dump_path.write_text(json.dumps(raw_data, indent=2))
-            logger.error(
-                "planner.normalization_zero",
-                extra={"dump_path": str(dump_path)},
-            )
-            raise ValueError("planner.normalization_zero")
+
         try:
-            st.session_state["plan_tasks"] = list(tasks)
-            st.session_state["raw_planned_tasks"] = len(orig_tasks)
-            st.session_state["normalized_tasks_count"] = len(tasks)
+            st.session_state["plan_tasks"] = list(norm_tasks)
+            st.session_state["raw_planned_tasks"] = raw_count
+            st.session_state["normalized_tasks_count"] = len(norm_tasks)
         except Exception:
             pass
-        run_id = st.session_state.get("run_id", "latest")
         from utils.paths import write_text
 
         try:
-            write_text(run_id, "plan", "json", json.dumps({"tasks": tasks}, indent=2))
+            write_text(run_id, "plan", "json", json.dumps({"tasks": norm_tasks}, indent=2))
         except Exception:
             pass
-        if not tasks:
+        if not norm_tasks:
             raise ValueError("planner.no_tasks")
-        return tasks
+        return tasks_exec
 
     system_prompt = st.session_state.get("prompt_texts", {}).get("planner", "You are the Planner.")
     if pseudo_flag:
@@ -450,7 +420,11 @@ def execute_plan(
         try:
             trace_writer.append_step(
                 run_id,
-                {"phase": "executor", "summary": [], "reason": "no_executable_tasks"},
+                {
+                    "phase": "executor",
+                    "summary": [],
+                    "meta": {"reason": "no_executable_tasks"},
+                },
             )
             trace_writer.flush_phase_meta(
                 run_id,
@@ -1133,9 +1107,13 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
             pass
     agents = kwargs.get("agents") or {}
     if not tasks:
-        from utils.paths import write_text
+        from utils.paths import exists, read_text, write_text
 
-        write_text(run_id, "report", "md", "planner_empty_or_invalid\n")
+        try:
+            existing = read_text(run_id, "report", "md") if exists(run_id, "report", "md") else ""
+            write_text(run_id, "report", "md", "planner_empty_or_invalid\n" + existing)
+        except Exception:
+            pass
         return ""
     results: dict[str, str] = {}
     if start["executor"] == 0:
@@ -1242,9 +1220,22 @@ def run_stream(
                 meta_err = meta
                 if not tasks:
                     meta_err = {"error": "planner_empty_or_invalid"}
-                    from utils.paths import write_text
+                    from utils.paths import exists, read_text, write_text
 
-                    write_text(run_id, "report", "md", "planner_empty_or_invalid\n")
+                    try:
+                        existing = (
+                            read_text(run_id, "report", "md")
+                            if exists(run_id, "report", "md")
+                            else ""
+                        )
+                        write_text(
+                            run_id,
+                            "report",
+                            "md",
+                            "planner_empty_or_invalid\n" + existing,
+                        )
+                    except Exception:
+                        pass
                 yield Event("step_end", phase="planner", step_id="planner", meta=meta_err)
                 yield Event(
                     "usage_delta",
