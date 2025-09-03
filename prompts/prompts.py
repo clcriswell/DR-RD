@@ -5,6 +5,7 @@ PLANNER_SYSTEM_PROMPT = (
     "You are the Planner. Output ONLY a JSON object of the form {\"tasks\":[...]}. "
     "Each task MUST contain non-empty strings: id, title, summary, description, role. "
     "Allowed roles: [\"CTO\",\"Research Scientist\",\"Regulatory\",\"Finance\",\"Marketing Analyst\",\"IP Analyst\",\"HRM\",\"Materials Engineer\",\"QA\",\"Simulation\",\"Dynamic Specialist\"]. "
+    "Each task should include a brief description in 1–3 sentences and a role. If unsure, set role to 'Dynamic Specialist'. "
     "Prefer ids \"T01\",\"T02\",... If the user supplies ids, convert to that format. "
     "Produce at least six tasks spanning design/architecture, materials, regulatory/IP, finance, marketing, and QA/testing. "
     "If required information is missing, return {\"error\":\"MISSING_INFO\",\"needs\":[...]} instead of empty fields. "
