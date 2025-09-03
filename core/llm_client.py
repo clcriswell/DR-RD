@@ -8,7 +8,6 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional, Type
 
-import streamlit as st
 
 from core.budget import BudgetManager, CostTracker
 from core.token_meter import TokenMeter
@@ -127,12 +126,34 @@ def _to_chat_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return converted
 
 
+_ALLOWED_RESPONSE_KEYS = {
+    "max_output_tokens",
+    "temperature",
+    "top_p",
+    "presence_penalty",
+    "frequency_penalty",
+    "response_format",
+    "metadata",
+    "stop",
+    "logit_bias",
+    "user",
+    "tools",
+    "tool_choice",
+    "stream",
+    "stream_options",
+    "reasoning",
+    "max_tokens",
+    "max_completion_tokens",
+}
+
+
 def _sanitize_responses_params(params: dict | None) -> dict:
-    p = dict(params or {})
-    for unsupported in ("seed", "llm_hints"):
-        if unsupported in p:
-            p.pop(unsupported, None)
-            logger.info("Ignoring unsupported Responses param: %s", unsupported)
+    p: dict[str, Any] = {}
+    for k, v in (params or {}).items():
+        if k in _ALLOWED_RESPONSE_KEYS:
+            p[k] = v
+        else:
+            logger.info("Ignoring unsupported Responses param: %s", k)
     return p
 
 
@@ -317,32 +338,32 @@ def call_openai(
         params = _sanitize_responses_params(params)
         if response_format is not None and _supports_response_format():
             params["response_format"] = response_format
-        mode = None
-        try:
-            import streamlit as st  # type: ignore
-
-            mode = st.session_state.get("MODE")
-        except Exception:
-            mode = os.getenv("MODE")
+        mode = os.getenv("MODE")
         if params.get("temperature") is None and mode == "test":
             params["temperature"] = 0.0
         if "max_tokens" in params and "max_output_tokens" not in params:
             params["max_output_tokens"] = params.pop("max_tokens")
 
         resp_params = {k: v for k, v in params.items() if k != "temperature"}
+        payload = {
+            "model": effective_model,
+            "input": _to_responses_input(messages),
+            **resp_params,
+        }
         logger.info("call_openai: model=%s api=Responses", effective_model)
         backoff = 0.1
         client = _client()
         for attempt in range(4):
             try:
-                resp = client.responses.create(
-                    model=effective_model,
-                    input=_to_responses_input(messages),
-                    **resp_params,
-                )
+                resp = client.responses.create(**payload)
                 http_status_or_exc = getattr(resp, "http_status", 200)
                 text = extract_text(resp)
                 return {"raw": resp, "text": text}
+            except TypeError as e:
+                logger.error(
+                    "OpenAI kwargs error", extra={"keys": sorted(payload.keys())}
+                )
+                raise
             except _openai.APIStatusError as e:
                 http_status_or_exc = e.status_code
                 if e.status_code not in (404, 429, 500, 502, 503, 504):
@@ -406,6 +427,15 @@ def set_budget_manager(budget: BudgetManager | CostTracker | None) -> None:
 
 
 def log_usage(stage, model, pt, ct, cost=0.0):
+    try:
+        import streamlit as st  # type: ignore
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+        if get_script_run_ctx() is None:
+            return
+    except Exception:
+        return
+
     if "usage_log" not in st.session_state:
         st.session_state["usage_log"] = []
     st.session_state["usage_log"].append(

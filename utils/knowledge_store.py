@@ -35,7 +35,7 @@ def _read_meta() -> dict[str, dict]:
 
 def _write_meta(data: Mapping[str, dict]) -> None:
     META.parent.mkdir(parents=True, exist_ok=True)
-    tmp = META.parent / (META.stem + ".tmp")
+    tmp = META.with_suffix(META.suffix + ".tmp")
     try:
         tmp.write_text(
             json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"

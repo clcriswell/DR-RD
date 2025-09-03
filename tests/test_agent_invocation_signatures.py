@@ -1,6 +1,6 @@
-import json
 import pytest
-import streamlit as st
+
+import pytest
 
 from core.agents.runtime import invoke_agent_safely
 from utils import trace_writer, paths
@@ -41,19 +41,15 @@ class BadAgent:
 )
 def test_invoke_agent_variants(agent, kwargs, expected, tmp_path, monkeypatch):
     paths.RUNS_ROOT = tmp_path
-    st.session_state.clear()
-    st.session_state["run_id"] = "R1"
     task = {"id": "T", "role": "X"}
-    assert invoke_agent_safely(agent, task, **kwargs) == expected
+    assert invoke_agent_safely(agent, task, run_id="R1", **kwargs) == expected
 
 
 def test_uncallable_agent_logs_error(tmp_path, monkeypatch):
     paths.RUNS_ROOT = tmp_path
-    st.session_state.clear()
-    st.session_state["run_id"] = "R2"
     paths.ensure_run_dirs("R2")
     task = {"id": "T2", "role": "Y"}
     with pytest.raises(RuntimeError):
-        invoke_agent_safely(BadAgent(), task)
+        invoke_agent_safely(BadAgent(), task, run_id="R2")
     trace = trace_writer.read_trace("R2")
     assert any(e.get("event") == "agent_error" for e in trace)

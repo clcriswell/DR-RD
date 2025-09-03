@@ -26,9 +26,15 @@ def read_trace(run_id: str) -> list[Any]:
     return _read_trace(p) if p.exists() else []
 
 
-def _atomic_write(p: Path, data: list[Any]) -> None:
+def _atomic_write(p: Path, data: bytes | str) -> None:
+    from .paths import ensure_dir
+
+    ensure_dir(p.parent)
     tmp = p.with_suffix(p.suffix + ".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    if isinstance(data, bytes):
+        tmp.write_bytes(data)
+    else:
+        tmp.write_text(data, encoding="utf-8")
     tmp.replace(p)
 
 
@@ -41,7 +47,7 @@ def append_step(run_id: str, step: Mapping[str, Any]) -> None:
     p = trace_path(run_id)
     data = _read_trace(p) if p.exists() else []
     data.append(dict(step))
-    _atomic_write(p, data)
+    _atomic_write(p, json.dumps(data, ensure_ascii=False))
 
 
 def flush_phase_meta(run_id: str, phase: str, meta: Mapping[str, Any]) -> None:
@@ -56,7 +62,7 @@ def flush_phase_meta(run_id: str, phase: str, meta: Mapping[str, Any]) -> None:
     except Exception:
         existing = {}
     existing[phase] = dict(meta)
-    _atomic_write(p, existing)
+    _atomic_write(p, json.dumps(existing, ensure_ascii=False))
 
 
 __all__ = ["trace_path", "append_step", "flush_phase_meta", "read_trace"]
