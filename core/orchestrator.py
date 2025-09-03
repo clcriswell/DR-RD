@@ -102,6 +102,10 @@ def _normalize_plan_payload(data: dict) -> dict:
                     if t.get(key):
                         t["summary"] = t[key]
                         break
+            if not t.get("description") and t.get("summary"):
+                t["description"] = t["summary"]
+            if not t.get("summary") and t.get("description"):
+                t["summary"] = t["description"]
             t.setdefault("summary", "")
 
             for key in ("role", "name", "objective"):

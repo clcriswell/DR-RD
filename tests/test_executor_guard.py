@@ -22,8 +22,8 @@ def test_run_tasks_empty_skips_pool(monkeypatch):
         raise AssertionError("pool should not be created")
 
     monkeypatch.setattr("core.engine.executor.ThreadPoolExecutor", fake_pool)
-    executed, pending = run_tasks([], DummyState())
-    assert executed == [] and pending == []
+    result = run_tasks([], DummyState())
+    assert result == {}
     assert "max_workers" not in called
 
 
@@ -59,6 +59,6 @@ def test_no_ready_tasks_skips_pool(monkeypatch):
 
     monkeypatch.setattr("core.engine.executor.ThreadPoolExecutor", fake_pool)
     tasks = [{"id": "A", "task": "a", "role": "r", "depends_on": ["B"]}]
-    executed, pending = run_tasks(tasks, DummyState())
-    assert executed == [] and pending == tasks
+    result = run_tasks(tasks, DummyState())
+    assert result["executed"] == [] and result["pending"] == tasks
     assert "max_workers" not in called

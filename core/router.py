@@ -132,6 +132,7 @@ def choose_agent_for_task(
     title: str,
     description: str,
     ui_model: str | None = None,
+    task: Dict[str, str] | None = None,
 ) -> Tuple[str, Type, str]:
     """Return the canonical role, agent class, and model for a task.
 
@@ -158,8 +159,8 @@ def choose_agent_for_task(
         model = select_model("agent", ui_model, agent_name=role)
         return role, AGENT_REGISTRY[role], model
 
-    # 2) Keyword heuristics over title + description
-    text = f"{title} {description}".lower()
+    # 2) Keyword heuristics over title + description/summary
+    text = f"{title} {(description or (task.get('summary', '') if task else ''))}".lower()
     for kw, role in KEYWORDS.items():
         if kw in text and role in AGENT_REGISTRY:
             model = select_model("agent", ui_model, agent_name=role)
@@ -179,7 +180,7 @@ def route_task(
         planned = "Simulation"
     desc = task.get("description") or task.get("summary") or ""
     role, cls, model = choose_agent_for_task(
-        planned, task.get("title", ""), desc, ui_model
+        planned, task.get("title", ""), desc, ui_model, task
     )
     out = dict(task)
     out["role"] = role

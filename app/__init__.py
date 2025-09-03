@@ -540,7 +540,7 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
             except ValueError as e:
                 box.update(label="Planning failed", state="error")
                 msg = {
-                    "planner.normalization_zero": "Planner produced tasks but normalization removed them.",
+                    "planner.normalization_zero": f"Planner produced tasks but normalization removed them (run {run_id}).",
                     "planner.no_tasks": "Planner returned no tasks.",
                 }.get(str(e), str(e))
                 st.error(msg)
