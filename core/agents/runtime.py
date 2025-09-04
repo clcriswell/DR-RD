@@ -48,6 +48,10 @@ def invoke_agent_safely(agent: Any, task: dict, model: Any = None, meta: Any = N
             continue
         if name in {"task", "input", "spec", "params"}:
             mapping[name] = task
+        elif name in {"idea", "project", "concept"}:
+            mapping[name] = task_dict.get("idea")
+        elif name in {"requirements", "tests", "defects"}:
+            mapping[name] = task_dict.get(name, [])
         elif name in {"model", "llm", "client"}:
             mapping[name] = model
         elif name in {"meta", "ctx", "context"}:
@@ -55,7 +59,25 @@ def invoke_agent_safely(agent: Any, task: dict, model: Any = None, meta: Any = N
         elif name in task_dict:
             mapping[name] = task_dict.get(name)
 
-    bound = sig.bind_partial(**mapping)
+    try:
+        bound = sig.bind_partial(**mapping)
+    except TypeError as e:
+        role = task_dict.get("role")
+        task_id = task_dict.get("id")
+        try:
+            trace_writer.append_step(
+                "",
+                {
+                    "phase": "executor",
+                    "event": "agent_error",
+                    "role": role,
+                    "task_id": task_id,
+                    "error": str(e),
+                },
+            )
+        except Exception:
+            pass
+        raise RuntimeError(str(e)) from e
     try:
         return fn(**bound.arguments)
     except Exception as e:  # pragma: no cover - exercised in tests

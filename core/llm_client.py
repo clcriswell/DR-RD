@@ -253,6 +253,13 @@ def responses_json_schema_for(model_cls: Type[Any], name: str) -> dict:
     }
 
 
+def responses_json_schema_from_file(path: str) -> dict:
+    with open(path, encoding="utf-8") as fh:
+        schema = json.load(fh)
+    name = Path(path).stem
+    return {"type": "json_schema", "json_schema": {"name": name, "schema": schema}, "strict": True}
+
+
 def call_openai(
     *,
     model: str,

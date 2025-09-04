@@ -1,24 +1,49 @@
-import pytest
-
-from core.agents.invoke import resolve_invoker
+from core.agents.runtime import invoke_agent_safely
 
 
-class NoIface:
-    pass
+class AgentTaskOnly:
+    def __call__(self, task):
+        return task["id"]
 
 
-class Runs:
-    def run(self, *, task, model: str | None = None):
-        return task["x"]
+class AgentTaskModel:
+    def __call__(self, task, model):
+        return model
 
 
-def test_missing_interface():
-    with pytest.raises(TypeError) as exc:
-        resolve_invoker(NoIface())
-    assert "no callable interface" in str(exc.value)
+class AgentTaskModelMeta:
+    def __call__(self, task, model, meta):
+        return meta["context"]
 
 
-def test_run_invocation():
-    name, inv = resolve_invoker(Runs())
-    assert name == "run"
-    assert inv(task={"x": 1}, model="m") == 1
+class AgentIdeaTask:
+    def run(self, idea, task):
+        return f"{idea}:{task['id']}"
+
+
+class AgentQA:
+    def act(self, requirements, tests, defects):
+        return requirements, tests, defects
+
+
+def test_invocation_bindings():
+    pseudo = {
+        "id": "T1",
+        "title": "t",
+        "summary": "s",
+        "description": "d",
+        "role": "CTO",
+        "idea": "Idea",
+        "requirements": [1],
+        "tests": [2],
+        "defects": [3],
+        "context": {},
+    }
+    assert invoke_agent_safely(AgentTaskOnly(), pseudo) == "T1"
+    assert invoke_agent_safely(AgentTaskModel(), pseudo, model="m") == "m"
+    assert (
+        invoke_agent_safely(AgentTaskModelMeta(), pseudo, model="m", meta={"context": 1})
+        == 1
+    )
+    assert invoke_agent_safely(AgentIdeaTask(), pseudo) == "Idea:T1"
+    assert invoke_agent_safely(AgentQA(), pseudo) == ([1], [2], [3])

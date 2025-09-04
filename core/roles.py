@@ -33,6 +33,7 @@ CANON = {
     "dynamic specialist": "Dynamic Specialist",
     "qa": "QA",
     "quality assurance": "QA",
+    "simulation": "Simulation",
 }
 
 # Additional explicit role remappings to stop Synthesizer fallbacks. The keys
@@ -92,5 +93,7 @@ def canonical_roles() -> Set[str]:
         "HRM",
         "Materials Engineer",
         "Reflection",
+        "QA",
+        "Simulation",
         "Dynamic Specialist",
     }

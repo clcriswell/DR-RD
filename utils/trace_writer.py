@@ -1,5 +1,4 @@
 import json
-import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -31,19 +30,12 @@ def _atomic_write(path: Path, data: bytes | str) -> None:
     """Safely write ``data`` to ``path`` using a same-dir temporary file."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
     mode = "wb" if isinstance(data, bytes) else "w"
     encoding = None if isinstance(data, bytes) else "utf-8"
-    tmp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode=mode, encoding=encoding, dir=path.parent, delete=False
-        ) as tmp:
-            tmp.write(data)
-            tmp_path = Path(tmp.name)
-        tmp_path.replace(path)
-    finally:
-        if tmp_path is not None and tmp_path.exists():
-            tmp_path.unlink()
+    with open(tmp, mode, encoding=encoding) as fh:
+        fh.write(data)
+    tmp.replace(path)
 
 
 def append_step(run_id: str, step: Mapping[str, Any]) -> None:
@@ -55,6 +47,13 @@ def append_step(run_id: str, step: Mapping[str, Any]) -> None:
     p = trace_path(run_id)
     data = _read_trace(p) if p.exists() else []
     data.append(dict(step))
+    _atomic_write(p, json.dumps(data, ensure_ascii=False))
+
+
+def append_event(run_id: str, event: Mapping[str, Any]) -> None:
+    p = trace_path(run_id)
+    data = _read_trace(p) if p.exists() else []
+    data.append(dict(event))
     _atomic_write(p, json.dumps(data, ensure_ascii=False))
 
 
@@ -73,4 +72,4 @@ def flush_phase_meta(run_id: str, phase: str, meta: Mapping[str, Any]) -> None:
     _atomic_write(p, json.dumps(existing, ensure_ascii=False))
 
 
-__all__ = ["trace_path", "append_step", "flush_phase_meta", "read_trace"]
+__all__ = ["trace_path", "append_step", "append_event", "flush_phase_meta", "read_trace"]

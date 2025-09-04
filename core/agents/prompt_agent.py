@@ -7,6 +7,7 @@ import jsonschema
 
 from config import feature_flags
 from core.agents.base_agent import LLMRoleAgent
+from core.llm_client import responses_json_schema_from_file
 from dr_rd.prompting.prompt_factory import PromptFactory
 from utils.logging import logger
 
@@ -20,19 +21,25 @@ class PromptFactoryAgent(LLMRoleAgent):
     def run_with_spec(self, spec: dict[str, Any], **kwargs) -> str:
         prompt = self._factory.build_prompt(spec)
         schema_path = prompt.get("io_schema_ref")
-        with open(schema_path, encoding="utf-8") as fh:
-            schema = json.load(fh)
+        response_format = None
+        schema = None
+        if schema_path:
+            with open(schema_path, encoding="utf-8") as fh:
+                schema = json.load(fh)
+            response_format = responses_json_schema_from_file(schema_path)
         user = prompt["user"]
         for attempt in range(2):
             raw = super().act(
                 prompt["system"],
                 user,
+                response_format=response_format,
                 **(prompt.get("llm_hints") or {}),
                 **kwargs,
             )
             try:
                 data = json.loads(raw)
-                jsonschema.validate(data, schema)
+                if schema is not None:
+                    jsonschema.validate(data, schema)
                 valid = True
             except Exception as e:
                 logger.debug("schema_validation_failed: %s", e)
@@ -49,7 +56,5 @@ class PromptFactoryAgent(LLMRoleAgent):
             if valid and not evaluator_fail:
                 return json.dumps(data)
             if attempt == 0:
-                user = (
-                    user + "\nThe previous output was invalid or missing citations. Fix to schema."
-                )
+                user = user + "\nThe previous output was invalid or missing citations. Return valid JSON only."
         return raw
