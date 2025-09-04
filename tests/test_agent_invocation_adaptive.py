@@ -24,6 +24,11 @@ class SpecOnly:
         return spec["id"]
 
 
+class TaskFields:
+    def __call__(self, idea, requirements, tests, defects):
+        return idea, requirements, tests, defects
+
+
 class BadAgent:
     pass
 
@@ -40,6 +45,24 @@ class BadAgent:
 def test_invoke_agent_variants(agent, kwargs, expected):
     task = {"id": "T", "role": "X"}
     assert invoke_agent_safely(agent, task, **kwargs) == expected
+
+
+def test_passes_named_task_fields():
+    agent = TaskFields()
+    task = {
+        "id": "T3",
+        "role": "Z",
+        "idea": "concept",
+        "requirements": ["r1"],
+        "tests": ["t1"],
+        "defects": ["d1"],
+    }
+    assert invoke_agent_safely(agent, task) == (
+        "concept",
+        ["r1"],
+        ["t1"],
+        ["d1"],
+    )
 
 
 def test_uncallable_agent_logs_error(tmp_path):
