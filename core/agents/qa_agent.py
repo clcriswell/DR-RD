@@ -30,7 +30,7 @@ class QAAgent:
     def run(
         self, task: Any, requirements: List[str], tests: List[str], defects: List[dict]
     ) -> Any:
-        task_txt = task if isinstance(task, str) else json.dumps(task)
+        task_txt = task if isinstance(task, str) else json.dumps(task, ensure_ascii=False)
         matrix = call_tool(
             self.ROLE, "build_requirements_matrix", {"reqs": requirements, "tests": tests}
         )
@@ -52,14 +52,21 @@ class QAAgent:
         resp = complete(prompt["system"], prompt["user"], model=self.model, **prompt["llm_hints"])
         return self._validate(resp.content, schema, prompt)
 
-    def _validate(self, text: str, schema: dict, prompt: dict) -> Any:
-        try:
-            data = json.loads(text)
-            validate(data, schema)
-            return data
-        except Exception:
-            repair_user = prompt["user"] + "\nFix to schema."
-            resp = complete(prompt["system"], repair_user, model=self.model, **prompt["llm_hints"])
-            data = json.loads(resp.content)
-            validate(data, schema)
-            return data
+    def _validate(self, text: Any, schema: dict, prompt: dict) -> Any:
+        if isinstance(text, dict):
+            data = text
+        else:
+            s = text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
+            try:
+                data = json.loads(s)
+                validate(data, schema)
+                return data
+            except Exception:
+                repair_user = prompt["user"] + "\nFix to schema."
+                resp = complete(prompt["system"], repair_user, model=self.model, **prompt["llm_hints"])
+                s = resp.content if isinstance(resp.content, str) else json.dumps(resp.content, ensure_ascii=False)
+                data = json.loads(s)
+                validate(data, schema)
+                return data
+        validate(data, schema)
+        return data

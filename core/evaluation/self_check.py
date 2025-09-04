@@ -1,5 +1,4 @@
 import json
-import json
 import logging
 from typing import Callable, Tuple
 from utils import trace_writer
@@ -45,27 +44,28 @@ def validate_and_retry(
     valid = False
     errors: list[str] = []
 
-    # ``raw_text`` may be a dict if the agent returns structured data.
     if not isinstance(raw_text, str):
-        raw_text = json.dumps(raw_text)
+        raw_text = json.dumps(raw_text, ensure_ascii=False)
 
-    def _check(text: str) -> bool:
+    head = (raw_text or "")[:256]
+
+    def _check(text: str) -> tuple[bool, str]:
         if not isinstance(text, str):
-            text = json.dumps(text)
+            text = json.dumps(text, ensure_ascii=False)
         block = extract_json_block(text)
         candidate = block if block is not None else text
         try:
             data = parse_json_loose(candidate)
         except Exception as e:
             errors.append(str(e))
-            return False
+            return False, text
         if not _has_required(data):
             missing = [k for k in REQUIRED_KEYS if k not in data]
             errors.append(f"missing_keys:{missing}")
-            return False
-        return True
+            return False, text
+        return True, json.dumps(data, ensure_ascii=False)
 
-    valid = _check(raw_text)
+    valid, raw_text = _check(raw_text)
     if not valid:
         retried = True
         reminder = (
@@ -78,13 +78,10 @@ def validate_and_retry(
             logger.warning("Retry failed for %s: %s", agent_name, e)
             second = raw_text
         if not isinstance(second, str):
-            second = json.dumps(second)
-        if _check(second):
-            raw_text = second
-            valid = True
+            second = json.dumps(second, ensure_ascii=False)
+        valid, raw_text = _check(second)
     info = {"retried": retried, "valid_json": valid, "role": agent_name, "task": task.get("title")}
-    logger.info("self_check=%s", info)
-    head = (raw_text or "")[:256]
+    logger.info("self_check", extra=info)
     if not valid:
         try:
             if run_id:
