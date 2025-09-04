@@ -79,12 +79,14 @@ class DynamicAgent:
         run_id: str | None,
         support_id: str | None,
     ) -> Dict[str, Any]:
+        """Return parsed JSON from ``resp`` or raise :class:`EmptyModelOutput`."""
+
         if isinstance(resp, dict):
             data = resp
         else:
             text = _get_text(resp)
-            head = text[:256]
-            if not text.strip():
+            head = (text or "")[:256]
+            if not (text or "").strip():
                 log_dynamic_agent_failure(run_id, support_id, "empty", head)
                 raise EmptyModelOutput(role, task, "empty", head, run_id, support_id)
             try:

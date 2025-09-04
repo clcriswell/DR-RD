@@ -409,7 +409,7 @@ def execute_plan(
 
     _check()
 
-    idea_str = idea if isinstance(idea, str) else json.dumps(idea, ensure_ascii=False)
+    idea_str = idea if isinstance(idea, str) else str(idea)
     project_id = project_id or _slugify(idea_str)
     project_name = project_name or project_id
     exec_tasks = list(tasks)
@@ -502,13 +502,19 @@ def execute_plan(
                     "ok": False,
                     "error": str(e),
                 })
-                err = getattr(e, "payload", {
-                    "role": role,
-                    "task": routed.get("title", ""),
-                    "error": str(e),
-                    "raw_head": getattr(e, "raw_head", ""),
-                })
-                answers[role] = [_to_text(err)]
+                err = getattr(
+                    e,
+                    "payload",
+                    {
+                        "role": role,
+                        "task": routed.get("title", ""),
+                        "error": str(e),
+                        "raw_head": getattr(e, "raw_head", ""),
+                    },
+                )
+                answers[role] = [
+                    err if isinstance(err, str) else json.dumps(err, ensure_ascii=False)
+                ]
                 role_to_findings[role] = err
                 alias_maps[role] = routed.get("alias_map", {})
                 collector.finalize_item(handle, "", err, 0, 0, 0.0, [], [])
@@ -533,7 +539,7 @@ def execute_plan(
                 "ok": True,
             })
             _check()
-            text = _to_text(out)
+            text = out
 
             def _retry_fn(rem: str) -> str:
                 collector.append_event(handle, "retry", {"attempt": 2})
@@ -582,23 +588,28 @@ def execute_plan(
                     "ok": True,
                 })
                 routed["alias_map"] = retry_task.get("alias_map", {})
-                return _to_text(result)
+                return result
 
             _check()
             text, meta = validate_and_retry(
                 role, routed, text, _retry_fn, run_id=run_id, support_id=routed.get("support_id")
             )
             collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
-            answers.setdefault(role, []).append(_to_text(text))
+            answers.setdefault(role, []).append(
+                text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
+            )
             alias_maps[role] = routed.get("alias_map", {})
-            payload = extract_json_block(text) or {}
+            obj = text if isinstance(text, (dict, list)) else extract_json_block(text)
+            payload = obj or {}
             role_to_findings[role] = payload
             norm = _normalize_evidence_payload(payload)
             finding_text = ""
             if isinstance(payload, dict):
                 finding_text = str(payload.get("findings") or "")
             if not finding_text:
-                finding_text = text
+                finding_text = (
+                    text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
+                )
             finding_snip = finding_text.strip()[:240]
             if evidence is not None:
                 evidence.add(

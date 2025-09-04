@@ -3,18 +3,17 @@ import json
 from core.evaluation.self_check import validate_and_retry
 
 
-def test_self_check_tolerant_success():
-    raw = (
-        "Note: {\"role\":\"R\",\"task\":\"t\",\"findings\":[],\"risks\":[],\"next_steps\":[],\"sources\":[]}"
-    )
-    fixed, meta = validate_and_retry("R", {"title": "t"}, raw, lambda r: raw)
+def test_self_check_repairs_trailing_comma():
+    text = "```json {\"role\":\"r\",\"task\":\"t\",\"findings\":[],\"risks\":[],\"next_steps\":[],\"sources\":[],} ```"
+    result, meta = validate_and_retry("r", {"id": 1, "title": "t"}, text, lambda _: text)
     assert meta["valid_json"] is True
-    assert json.loads(fixed)["role"] == "R"
+    parsed = json.loads(result)
+    assert parsed["role"] == "r"
 
 
-def test_self_check_tolerant_failure():
-    raw = "not json"
-    fixed, meta = validate_and_retry("R", {"title": "t"}, raw, lambda r: raw)
-    assert fixed["raw_head"] == raw[:256]
+def test_self_check_returns_structured_failure():
+    bad = "not json"
+    result, meta = validate_and_retry("r", {"id": 1, "title": "t"}, bad, lambda _: bad)
     assert meta["valid_json"] is False
-
+    assert result["valid_json"] is False
+    assert "raw_head" in result
