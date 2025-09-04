@@ -66,7 +66,7 @@ def score_with_rubric(text: str, rubric: str) -> float:
         model = (
             os.getenv("DRRD_LLM_MODEL")
             or os.getenv("OPENAI_MODEL")
-            or "gpt-5"
+            or "gpt-4.1-mini"
         )
 
         result = call_openai(
