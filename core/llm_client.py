@@ -146,6 +146,23 @@ _ALLOWED_RESPONSE_KEYS = {
 }
 
 
+_UNSUPPORTED_RESPONSE_KEYS = {"provider", "json_strict", "tool_use"}
+
+
+def _sanitize_responses_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return a payload with only keys supported by the Responses API."""
+
+    allowed = {"model", "input"} | _ALLOWED_RESPONSE_KEYS
+    cleaned = {k: v for k, v in payload.items() if k in allowed}
+    # Explicitly drop commonly forwarded but unsupported keys
+    for bad in _UNSUPPORTED_RESPONSE_KEYS:
+        cleaned.pop(bad, None)
+    extra = set(payload) - set(cleaned)
+    if extra:
+        logger.info("Ignoring unsupported Responses payload keys: %s", sorted(extra))
+    return cleaned
+
+
 def _sanitize_responses_params(params: dict | None) -> dict:
     p: dict[str, Any] = {}
     for k, v in (params or {}).items():
@@ -352,8 +369,7 @@ def call_openai(
             "input": _to_responses_input(messages),
             **resp_params,
         }
-        allowed_payload = {"model", "input"} | _ALLOWED_RESPONSE_KEYS
-        payload = {k: v for k, v in payload.items() if k in allowed_payload}
+        payload = _sanitize_responses_payload(payload)
         logger.info("call_openai: model=%s api=Responses", effective_model)
         backoff = 0.1
         client = _client()
@@ -363,7 +379,7 @@ def call_openai(
                 http_status_or_exc = getattr(resp, "http_status", 200)
                 text = extract_text(resp)
                 return {"raw": resp, "text": text}
-            except TypeError:
+            except TypeError as e:
                 logger.error("OpenAI kwargs error", extra={"keys": sorted(payload.keys())})
                 raise
             except _openai.APIStatusError as e:

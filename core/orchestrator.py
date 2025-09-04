@@ -775,7 +775,21 @@ def execute_plan(
             "rag_enabled": ff.RAG_ENABLED,
             "live_search_enabled": ff.ENABLE_LIVE_SEARCH,
         }
-        result = eval_agent.run(idea, answers, role_to_findings, context=context)
+        try:
+            result = eval_agent.run(idea, answers, role_to_findings, context=context)
+        except Exception as e:
+            collector.append_event(handle, "error", {"error": str(e)})
+            trace_writer.append_step(
+                run_id or "",
+                {
+                    "phase": "executor",
+                    "event": "agent_error",
+                    "role": "Evaluation",
+                    "task_id": "",
+                    "error": str(e),
+                },
+            )
+            raise RuntimeError("agent Evaluation failed") from e
         collector.append_event(handle, "evaluation", result.get("score", {}))
         collector.finalize_item(
             handle, "; ".join(result.get("findings", [])), result, 0, 0, 0.0, [], []
