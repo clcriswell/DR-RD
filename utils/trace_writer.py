@@ -26,16 +26,16 @@ def read_trace(run_id: str) -> list[Any]:
     return _read_trace(p) if p.exists() else []
 
 
-def _atomic_write(p: Path, data: bytes | str) -> None:
-    """Write *data* to *p* atomically, creating parent directories."""
+def _atomic_write(path: Path, data: bytes | str) -> None:
+    """Safely write ``data`` to ``path`` using a same-dir temporary file."""
 
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(p.suffix + ".tmp")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
     if isinstance(data, bytes):
         tmp.write_bytes(data)
     else:
         tmp.write_text(data, encoding="utf-8")
-    tmp.replace(p)
+    tmp.replace(path)
 
 
 def append_step(run_id: str, step: Mapping[str, Any]) -> None:
