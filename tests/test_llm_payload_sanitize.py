@@ -1,36 +1,48 @@
-import types
+import core.llm_client as llm_client
 
-from core import llm_client
+
+class DummyResp:
+    http_status = 200
+    output = []
 
 
 def test_llm_payload_sanitize(monkeypatch):
-    captured = {}
+    recorded = {}
 
     class DummyResponses:
         def create(self, **kwargs):
-            captured.update(kwargs)
-            return types.SimpleNamespace(output=[], http_status=200)
+            recorded.update(kwargs)
+            return DummyResp()
 
     class DummyClient:
         responses = DummyResponses()
 
     monkeypatch.setenv("OPENAI_API_KEY", "test")
     monkeypatch.setattr(llm_client, "_client", lambda: DummyClient())
+    monkeypatch.setattr(llm_client, "_supports_response_format", lambda: True)
 
+    messages = [{"role": "user", "content": "hi"}]
     llm_client.call_openai(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": "hi"}],
+        messages=messages,
         response_params={
-            "provider": "p",
+            "provider": "x",
             "json_strict": True,
-            "tool_use": "none",
-            "extra_keys": 1,
+            "tool_use": "auto",
+            "extra_keys": "ignored",
+            "max_output_tokens": 5,
         },
+        tools=[{"type": "json_schema", "function": {"name": "f", "parameters": {"type": "object"}}}],
+        tool_choice="auto",
+        response_format={"type": "json_object"},
     )
 
-    assert "provider" not in captured
-    assert "json_strict" not in captured
-    assert "tool_use" not in captured
-    assert "extra_keys" not in captured
-    assert "input" in captured
-    assert "messages" not in captured
+    assert "provider" not in recorded
+    assert "json_strict" not in recorded
+    assert "tool_use" not in recorded
+    assert "extra_keys" not in recorded
+    assert recorded["model"] == "gpt-4o-mini"
+    assert recorded["max_output_tokens"] == 5
+    assert "input" in recorded
+    assert "response_format" in recorded
+    assert "tools" in recorded and recorded["tool_choice"] == "auto"
