@@ -1,6 +1,5 @@
 import json
 import os
-import json
 import re
 from dataclasses import asdict, dataclass
 from json import JSONDecodeError
@@ -46,6 +45,14 @@ class AgentResult:
     text: str = ""
     payload: dict | None = None
     error: dict | None = None
+
+
+def _to_text(x: Any) -> str:
+    if x is None:
+        return ""
+    if isinstance(x, str):
+        return x
+    return json.dumps(x, ensure_ascii=False)
 from utils.paths import ensure_run_dirs
 from utils.stream_events import Event
 from utils.telemetry import (
@@ -402,7 +409,8 @@ def execute_plan(
 
     _check()
 
-    project_id = project_id or _slugify(idea)
+    idea_str = idea if isinstance(idea, str) else json.dumps(idea, ensure_ascii=False)
+    project_id = project_id or _slugify(idea_str)
     project_name = project_name or project_id
     exec_tasks = list(tasks)
     if not exec_tasks:
@@ -415,7 +423,7 @@ def execute_plan(
         raise ValueError("No executable tasks after planning/routing")
     agents = agents or {}
     tasks = exec_tasks
-    answers: dict[str, str] = {}
+    answers: dict[str, list[str]] = {}
     role_to_findings: dict[str, dict] = {}
     alias_maps: dict[str, dict[str, str]] = {}
     evidence = EvidenceSet(project_id=project_id) if save_evidence else None
@@ -460,7 +468,7 @@ def execute_plan(
             collector.append_event(handle, "call", {"attempt": 1})
             pseudo = {
                 **routed,
-                "idea": idea,
+                "idea": idea_str,
                 "requirements": routed.get("requirements", []),
                 "tests": routed.get("tests", []),
                 "defects": routed.get("defects", []),
@@ -500,7 +508,7 @@ def execute_plan(
                     "error": str(e),
                     "raw_head": getattr(e, "raw_head", ""),
                 })
-                answers[role] = json.dumps(err)
+                answers[role] = [_to_text(err)]
                 role_to_findings[role] = err
                 alias_maps[role] = routed.get("alias_map", {})
                 collector.finalize_item(handle, "", err, 0, 0, 0.0, [], [])
@@ -525,7 +533,7 @@ def execute_plan(
                 "ok": True,
             })
             _check()
-            text = out if isinstance(out, str) else json.dumps(out)
+            text = _to_text(out)
 
             def _retry_fn(rem: str) -> str:
                 collector.append_event(handle, "retry", {"attempt": 2})
@@ -534,7 +542,7 @@ def execute_plan(
                 retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
                 pseudo_r = {
                     **retry_task,
-                    "idea": idea,
+                    "idea": idea_str,
                     "requirements": retry_task.get("requirements", []),
                     "tests": retry_task.get("tests", []),
                     "defects": retry_task.get("defects", []),
@@ -574,14 +582,14 @@ def execute_plan(
                     "ok": True,
                 })
                 routed["alias_map"] = retry_task.get("alias_map", {})
-                return result
+                return _to_text(result)
 
             _check()
             text, meta = validate_and_retry(
                 role, routed, text, _retry_fn, run_id=run_id, support_id=routed.get("support_id")
             )
             collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
-            answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
+            answers.setdefault(role, []).append(_to_text(text))
             alias_maps[role] = routed.get("alias_map", {})
             payload = extract_json_block(text) or {}
             role_to_findings[role] = payload
@@ -807,7 +815,8 @@ def execute_plan(
             "live_search_enabled": ff.ENABLE_LIVE_SEARCH,
         }
         try:
-            result = eval_agent.run(idea, answers, role_to_findings, context=context)
+            joined_answers = {k: "\n\n".join(v) for k, v in answers.items()}
+            result = eval_agent.run(idea_str, joined_answers, role_to_findings, context=context)
         except Exception as e:
             collector.append_event(handle, "error", {"error": str(e)})
             _append(
@@ -898,7 +907,8 @@ def execute_plan(
     from orchestrators.spec_builder import assemble_from_agent_payloads
     from utils.reportgen import render, write_csv
 
-    sdd, impl = assemble_from_agent_payloads(project_name, idea, answers)
+    joined_answers = {k: "\n\n".join(v) for k, v in answers.items()}
+    sdd, impl = assemble_from_agent_payloads(project_name, idea_str, joined_answers)
     out_dir = f"audits/{project_id}/build"
     os.makedirs(out_dir, exist_ok=True)
     sdd_md = render("build/SDD.md.j2", {"sdd": sdd})
@@ -959,13 +969,13 @@ def execute_plan(
         pass
     if norm_tasks:
         try:
-            ctx = {"idea": idea}
+            ctx = {"idea": idea_str}
             if run_id:
                 ctx["run_id"] = run_id
             exec_artifacts(norm_tasks, ctx)
         except Exception:
             logger.warning("executor artifacts failed", exc_info=True)
-    return answers
+    return {k: "\n\n".join(v) for k, v in answers.items()}
 
 
 def compose_final_proposal(

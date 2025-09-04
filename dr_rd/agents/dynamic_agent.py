@@ -10,7 +10,7 @@ from typing import Any, Dict, Tuple
 from jsonschema import validate
 
 from core.llm import complete
-from core.llm_client import extract_text
+from core.llm_client import _get_text
 from core.tool_router import allow_tools
 from dr_rd.prompting import PromptFactory, RetrievalPolicy
 from utils.json_safety import parse_json_loose
@@ -82,8 +82,8 @@ class DynamicAgent:
         if isinstance(resp, dict):
             data = resp
         else:
-            text = extract_text(resp) or ""
-            head = (text or "")[:256]
+            text = _get_text(resp)
+            head = text[:256]
             if not text.strip():
                 log_dynamic_agent_failure(run_id, support_id, "empty", head)
                 raise EmptyModelOutput(role, task, "empty", head, run_id, support_id)

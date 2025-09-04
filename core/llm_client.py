@@ -79,17 +79,22 @@ def _openai_web_search_requested(enable_web_search: Optional[bool]) -> bool:
     return _bool_env("ENABLE_LIVE_SEARCH", False) and _live_search_backend() == "openai"
 
 
-def _gate_model_for_openai_search(model: str) -> str:
-    """Return an allowed model for web search without emitting warnings."""
-
-    if model in SUPPORTED_OPENAI_SEARCH_MODELS:
-        return model
+def _choose_model_for_search(provider: str, requested: str, tool_use: dict | None) -> str:
+    if provider != "openai" or not isinstance(tool_use, dict) or not tool_use.get("search"):
+        return requested
+    if requested in SUPPORTED_OPENAI_SEARCH_MODELS:
+        return requested
     return "gpt-4o-mini"
 
 
 def _strip_provider_overrides(obj: dict[str, Any]) -> dict[str, Any]:
+    removed = []
     for k in ("openai", "anthropic", "gemini"):
-        obj.pop(k, None)
+        if k in obj:
+            removed.append(k)
+            obj.pop(k, None)
+    if removed:
+        logger.debug("Dropping provider overrides: %s", removed)
     return obj
 
 
@@ -146,6 +151,8 @@ _ALLOWED_RESPONSE_KEYS = {
 
 
 _UNSUPPORTED_RESPONSE_KEYS = {"provider", "json_strict", "tool_use"}
+_LOGGED_UNSUPPORTED_PAYLOAD: set[str] = set()
+_LOGGED_UNSUPPORTED_PARAMS: set[str] = set()
 
 
 def _sanitize_responses_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -158,7 +165,12 @@ def _sanitize_responses_payload(payload: dict[str, Any]) -> dict[str, Any]:
         cleaned.pop(bad, None)
     extra = set(payload) - set(cleaned)
     if extra:
-        logger.info("Ignoring unsupported Responses payload keys: %s", sorted(extra))
+        unseen = set(extra) - _LOGGED_UNSUPPORTED_PAYLOAD
+        if unseen:
+            logger.debug(
+                "Ignoring unsupported Responses payload keys: %s", sorted(unseen)
+            )
+            _LOGGED_UNSUPPORTED_PAYLOAD.update(unseen)
     return cleaned
 
 
@@ -168,7 +180,9 @@ def _sanitize_responses_params(params: dict | None) -> dict:
         if k in _ALLOWED_RESPONSE_KEYS:
             p[k] = v
         else:
-            logger.info("Ignoring unsupported Responses param: %s", k)
+            if k not in _LOGGED_UNSUPPORTED_PARAMS:
+                logger.debug("Ignoring unsupported Responses param: %s", k)
+                _LOGGED_UNSUPPORTED_PARAMS.add(k)
     return p
 
 
@@ -195,6 +209,11 @@ def extract_text(resp: Any) -> Optional[str]:
     return getattr(getattr(choice, "message", None), "content", None) or getattr(
         choice, "text", None
     )
+
+
+def _get_text(resp: Any) -> str:
+    text = extract_text(resp) or ""
+    return text
 
 
 def _strip_code_fences(s: str) -> str:
@@ -289,8 +308,12 @@ def call_openai(
     request_id = uuid.uuid4().hex
     t0 = time.monotonic()
     meta = meta or {}
+    kwargs.pop("api", None)
+    params = {**(response_params or {}), **kwargs}
+    provider = params.pop("provider", "openai")
+    tool_use = params.get("tool_use")
+    effective_model = _choose_model_for_search(provider, model, tool_use)
     web_search_requested = _openai_web_search_requested(enable_web_search)
-    effective_model = _gate_model_for_openai_search(model) if web_search_requested else model
     kwargs.pop("api", "Responses")
 
     logger.info(
@@ -329,14 +352,12 @@ def call_openai(
             if tool_choice is None:
                 tool_choice = "auto"
 
-        params = {**(response_params or {}), **kwargs}
         params = _strip_provider_overrides(params)
-        for k in ["provider", "json_strict", "tool_use", "extra_keys"]:
-            if k in params:
-                params.pop(k, None)
+        for k in ["json_strict", "tool_use", "extra_keys"]:
+            params.pop(k, None)
         if "llm_hints" in params:
             params.pop("llm_hints", None)
-            logger.info("Ignoring unsupported param: llm_hints")
+            logger.debug("Ignoring unsupported param: llm_hints")
         if tools is not None:
             params["tools"] = tools
         if tool_choice is not None:
@@ -536,7 +557,7 @@ def llm_call(
     seed: int | None = None,
     temperature: float | None = None,
     enable_web_search: bool | None = None,
-    json_response: bool = False,
+    enforce_json: bool = False,
     **params,
 ):
     """Backward-compatible wrapper around :func:`call_openai`."""
@@ -547,7 +568,7 @@ def llm_call(
     if seed is not None:
         safe["seed"] = seed
     response_format = (
-        {"type": "json_object"} if json_response else safe.pop("response_format", None)
+        {"type": "json_object"} if enforce_json else safe.pop("response_format", None)
     )
     chosen_model = model_id
     result = call_openai(
