@@ -19,6 +19,7 @@ from utils.usage import Usage, add_delta, thresholds
 _openai = lazy("openai")
 _client_instance: Optional[Any] = None
 _SUPPORTS_RESPONSE_FORMAT: Optional[bool] = None
+_LOGGED_OVERRIDES: set[str] = set()
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +94,10 @@ def _strip_provider_overrides(obj: dict[str, Any]) -> dict[str, Any]:
         if k in obj:
             removed.append(k)
             obj.pop(k, None)
-    if removed:
-        logger.debug("Dropping provider overrides: %s", removed)
+    new = [k for k in removed if k not in _LOGGED_OVERRIDES]
+    if new:
+        logger.debug("Dropping provider overrides: %s", new)
+        _LOGGED_OVERRIDES.update(new)
     return obj
 
 
@@ -310,16 +313,15 @@ def call_openai(
     meta = meta or {}
     kwargs.pop("api", None)
     params = {**(response_params or {}), **kwargs}
-    provider = params.pop("provider", "openai")
+    params.pop("provider", None)
     tool_use = params.get("tool_use")
-    effective_model = _choose_model_for_search(provider, model, tool_use)
     web_search_requested = _openai_web_search_requested(enable_web_search)
     kwargs.pop("api", "Responses")
 
     logger.info(
         "LLM start req=%s model=%s purpose=%s agent=%s",
         request_id,
-        effective_model,
+        model,
         meta.get("purpose"),
         meta.get("agent"),
     )
@@ -393,13 +395,13 @@ def call_openai(
 
         resp_params = {k: v for k, v in params.items() if k != "temperature"}
         payload = {
-            "model": effective_model,
+            "model": model,
             "input": _to_responses_input(messages),
             **resp_params,
         }
         payload = _strip_provider_overrides(payload)
         payload = _sanitize_responses_payload(payload)
-        logger.info("call_openai: model=%s api=Responses", effective_model)
+        logger.info("call_openai: model=%s api=Responses", model)
         backoff = 0.1
         client = _client()
         for attempt in range(4):
@@ -436,10 +438,10 @@ def call_openai(
             chat_params["response_format"] = response_format
         if "max_output_tokens" in chat_params and "max_tokens" not in chat_params:
             chat_params["max_tokens"] = chat_params.pop("max_output_tokens")
-        logger.info("call_openai: model=%s api=Chat", effective_model)
+        logger.info("call_openai: model=%s api=Chat", model)
         client = _client()
         resp = client.chat.completions.create(
-            model=effective_model, messages=_to_chat_messages(messages), **chat_params
+            model=model, messages=_to_chat_messages(messages), **chat_params
         )
         http_status_or_exc = getattr(resp, "http_status", 200)
         text = extract_text(resp)
@@ -561,6 +563,8 @@ def llm_call(
     **params,
 ):
     """Backward-compatible wrapper around :func:`call_openai`."""
+    tool_use = params.get("tool_use")
+    provider = params.get("provider", "openai")
     safe = {k: v for k, v in params.items() if k in ALLOWED_PARAMS}
     safe = _strip_provider_overrides(safe)
     if temperature is not None:
@@ -570,7 +574,7 @@ def llm_call(
     response_format = (
         {"type": "json_object"} if enforce_json else safe.pop("response_format", None)
     )
-    chosen_model = model_id
+    chosen_model = _choose_model_for_search(provider, model_id, tool_use)
     result = call_openai(
         model=chosen_model,
         messages=messages,

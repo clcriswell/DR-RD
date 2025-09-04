@@ -49,20 +49,20 @@ def validate_and_retry(
 
     head = (raw_text or "")[:256]
 
-    def _check(text: str) -> tuple[bool, str]:
-        if not isinstance(text, str):
-            text = json.dumps(text, ensure_ascii=False)
-        block = extract_json_block(text)
-        candidate = block if block is not None else text
+    def _check(text: object) -> tuple[bool, str]:
+        obj = text if isinstance(text, (dict, list)) else extract_json_block(text)
+        candidate = obj if obj is not None else text
+        if not isinstance(candidate, str):
+            candidate = json.dumps(candidate, ensure_ascii=False)
         try:
             data = parse_json_loose(candidate)
         except Exception as e:
             errors.append(str(e))
-            return False, text
+            return False, candidate
         if not _has_required(data):
             missing = [k for k in REQUIRED_KEYS if k not in data]
             errors.append(f"missing_keys:{missing}")
-            return False, text
+            return False, json.dumps(data, ensure_ascii=False)
         return True, json.dumps(data, ensure_ascii=False)
 
     valid, raw_text = _check(raw_text)
