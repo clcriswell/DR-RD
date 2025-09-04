@@ -156,9 +156,9 @@ def resolve_model(role: str, purpose: str = "exec") -> str:
         profile = "standard"
     default_model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
     if purpose == "plan":
-        return os.getenv("DRRD_MODEL_PLAN") or ("gpt-5" if profile == "pro" else default_model)
+        return os.getenv("DRRD_MODEL_PLAN") or ("gpt-4.1-mini" if profile == "pro" else default_model)
     if purpose == "synth":
-        return os.getenv("DRRD_MODEL_SYNTH") or ("gpt-5" if profile == "pro" else default_model)
+        return os.getenv("DRRD_MODEL_SYNTH") or ("gpt-4.1-mini" if profile == "pro" else default_model)
     if profile == "pro":
-        return os.getenv("DRRD_MODEL_EXEC_PRO") or "gpt-5"
+        return os.getenv("DRRD_MODEL_EXEC_PRO") or "gpt-4.1-mini"
     return os.getenv("DRRD_MODEL_EXEC_EFFICIENT") or default_model
