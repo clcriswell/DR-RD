@@ -27,7 +27,10 @@ class QAAgent:
         self.factory = PromptFactory()
         allow_tools(self.ROLE, self.ALLOWLIST)
 
-    def run(self, task: str, requirements: List[str], tests: List[str], defects: List[dict]) -> Any:
+    def run(
+        self, task: Any, requirements: List[str], tests: List[str], defects: List[dict]
+    ) -> Any:
+        task_txt = task if isinstance(task, str) else json.dumps(task)
         matrix = call_tool(
             self.ROLE, "build_requirements_matrix", {"reqs": requirements, "tests": tests}
         )
@@ -35,7 +38,7 @@ class QAAgent:
         stats = call_tool(self.ROLE, "classify_defects", {"defects": defects})
         spec = {
             "role": self.ROLE,
-            "task": task,
+            "task": task_txt,
             "inputs": {
                 "matrix": matrix,
                 "coverage": coverage,

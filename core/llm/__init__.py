@@ -127,8 +127,7 @@ def complete(
         result = call_openai(model=mdl, messages=messages, **scrub)
         resp = result["raw"]
         content = result["text"] or ""
-        raw = resp.model_dump() if hasattr(resp, "model_dump") else resp
-        return ChatResult(content=content, raw=raw)
+        return ChatResult(content=content, raw=resp)
     except Exception as e:
         _log_400(e)
         raise

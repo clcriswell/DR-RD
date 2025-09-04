@@ -26,3 +26,7 @@ Against deployed app:
 APP_EXTERNAL=1 APP_BASE_URL=https://dr-rnd.streamlit.app \
 pytest -q e2e
 ```
+
+## Agents
+
+Schema-constrained agents enforce OpenAI's `response_format={"type":"json_object"}` and fall back to a tolerant JSON parser when validating model output.

@@ -79,19 +79,18 @@ def _openai_web_search_requested(enable_web_search: Optional[bool]) -> bool:
     return _bool_env("ENABLE_LIVE_SEARCH", False) and _live_search_backend() == "openai"
 
 
-def _coerce_model_for_openai_search(model: str) -> str:
-    """If OpenAI web search is requested but model unsupported, warn and override."""
+def _gate_model_for_openai_search(model: str) -> str:
+    """Return an allowed model for web search without emitting warnings."""
 
-    if _live_search_backend() != "openai":
-        return model
     if model in SUPPORTED_OPENAI_SEARCH_MODELS:
         return model
-    logger.warning(
-        "OpenAI web search requires one of %s; got '%s'. Overriding to 'gpt-4o-mini'.",
-        sorted(SUPPORTED_OPENAI_SEARCH_MODELS),
-        model,
-    )
     return "gpt-4o-mini"
+
+
+def _strip_provider_overrides(obj: dict[str, Any]) -> dict[str, Any]:
+    for k in ("openai", "anthropic", "gemini"):
+        obj.pop(k, None)
+    return obj
 
 
 def _dry_stub(prompt: str) -> dict:
@@ -291,7 +290,7 @@ def call_openai(
     t0 = time.monotonic()
     meta = meta or {}
     web_search_requested = _openai_web_search_requested(enable_web_search)
-    effective_model = _coerce_model_for_openai_search(model) if web_search_requested else model
+    effective_model = _gate_model_for_openai_search(model) if web_search_requested else model
     kwargs.pop("api", "Responses")
 
     logger.info(
@@ -331,6 +330,7 @@ def call_openai(
                 tool_choice = "auto"
 
         params = {**(response_params or {}), **kwargs}
+        params = _strip_provider_overrides(params)
         for k in ["provider", "json_strict", "tool_use", "extra_keys"]:
             if k in params:
                 params.pop(k, None)
@@ -376,6 +376,7 @@ def call_openai(
             "input": _to_responses_input(messages),
             **resp_params,
         }
+        payload = _strip_provider_overrides(payload)
         payload = _sanitize_responses_payload(payload)
         logger.info("call_openai: model=%s api=Responses", effective_model)
         backoff = 0.1
@@ -535,15 +536,19 @@ def llm_call(
     seed: int | None = None,
     temperature: float | None = None,
     enable_web_search: bool | None = None,
+    json_response: bool = False,
     **params,
 ):
     """Backward-compatible wrapper around :func:`call_openai`."""
     safe = {k: v for k, v in params.items() if k in ALLOWED_PARAMS}
+    safe = _strip_provider_overrides(safe)
     if temperature is not None:
         safe["temperature"] = temperature
     if seed is not None:
         safe["seed"] = seed
-    response_format = safe.pop("response_format", None)
+    response_format = (
+        {"type": "json_object"} if json_response else safe.pop("response_format", None)
+    )
     chosen_model = model_id
     result = call_openai(
         model=chosen_model,

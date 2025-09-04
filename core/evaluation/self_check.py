@@ -1,9 +1,12 @@
 import json
+import json
 import logging
 from typing import Callable, Tuple
 from utils import trace_writer
 
 from utils.agent_json import extract_json_block
+from utils.json_safety import parse_json_loose
+from utils.logging import log_self_check
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +24,8 @@ def validate_and_retry(
     retry_fn: Callable[[str], str],
     *,
     run_id: str | None = None,
-) -> Tuple[str, dict]:
+    support_id: str | None = None,
+) -> Tuple[object, dict]:
     """Validate ``raw_text`` for the uniform JSON contract and retry once if needed.
 
     Parameters
@@ -51,7 +55,7 @@ def validate_and_retry(
         block = extract_json_block(text)
         candidate = block if block is not None else text
         try:
-            data = json.loads(candidate)
+            data = parse_json_loose(candidate)
         except Exception as e:
             errors.append(str(e))
             return False
@@ -80,6 +84,7 @@ def validate_and_retry(
             valid = True
     info = {"retried": retried, "valid_json": valid, "role": agent_name, "task": task.get("title")}
     logger.info("self_check=%s", info)
+    head = (raw_text or "")[:256]
     if not valid:
         try:
             trace_writer.append_step(
@@ -95,5 +100,10 @@ def validate_and_retry(
             )
         except Exception:
             pass
-        raise ValueError("Invalid JSON output")
+        log_self_check(run_id, support_id, {"valid_json": False, "errors": errors}, head)
+        return (
+            {"valid_json": False, "reason": ";".join(errors), "raw_head": head},
+            {"retried": retried, "valid_json": False},
+        )
+    log_self_check(run_id, support_id, {"valid_json": True}, head)
     return raw_text, {"retried": retried, "valid_json": True}
