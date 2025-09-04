@@ -1,7 +1,9 @@
 import json
 import os
+import json
 import re
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
+from json import JSONDecodeError
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -36,6 +38,14 @@ from utils import safety as safety_utils
 from utils.agent_json import extract_json_block, extract_json_strict
 from utils.cancellation import CancellationToken
 from utils.logging import logger, safe_exc
+from dr_rd.agents.dynamic_agent import EmptyModelOutput
+
+
+@dataclass
+class AgentResult:
+    text: str = ""
+    payload: dict | None = None
+    error: dict | None = None
 from utils.paths import ensure_run_dirs
 from utils.stream_events import Event
 from utils.telemetry import (
@@ -473,6 +483,32 @@ def execute_plan(
                     model=model,
                     meta={"context": pseudo.get("context")},
                 )
+            except (EmptyModelOutput, JSONDecodeError) as e:
+                span.set_attribute("status", "error")
+                span.record_exception(e)
+                safe_exc(logger, idea, f"invoke_agent[{role}]", e)
+                trace_writer.append_step(
+                    run_id or "",
+                    {
+                        "phase": "executor",
+                        "event": "agent_end",
+                        "role": role,
+                        "task_id": routed.get("id"),
+                        "ok": False,
+                        "error": str(e),
+                    },
+                )
+                err = getattr(e, "payload", {
+                    "role": role,
+                    "task": routed.get("title", ""),
+                    "error": str(e),
+                    "raw_head": getattr(e, "raw_head", ""),
+                })
+                answers[role] = json.dumps(err)
+                role_to_findings[role] = err
+                alias_maps[role] = routed.get("alias_map", {})
+                collector.finalize_item(handle, "", err, 0, 0, 0.0, [], [])
+                return
             except Exception as e:
                 span.set_attribute("status", "error")
                 span.record_exception(e)
@@ -559,7 +595,9 @@ def execute_plan(
                 return result
 
             _check()
-            text, meta = validate_and_retry(role, routed, text, _retry_fn, run_id=run_id)
+            text, meta = validate_and_retry(
+                role, routed, text, _retry_fn, run_id=run_id, support_id=routed.get("support_id")
+            )
             collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
             answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
             alias_maps[role] = routed.get("alias_map", {})
