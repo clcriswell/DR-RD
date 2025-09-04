@@ -215,18 +215,18 @@ def route_task(
         caps=json.dumps(route_decision.get("caps", {})),
     )
     tasks_routed(1)
-    if planned == "Materials Engineer" or role == "Materials Engineer":
-        try:
-            st.session_state.setdefault("routing_report", []).append(
-                {
-                    "task_id": task.get("id"),
-                    "planned_role": planned,
-                    "routed_role": role,
-                    "agent_class": cls.__name__,
-                }
-            )
-        except Exception:
-            pass
+    try:
+        st.session_state.setdefault("routing_report", []).append(
+            {
+                "task_id": task.get("id"),
+                "planned_role": planned,
+                "routed_role": role,
+                "agent_class": cls.__name__,
+                "model": model,
+            }
+        )
+    except Exception:
+        pass
     return role, cls, model, out
 
 

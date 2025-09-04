@@ -22,6 +22,7 @@ from core.observability import (
 )
 from core.privacy import pseudonymize_for_model, rehydrate_output
 from core.router import route_task
+from core.roles import normalize_role
 from core.schemas import Plan, ScopeNote
 from memory.decision_log import log_decision
 from orchestrators.executor import execute as exec_artifacts
@@ -79,7 +80,8 @@ def _coerce_and_fill(data: dict | list) -> dict:
         title = (t.get("title") or "").strip()
         summary = (t.get("summary") or t.get("description") or "").strip()
         description = (t.get("description") or t.get("summary") or "").strip()
-        role = (t.get("role") or "Dynamic Specialist").strip()
+        role_raw = t.get("role")
+        role = normalize_role(role_raw) or "Dynamic Specialist"
         if title == "" or summary == "":
             continue
         nt = dict(t)
@@ -192,16 +194,16 @@ def generate_plan(
         if alias_map:
             raw_data = rehydrate_output(raw_data, alias_map)
 
-        data = _coerce_and_fill(raw_data)
-        raw_count = data.pop("_raw_count", 0)
-        norm_tasks = data.get("tasks", [])
+        norm = _coerce_and_fill(raw_data)
+        raw_count = norm.pop("_raw_count", 0)
+        norm_tasks = norm.get("tasks", [])
         tasks_planned(raw_count)
         tasks_normalized(len(norm_tasks))
 
         from pydantic import ValidationError
 
         try:
-            Plan.model_validate(data, strict=True)
+            Plan.model_validate(norm, strict=True)
         except ValidationError as e:
             dump_dir = Path("debug/logs")
             dump_dir.mkdir(parents=True, exist_ok=True)
@@ -221,7 +223,7 @@ def generate_plan(
         except Exception:
             pass
         try:
-            st.session_state["plan_tasks"] = list(norm_tasks)
+            st.session_state["plan_tasks"] = norm_tasks
             st.session_state["raw_planned_tasks"] = raw_count
             st.session_state["normalized_tasks_count"] = len(norm_tasks)
         except Exception:
@@ -445,9 +447,15 @@ def execute_plan(
             preview = f"{routed.get('title', '')}: {routed.get('description', '')}"
             prompt_previews.append(preview[:4000])
             collector.append_event(handle, "call", {"attempt": 1})
-            context = routed.get("context", idea)
-            pseudo, alias_map = pseudonymize_for_model({"context": context, "task": routed})
-            task_pseudo = pseudo.get("task", {})
+            pseudo = {
+                **routed,
+                "idea": idea,
+                "requirements": routed.get("requirements", []),
+                "tests": routed.get("tests", []),
+                "defects": routed.get("defects", []),
+                "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+            }
+            pseudo, alias_map = pseudonymize_for_model(pseudo)
             routed["alias_map"] = alias_map
             trace_writer.append_step(
                 run_id or "",
@@ -461,7 +469,7 @@ def execute_plan(
             try:
                 out = invoke_agent_safely(
                     agent,
-                    task_pseudo,
+                    task=pseudo,
                     model=model,
                     meta={"context": pseudo.get("context")},
                 )
@@ -498,9 +506,15 @@ def execute_plan(
                 collector.append_event(handle, "call", {"attempt": 2})
                 retry_task = dict(routed)
                 retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
-                pseudo2, alias_map2 = pseudonymize_for_model(
-                    {"context": context, "task": retry_task}
-                )
+                pseudo_r = {
+                    **retry_task,
+                    "idea": idea,
+                    "requirements": retry_task.get("requirements", []),
+                    "tests": retry_task.get("tests", []),
+                    "defects": retry_task.get("defects", []),
+                    "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+                }
+                pseudo_r, alias_map2 = pseudonymize_for_model(pseudo_r)
                 retry_task["alias_map"] = alias_map2
                 trace_writer.append_step(
                     run_id or "",
@@ -514,9 +528,9 @@ def execute_plan(
                 try:
                     result = invoke_agent_safely(
                         agent,
-                        pseudo2.get("task", {}),
+                        task=pseudo_r,
                         model=model,
-                        meta={"context": pseudo2.get("context")},
+                        meta={"context": pseudo_r.get("context")},
                     )
                 except Exception as e:
                     trace_writer.append_step(
@@ -541,10 +555,11 @@ def execute_plan(
                         "ok": True,
                     },
                 )
+                routed["alias_map"] = retry_task.get("alias_map", {})
                 return result
 
             _check()
-            text, meta = validate_and_retry(role, routed, text, _retry_fn)
+            text, meta = validate_and_retry(role, routed, text, _retry_fn, run_id=run_id)
             collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
             answers[role] = answers.get(role, "") + ("\n\n" if role in answers else "") + text
             alias_maps[role] = routed.get("alias_map", {})
