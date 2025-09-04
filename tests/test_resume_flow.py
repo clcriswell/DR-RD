@@ -36,7 +36,7 @@ def test_resume_flow(tmp_path, monkeypatch):
         called["planner"] += 1
         return []
 
-    def fake_execute(idea, tasks, agents):
+    def fake_execute(idea, tasks, agents, run_id=None):
         called["executor"] += 1
         assert tasks == [{"id": "T1", "role": "Exec", "title": "t", "description": "d"}]
         return {}

@@ -392,6 +392,14 @@ def execute_plan(
         if deadline and deadline.expired():
             raise TimeoutError("deadline reached")
 
+    def _append(step: dict, *, meta: dict | None = None) -> None:
+        if run_id:
+            trace_writer.append_step(run_id, step, meta=meta)
+
+    def _flush(phase: str, meta: dict) -> None:
+        if run_id:
+            trace_writer.flush_phase_meta(run_id, phase, meta)
+
     _check()
 
     project_id = project_id or _slugify(idea)
@@ -399,15 +407,8 @@ def execute_plan(
     exec_tasks = list(tasks)
     if not exec_tasks:
         try:
-            trace_writer.append_step(
-                run_id,
-                {"phase": "executor", "summary": [], "meta": {"reason": "no_executable_tasks"}},
-            )
-            trace_writer.flush_phase_meta(
-                run_id,
-                "executor",
-                {"routed_tasks": 0, "exec_tasks": 0, "reason": "no_executable_tasks"},
-            )
+            _append({"phase": "executor", "summary": [], "meta": {"reason": "no_executable_tasks"}})
+            _flush("executor", {"routed_tasks": 0, "exec_tasks": 0, "reason": "no_executable_tasks"})
         except Exception:
             pass
 
@@ -467,37 +468,32 @@ def execute_plan(
             }
             pseudo, alias_map = pseudonymize_for_model(pseudo)
             routed["alias_map"] = alias_map
-            trace_writer.append_step(
-                run_id or "",
-                {
-                    "phase": "executor",
-                    "event": "agent_start",
-                    "role": role,
-                    "task_id": routed.get("id"),
-                },
-            )
+            _append({
+                "phase": "executor",
+                "event": "agent_start",
+                "role": role,
+                "task_id": routed.get("id"),
+            })
             try:
                 out = invoke_agent_safely(
                     agent,
                     task=pseudo,
                     model=model,
                     meta={"context": pseudo.get("context")},
+                    run_id=run_id,
                 )
             except (EmptyModelOutput, JSONDecodeError) as e:
                 span.set_attribute("status", "error")
                 span.record_exception(e)
                 safe_exc(logger, idea, f"invoke_agent[{role}]", e)
-                trace_writer.append_step(
-                    run_id or "",
-                    {
-                        "phase": "executor",
-                        "event": "agent_end",
-                        "role": role,
-                        "task_id": routed.get("id"),
-                        "ok": False,
-                        "error": str(e),
-                    },
-                )
+                _append({
+                    "phase": "executor",
+                    "event": "agent_end",
+                    "role": role,
+                    "task_id": routed.get("id"),
+                    "ok": False,
+                    "error": str(e),
+                })
                 err = getattr(e, "payload", {
                     "role": role,
                     "task": routed.get("title", ""),
@@ -513,27 +509,21 @@ def execute_plan(
                 span.set_attribute("status", "error")
                 span.record_exception(e)
                 safe_exc(logger, idea, f"invoke_agent[{role}]", e)
-                trace_writer.append_step(
-                    run_id or "",
-                    {
-                        "phase": "executor",
-                        "event": "agent_error",
-                        "role": role,
-                        "task_id": routed.get("id"),
-                        "error": str(e),
-                    },
-                )
-                raise RuntimeError(f"agent {role} failed") from e
-            trace_writer.append_step(
-                run_id or "",
-                {
+                _append({
                     "phase": "executor",
-                    "event": "agent_end",
+                    "event": "agent_error",
                     "role": role,
                     "task_id": routed.get("id"),
-                    "ok": True,
-                },
-            )
+                    "error": str(e),
+                })
+                raise RuntimeError(f"agent {role} failed") from e
+            _append({
+                "phase": "executor",
+                "event": "agent_end",
+                "role": role,
+                "task_id": routed.get("id"),
+                "ok": True,
+            })
             _check()
             text = out if isinstance(out, str) else json.dumps(out)
 
@@ -552,45 +542,37 @@ def execute_plan(
                 }
                 pseudo_r, alias_map2 = pseudonymize_for_model(pseudo_r)
                 retry_task["alias_map"] = alias_map2
-                trace_writer.append_step(
-                    run_id or "",
-                    {
-                        "phase": "executor",
-                        "event": "agent_start",
-                        "role": role,
-                        "task_id": retry_task.get("id"),
-                    },
-                )
+                _append({
+                    "phase": "executor",
+                    "event": "agent_start",
+                    "role": role,
+                    "task_id": retry_task.get("id"),
+                })
                 try:
                     result = invoke_agent_safely(
                         agent,
                         task=pseudo_r,
                         model=model,
                         meta={"context": pseudo_r.get("context")},
+                        run_id=run_id,
                     )
                 except Exception as e:
-                    trace_writer.append_step(
-                        run_id or "",
-                        {
-                            "phase": "executor",
-                            "event": "agent_end",
-                            "role": role,
-                            "task_id": retry_task.get("id"),
-                            "ok": False,
-                            "error": str(e),
-                        },
-                    )
-                    raise RuntimeError(f"agent {role} failed") from e
-                trace_writer.append_step(
-                    run_id or "",
-                    {
+                    _append({
                         "phase": "executor",
                         "event": "agent_end",
                         "role": role,
                         "task_id": retry_task.get("id"),
-                        "ok": True,
-                    },
-                )
+                        "ok": False,
+                        "error": str(e),
+                    })
+                    raise RuntimeError(f"agent {role} failed") from e
+                _append({
+                    "phase": "executor",
+                    "event": "agent_end",
+                    "role": role,
+                    "task_id": retry_task.get("id"),
+                    "ok": True,
+                })
                 routed["alias_map"] = retry_task.get("alias_map", {})
                 return result
 
@@ -672,31 +654,27 @@ def execute_plan(
 
     norm_tasks = list(tasks)
     try:
-        trace_writer.flush_phase_meta(run_id or "", "router", {"routed_tasks": len(norm_tasks)})
-        trace_writer.flush_phase_meta(run_id or "", "executor", {"exec_tasks": len(norm_tasks)})
+        _flush("router", {"routed_tasks": len(norm_tasks)})
+        _flush("executor", {"exec_tasks": len(norm_tasks)})
     except Exception:
         pass
     if len(norm_tasks) == 0:
-        trace_writer.append_step(
-            run_id or "",
+        _append(
             {
                 "phase": "executor",
                 "summary": {},
                 "routed_tasks": 0,
                 "exec_tasks": 0,
                 "meta": {"reason": "no_executable_tasks"},
-            },
+            }
         )
         try:
-            trace_writer.flush_phase_meta(run_id or "", "executor", {"exec_tasks": 0})
+            _flush("executor", {"exec_tasks": 0})
         except Exception:
             pass
         raise ValueError("No executable tasks after planning/routing")
     try:
-        trace_writer.append_step(
-            run_id or "",
-            {"phase": "executor", "exec_tasks": len(norm_tasks), "summary": {}},
-        )
+        _append({"phase": "executor", "exec_tasks": len(norm_tasks), "summary": {}})
     except Exception:
         pass
     eval_round = 0
@@ -746,14 +724,13 @@ def execute_plan(
                     "description": json.dumps(role_to_findings),
                     "context": json.dumps(role_to_findings),
                 }
-                trace_writer.append_step(
-                    run_id or "",
+                _append(
                     {
                         "phase": "executor",
                         "event": "agent_start",
                         "role": "Reflection",
                         "task_id": ref_task.get("id"),
-                    },
+                    }
                 )
                 try:
                     pseudo_r, _ = pseudonymize_for_model(
@@ -763,20 +740,19 @@ def execute_plan(
                         reflection_agent,
                         pseudo_r.get("task", {}),
                         meta={"context": pseudo_r.get("context")},
+                        run_id=run_id,
                     )
-                    trace_writer.append_step(
-                        run_id or "",
+                    _append(
                         {
                             "phase": "executor",
                             "event": "agent_end",
                             "role": "Reflection",
                             "task_id": ref_task.get("id"),
                             "ok": True,
-                        },
+                        }
                     )
                 except Exception as e:
-                    trace_writer.append_step(
-                        run_id or "",
+                    _append(
                         {
                             "phase": "executor",
                             "event": "agent_end",
@@ -784,7 +760,7 @@ def execute_plan(
                             "task_id": ref_task.get("id"),
                             "ok": False,
                             "error": str(e),
-                        },
+                        }
                     )
                     safe_exc(logger, idea, "invoke_agent[Reflection]", e)
                     raise RuntimeError("Reflection agent failed") from e
@@ -834,15 +810,14 @@ def execute_plan(
             result = eval_agent.run(idea, answers, role_to_findings, context=context)
         except Exception as e:
             collector.append_event(handle, "error", {"error": str(e)})
-            trace_writer.append_step(
-                run_id or "",
+            _append(
                 {
                     "phase": "executor",
                     "event": "agent_error",
                     "role": "Evaluation",
                     "task_id": "",
                     "error": str(e),
-                },
+                }
             )
             raise RuntimeError("agent Evaluation failed") from e
         collector.append_event(handle, "evaluation", result.get("score", {}))
@@ -959,15 +934,8 @@ def execute_plan(
     trace_data = collector.as_dicts()
     try:
         routing_report = st.session_state.get("routing_report", [])
-        trace_writer.append_step(
-            run_id or "",
-            {"phase": "router", "summary": routing_report, "routed_tasks": len(routing_report)},
-        )
-        trace_writer.flush_phase_meta(
-            run_id or "",
-            "router",
-            {"routed_tasks": len(routing_report), "routing_report": routing_report},
-        )
+        _append({"phase": "router", "summary": routing_report, "routed_tasks": len(routing_report)})
+        _flush("router", {"routed_tasks": len(routing_report), "routing_report": routing_report})
     except Exception:
         pass
     try:
@@ -991,7 +959,10 @@ def execute_plan(
         pass
     if norm_tasks:
         try:
-            exec_artifacts(norm_tasks, {"run_id": run_id or "", "idea": idea})
+            ctx = {"idea": idea}
+            if run_id:
+                ctx["run_id"] = run_id
+            exec_artifacts(norm_tasks, ctx)
         except Exception:
             logger.warning("executor artifacts failed", exc_info=True)
     return answers
@@ -1243,7 +1214,7 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
     if start["executor"] == 0:
         tasks = st.session_state.get("plan_tasks", [])
         assert tasks, "Normalized tasks unexpectedly empty — check planner/normalizer handoff"
-        results = execute_plan(idea, tasks, agents)
+        results = execute_plan(idea, tasks, agents, run_id=run_id)
         checkpoints.mark_step_done(run_id, "executor", "exec")
     final = ""
     if start["synth"] == 0:

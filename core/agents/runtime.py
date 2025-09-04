@@ -4,7 +4,14 @@ from typing import Any
 from utils import trace_writer
 
 
-def invoke_agent_safely(agent: Any, task: dict, model: Any = None, meta: Any = None):
+def invoke_agent_safely(
+    agent: Any,
+    task: dict,
+    model: Any = None,
+    meta: Any = None,
+    *,
+    run_id: str | None = None,
+):
     """Invoke *agent* with kwargs matching its signature.
 
     Preference order for callables: ``__call__`` → ``run`` → ``act``.
@@ -26,16 +33,17 @@ def invoke_agent_safely(agent: Any, task: dict, model: Any = None, meta: Any = N
         role = task.get("role") if isinstance(task, dict) else None
         task_id = task.get("id") if isinstance(task, dict) else None
         try:
-            trace_writer.append_step(
-                "",
-                {
-                    "phase": "executor",
-                    "event": "agent_error",
-                    "role": role,
-                    "task_id": task_id,
-                    "error": "uncallable agent",
-                },
-            )
+            if run_id:
+                trace_writer.append_step(
+                    run_id,
+                    {
+                        "phase": "executor",
+                        "event": "agent_error",
+                        "role": role,
+                        "task_id": task_id,
+                        "error": "uncallable agent",
+                    },
+                )
         except Exception:
             pass
         raise RuntimeError("uncallable agent")
@@ -65,16 +73,17 @@ def invoke_agent_safely(agent: Any, task: dict, model: Any = None, meta: Any = N
         role = task_dict.get("role")
         task_id = task_dict.get("id")
         try:
-            trace_writer.append_step(
-                "",
-                {
-                    "phase": "executor",
-                    "event": "agent_error",
-                    "role": role,
-                    "task_id": task_id,
-                    "error": str(e),
-                },
-            )
+            if run_id:
+                trace_writer.append_step(
+                    run_id,
+                    {
+                        "phase": "executor",
+                        "event": "agent_error",
+                        "role": role,
+                        "task_id": task_id,
+                        "error": str(e),
+                    },
+                )
         except Exception:
             pass
         raise RuntimeError(str(e)) from e
@@ -84,16 +93,17 @@ def invoke_agent_safely(agent: Any, task: dict, model: Any = None, meta: Any = N
         role = task.get("role") if isinstance(task, dict) else None
         task_id = task.get("id") if isinstance(task, dict) else None
         try:
-            trace_writer.append_step(
-                "",
-                {
-                    "phase": "executor",
-                    "event": "agent_error",
-                    "role": role,
-                    "task_id": task_id,
-                    "error": str(e),
-                },
-            )
+            if run_id:
+                trace_writer.append_step(
+                    run_id,
+                    {
+                        "phase": "executor",
+                        "event": "agent_error",
+                        "role": role,
+                        "task_id": task_id,
+                        "error": str(e),
+                    },
+                )
         except Exception:
             pass
         raise

@@ -68,7 +68,8 @@ def test_passes_named_task_fields():
 def test_uncallable_agent_logs_error(tmp_path):
     paths.RUNS_ROOT = tmp_path / ".dr_rd" / "runs"
     task = {"id": "T2", "role": "Y"}
+    run_id = "test"
     with pytest.raises(RuntimeError):
-        invoke_agent_safely(BadAgent(), task)
-    trace = trace_writer.read_trace("")
+        invoke_agent_safely(BadAgent(), task, run_id=run_id)
+    trace = trace_writer.read_trace(run_id)
     assert any(e.get("event") == "agent_error" for e in trace)

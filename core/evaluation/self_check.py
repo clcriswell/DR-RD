@@ -87,17 +87,18 @@ def validate_and_retry(
     head = (raw_text or "")[:256]
     if not valid:
         try:
-            trace_writer.append_step(
-                run_id or "",
-                {
-                    "phase": "executor",
-                    "event": "validation_error",
-                    "role": agent_name,
-                    "task_id": task.get("id"),
-                    "valid_json": False,
-                    "errors": errors,
-                },
-            )
+            if run_id:
+                trace_writer.append_step(
+                    run_id,
+                    {
+                        "phase": "executor",
+                        "event": "validation_error",
+                        "role": agent_name,
+                        "task_id": task.get("id"),
+                        "valid_json": False,
+                        "errors": errors,
+                    },
+                )
         except Exception:
             pass
         log_self_check(run_id, support_id, {"valid_json": False, "errors": errors}, head)
