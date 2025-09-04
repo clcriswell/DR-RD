@@ -42,6 +42,7 @@ def invoke_agent_safely(agent: Any, task: dict, model: Any = None, meta: Any = N
 
     sig = inspect.signature(fn)
     mapping: dict[str, Any] = {}
+    task_dict = task if isinstance(task, dict) else {}
     for name in sig.parameters:
         if name == "self":
             continue
@@ -51,6 +52,8 @@ def invoke_agent_safely(agent: Any, task: dict, model: Any = None, meta: Any = N
             mapping[name] = model
         elif name in {"meta", "ctx", "context"}:
             mapping[name] = meta
+        elif name in task_dict:
+            mapping[name] = task_dict.get(name)
 
     bound = sig.bind_partial(**mapping)
     try:

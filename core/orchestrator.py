@@ -473,10 +473,9 @@ def execute_plan(
                     run_id or "",
                     {
                         "phase": "executor",
-                        "event": "agent_end",
+                        "event": "agent_error",
                         "role": role,
                         "task_id": routed.get("id"),
-                        "ok": False,
                         "error": str(e),
                     },
                 )
@@ -601,9 +600,12 @@ def execute_plan(
             if save_decision_log:
                 log_decision(project_id, "agent_result", {"role": role, "has_json": bool(payload)})
             try:  # light budget telemetry
-                tracker = st.session_state.get("cost_tracker")
-                if tracker:
-                    tracker.spend += float(norm.get("cost", 0.0))
+                from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+                if get_script_run_ctx() is not None:
+                    tracker = st.session_state.get("cost_tracker")
+                    if tracker:
+                        tracker.spend += float(norm.get("cost", 0.0))
             except Exception:
                 pass
             span.add_event(
