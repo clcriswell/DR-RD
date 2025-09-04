@@ -1,4 +1,5 @@
 import json
+import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -30,12 +31,19 @@ def _atomic_write(path: Path, data: bytes | str) -> None:
     """Safely write ``data`` to ``path`` using a same-dir temporary file."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    if isinstance(data, bytes):
-        tmp.write_bytes(data)
-    else:
-        tmp.write_text(data, encoding="utf-8")
-    tmp.replace(path)
+    mode = "wb" if isinstance(data, bytes) else "w"
+    encoding = None if isinstance(data, bytes) else "utf-8"
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode=mode, encoding=encoding, dir=path.parent, delete=False
+        ) as tmp:
+            tmp.write(data)
+            tmp_path = Path(tmp.name)
+        tmp_path.replace(path)
+    finally:
+        if tmp_path is not None and tmp_path.exists():
+            tmp_path.unlink()
 
 
 def append_step(run_id: str, step: Mapping[str, Any]) -> None:
