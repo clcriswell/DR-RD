@@ -11,6 +11,7 @@ class RunConfig:
     """Typed configuration for a single run."""
 
     idea: str = ""
+    mode: str = "standard"
     rag_enabled: bool = False
     live_search_enabled: bool = False
     enforce_budget: bool = False
@@ -68,5 +69,6 @@ def to_orchestrator_kwargs(cfg: RunConfig) -> Dict[str, Any]:
         "knowledge_sources": list(cfg.knowledge_sources),
         "pseudonymize_to_model": cfg.pseudonymize_to_model,
     }
+    kwargs["mode"] = cfg.mode
     kwargs.update(cfg.advanced)
     return kwargs
