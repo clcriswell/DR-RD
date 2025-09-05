@@ -7,7 +7,9 @@
     "findings": {"type": "string"},
     "risks": {"type": "array", "items": {"type": "string"}},
     "next_steps": {"type": "array", "items": {"type": "string"}},
-    "sources": {"type": "array", "items": {"type": "string"}}
+    "sources": {"type": "array", "items": {"type": "string"}},
+    "defects": {"type": "array", "items": {"type": "string"}},
+    "coverage": {"type": "string"}
   },
   "required": ["role", "task", "findings", "risks", "next_steps", "sources"],
   "additionalProperties": false

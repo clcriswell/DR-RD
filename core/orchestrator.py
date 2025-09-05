@@ -501,21 +501,36 @@ def execute_plan(
             preview = f"{routed.get('title', '')}: {routed.get('description', '')}"
             prompt_previews.append(preview[:4000])
             collector.append_event(handle, "call", {"attempt": 1})
-            pseudo = {
-                **routed,
-                "idea": idea_str,
-                "requirements": routed.get("requirements", []),
-                "tests": routed.get("tests", []),
-                "defects": routed.get("defects", []),
-                "context": {"run_id": run_id, "deadline_ts": deadline_ts},
-            }
             redactor = _get_redactor()
-            for k, v in list(pseudo.items()):
-                if isinstance(v, str) and k != "role":
-                    rv, _, _ = redactor.redact(v, mode="light", role=role)
-                    pseudo[k] = rv
-            alias_map = dict(redactor.alias_map)
-            routed["alias_map"] = alias_map
+            if role == "Dynamic Specialist":
+                brief = f"{routed.get('title', '')}: {routed.get('description', '')}"
+                rb, _, _ = redactor.redact(brief, mode="light", role=role)
+                spec = {
+                    "role_name": role,
+                    "task_brief": rb,
+                    "io_schema_ref": routed.get("io_schema_ref")
+                    or "dr_rd/schemas/generic_v1.json",
+                    "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+                }
+                routed["alias_map"] = dict(redactor.alias_map)
+                call_task = spec
+                meta_ctx = spec.get("context")
+            else:
+                pseudo = {
+                    **routed,
+                    "idea": idea_str,
+                    "requirements": routed.get("requirements", []),
+                    "tests": routed.get("tests", []),
+                    "defects": routed.get("defects", []),
+                    "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+                }
+                for k, v in list(pseudo.items()):
+                    if isinstance(v, str) and k != "role":
+                        rv, _, _ = redactor.redact(v, mode="light", role=role)
+                        pseudo[k] = rv
+                routed["alias_map"] = dict(redactor.alias_map)
+                call_task = pseudo
+                meta_ctx = pseudo.get("context")
             _append({
                 "phase": "executor",
                 "event": "agent_start",
@@ -525,9 +540,9 @@ def execute_plan(
             try:
                 out = invoke_agent_safely(
                     agent,
-                    task=pseudo,
+                    task=call_task,
                     model=model,
-                    meta=pseudo.get("context"),
+                    meta=meta_ctx,
                     run_id=run_id,
                 )
             except (EmptyModelOutput, JSONDecodeError) as e:
@@ -584,6 +599,55 @@ def execute_plan(
             def _retry_fn(rem: str) -> str:
                 collector.append_event(handle, "retry", {"attempt": 2})
                 collector.append_event(handle, "call", {"attempt": 2})
+                if role == "Dynamic Specialist":
+                    brief = (
+                        f"{routed.get('title', '')}: {routed.get('description', '')}\n{rem}"
+                    ).strip()
+                    rb, _, _ = redactor.redact(brief, mode="light", role=role)
+                    spec_r = {
+                        "role_name": role,
+                        "task_brief": rb,
+                        "io_schema_ref": routed.get("io_schema_ref")
+                        or "dr_rd/schemas/generic_v1.json",
+                        "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+                    }
+                    routed["alias_map"] = dict(redactor.alias_map)
+                    _append({
+                        "phase": "executor",
+                        "event": "agent_start",
+                        "role": role,
+                        "task_id": routed.get("id"),
+                    })
+                    try:
+                        result = invoke_agent_safely(
+                            agent,
+                            task=spec_r,
+                            model=model,
+                            meta=spec_r.get("context"),
+                            run_id=run_id,
+                        )
+                    except Exception as e:
+                        _append(
+                            {
+                                "phase": "executor",
+                                "event": "agent_end",
+                                "role": role,
+                                "task_id": routed.get("id"),
+                                "ok": False,
+                                "error": str(e),
+                            }
+                        )
+                        raise RuntimeError(f"agent {role} failed") from e
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                            "ok": True,
+                        }
+                    )
+                    return result
                 retry_task = dict(routed)
                 retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
                 pseudo_r = {
@@ -630,44 +694,36 @@ def execute_plan(
                 routed["alias_map"] = retry_task.get("alias_map", {})
                 return result
 
-            _check()
-            text, meta = validate_and_retry(
-                role, routed, text, _retry_fn, run_id=run_id, support_id=routed.get("support_id")
-            )
-            if not meta.get("valid_json"):
-                high_model = select_model("agent_high", agent_name=role)
-                logger.info("self_check escalate start for %s", role)
-                logger.info("self_check escalate model %s", high_model)
+            high_model = select_model("agent_high", agent_name=role)
 
-                def _retry_high(rem: str) -> str:
-                    collector.append_event(handle, "retry", {"attempt": 3})
-                    collector.append_event(handle, "call", {"attempt": 3})
-                    retry_task = dict(routed)
-                    retry_task["description"] = (
-                        routed.get("description", "") + "\n" + rem
+            def _retry_high(rem: str) -> str:
+                collector.append_event(handle, "retry", {"attempt": 3})
+                collector.append_event(handle, "call", {"attempt": 3})
+                if role == "Dynamic Specialist":
+                    brief = (
+                        f"{routed.get('title', '')}: {routed.get('description', '')}\n{rem}"
                     ).strip()
-                    pseudo_r = {
-                        **retry_task,
-                        "idea": idea_str,
-                        "requirements": retry_task.get("requirements", []),
-                        "tests": retry_task.get("tests", []),
-                        "defects": retry_task.get("defects", []),
+                    rb, _, _ = redactor.redact(brief, mode="light", role=role)
+                    spec_r = {
+                        "role_name": role,
+                        "task_brief": rb,
+                        "io_schema_ref": routed.get("io_schema_ref")
+                        or "dr_rd/schemas/generic_v1.json",
                         "context": {"run_id": run_id, "deadline_ts": deadline_ts},
                     }
-                    pseudo_r, alias_map2 = pseudonymize_for_model(pseudo_r)
-                    retry_task["alias_map"] = alias_map2
+                    routed["alias_map"] = dict(redactor.alias_map)
                     _append({
                         "phase": "executor",
                         "event": "agent_start",
                         "role": role,
-                        "task_id": retry_task.get("id"),
+                        "task_id": routed.get("id"),
                     })
                     try:
                         result = invoke_agent_safely(
                             agent,
-                            task=pseudo_r,
+                            task=spec_r,
                             model=high_model,
-                            meta={"context": pseudo_r.get("context")},
+                            meta=spec_r.get("context"),
                             run_id=run_id,
                         )
                     except Exception as e:
@@ -676,7 +732,7 @@ def execute_plan(
                                 "phase": "executor",
                                 "event": "agent_end",
                                 "role": role,
-                                "task_id": retry_task.get("id"),
+                                "task_id": routed.get("id"),
                                 "ok": False,
                                 "error": str(e),
                             }
@@ -687,43 +743,78 @@ def execute_plan(
                             "phase": "executor",
                             "event": "agent_end",
                             "role": role,
-                            "task_id": retry_task.get("id"),
+                            "task_id": routed.get("id"),
                             "ok": True,
                         }
                     )
-                    routed["alias_map"] = retry_task.get("alias_map", {})
                     return result
-
-                high_initial = _retry_high(
-                    "Return only JSON with keys: role, task, findings, risks, next_steps, sources."
-                )
-                text, meta_high = validate_and_retry(
-                    role,
-                    routed,
-                    high_initial,
-                    _retry_high,
-                    run_id=run_id,
-                    support_id=routed.get("support_id"),
-                )
-                meta = {"retried": True, "valid_json": meta_high.get("valid_json"), "escalated": True}
-                collector.append_event(
-                    handle, "validate", {"retry": True, "escalated": True}
-                )
-                if not meta.get("valid_json"):
-                    placeholder = {
+                retry_task = dict(routed)
+                retry_task["description"] = (
+                    routed.get("description", "") + "\n" + rem
+                ).strip()
+                pseudo_r = {
+                    **retry_task,
+                    "idea": idea_str,
+                    "requirements": retry_task.get("requirements", []),
+                    "tests": retry_task.get("tests", []),
+                    "defects": retry_task.get("defects", []),
+                    "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+                }
+                pseudo_r, alias_map2 = pseudonymize_for_model(pseudo_r)
+                retry_task["alias_map"] = alias_map2
+                _append({
+                    "phase": "executor",
+                    "event": "agent_start",
+                    "role": role,
+                    "task_id": retry_task.get("id"),
+                })
+                try:
+                    result = invoke_agent_safely(
+                        agent,
+                        task=pseudo_r,
+                        model=high_model,
+                        meta={"context": pseudo_r.get("context")},
+                        run_id=run_id,
+                    )
+                except Exception as e:
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": role,
+                            "task_id": retry_task.get("id"),
+                            "ok": False,
+                            "error": str(e),
+                        }
+                    )
+                    raise RuntimeError(f"agent {role} failed") from e
+                _append(
+                    {
+                        "phase": "executor",
+                        "event": "agent_end",
                         "role": role,
-                        "task": routed.get("title", ""),
-                        "findings": "TODO",
-                        "risks": "TODO",
-                        "next_steps": "TODO",
-                        "sources": [],
+                        "task_id": retry_task.get("id"),
+                        "ok": True,
                     }
-                    logger.info("self_check placeholder emitted for %s", role)
-                    text = json.dumps(placeholder, ensure_ascii=False)
-            else:
-                collector.append_event(
-                    handle, "validate", {"retry": bool(meta.get("retried"))}
                 )
+                routed["alias_map"] = retry_task.get("alias_map", {})
+                return result
+
+            _check()
+            text, meta = validate_and_retry(
+                role,
+                routed,
+                text,
+                _retry_fn,
+                escalate_fn=_retry_high,
+                run_id=run_id,
+                support_id=routed.get("support_id"),
+            )
+            collector.append_event(
+                handle,
+                "validate",
+                {"retry": bool(meta.get("retried")), "escalated": meta.get("escalated")},
+            )
             answers.setdefault(role, []).append(
                 text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
             )
@@ -746,7 +837,14 @@ def execute_plan(
                     payload.get(k) == "TODO" for k in ("findings", "risks", "next_steps")
                 )
             if not meta.get("valid_json") or is_placeholder:
-                open_issues.append({"title": routed.get("title", ""), "role": role})
+                open_issues.append(
+                    {
+                        "title": routed.get("title", ""),
+                        "role": role,
+                        "task_id": routed.get("id"),
+                        "result": payload,
+                    }
+                )
             if evidence is not None:
                 evidence.add(
                     role=role,
@@ -1165,7 +1263,10 @@ def compose_final_proposal(
     if open_issues:
         parts.append("## Open Issues")
         for issue in open_issues:
-            parts.append(f"- {issue.get('title','')} ({issue.get('role','')})")
+            parts.append(
+                f"- {issue.get('task_id','')} ({issue.get('role','')}): "
+                f"{json.dumps(issue.get('result'), ensure_ascii=False)}"
+            )
     findings_md = "\n".join(parts)
     alias_map: dict[str, str] = {}
     try:
@@ -1193,7 +1294,11 @@ def compose_final_proposal(
     if open_issues:
         issues_md = "\n".join(
             ["## Open Issues"]
-            + [f"- {i.get('title','')} ({i.get('role','')})" for i in open_issues]
+            + [
+                f"- {i.get('task_id','')} ({i.get('role','')}): "
+                f"{json.dumps(i.get('result'), ensure_ascii=False)}"
+                for i in open_issues
+            ]
         )
         final_markdown = (final_markdown + "\n\n" + issues_md).strip()
     if alias_map:
@@ -1419,7 +1524,6 @@ def run_stream(
     agents: dict | None = None,
     cancel: CancellationToken | None = None,
     deadline_ts: float | None = None,
-    **kwargs,
 ):
     """Generator yielding structured events for streaming runs."""
     otel.configure()
@@ -1432,11 +1536,10 @@ def run_stream(
         session_id = get_session_id()
     except Exception:
         session_id = None
-    mode = kwargs.get("mode") or st.session_state.get("mode")
     stream_started(run_id)
     with otel.start_span(
         "run",
-        attrs={"run_id": run_id, "mode": mode, "session_id": session_id},
+        attrs={"run_id": run_id, "session_id": session_id},
         run_id=run_id,
     ):
         try:

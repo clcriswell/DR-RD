@@ -1,6 +1,13 @@
 # utils/redaction.py
 from core.redaction import Redactor, redact_text
 
+
+def redact_public(text: str, role: str | None = None) -> str:
+    """Redact ``text`` for public logs using heavy mode."""
+    r = Redactor()
+    red, _, _ = r.redact(text, mode="heavy", role=role)
+    return red
+
 def redact_dict(obj, mode: str = "heavy"):
     r = Redactor()
     def walk(x):
