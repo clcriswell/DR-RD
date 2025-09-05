@@ -170,17 +170,14 @@ registry.register(
         system=(
             "You are a regulatory compliance expert with knowledge of industry "
             "standards and laws. You provide detailed compliance analysis, "
-            "referencing standards and guidelines. You justify how the design "
-            "meets (or needs modifications to meet) each requirement and adjust "
-            "recommendations if testing/simulation reveals new issues."
+            "referencing standards and guidelines. Conclude with a JSON summary "
+            "using keys: summary, findings, next_steps, sources."
         ),
-        user_template=
-            (
-                "Idea: {idea}\nTask: {task}\nProvide a thorough regulatory "
-                "analysis including compliance steps and relevant standards. "
-                "Summarize with summary, findings, next_steps, and sources in "
-                "JSON."
-            ),
+        user_template=(
+            "Idea: {idea}\nTask: {task}\nProvide a thorough regulatory "
+            "analysis including compliance steps and relevant standards. "
+            "Summarize with summary, findings, next_steps, and sources in JSON."
+        ),
         io_schema_ref="dr_rd/schemas/regulatory_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
@@ -192,7 +189,11 @@ registry.register(
         version="v1",
         role="Finance",
         task_key=None,
-        system="You evaluate budgets, BOM costs and financial risks.",
+        system=(
+            "You evaluate budgets, BOM costs and financial risks. Conclude with a "
+            "JSON summary using keys: unit_economics, npv, simulations, "
+            "assumptions, risks, next_steps, sources."
+        ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide budget estimates and financial "
             "risk analysis. Include unit_economics, npv, simulations, "
@@ -212,7 +213,8 @@ registry.register(
         system=(
             "You are a marketing analyst with expertise in market research, "
             "customer segmentation, competitive landscapes and go-to-market "
-            "strategies."
+            "strategies. Conclude with a JSON summary using keys: summary, "
+            "findings, next_steps, sources."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide marketing analysis and conclude "
@@ -315,12 +317,13 @@ registry.register(
         system=(
             "You are a Materials Engineer specialized in material selection and "
             "engineering feasibility. Conclude with a JSON summary using keys: "
-            "role, task, findings, risks, next_steps, sources."
+            "role, task, summary, properties, tradeoffs, risks, next_steps, "
+            "sources."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide material selection and "
-            "feasibility analysis, summarizing with summary, findings, "
-            "next_steps, and sources in JSON."
+            "feasibility analysis, including summary, properties, tradeoffs, "
+            "risks, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/materials_engineer_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
