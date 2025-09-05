@@ -368,6 +368,8 @@ def main() -> None:
         cfg = replace(cfg, mode="demo")
 
     kwargs = to_orchestrator_kwargs(cfg)
+    # Extract any pinned prompts so they can be recorded with the run metadata.
+    prompt_pins = kwargs.get("prompts") or kwargs.get("prompt_pins")
     os.environ["DRRD_PSEUDONYMIZE_TO_MODEL"] = (
         "1" if kwargs.get("pseudonymize_to_model", True) else "0"
     )
@@ -436,7 +438,8 @@ def main() -> None:
         prompts=prompt_pins,
     )
     cfg_dict = asdict(cfg)
-    cfg_dict["prompts"] = prompt_pins
+    if prompt_pins:
+        cfg_dict["prompts"] = prompt_pins
     write_text(run_id, "run_config", "lock.json", json.dumps(to_lockfile(cfg_dict)))
     write_text(run_id, "env", "snapshot.json", json.dumps(capture_env()))
     if origin_run_id:

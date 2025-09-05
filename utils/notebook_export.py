@@ -95,7 +95,7 @@ def build_notebook(
     budgets = lock.get("budgets")
     if budgets:
         repro_lines.append(f"- Budgets: `{json.dumps(budgets)}`")
-    pins = lock.get("prompt_pins")
+    pins = lock.get("prompts")
     if pins:
         repro_lines.append("- Prompt pins:")
         for k, v in pins.items():
