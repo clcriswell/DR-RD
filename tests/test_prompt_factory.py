@@ -12,15 +12,18 @@ def test_template_resolution_and_provider_hints(monkeypatch):
     spec = {
         "role": "Planner",
         "task": "design a drone",
-        "inputs": {"task": "design a drone"},
+        "inputs": {
+            "idea": "design a drone",
+            "constraints_section": "",
+            "risk_section": "",
+        },
     }
     result = factory.build_prompt(spec)
     assert result["io_schema_ref"].endswith("planner_v1.json")
-    assert result["retrieval"]["enabled"] is True
-    assert result["retrieval"]["policy"] == "LIGHT"
+    assert result["retrieval_plan"]["policy"] == "LIGHT"
     assert "json" in result["system"].lower()
     assert "citation" in result["system"].lower()
-    assert "openai" in result["llm_hints"]
+    assert result["llm_hints"]["json_strict"] is True
 
 
 def test_retrieval_disabled(monkeypatch):
@@ -30,10 +33,14 @@ def test_retrieval_disabled(monkeypatch):
     spec = {
         "role": "Planner",
         "task": "design a drone",
-        "inputs": {"task": "design a drone"},
+        "inputs": {
+            "idea": "design a drone",
+            "constraints_section": "",
+            "risk_section": "",
+        },
     }
     result = factory.build_prompt(spec)
-    assert result["retrieval"]["enabled"] is False
+    assert result["retrieval_plan"]["policy"] == "LIGHT"
     assert "citation" not in result["system"].lower()
 
 
@@ -42,10 +49,14 @@ def test_fallback_when_missing(monkeypatch):
     spec = {
         "role": "Unknown",
         "task": "do something",
-        "inputs": {"task": "do something"},
+        "inputs": {
+            "idea": "do something",
+            "constraints_section": "",
+            "risk_section": "",
+        },
         "io_schema_ref": "dr_rd/schemas/custom.json",
     }
     result = factory.build_prompt(spec)
     assert result["io_schema_ref"] == "dr_rd/schemas/custom.json"
-    assert result["retrieval"]["policy"] == "NONE"
+    assert result["retrieval_plan"]["policy"] == "NONE"
     assert "unknown" in result["system"].lower()

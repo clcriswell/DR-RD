@@ -90,6 +90,8 @@ class PromptFactory:
             )
             system += retrieval_text
 
+        system += f" Return only JSON conforming to {io_schema_ref}. Do not include chain of thought."
+
         llm_hints = {"provider": "auto", "json_strict": True, "tool_use": "prefer"}
         llm_hints.update(provider_hints)
         prompt = {

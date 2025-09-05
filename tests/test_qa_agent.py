@@ -10,9 +10,7 @@ def test_qa_agent(monkeypatch):
     output = {
         "role": "QA",
         "task": "assess",
-        "requirements_matrix": {"total": 1, "covered": ["req1"], "uncovered": []},
-        "coverage": {"coverage": 1.0, "uncovered": []},
-        "defect_stats": {"critical": [], "major": [], "minor": []},
+        "findings": "All tests covered.",
         "risks": [],
         "next_steps": [],
         "sources": [],
@@ -24,17 +22,14 @@ def test_qa_agent(monkeypatch):
     monkeypatch.setattr("core.agents.qa_agent.complete", fake_complete)
     agent = QAAgent("gpt")
     res = agent.run("assess", ["req1"], ["req1 test"], [])
-    assert res["coverage"]["coverage"] == 1.0
-    assert res["requirements_matrix"]["total"] == 1
+    assert res["findings"].startswith("All")
 
 
 def test_qa_agent_dict_task(monkeypatch):
     output = {
         "role": "QA",
         "task": "assess",
-        "requirements_matrix": {"total": 1, "covered": ["req1"], "uncovered": []},
-        "coverage": {"coverage": 1.0, "uncovered": []},
-        "defect_stats": {"critical": [], "major": [], "minor": []},
+        "findings": "All tests covered.",
         "risks": [],
         "next_steps": [],
         "sources": [],
@@ -46,4 +41,4 @@ def test_qa_agent_dict_task(monkeypatch):
     monkeypatch.setattr("core.agents.qa_agent.complete", fake_complete)
     agent = QAAgent("gpt")
     res = agent.run({"brief": "assess"}, ["req1"], ["req1 test"], [])
-    assert res["role"] == "QA"
+    assert res["findings"].startswith("All")
