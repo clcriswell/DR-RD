@@ -13,7 +13,6 @@ def test_defaults():
     st.session_state.clear()
     cfg = defaults()
     assert isinstance(cfg, RunConfig)
-    assert cfg.mode == "standard"
     assert cfg.idea == ""
     assert cfg.knowledge_sources == ["samples"]
     assert cfg.budget_limit_usd is None
@@ -42,7 +41,6 @@ def test_session_roundtrip():
     st.session_state.clear()
     original = RunConfig(
         idea="idea",
-        mode="lite",
         rag_enabled=True,
         knowledge_sources=["k"],
     )

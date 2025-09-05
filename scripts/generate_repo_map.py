@@ -150,7 +150,6 @@ def build_repo_map() -> dict:
         "architecture": "Planner → Router/Registry → Executor → Summarization → Synthesizer",
         "runtime_modes": modes,
         "env_flags": [
-            "DRRD_MODE (deprecated shim)",
             "RAG_ENABLED",
             "ENABLE_LIVE_SEARCH",
             "EVALUATORS_ENABLED",

@@ -455,6 +455,7 @@ def execute_plan(
     answers: dict[str, list[str]] = {}
     role_to_findings: dict[str, dict] = {}
     alias_maps: dict[str, dict[str, str]] = {}
+    open_issues: list[dict[str, str]] = []
     evidence = EvidenceSet(project_id=project_id) if save_evidence else None
     collector = AgentTraceCollector(project_id=project_id)
     prompt_previews: list[str] = []
@@ -734,6 +735,13 @@ def execute_plan(
                     text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
                 )
             finding_snip = finding_text.strip()[:240]
+            is_placeholder = False
+            if isinstance(payload, dict):
+                is_placeholder = all(
+                    payload.get(k) == "TODO" for k in ("findings", "risks", "next_steps")
+                )
+            if not meta.get("valid_json") or is_placeholder:
+                open_issues.append({"title": routed.get("title", ""), "role": role})
             if evidence is not None:
                 evidence.add(
                     role=role,
@@ -1099,6 +1107,8 @@ def execute_plan(
         pass
     try:
         st.session_state["alias_maps"] = alias_maps
+        st.session_state["answers_raw"] = answers
+        st.session_state["open_issues"] = open_issues
     except Exception:
         pass
     if norm_tasks:
@@ -1129,7 +1139,29 @@ def compose_final_proposal(
             raise TimeoutError("deadline reached")
 
     _check()
-    findings_md = "\n".join(f"### {r}\n{a}" for r, a in answers.items())
+    # Build findings markdown excluding placeholder results
+    raw = st.session_state.get("answers_raw") or {k: [v] for k, v in answers.items()}
+    def _is_placeholder(txt: str) -> bool:
+        try:
+            obj = json.loads(txt)
+            if isinstance(obj, dict):
+                return all(obj.get(k) == "TODO" for k in ("findings", "risks", "next_steps"))
+        except Exception:
+            pass
+        return txt.strip() == "TODO"
+
+    parts: list[str] = []
+    for role, outs in raw.items():
+        for out in outs:
+            if _is_placeholder(out):
+                continue
+            parts.append(f"### {role}\n{out}")
+    open_issues = st.session_state.get("open_issues", [])
+    if open_issues:
+        parts.append("## Open Issues")
+        for issue in open_issues:
+            parts.append(f"- {issue.get('title','')} ({issue.get('role','')})")
+    findings_md = "\n".join(parts)
     alias_map: dict[str, str] = {}
     try:
         for m in st.session_state.get("alias_maps", {}).values():
@@ -1151,6 +1183,14 @@ def compose_final_proposal(
         result = complete(system_prompt, prompt)
     _check()
     final_markdown = (result.content or "").strip()
+    if not final_markdown:
+        final_markdown = "Final report generation failed."
+    if open_issues:
+        issues_md = "\n".join(
+            ["## Open Issues"]
+            + [f"- {i.get('title','')} ({i.get('role','')})" for i in open_issues]
+        )
+        final_markdown = (final_markdown + "\n\n" + issues_md).strip()
     if alias_map:
         final_markdown = rehydrate_output(final_markdown, alias_map)
     run_id = st.session_state.get("run_id")
@@ -1614,11 +1654,11 @@ def run_stream(
             stream_completed(run_id, "error")
 
 
-def run_pipeline(idea: str, mode: str = "test", **kwargs):
+def run_pipeline(idea: str, **kwargs):
     import logging
 
     logging.warning(
-        "core.orchestrator.run_pipeline is deprecated; mode parameter ignored; using unified pipeline."
+        "core.orchestrator.run_pipeline is deprecated; using unified pipeline."
     )
     generate_plan(idea)
     tasks = st.session_state.get("plan_tasks", [])

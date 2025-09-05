@@ -48,7 +48,7 @@ Config files:
 - `config/prices.yaml` (requires keys: models)
 
 
-Environment flags: DRRD_MODE (deprecated shim), RAG_ENABLED, ENABLE_LIVE_SEARCH, EVALUATORS_ENABLED, PARALLEL_EXEC_ENABLED, SERPAPI_KEY
+Environment flags: RAG_ENABLED, ENABLE_LIVE_SEARCH, EVALUATORS_ENABLED, PARALLEL_EXEC_ENABLED, SERPAPI_KEY
 
 ## What Runs When
 Streamlit imports `app.main` from `app/__init__.py`.
@@ -56,4 +56,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-09-05T02:00:55.347871Z from commit 08bc3b2_
+_Last generated at 2025-09-05T02:11:02.412923Z from commit 08d4de0_

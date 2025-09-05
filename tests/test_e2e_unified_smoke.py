@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import config.feature_flags as ff
 from core.agents.base_agent import BaseAgent
-from config.model_routing import pick_model_for_stage
 from core import orchestrator
 
 
@@ -43,12 +42,6 @@ def _run_once(monkeypatch, caplog, fetch_resp):
 
 
 def test_e2e_unified_smoke(monkeypatch, caplog):
-    monkeypatch.setenv("DRRD_MODE", "legacy")
-    m1 = pick_model_for_stage("exec")
-    monkeypatch.setenv("DRRD_MODE", "bogus")
-    m2 = pick_model_for_stage("exec")
-    assert m1 == m2
-
     rag_resp = {"rag_snippets": ["vec"], "web_results": [], "trace": {"rag_hits": 1, "web_used": False, "backend": "none", "sources": 0, "reason": "ok"}}
     result, records = _run_once(monkeypatch, caplog, rag_resp)
     assert result == "final"

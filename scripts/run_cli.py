@@ -86,7 +86,6 @@ def main(argv: list[str] | None = None) -> int:
     group.add_argument("--config", help="Path to JSON config")
     group.add_argument("--lockfile", help="Path to run_config.lock.json")
     parser.add_argument("--profile", help="Apply named profile first")
-    parser.add_argument("--mode", help="Override run mode")
     parser.add_argument("--deadline-sec", type=float, default=None)
     parser.add_argument("--budget-usd", type=float, default=None)
     parser.add_argument("--max-tokens", type=int, default=None)
@@ -96,9 +95,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     cfg = load_config(args.config, args.lockfile, args.profile)
-    if args.mode:
-        cfg = dict(cfg)
-        cfg["mode"] = args.mode
     meta, totals = run(
         cfg,
         run_id=args.run_id,

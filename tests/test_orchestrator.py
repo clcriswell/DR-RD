@@ -1,4 +1,5 @@
 from unittest.mock import Mock, patch
+import json
 
 from core.orchestrator import (
     _invoke_agent,
@@ -73,3 +74,39 @@ def test_compose_final_proposal_formats_findings(mock_complete):
     assert result == "final plan"
     system_prompt, prompt = mock_complete.call_args[0]
     assert "analysis" in prompt and "idea" in prompt
+
+
+@patch("core.orchestrator.complete")
+def test_open_issues_in_prompt(mock_complete, monkeypatch):
+    mock_complete.return_value = Mock(content="done")
+    import streamlit as st
+
+    st.session_state.clear()
+    st.session_state["answers_raw"] = {
+        "Research": [
+            json.dumps({"findings": "TODO", "risks": "TODO", "next_steps": "TODO"})
+        ]
+    }
+    st.session_state["open_issues"] = [{"title": "t", "role": "Research"}]
+    st.session_state["alias_maps"] = {}
+    compose_final_proposal("idea", {})
+    _, prompt = mock_complete.call_args[0]
+    assert "Open Issues" in prompt
+
+
+@patch("core.orchestrator.complete")
+def test_final_report_fallback(mock_complete):
+    mock_complete.return_value = Mock(content="")
+    import streamlit as st
+
+    st.session_state.clear()
+    st.session_state["answers_raw"] = {
+        "Research": [
+            json.dumps({"findings": "TODO", "risks": "TODO", "next_steps": "TODO"})
+        ]
+    }
+    st.session_state["open_issues"] = [{"title": "t", "role": "Research"}]
+    st.session_state["alias_maps"] = {}
+    out = compose_final_proposal("idea", {})
+    assert out.strip() != ""
+    assert "Open Issues" in out

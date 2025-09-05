@@ -25,7 +25,12 @@ def execute(plan: List[Dict[str, Any]], ctx: Dict[str, Any]) -> Dict[str, Path]:
     run_id = ctx.get("run_id", "latest")
     idea = ctx.get("idea", "")
     if not plan:
-        return {}
+        # Planner already reported an error; emit minimal placeholder so downstream
+        # consumers do not fail when reading the artifact.
+        placeholder = "# Work Plan\n\nNo plan could be generated.\n"
+        path_plan = write_text(run_id, "work_plan", "md", placeholder)
+        return {"work_plan": path_plan}
+
     tasks_md = "\n".join(f"- {t.get('title','')}" for t in plan)
     context = {"idea": idea, "tasks": tasks_md}
 
