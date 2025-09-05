@@ -4,7 +4,10 @@ from core.evaluation.self_check import validate_and_retry
 
 
 def test_self_check_repairs_trailing_comma():
-    text = "```json {\"role\":\"r\",\"task\":\"t\",\"findings\":[],\"risks\":[],\"next_steps\":[],\"sources\":[],} ```"
+    text = (
+        "```json {\"role\":\"r\",\"task\":\"t\",\"findings\":[1],"
+        "\"risks\":[2],\"next_steps\":[3],\"sources\":[],} ```"
+    )
     result, meta = validate_and_retry("r", {"id": 1, "title": "t"}, text, lambda _: text)
     assert meta["valid_json"] is True
     parsed = json.loads(result)
