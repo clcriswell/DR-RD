@@ -594,7 +594,96 @@ def execute_plan(
             text, meta = validate_and_retry(
                 role, routed, text, _retry_fn, run_id=run_id, support_id=routed.get("support_id")
             )
-            collector.append_event(handle, "validate", {"retry": bool(meta.get("retried"))})
+            if not meta.get("valid_json"):
+                high_model = select_model("agent_high", agent_name=role)
+                logger.info("self_check escalate start for %s", role)
+                logger.info("self_check escalate model %s", high_model)
+
+                def _retry_high(rem: str) -> str:
+                    collector.append_event(handle, "retry", {"attempt": 3})
+                    collector.append_event(handle, "call", {"attempt": 3})
+                    retry_task = dict(routed)
+                    retry_task["description"] = (
+                        routed.get("description", "") + "\n" + rem
+                    ).strip()
+                    pseudo_r = {
+                        **retry_task,
+                        "idea": idea_str,
+                        "requirements": retry_task.get("requirements", []),
+                        "tests": retry_task.get("tests", []),
+                        "defects": retry_task.get("defects", []),
+                        "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+                    }
+                    pseudo_r, alias_map2 = pseudonymize_for_model(pseudo_r)
+                    retry_task["alias_map"] = alias_map2
+                    _append({
+                        "phase": "executor",
+                        "event": "agent_start",
+                        "role": role,
+                        "task_id": retry_task.get("id"),
+                    })
+                    try:
+                        result = invoke_agent_safely(
+                            agent,
+                            task=pseudo_r,
+                            model=high_model,
+                            meta={"context": pseudo_r.get("context")},
+                            run_id=run_id,
+                        )
+                    except Exception as e:
+                        _append(
+                            {
+                                "phase": "executor",
+                                "event": "agent_end",
+                                "role": role,
+                                "task_id": retry_task.get("id"),
+                                "ok": False,
+                                "error": str(e),
+                            }
+                        )
+                        raise RuntimeError(f"agent {role} failed") from e
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": role,
+                            "task_id": retry_task.get("id"),
+                            "ok": True,
+                        }
+                    )
+                    routed["alias_map"] = retry_task.get("alias_map", {})
+                    return result
+
+                high_initial = _retry_high(
+                    "Return only JSON with keys: role, task, findings, risks, next_steps, sources."
+                )
+                text, meta_high = validate_and_retry(
+                    role,
+                    routed,
+                    high_initial,
+                    _retry_high,
+                    run_id=run_id,
+                    support_id=routed.get("support_id"),
+                )
+                meta = {"retried": True, "valid_json": meta_high.get("valid_json"), "escalated": True}
+                collector.append_event(
+                    handle, "validate", {"retry": True, "escalated": True}
+                )
+                if not meta.get("valid_json"):
+                    placeholder = {
+                        "role": role,
+                        "task": routed.get("title", ""),
+                        "findings": "TODO",
+                        "risks": "TODO",
+                        "next_steps": "TODO",
+                        "sources": [],
+                    }
+                    logger.info("self_check placeholder emitted for %s", role)
+                    text = json.dumps(placeholder, ensure_ascii=False)
+            else:
+                collector.append_event(
+                    handle, "validate", {"retry": bool(meta.get("retried"))}
+                )
             answers.setdefault(role, []).append(
                 text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
             )

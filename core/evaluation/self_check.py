@@ -1,6 +1,11 @@
 import json
 import logging
+from pathlib import Path
 from typing import Callable, Tuple
+
+import jsonschema
+from jsonschema import ValidationError
+
 from utils import trace_writer
 
 from utils.agent_json import extract_json_block
@@ -11,9 +16,53 @@ logger = logging.getLogger(__name__)
 
 REQUIRED_KEYS = ["role", "task", "findings", "risks", "next_steps", "sources"]
 
+_SCHEMA_CACHE: dict[str, dict | None] = {}
+
+
+def _load_schema(role: str) -> dict | None:
+    if role in _SCHEMA_CACHE:
+        return _SCHEMA_CACHE[role]
+    try:  # lazy import to avoid heavy registry cost
+        from dr_rd.prompting.prompt_registry import registry
+
+        tpl = registry.get(role)
+        ref = getattr(tpl, "io_schema_ref", None) if tpl else None
+        if ref:
+            path = Path(ref)
+            with path.open(encoding="utf-8") as fh:
+                schema = json.load(fh)
+            _SCHEMA_CACHE[role] = schema
+            return schema
+    except Exception:
+        logger.debug("schema load failed for %s", role)
+    _SCHEMA_CACHE[role] = None
+    return None
+
+
+def _missing_keys(data: dict) -> list[str]:
+    missing: list[str] = []
+    for k in REQUIRED_KEYS:
+        if k not in data:
+            missing.append(k)
+            continue
+        v = data[k]
+        if k == "sources":
+            if not isinstance(v, list):
+                missing.append(k)
+        else:
+            if isinstance(v, str):
+                if v.strip() == "":
+                    missing.append(k)
+            elif isinstance(v, (list, dict)):
+                if len(v) == 0:
+                    missing.append(k)
+            elif not v:
+                missing.append(k)
+    return missing
+
 
 def _has_required(data: dict) -> bool:
-    return all(k in data for k in REQUIRED_KEYS)
+    return not _missing_keys(data)
 
 
 def validate_and_retry(
@@ -59,10 +108,17 @@ def validate_and_retry(
         except Exception as e:
             errors.append(str(e))
             return False, candidate
-        if not _has_required(data):
-            missing = [k for k in REQUIRED_KEYS if k not in data]
+        missing = _missing_keys(data)
+        if missing:
             errors.append(f"missing_keys:{missing}")
             return False, json.dumps(data, ensure_ascii=False)
+        schema = _load_schema(agent_name)
+        if schema:
+            try:
+                jsonschema.validate(data, schema)
+            except ValidationError as e:
+                errors.append(f"schema:{e.message}")
+                return False, json.dumps(data, ensure_ascii=False)
         return True, json.dumps(data, ensure_ascii=False)
 
     valid, raw_text = _check(raw_text)

@@ -8,12 +8,15 @@ from core import orchestrator
 
 
 def test_execute_plan_retry_and_parallel(monkeypatch):
+    monkeypatch.setattr(
+        "core.evaluation.self_check._load_schema", lambda role: None
+    )
     outputs = {
         "Analyst": deque(
             [
                 (
-                    '{"role":"Analyst","task":"","findings":[],'
-                    '"risks":[],"next_steps":[],"sources":[]}'
+                    '{"role":"Analyst","task":"t","findings":[1],'
+                    '"risks":[2],"next_steps":[3],"sources":[]}'
                 )
             ]
         ),
@@ -21,8 +24,8 @@ def test_execute_plan_retry_and_parallel(monkeypatch):
             [
                 "not json",
                 (
-                    '{"role":"Checker","task":"","findings":[],'
-                    '"risks":[],"next_steps":[],"sources":[]}'
+                    '{"role":"Checker","task":"t","findings":[1],'
+                    '"risks":[2],"next_steps":[3],"sources":[]}'
                 ),
             ]
         ),
@@ -35,11 +38,11 @@ def test_execute_plan_retry_and_parallel(monkeypatch):
 
         return task["role"], Dummy, "m", task
 
-    def fake_invoke(agent, idea, task, model=None):
+    def fake_invoke(agent, task, model=None, meta=None, run_id=None):
         return outputs[task["role"]].popleft()
 
     monkeypatch.setattr(orchestrator, "route_task", fake_route)
-    monkeypatch.setattr(orchestrator, "_invoke_agent", fake_invoke)
+    monkeypatch.setattr(orchestrator, "invoke_agent_safely", fake_invoke)
 
     tasks = [
         {"role": "Analyst", "title": "A", "description": "a"},
@@ -50,15 +53,15 @@ def test_execute_plan_retry_and_parallel(monkeypatch):
     serial = orchestrator.execute_plan("idea", tasks, agents={})
 
     outputs["Analyst"] = deque(
-        [('{"role":"Analyst","task":"","findings":[],' '"risks":[],"next_steps":[],"sources":[]}')]
+        [('{"role":"Analyst","task":"t","findings":[1],' '"risks":[2],"next_steps":[3],"sources":[]}')]
     )
     outputs["Checker"] = deque(
         [
             "not json",
-            (
-                '{"role":"Checker","task":"","findings":[],'
-                '"risks":[],"next_steps":[],"sources":[]}'
-            ),
+                (
+                    '{"role":"Checker","task":"t","findings":[1],'
+                    '"risks":[2],"next_steps":[3],"sources":[]}'
+                ),
         ]
     )
     ff.PARALLEL_EXEC_ENABLED = True
@@ -66,11 +69,15 @@ def test_execute_plan_retry_and_parallel(monkeypatch):
 
     assert serial == parallel
     for text in parallel.values():
-        data = json.loads(orchestrator.extract_json_block(text) or text)
+        parsed = orchestrator.extract_json_block(text)
+        data = parsed if isinstance(parsed, dict) else json.loads(parsed or text)
         assert data["role"] in {"Analyst", "Checker"}
 
 
 def test_evaluator_hook_called(monkeypatch):
+    monkeypatch.setattr(
+        "core.evaluation.self_check._load_schema", lambda role: None
+    )
     called = {"n": 0}
 
     def spy(*args, **kwargs):
@@ -86,9 +93,9 @@ def test_evaluator_hook_called(monkeypatch):
         lambda t, ui=None: (t["role"], type("D", (), {"__init__": lambda self, m: None}), "m", t),
     )
     good_json = (
-        '{"role":"Analyst","task":"","findings":[],' '"risks":[],"next_steps":[],"sources":[]}'
+        '{"role":"Analyst","task":"t","findings":[1],' '"risks":[2],"next_steps":[3],"sources":[]}'
     )
-    monkeypatch.setattr(orchestrator, "_invoke_agent", lambda *a, **k: good_json)
+    monkeypatch.setattr(orchestrator, "invoke_agent_safely", lambda *a, **k: good_json)
     monkeypatch.setattr(orchestrator, "validate_and_retry", spy)
 
     orchestrator.execute_plan(
