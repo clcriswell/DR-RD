@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -91,6 +92,9 @@ class PromptFactory:
             system += retrieval_text
 
         system += f" Return only JSON conforming to {io_schema_ref}. Do not include chain of thought."
+
+        if re.search(r"\[(PERSON|ORG|ADDRESS|IP|DEVICE)_\d+\]", user_prompt):
+            system += " Placeholders like [PERSON_1], [ORG_1] are aliases. Use them verbatim."
 
         llm_hints = {"provider": "auto", "json_strict": True, "tool_use": "prefer"}
         llm_hints.update(provider_hints)

@@ -22,12 +22,12 @@ from core.observability import (
     build_coverage,
 )
 from core.privacy import pseudonymize_for_model, rehydrate_output
+from core.redaction import Redactor
 from core.router import route_task
 from core.roles import normalize_role
 from core.schemas import Plan, ScopeNote
 from memory.decision_log import log_decision
 from orchestrators.executor import execute as exec_artifacts
-from planning.segmenter import load_redaction_policy, redact_text
 from dr_rd.prompting.prompt_registry import registry
 from utils import checkpoints, otel, trace_writer
 from utils import safety as safety_utils
@@ -126,6 +126,35 @@ def _coerce_and_fill(data: dict | list) -> dict:
     return norm
 
 
+_GLOBAL_REDACTOR: Redactor | None = None
+
+
+def _get_redactor() -> Redactor:
+    global _GLOBAL_REDACTOR
+    if _GLOBAL_REDACTOR is None:
+        _GLOBAL_REDACTOR = Redactor()
+    return _GLOBAL_REDACTOR
+
+
+def _invoke_agent(agent, context, task, model=None):
+    redactor = _get_redactor()
+    if isinstance(task, str):
+        task = {"title": task, "description": task}
+    payload = dict(task)
+    role = payload.get("role")
+    red_task = {}
+    for k, v in payload.items():
+        if isinstance(v, str) and k != "role":
+            rv, _, _ = redactor.redact(v, mode="light", role=role)
+            red_task[k] = rv
+        else:
+            red_task[k] = v
+    red_context, _, _ = redactor.redact(context, mode="light", role=role)
+    alias_map = dict(redactor.alias_map)
+    task["alias_map"] = alias_map
+    return invoke_agent_safely(agent, task=red_task, model=model, meta=red_context)
+
+
 def generate_plan(
     idea: str,
     constraints: str | None = None,
@@ -152,25 +181,26 @@ def generate_plan(
 
     _check()
 
-    policy = load_redaction_policy()
     constraint_list = [c.strip() for c in (constraints or "").splitlines() if c.strip()]
-    redacted_idea = redact_text(policy, idea)
-    redacted_constraints = [redact_text(policy, c) for c in constraint_list]
-
-    pseudo_flag = os.getenv("DRRD_PSEUDONYMIZE_TO_MODEL", "").lower() in ("1", "true", "yes")
-    alias_map: dict[str, str] = {}
-    if pseudo_flag:
-        pseudo_payload, alias_map = pseudonymize_for_model(
-            {"idea": redacted_idea, "constraints": redacted_constraints}
-        )
-        redacted_idea = pseudo_payload["idea"]
-        redacted_constraints = pseudo_payload["constraints"]
+    redactor = Redactor()
+    placeholders_seen: set[str] = set()
+    redacted_idea, _, ph = redactor.redact(idea, mode="light")
+    placeholders_seen.update(ph)
+    redacted_constraints: list[str] = []
+    for c in constraint_list:
+        rc, _, ph = redactor.redact(c, mode="light")
+        redacted_constraints.append(rc)
+        placeholders_seen.update(ph)
+    try:
+        st.session_state["alias_map"] = redactor.alias_map
+    except Exception:
+        pass
 
     sn = ScopeNote(
         idea=redacted_idea,
         constraints=redacted_constraints,
         risk_posture=(risk_posture or "medium").lower(),
-        redaction_rules=list(policy.keys()),
+        redaction_rules=[],
     )
     try:  # persist for UI tests
         st.session_state["scope_note"] = sn.model_dump()
@@ -265,10 +295,9 @@ def generate_plan(
 
     tpl = registry.get("Planner")
     system_prompt = tpl.system
-    if pseudo_flag:
-        system_prompt += (
-            "\nPlaceholders like [PERSON_1], [ORG_1] are entity aliases. Use them verbatim. Do not invent values."
-        )
+    note = redactor.note_for_placeholders(placeholders_seen)
+    if note:
+        system_prompt += "\n" + note
 
     user_prompt = tpl.user_template.format(
         idea=sn.idea,
@@ -474,7 +503,12 @@ def execute_plan(
                 "defects": routed.get("defects", []),
                 "context": {"run_id": run_id, "deadline_ts": deadline_ts},
             }
-            pseudo, alias_map = pseudonymize_for_model(pseudo)
+            redactor = _get_redactor()
+            for k, v in list(pseudo.items()):
+                if isinstance(v, str) and k != "role":
+                    rv, _, _ = redactor.redact(v, mode="light", role=role)
+                    pseudo[k] = rv
+            alias_map = dict(redactor.alias_map)
             routed["alias_map"] = alias_map
             _append({
                 "phase": "executor",
@@ -487,7 +521,7 @@ def execute_plan(
                     agent,
                     task=pseudo,
                     model=model,
-                    meta={"context": pseudo.get("context")},
+                    meta=pseudo.get("context"),
                     run_id=run_id,
                 )
             except (EmptyModelOutput, JSONDecodeError) as e:

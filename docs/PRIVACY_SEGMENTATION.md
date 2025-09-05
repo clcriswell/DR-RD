@@ -7,8 +7,14 @@ orchestrator:
 
 1. selects the agent for the task,
 2. aliases detected entities per field,
-3. pseudonymizes the context via `pseudonymize_for_model`, and
+3. pseudonymizes the context via the central `Redactor`, and
 4. dispatches the sanitized payload to the agent.
+
+When placeholders appear in prompts, a note like "Placeholders like
+`[PERSON_1]`, `[ORG_1]` are aliases. Use them verbatim." is appended to the
+system prompt so downstream models preserve the tokens. The redactor maintains a
+run-scoped alias map to ensure that repeated entities receive stable numbering
+throughout execution.
 
 Aliases are reversible only during final synthesis. Intermediate requests and
 logs contain placeholder tokens like `[PERSON_1]`. The combined alias map is

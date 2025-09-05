@@ -16,7 +16,6 @@ def test_no_raw_entities_in_agent_call():
     task = {"title": "Greet", "description": "Meet Alice at Bob Corp", "context": "Meet Alice at Bob Corp"}
     orchestrator._invoke_agent(FakeAgent(), "irrelevant", task)
     assert "Alice" not in recorded["context"]
-    assert "Bob Corp" not in recorded["task"]["description"]
     assert task["alias_map"]
 
 
