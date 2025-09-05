@@ -1,12 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["role", "task", "result", "sources"],
   "properties": {
     "role": {"type": "string"},
     "task": {"type": "string"},
-    "result": {},
-    "notes": {"type": "string"},
+    "findings": {"type": "string"},
+    "risks": {"type": "array", "items": {"type": "string"}},
+    "next_steps": {"type": "array", "items": {"type": "string"}},
     "sources": {"type": "array", "items": {"type": "string"}}
-  }
+  },
+  "required": ["role", "task", "findings", "risks", "next_steps", "sources"],
+  "additionalProperties": false
 }

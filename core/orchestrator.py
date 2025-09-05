@@ -516,6 +516,7 @@ def execute_plan(
                     "role_name": routed.get("role") or "Dynamic Specialist",
                     "task_brief": rb,
                     "context": {
+                        "idea": idea_str,
                         "run_id": st.session_state.get("run_id"),
                         "support_id": st.session_state.get("support_id"),
                     },
@@ -548,13 +549,25 @@ def execute_plan(
                 "task_id": routed.get("id"),
             })
             try:
-                out = invoke_agent_safely(
-                    agent,
-                    task=call_task,
-                    model=model,
-                    meta=meta_ctx,
-                    run_id=run_id,
-                )
+                if role == "QA":
+                    qa_brief = (pseudo.get("title") or "") + " — " + (
+                        pseudo.get("description") or ""
+                    )
+                    out = agent.run(
+                        qa_brief,
+                        pseudo.get("requirements", []),
+                        pseudo.get("tests", []),
+                        pseudo.get("defects", []),
+                        idea=pseudo.get("idea", ""),
+                    )
+                else:
+                    out = invoke_agent_safely(
+                        agent,
+                        task=call_task,
+                        model=model,
+                        meta=meta_ctx,
+                        run_id=run_id,
+                    )
             except (EmptyModelOutput, JSONDecodeError) as e:
                 span.set_attribute("status", "error")
                 span.record_exception(e)
@@ -622,6 +635,7 @@ def execute_plan(
                         "role_name": routed.get("role") or "Dynamic Specialist",
                         "task_brief": rb,
                         "context": {
+                            "idea": idea_str,
                             "run_id": st.session_state.get("run_id"),
                             "support_id": st.session_state.get("support_id"),
                         },
@@ -644,6 +658,49 @@ def execute_plan(
                             model=model,
                             meta=spec_r.get("context"),
                             run_id=run_id,
+                        )
+                    except Exception as e:
+                        _append(
+                            {
+                                "phase": "executor",
+                                "event": "agent_end",
+                                "role": role,
+                                "task_id": routed.get("id"),
+                                "ok": False,
+                                "error": str(e),
+                            }
+                        )
+                        raise RuntimeError(f"agent {role} failed") from e
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                            "ok": True,
+                        }
+                    )
+                    return result
+                if role == "QA":
+                    brief = ((routed.get("title") or "") + " \u2014 " + (
+                        routed.get("description") or routed.get("summary") or ""
+                    ) + "\n" + rem).strip()
+                    rb, _, _ = redactor.redact(brief, mode="light", role=role)
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_start",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                        }
+                    )
+                    try:
+                        result = agent.run(
+                            rb,
+                            routed.get("requirements", []),
+                            routed.get("tests", []),
+                            routed.get("defects", []),
+                            idea=idea_str,
                         )
                     except Exception as e:
                         _append(
@@ -731,6 +788,7 @@ def execute_plan(
                         "role_name": routed.get("role") or "Dynamic Specialist",
                         "task_brief": rb,
                         "context": {
+                            "idea": idea_str,
                             "run_id": st.session_state.get("run_id"),
                             "support_id": st.session_state.get("support_id"),
                         },
@@ -753,6 +811,49 @@ def execute_plan(
                             model=high_model,
                             meta=spec_r.get("context"),
                             run_id=run_id,
+                        )
+                    except Exception as e:
+                        _append(
+                            {
+                                "phase": "executor",
+                                "event": "agent_end",
+                                "role": role,
+                                "task_id": routed.get("id"),
+                                "ok": False,
+                                "error": str(e),
+                            }
+                        )
+                        raise RuntimeError(f"agent {role} failed") from e
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                            "ok": True,
+                        }
+                    )
+                    return result
+                if role == "QA":
+                    brief = ((routed.get("title") or "") + " \u2014 " + (
+                        routed.get("description") or routed.get("summary") or ""
+                    ) + "\n" + rem).strip()
+                    rb, _, _ = redactor.redact(brief, mode="light", role=role)
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_start",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                        }
+                    )
+                    try:
+                        result = agent.run(
+                            rb,
+                            routed.get("requirements", []),
+                            routed.get("tests", []),
+                            routed.get("defects", []),
+                            idea=idea_str,
                         )
                     except Exception as e:
                         _append(

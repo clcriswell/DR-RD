@@ -39,16 +39,17 @@ class EmptyModelOutput(Exception):
 
 
 class DynamicAgent:
-    IO_SCHEMA = "dr_rd/schemas/dynamic_agent_v1.json"
+    IO_SCHEMA = "dr_rd/schemas/generic_v1.json"
 
     def __init__(self, model: str) -> None:
         self.model = model
         self.factory = PromptFactory()
 
     def run(self, spec: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        role = spec.get("role_name", "Ad Hoc Specialist")
+        role = spec.get("role_name", "Dynamic Specialist")
         task = spec.get("task_brief", "")
         context = spec.get("context", {})
+        idea = context.get("idea", "")
         run_id = context.get("run_id")
         support_id = context.get("support_id")
         io_schema_ref = spec.get("io_schema_ref")
@@ -61,7 +62,7 @@ class DynamicAgent:
         prompt_spec = {
             "role": role,
             "task": task,
-            "inputs": {"idea": task, "task": task},
+            "inputs": {"idea": idea, "task": task},
             "io_schema_ref": self.IO_SCHEMA,
             "retrieval_policy": spec.get("retrieval_policy", RetrievalPolicy.NONE),
         }
