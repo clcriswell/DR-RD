@@ -15,6 +15,7 @@ from dr_rd.prompting import example_selectors
 CONFIG_PATH = Path("config/reporting.yaml")
 CONFIG = yaml.safe_load(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
 RAG_CFG = yaml.safe_load(Path("config/rag.yaml").read_text()) if Path("config/rag.yaml").exists() else {}
+PLACEHOLDER_TOKEN_RE = re.compile(r'\[(PERSON|ORG|ADDRESS|IP|DEVICE)_\d+\]')
 
 from .prompt_registry import (
     PromptRegistry,
@@ -93,8 +94,9 @@ class PromptFactory:
 
         system += f" Return only JSON conforming to {io_schema_ref}. Do not include chain of thought."
 
-        if re.search(r"\[(PERSON|ORG|ADDRESS|IP|DEVICE)_\d+\]", user_prompt):
-            system += " Placeholders like [PERSON_1], [ORG_1] are aliases. Use them verbatim."
+        inputs_blob = (user_prompt or "") + "\n" + (str(inputs) if inputs else "")
+        if PLACEHOLDER_TOKEN_RE.search(inputs_blob):
+            system = system.rstrip() + "\n\nPlaceholders like [PERSON_1], [ORG_1] are aliases. Use them verbatim."
 
         llm_hints = {"provider": "auto", "json_strict": True, "tool_use": "prefer"}
         llm_hints.update(provider_hints)
