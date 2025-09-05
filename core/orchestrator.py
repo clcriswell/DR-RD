@@ -163,6 +163,7 @@ def generate_plan(
     *,
     cancel: CancellationToken | None = None,
     deadline_ts: float | None = None,
+    run_ctx: dict | None = None,
 ) -> list[dict[str, str]]:
     """Use the Planner to create and normalize a task list.
 
@@ -181,16 +182,20 @@ def generate_plan(
 
     _check()
 
+    run_ctx = run_ctx or {}
+    redactor = run_ctx.get("redactor") or Redactor()
+    run_ctx["redactor"] = redactor
+
     constraint_list = [c.strip() for c in (constraints or "").splitlines() if c.strip()]
-    redactor = Redactor()
     placeholders_seen: set[str] = set()
-    redacted_idea, _, ph = redactor.redact(idea, mode="light")
+    redacted_idea, _, ph = redactor.redact(idea, mode="light", role="Planner")
     placeholders_seen.update(ph)
     redacted_constraints: list[str] = []
     for c in constraint_list:
-        rc, _, ph = redactor.redact(c, mode="light")
+        rc, _, ph = redactor.redact(c, mode="light", role="Planner")
         redacted_constraints.append(rc)
         placeholders_seen.update(ph)
+    run_ctx["alias_map"] = redactor.alias_map
     try:
         st.session_state["alias_map"] = redactor.alias_map
     except Exception:
@@ -235,6 +240,7 @@ def generate_plan(
             raw_data = {"tasks": raw_data}
         if isinstance(raw_data, dict) and raw_data.get("error"):
             raise ValueError("planner.error_returned")
+        alias_map = run_ctx.get("alias_map", redactor.alias_map)
         if alias_map:
             raw_data = rehydrate_output(raw_data, alias_map)
 
@@ -295,9 +301,8 @@ def generate_plan(
 
     tpl = registry.get("Planner")
     system_prompt = tpl.system
-    note = redactor.note_for_placeholders(placeholders_seen)
-    if note:
-        system_prompt += "\n" + note
+    if placeholders_seen:
+        system_prompt += "\n" + redactor.note_for_placeholders(placeholders_seen)
 
     user_prompt = tpl.user_template.format(
         idea=sn.idea,
@@ -1345,9 +1350,10 @@ def orchestrate(*args, resume_from: str | None = None, **kwargs):
     )
     tasks: list[dict[str, str]] = []
     empty_fields = 0
+    run_ctx = {}
     if start["planner"] == 0:
         try:
-            generate_plan(idea)
+            generate_plan(idea, run_ctx=run_ctx)
         except ValueError:
             pass
         tasks = st.session_state.get("plan_tasks", [])
@@ -1418,6 +1424,8 @@ def run_stream(
     """Generator yielding structured events for streaming runs."""
     otel.configure()
     cancel = cancel or CancellationToken()
+    redactor = Redactor()
+    run_ctx = {"redactor": redactor, "alias_map": redactor.alias_map}
     try:
         from utils.session_store import get_session_id
 
@@ -1442,7 +1450,7 @@ def run_stream(
                 ) as span:
                     span.add_event("step.start", {"step_id": "planner"})
                     try:
-                        generate_plan(idea, cancel=cancel, deadline_ts=deadline_ts)
+                        generate_plan(idea, cancel=cancel, deadline_ts=deadline_ts, run_ctx=run_ctx)
                         tasks = st.session_state.get("plan_tasks", [])
                     except TimeoutError as exc:
                         span.set_attribute("status", "timeout")
@@ -1660,7 +1668,8 @@ def run_pipeline(idea: str, **kwargs):
     logging.warning(
         "core.orchestrator.run_pipeline is deprecated; using unified pipeline."
     )
-    generate_plan(idea)
+    run_ctx = {}
+    generate_plan(idea, run_ctx=run_ctx)
     tasks = st.session_state.get("plan_tasks", [])
     agents = kwargs.get("agents") or {}
     assert tasks, "Normalized tasks unexpectedly empty — check planner/normalizer handoff"
