@@ -1,17 +1,28 @@
-from core.agents.base_agent import BaseAgent
-from prompts.prompts import (
-    PATENT_SYSTEM_PROMPT,
-    PATENT_USER_PROMPT_TEMPLATE,
-)
+from __future__ import annotations
 
-"""Patent Agent for intellectual property and patentability analysis."""
-class PatentAgent(BaseAgent):
-    """Agent that evaluates patentability and IP strategy for the project idea."""
-    def __init__(self, model):
-        super().__init__(
-            name="Patent",
-            model=model,
-            system_message=PATENT_SYSTEM_PROMPT,
-            user_prompt_template=PATENT_USER_PROMPT_TEMPLATE,
-                # Schema: dr_rd/schemas/patent_agent.json
-        )
+from typing import Any
+
+from core.agents.prompt_agent import PromptFactoryAgent
+from dr_rd.prompting.prompt_registry import RetrievalPolicy
+
+
+class PatentAgent(PromptFactoryAgent):
+    """Patent Agent for intellectual property and patentability analysis."""
+
+    def act(self, idea: str, task: Any = None, **kwargs) -> str:
+        spec = {
+            "role": "Patent",
+            "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
+            "inputs": {
+                "idea": idea,
+                "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
+            },
+            "io_schema_ref": "dr_rd/schemas/patent_agent.json",
+            "retrieval_policy": RetrievalPolicy.AGGRESSIVE,
+            "capabilities": "patent analysis",
+            "evaluation_hooks": ["self_check_minimal"],
+        }
+        return super().run_with_spec(spec, **kwargs)
+
+    def run(self, idea: str, task: Any, **kwargs) -> str:
+        return self.act(idea, task, **kwargs)
