@@ -151,7 +151,11 @@ registry.register(
             "Return clear, structured guidance and conclude with a JSON summary "
             "using keys: role, task, findings, risks, next_steps, sources."
         ),
-        user_template="Idea: {idea}\nTask: {task}\nProvide technical architecture and risk guidance.",
+        user_template=(
+            "Idea: {idea}\nTask: {task}\nProvide technical architecture and risk "
+            "guidance. Summarize with summary, findings, next_steps, and sources "
+            "in JSON."
+        ),
         io_schema_ref="dr_rd/schemas/cto_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
@@ -170,10 +174,13 @@ registry.register(
             "meets (or needs modifications to meet) each requirement and adjust "
             "recommendations if testing/simulation reveals new issues."
         ),
-        user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide a thorough regulatory analysis "
-            "including compliance steps and relevant standards."
-        ),
+        user_template=
+            (
+                "Idea: {idea}\nTask: {task}\nProvide a thorough regulatory "
+                "analysis including compliance steps and relevant standards. "
+                "Summarize with summary, findings, next_steps, and sources in "
+                "JSON."
+            ),
         io_schema_ref="dr_rd/schemas/regulatory_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
@@ -187,7 +194,9 @@ registry.register(
         task_key=None,
         system="You evaluate budgets, BOM costs and financial risks.",
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide budget estimates and financial risk analysis."
+            "Idea: {idea}\nTask: {task}\nProvide budget estimates and financial "
+            "risk analysis. Include unit_economics, npv, simulations, "
+            "assumptions, risks, next_steps, and sources in the JSON summary."
         ),
         io_schema_ref="dr_rd/schemas/finance_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -206,7 +215,8 @@ registry.register(
             "strategies."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide a marketing overview in Markdown."
+            "Idea: {idea}\nTask: {task}\nProvide marketing analysis and conclude "
+            "with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/marketing_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -225,7 +235,8 @@ registry.register(
             "risk."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide an IP analysis in Markdown."
+            "Idea: {idea}\nTask: {task}\nProvide IP analysis and conclude with "
+            "summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/ip_analyst_v1.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
@@ -246,7 +257,8 @@ registry.register(
             "strategy if new technical feedback warrants it."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide a patentability analysis in Markdown."
+            "Idea: {idea}\nTask: {task}\nProvide a patentability analysis and "
+            "summarize findings, risks, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/generic_v1.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
@@ -264,7 +276,10 @@ registry.register(
             "analysis with concrete details. Conclude with a JSON summary using "
             "keys: role, task, findings, risks, next_steps, sources."
         ),
-        user_template="Idea: {idea}\nTask: {task}\nProvide detailed scientific analysis.",
+        user_template=(
+            "Idea: {idea}\nTask: {task}\nProvide detailed scientific analysis "
+            "with findings, risks, next_steps, and sources in JSON."
+        ),
         io_schema_ref="dr_rd/schemas/research_v1.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
     )
@@ -282,7 +297,10 @@ registry.register(
             "summary using keys: role, task, findings, risks, next_steps, "
             "sources."
         ),
-        user_template="Idea: {idea}\nTask: {task}\nIdentify the expert roles required.",
+        user_template=(
+            "Idea: {idea}\nTask: {task}\nIdentify the expert roles required and "
+            "summarize with summary, findings, next_steps, and sources in JSON."
+        ),
         io_schema_ref="dr_rd/schemas/hrm_v1.json",
         retrieval_policy=RetrievalPolicy.NONE,
     )
@@ -299,7 +317,11 @@ registry.register(
             "engineering feasibility. Conclude with a JSON summary using keys: "
             "role, task, findings, risks, next_steps, sources."
         ),
-        user_template="Idea: {idea}\nTask: {task}\nProvide material selection and feasibility analysis.",
+        user_template=(
+            "Idea: {idea}\nTask: {task}\nProvide material selection and "
+            "feasibility analysis, summarizing with summary, findings, "
+            "next_steps, and sources in JSON."
+        ),
         io_schema_ref="dr_rd/schemas/materials_engineer_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
@@ -311,8 +333,15 @@ registry.register(
         version="v1",
         role="Dynamic Specialist",
         task_key=None,
-        system="You are a flexible domain expert providing analysis for any topic.",
-        user_template="Idea: {idea}\nTask: {task}",
+        system=(
+            "You are a flexible domain expert providing analysis for any topic. "
+            "Conclude with a JSON summary using keys: role, task, findings, risks, "
+            "next_steps, sources."
+        ),
+        user_template=(
+            "Idea: {idea}\nTask: {task}\nProvide a concise analysis and "
+            "recommendations."
+        ),
         io_schema_ref="dr_rd/schemas/generic_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
@@ -324,9 +353,14 @@ registry.register(
         version="v1",
         role="QA",
         task_key=None,
-        system="You are a QA engineer ensuring requirement coverage and defect analysis.",
+        system=(
+            "You are a QA engineer ensuring requirement coverage and defect "
+            "analysis. Provide a structured QA summary with defects and "
+            "recommendations."
+        ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nRequirements Matrix: {matrix}\nCoverage: {coverage}\nDefects: {defects}"
+            "Idea: {idea}\nTask: {task}\nList any detected defects and missing "
+            "requirements. Conclude with a JSON summary."
         ),
         io_schema_ref="dr_rd/schemas/qa_v1.json",
         retrieval_policy=RetrievalPolicy.NONE,

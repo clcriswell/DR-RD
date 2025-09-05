@@ -47,7 +47,7 @@ def _missing_keys(data: dict) -> list[str]:
             continue
         v = data[k]
         if k == "sources":
-            if not isinstance(v, list):
+            if not isinstance(v, list) or len(v) == 0:
                 missing.append(k)
         else:
             if isinstance(v, str):
@@ -70,6 +70,7 @@ def validate_and_retry(
     task: dict,
     raw_text: str,
     retry_fn: Callable[[str], str],
+    escalate_fn: Callable[[str], str] | None = None,
     *,
     run_id: str | None = None,
     support_id: str | None = None,
@@ -90,6 +91,7 @@ def validate_and_retry(
     """
 
     retried = False
+    escalated = False
     valid = False
     errors: list[str] = []
 
@@ -136,9 +138,29 @@ def validate_and_retry(
         if not isinstance(second, str):
             second = json.dumps(second, ensure_ascii=False)
         valid, raw_text = _check(second)
-    info = {"retried": retried, "valid_json": valid, "role": agent_name, "task": task.get("title")}
+        if not valid and escalate_fn:
+            escalated = True
+            try:
+                third = escalate_fn(reminder)
+            except Exception as e:  # pragma: no cover - best effort
+                logger.warning("Escalation failed for %s: %s", agent_name, e)
+                third = raw_text
+            if not isinstance(third, str):
+                third = json.dumps(third, ensure_ascii=False)
+            valid, raw_text = _check(third)
+
+    info = {
+        "retried": retried,
+        "valid_json": valid,
+        "role": agent_name,
+        "task": task.get("title"),
+        "escalated": escalated,
+    }
     logger.info("self_check", extra=info)
     if not valid:
+        meta = {"retried": retried, "valid_json": False}
+        if escalated:
+            meta["escalated"] = True
         try:
             if run_id:
                 trace_writer.append_step(
@@ -150,14 +172,31 @@ def validate_and_retry(
                         "task_id": task.get("id"),
                         "valid_json": False,
                         "errors": errors,
+                        "escalated": escalated,
                     },
                 )
         except Exception:
             pass
-        log_self_check(run_id, support_id, {"valid_json": False, "errors": errors}, head)
+        if escalated:
+            placeholder = {k: "TODO" for k in REQUIRED_KEYS}
+            log_self_check(
+                run_id,
+                support_id,
+                {"valid_json": False, "errors": errors, "escalated": True},
+                head,
+            )
+            meta["escalated"] = True
+            return placeholder, meta
+        try:
+            log_self_check(run_id, support_id, {"valid_json": False, "errors": errors}, head)
+        except Exception:
+            pass
         return (
             {"valid_json": False, "reason": ";".join(errors), "raw_head": head},
-            {"retried": retried, "valid_json": False},
+            meta,
         )
     log_self_check(run_id, support_id, {"valid_json": True}, head)
-    return raw_text, {"retried": retried, "valid_json": True}
+    meta = {"retried": retried, "valid_json": True}
+    if escalated:
+        meta["escalated"] = True
+    return raw_text, meta

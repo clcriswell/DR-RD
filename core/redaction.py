@@ -20,16 +20,38 @@ PATTERNS = {
     "DEVICE": re.compile(r'\b([A-Z]{2,}-\d{2,}|\bv\d+\.\d+\b|Rev\s+[A-Z])\b', re.I),
 }
 
+ROLE_NAMES = {
+    "Planner",
+    "CTO",
+    "Regulatory",
+    "Finance",
+    "Marketing Analyst",
+    "IP Analyst",
+    "HRM",
+    "Materials Engineer",
+    "QA",
+    "Dynamic Specialist",
+    "Synthesizer",
+    "Research Scientist",
+    "Chief Scientist",
+    "Regulatory Specialist",
+    "Evaluation",
+    "Finance Specialist",
+    "Simulation",
+    "Materials",
+    "Reflection",
+    "Mechanical Systems Lead",
+}
+
 DEFAULT_GLOBAL_WHITELIST = {
-    "PERSON": {"Alice","Bob"},  # example demo names
+    "PERSON": {"Alice", "Bob", *ROLE_NAMES},
     "ORG": set(),
     "ADDRESS": set(),
     "IP": set(),
     "DEVICE": set(),
 }
-DEFAULT_ROLE_WHITELIST = {
-    "Regulatory": {"FAA","FDA","ISO","IEC","CE"},
-}
+DEFAULT_ROLE_WHITELIST = {role: set() for role in ROLE_NAMES}
+DEFAULT_ROLE_WHITELIST["Regulatory"].update({"FAA", "FDA", "ISO", "IEC", "CE"})
 
 @dataclass
 class Redactor:
