@@ -1,7 +1,7 @@
 import json
 
 from core.router import route_task
-from prompts.prompts import PLANNER_SYSTEM_PROMPT
+from dr_rd.prompting.prompt_registry import registry
 
 
 def test_unknown_role_falls_back():
@@ -11,4 +11,4 @@ def test_unknown_role_falls_back():
 
 
 def test_planner_prompt_has_no_redactions():
-    assert "redacted" not in PLANNER_SYSTEM_PROMPT.lower()
+    assert "redacted" not in registry.get("Planner").system.lower()

@@ -28,10 +28,7 @@ from core.schemas import Plan, ScopeNote
 from memory.decision_log import log_decision
 from orchestrators.executor import execute as exec_artifacts
 from planning.segmenter import load_redaction_policy, redact_text
-from prompts.prompts import (
-    PLANNER_USER_PROMPT_TEMPLATE,
-    SYNTHESIZER_TEMPLATE,
-)
+from dr_rd.prompting.prompt_registry import registry
 from utils import checkpoints, otel, trace_writer
 from utils import safety as safety_utils
 from utils.agent_json import extract_json_block, extract_json_strict
@@ -266,11 +263,14 @@ def generate_plan(
             raise ValueError("planner.no_tasks")
         return norm_tasks
 
-    system_prompt = st.session_state.get("prompt_texts", {}).get("planner", "You are the Planner.")
+    tpl = registry.get("Planner")
+    system_prompt = tpl.system
     if pseudo_flag:
-        system_prompt += "\nPlaceholders like [PERSON_1], [ORG_1] are entity aliases. Use them verbatim. Do not invent values."
+        system_prompt += (
+            "\nPlaceholders like [PERSON_1], [ORG_1] are entity aliases. Use them verbatim. Do not invent values."
+        )
 
-    user_prompt = PLANNER_USER_PROMPT_TEMPLATE.format(
+    user_prompt = tpl.user_template.format(
         idea=sn.idea,
         constraints_section=constraints_section,
         risk_section=risk_section,
@@ -1015,12 +1015,11 @@ def compose_final_proposal(
         pass
     pseudo_payload, extra_map = pseudonymize_for_model({"idea": idea, "findings_md": findings_md})
     alias_map.update(extra_map)
-    prompt = SYNTHESIZER_TEMPLATE.format(
+    tpl = registry.get("Synthesizer")
+    prompt = tpl.user_template.format(
         idea=pseudo_payload["idea"], findings_md=pseudo_payload["findings_md"]
     )
-    system_prompt = st.session_state.get("prompt_texts", {}).get(
-        "synthesizer", "You are an expert R&D writer."
-    )
+    system_prompt = tpl.system
     try:
         st.session_state["_last_prompt"] = (system_prompt + "\n" + prompt)[:4000]
     except Exception:
@@ -1263,13 +1262,6 @@ def run_stream(
     except Exception:
         session_id = None
     mode = kwargs.get("mode") or st.session_state.get("mode")
-    prompt_texts = kwargs.get("prompt_texts") or {}
-    prompt_pins = kwargs.get("prompt_pins") or {}
-    try:
-        st.session_state.setdefault("prompt_texts", {}).update(prompt_texts)
-        st.session_state.setdefault("prompt_pins", {}).update(prompt_pins)
-    except Exception:
-        pass
     stream_started(run_id)
     with otel.start_span(
         "run",

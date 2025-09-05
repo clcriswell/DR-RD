@@ -390,20 +390,6 @@ def main() -> None:
     st.session_state["run_id"] = run_id
     st.query_params["run_id"] = run_id
 
-    from utils.prompts import runtime as prompt_runtime
-    from utils.telemetry import prompt_used
-
-    prompt_texts: dict[str, str] = {}
-    prompt_pins: dict[str, dict] = {}
-    for role in ("planner", "executor", "synthesizer"):
-        text, pin = prompt_runtime.get_prompt_text(role, cfg)
-        prompt_texts[role] = text
-        prompt_pins[role] = pin
-        prompt_used(run_id, role, pin["id"], pin["version"], pin["hash"])
-    st.session_state["prompt_texts"] = prompt_texts
-    kwargs["prompt_texts"] = prompt_texts
-    kwargs["prompts"] = prompt_pins
-
     if cfg.mode == "demo":
         demo_started(run_id)
         from utils.run_playback import materialize_run
