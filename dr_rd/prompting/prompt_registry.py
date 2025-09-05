@@ -151,8 +151,8 @@ registry.register(
             "Return clear, structured guidance and conclude with a JSON summary "
             "using keys: role, task, findings, risks, next_steps, sources."
         ),
-        user_template="Project Idea:\n{idea}\n\nTask:\n{task}",
-        io_schema_ref="dr_rd/schemas/cto_agent.json",
+        user_template="Idea: {idea}\nTask: {task}\nProvide technical architecture and risk guidance.",
+        io_schema_ref="dr_rd/schemas/cto_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -171,16 +171,10 @@ registry.register(
             "recommendations if testing/simulation reveals new issues."
         ),
         user_template=(
-            "Project Idea: {idea}\n"
-            "As the Regulatory expert, your task is {task}. Provide a thorough "
-            "analysis of regulatory requirements and compliance steps in "
-            "Markdown format, including any certifications or standards needed, "
-            "and mapping of system components to regulations. Include "
-            "justification for each compliance recommendation (e.g., why a "
-            "certain standard applies). Conclude with a JSON summary using "
-            "keys: role, task, findings, risks, next_steps, sources."
+            "Idea: {idea}\nTask: {task}\nProvide a thorough regulatory analysis "
+            "including compliance steps and relevant standards."
         ),
-        io_schema_ref="dr_rd/schemas/regulatory_agent.json",
+        io_schema_ref="dr_rd/schemas/regulatory_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -193,12 +187,9 @@ registry.register(
         task_key=None,
         system="You evaluate budgets, BOM costs and financial risks.",
         user_template=(
-            "Project Idea: {idea}\n"
-            "As the Finance lead, your task is {task}. Conclude with a JSON "
-            "summary using keys: role, task, findings, risks, next_steps, "
-            "sources."
+            "Idea: {idea}\nTask: {task}\nProvide budget estimates and financial risk analysis."
         ),
-        io_schema_ref="dr_rd/schemas/finance_agent.json",
+        io_schema_ref="dr_rd/schemas/finance_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -215,12 +206,9 @@ registry.register(
             "strategies."
         ),
         user_template=(
-            "Project Idea: {idea}\n"
-            "As the Marketing Analyst, your task is {task}. Provide a marketing "
-            "overview in Markdown. End with a JSON summary using keys: role, "
-            "task, findings, risks, next_steps, sources."
+            "Idea: {idea}\nTask: {task}\nProvide a marketing overview in Markdown."
         ),
-        io_schema_ref="dr_rd/schemas/marketing_agent.json",
+        io_schema_ref="dr_rd/schemas/marketing_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -237,12 +225,9 @@ registry.register(
             "risk."
         ),
         user_template=(
-            "Project Idea: {idea}\n"
-            "As the IP Analyst, your task is {task}. Provide an IP analysis in "
-            "Markdown. End with a JSON summary using keys: role, task, "
-            "findings, risks, next_steps, sources."
+            "Idea: {idea}\nTask: {task}\nProvide an IP analysis in Markdown."
         ),
-        io_schema_ref="dr_rd/schemas/ip_analyst_agent.json",
+        io_schema_ref="dr_rd/schemas/ip_analyst_v1.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
     )
 )
@@ -261,16 +246,9 @@ registry.register(
             "strategy if new technical feedback warrants it."
         ),
         user_template=(
-            "Project Idea: {idea}\n"
-            "As the Patent expert, your task is {task}. Provide an analysis in "
-            "Markdown format of patentability, including any existing patents "
-            "(with relevant patent figures or diagrams if applicable) and an IP "
-            "strategy. Include reasoning behind each recommendation (e.g., why "
-            "certain features are patentable or not). Conclude with a JSON "
-            "summary using keys: role, task, findings, risks, next_steps, "
-            "sources."
+            "Idea: {idea}\nTask: {task}\nProvide a patentability analysis in Markdown."
         ),
-        io_schema_ref="dr_rd/schemas/patent_agent.json",
+        io_schema_ref="dr_rd/schemas/generic_v1.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
     )
 )
@@ -286,8 +264,8 @@ registry.register(
             "analysis with concrete details. Conclude with a JSON summary using "
             "keys: role, task, findings, risks, next_steps, sources."
         ),
-        user_template="Project Idea: {idea}\nTask: {task}",
-        io_schema_ref="dr_rd/schemas/research_scientist_agent.json",
+        user_template="Idea: {idea}\nTask: {task}\nProvide detailed scientific analysis.",
+        io_schema_ref="dr_rd/schemas/research_v1.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
     )
 )
@@ -304,8 +282,8 @@ registry.register(
             "summary using keys: role, task, findings, risks, next_steps, "
             "sources."
         ),
-        user_template="Project Idea: {idea}\nTask: {task}",
-        io_schema_ref="dr_rd/schemas/hrm_agent.json",
+        user_template="Idea: {idea}\nTask: {task}\nIdentify the expert roles required.",
+        io_schema_ref="dr_rd/schemas/hrm_v1.json",
         retrieval_policy=RetrievalPolicy.NONE,
     )
 )
@@ -321,9 +299,37 @@ registry.register(
             "engineering feasibility. Conclude with a JSON summary using keys: "
             "role, task, findings, risks, next_steps, sources."
         ),
-        user_template="Project Idea: {idea}\nTask: {task}",
-        io_schema_ref="dr_rd/schemas/materials_engineer_agent.json",
+        user_template="Idea: {idea}\nTask: {task}\nProvide material selection and feasibility analysis.",
+        io_schema_ref="dr_rd/schemas/materials_engineer_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="dynamic_specialist",
+        version="v1",
+        role="Dynamic Specialist",
+        task_key=None,
+        system="You are a flexible domain expert providing analysis for any topic.",
+        user_template="Idea: {idea}\nTask: {task}",
+        io_schema_ref="dr_rd/schemas/generic_v1.json",
+        retrieval_policy=RetrievalPolicy.LIGHT,
+    )
+)
+
+registry.register(
+    PromptTemplate(
+        id="qa",
+        version="v1",
+        role="QA",
+        task_key=None,
+        system="You are a QA engineer ensuring requirement coverage and defect analysis.",
+        user_template=(
+            "Idea: {idea}\nTask: {task}\nRequirements Matrix: {matrix}\nCoverage: {coverage}\nDefects: {defects}"
+        ),
+        io_schema_ref="dr_rd/schemas/qa_v1.json",
+        retrieval_policy=RetrievalPolicy.NONE,
     )
 )
 

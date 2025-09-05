@@ -11,7 +11,7 @@ def test_dynamic_agent(monkeypatch):
     output = {"role": "Tmp", "task": "t", "result": {}, "sources": []}
 
     def fake_complete(system, user, model=None, **kwargs):
-        return ChatResult(content=json.dumps(output), raw={})
+        return ChatResult(content=json.dumps(output), raw=output)
 
     monkeypatch.setattr("dr_rd.agents.dynamic_agent.complete", fake_complete)
     agent = DynamicAgent("gpt")

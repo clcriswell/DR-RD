@@ -23,7 +23,7 @@ class IPAnalystAgent(PromptFactoryAgent):
                 "idea": idea,
                 "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
             },
-            "io_schema_ref": "dr_rd/schemas/patent_evidence_v1.json",
+            "io_schema_ref": "dr_rd/schemas/ip_analyst_v1.json",
             "retrieval_policy": RetrievalPolicy.AGGRESSIVE,
             "top_k": top_k,
             "capabilities": "prior art search",

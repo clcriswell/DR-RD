@@ -28,7 +28,12 @@ class QAAgent:
         allow_tools(self.ROLE, self.ALLOWLIST)
 
     def run(
-        self, task: Any, requirements: List[str], tests: List[str], defects: List[dict]
+        self,
+        task: Any,
+        requirements: List[str],
+        tests: List[str],
+        defects: List[dict],
+        idea: str = "",
     ) -> Any:
         task_txt = task if isinstance(task, str) else json.dumps(task, ensure_ascii=False)
         matrix = call_tool(
@@ -40,6 +45,8 @@ class QAAgent:
             "role": self.ROLE,
             "task": task_txt,
             "inputs": {
+                "idea": idea,
+                "task": task_txt,
                 "matrix": matrix,
                 "coverage": coverage,
                 "defects": stats,
