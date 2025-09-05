@@ -11,6 +11,7 @@ def test_materials_agent(monkeypatch):
         "role": "Materials",
         "task": "check",
         "summary": "ok",
+        "findings": "info",
         "properties": [
             {
                 "name": "Aluminum",
@@ -37,5 +38,6 @@ def test_materials_agent(monkeypatch):
     res = agent.run("check", "Aluminum")
     assert res["role"] == "Materials"
     assert call_count["n"] == 2
+    assert {"summary", "findings", "sources"}.issubset(res)
     prov = tool_router.get_provenance()
     assert any(p["tool"] == "lookup_materials" for p in prov)

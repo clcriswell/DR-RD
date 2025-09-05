@@ -28,7 +28,7 @@ from core.roles import normalize_role
 from core.schemas import Plan, ScopeNote
 from memory.decision_log import log_decision
 from orchestrators.executor import execute as exec_artifacts
-from dr_rd.prompting.prompt_registry import registry
+from dr_rd.prompting.prompt_registry import registry, RetrievalPolicy
 from utils import checkpoints, otel, trace_writer
 from utils import safety as safety_utils
 from utils.agent_json import extract_json_block, extract_json_strict
@@ -443,7 +443,10 @@ def execute_plan(
 
     _check()
 
-    idea_str = idea if isinstance(idea, str) else str(idea)
+    if isinstance(idea, dict):
+        idea_str = str(idea.get("idea") or "")
+    else:
+        idea_str = idea if isinstance(idea, str) else str(idea)
     project_id = project_id or _slugify(idea_str)
     project_name = project_name or project_id
     exec_tasks = list(tasks)
@@ -503,14 +506,21 @@ def execute_plan(
             collector.append_event(handle, "call", {"attempt": 1})
             redactor = _get_redactor()
             if role == "Dynamic Specialist":
-                brief = f"{routed.get('title', '')}: {routed.get('description', '')}"
+                brief = (routed.get("title") or "") + " — " + (
+                    routed.get("description")
+                    or routed.get("summary")
+                    or ""
+                )
                 rb, _, _ = redactor.redact(brief, mode="light", role=role)
                 spec = {
-                    "role_name": role,
+                    "role_name": routed.get("role") or "Dynamic Specialist",
                     "task_brief": rb,
-                    "io_schema_ref": routed.get("io_schema_ref")
-                    or "dr_rd/schemas/generic_v1.json",
-                    "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+                    "context": {
+                        "run_id": st.session_state.get("run_id"),
+                        "support_id": st.session_state.get("support_id"),
+                    },
+                    "io_schema_ref": "dr_rd/schemas/generic_v1.json",
+                    "retrieval_policy": RetrievalPolicy.LIGHT,
                 }
                 routed["alias_map"] = dict(redactor.alias_map)
                 call_task = spec
@@ -601,23 +611,32 @@ def execute_plan(
                 collector.append_event(handle, "call", {"attempt": 2})
                 if role == "Dynamic Specialist":
                     brief = (
-                        f"{routed.get('title', '')}: {routed.get('description', '')}\n{rem}"
+                        (routed.get("title") or "")
+                        + " — "
+                        + (routed.get("description") or routed.get("summary") or "")
+                        + "\n"
+                        + rem
                     ).strip()
                     rb, _, _ = redactor.redact(brief, mode="light", role=role)
                     spec_r = {
-                        "role_name": role,
+                        "role_name": routed.get("role") or "Dynamic Specialist",
                         "task_brief": rb,
-                        "io_schema_ref": routed.get("io_schema_ref")
-                        or "dr_rd/schemas/generic_v1.json",
-                        "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+                        "context": {
+                            "run_id": st.session_state.get("run_id"),
+                            "support_id": st.session_state.get("support_id"),
+                        },
+                        "io_schema_ref": "dr_rd/schemas/generic_v1.json",
+                        "retrieval_policy": RetrievalPolicy.LIGHT,
                     }
                     routed["alias_map"] = dict(redactor.alias_map)
-                    _append({
-                        "phase": "executor",
-                        "event": "agent_start",
-                        "role": role,
-                        "task_id": routed.get("id"),
-                    })
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_start",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                        }
+                    )
                     try:
                         result = invoke_agent_safely(
                             agent,
@@ -701,23 +720,32 @@ def execute_plan(
                 collector.append_event(handle, "call", {"attempt": 3})
                 if role == "Dynamic Specialist":
                     brief = (
-                        f"{routed.get('title', '')}: {routed.get('description', '')}\n{rem}"
+                        (routed.get("title") or "")
+                        + " — "
+                        + (routed.get("description") or routed.get("summary") or "")
+                        + "\n"
+                        + rem
                     ).strip()
                     rb, _, _ = redactor.redact(brief, mode="light", role=role)
                     spec_r = {
-                        "role_name": role,
+                        "role_name": routed.get("role") or "Dynamic Specialist",
                         "task_brief": rb,
-                        "io_schema_ref": routed.get("io_schema_ref")
-                        or "dr_rd/schemas/generic_v1.json",
-                        "context": {"run_id": run_id, "deadline_ts": deadline_ts},
+                        "context": {
+                            "run_id": st.session_state.get("run_id"),
+                            "support_id": st.session_state.get("support_id"),
+                        },
+                        "io_schema_ref": "dr_rd/schemas/generic_v1.json",
+                        "retrieval_policy": RetrievalPolicy.LIGHT,
                     }
                     routed["alias_map"] = dict(redactor.alias_map)
-                    _append({
-                        "phase": "executor",
-                        "event": "agent_start",
-                        "role": role,
-                        "task_id": routed.get("id"),
-                    })
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_start",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                        }
+                    )
                     try:
                         result = invoke_agent_safely(
                             agent,

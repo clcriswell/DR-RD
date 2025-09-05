@@ -35,6 +35,8 @@ class PromptFactory:
         role = spec.get("role")
         task_key = spec.get("task_key")
         inputs = spec.get("inputs") or {}
+        if isinstance(inputs.get("idea"), (dict, list)):
+            inputs["idea"] = ""
         template = self.registry.get(role, task_key)
 
         if template:

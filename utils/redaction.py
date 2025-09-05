@@ -2,11 +2,9 @@
 from core.redaction import Redactor, redact_text
 
 
-def redact_public(text: str, role: str | None = None) -> str:
+def redact_public(text: str) -> str:
     """Redact ``text`` for public logs using heavy mode."""
-    r = Redactor()
-    red, _, _ = r.redact(text, mode="heavy", role=role)
-    return red
+    return Redactor().redact(text, mode="heavy")[0]
 
 def redact_dict(obj, mode: str = "heavy"):
     r = Redactor()
