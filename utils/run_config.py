@@ -11,7 +11,6 @@ class RunConfig:
     """Typed configuration for a single run."""
 
     idea: str = ""
-    mode: str = "standard"
     rag_enabled: bool = False
     live_search_enabled: bool = False
     enforce_budget: bool = False
@@ -61,7 +60,6 @@ def to_orchestrator_kwargs(cfg: RunConfig) -> Dict[str, Any]:
 
     kwargs: Dict[str, Any] = {
         "idea": cfg.idea,
-        "mode": cfg.mode,
         "rag": cfg.rag_enabled,
         "live": cfg.live_search_enabled,
         "budget": cfg.enforce_budget,

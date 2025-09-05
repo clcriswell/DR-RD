@@ -1,8 +1,7 @@
 """Load runtime configuration profiles and create a :class:`CostTracker`.
 
-``load_profile()`` is the canonical entry point for loading the single
-"Standard" profile. ``load_mode()`` is retained as a deprecated alias for one
-release to avoid breaking imports.
+Only a single ``standard`` profile is supported. Any legacy mode parameters
+or ``DRRD_MODE`` environment variable are ignored.
 """
 
 import logging
@@ -17,39 +16,22 @@ from dr_rd.config.env import get_env
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
 
-def load_profile(mode: str | None = None) -> tuple[dict, CostTracker]:
-    """Load the ``standard`` profile and return its config and budget tracker.
-
-    Legacy mode names (``test`` and ``deep``) map to ``standard`` with a
-    deprecation warning. Any unknown or missing mode also falls back to
-    ``standard`` with a warning.
-    """
-    env_mode = get_env("DRRD_MODE")
-    if env_mode and env_mode.lower() != "standard":
-        logging.warning("DRRD_MODE '%s' is deprecated and maps to 'standard'.", env_mode)
-    if mode is None:
-        mode = env_mode
-
+def load_profile(_mode: str | None = None) -> tuple[dict, CostTracker]:
+    """Load the ``standard`` profile and return its config and budget tracker."""
     modes_path = CONFIG_DIR / "modes.yaml"
     prices_path = Path(get_env("PRICES_PATH", str(CONFIG_DIR / "prices.yaml")))
 
     with open(modes_path) as fh:
         modes = yaml.safe_load(fh) or {}
 
-    requested = mode
-    if mode in {"test", "deep"}:
-        logging.warning("Mode '%s' is deprecated and maps to 'standard'.", mode)
-        mode = "standard"
-    if not mode or mode not in modes:
-        logging.warning("Requested mode '%s' not found. Falling back to 'standard'.", requested)
-        mode = "standard"
-
-    mode_cfg = modes.get(mode, {})
+    mode_cfg = modes.get("standard", {})
     weights = mode_cfg.get("stage_weights")
     if isinstance(weights, dict):
         total = sum(weights.values())
         if abs(total - 1.0) > 0.05 and total > 0:
-            logging.warning("stage_weights for profile %s sum to %.3f; normalizing", mode, total)
+            logging.warning(
+                "stage_weights for profile %s sum to %.3f; normalizing", "standard", total
+            )
             mode_cfg["stage_weights"] = {k: v / total for k, v in weights.items()}
 
     with open(prices_path) as fh:

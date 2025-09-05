@@ -40,7 +40,7 @@ Most run-time options live in the sidebar:
 - **Diagnostics** – toggle agent trace and verbose planner output.
 - **Exports** – auto-export trace or report after a run.
 - **Advanced options** – temperature, retries, and overall timeout.
-Runs always execute in the standard profile defined in `config/modes.yaml`.
+Runs execute using the default profile defined in `config/modes.yaml`.
 
 ## Using the App
 1. Enter an idea in the sidebar and adjust settings.
@@ -71,14 +71,14 @@ Every model call returns token usage and cost data from the provider. Per-step t
 ## Troubleshooting
 - **Missing API key** – ensure `OPENAI_API_KEY` and optional search keys are set.
 - **Quota or network errors** – retry later; costs are shown in the trace.
-- **Empty results** – check that RAG and live search are enabled for the chosen mode.
+- **Empty results** – check that RAG and live search are enabled.
 - **PDF issues** – ensure documents have fewer than 50 pages.
 
 ## Security and Privacy
 Secrets are stored in Streamlit's encrypted settings or local `.env` files. Only the provided API keys are sent to external services. Trace exports redact sensitive fields based on repository policies.
 
 ## FAQ
-**What does Mode control?** Preset budgets, model choices, and retrieval defaults.
+**What are Open Issues?** Tasks that failed or returned placeholders. They appear in the final report under an "Open Issues" section so gaps are explicit.
 
 **Can I rerun a session?** Use the **Retry run** button shown on error banners or rerun with the same idea.
 
@@ -87,7 +87,7 @@ Secrets are stored in Streamlit's encrypted settings or local `.env` files. Only
 ## Observed vs Intended
 | Feature | Observed | Intended | Recommendation |
 |--------|----------|---------|----------------|
-| RAG toggle | Enabled via mode only | Explicit UI toggle | Consider exposing a direct RAG checkbox for clarity |
+| RAG toggle | Controlled by configuration | Explicit UI toggle | Consider exposing a direct RAG checkbox for clarity |
 | PDF export | Manual button | Auto-export on completion | Document automation or enable by default |
 
 ## Glossary
