@@ -355,12 +355,13 @@ registry.register(
         task_key=None,
         system=(
             "You are a QA engineer ensuring requirement coverage and defect "
-            "analysis. Provide a structured QA summary with defects and "
-            "recommendations."
+            "analysis. Conclude with a JSON summary using keys: role, task, "
+            "findings, risks, next_steps, sources."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nList any detected defects and missing "
-            "requirements. Conclude with a JSON summary."
+            "requirements. Provide a concise assessment and conclude with the "
+            "JSON summary."
         ),
         io_schema_ref="dr_rd/schemas/qa_v1.json",
         retrieval_policy=RetrievalPolicy.NONE,

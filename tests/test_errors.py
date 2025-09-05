@@ -64,3 +64,17 @@ def test_redact_tokens_and_roundtrip():
     assert data["kind"] == "api"
     assert data["support_id"] == "abcdef12"
 
+
+def test_as_json_handles_sets():
+    safe = SafeError(
+        kind="api",
+        user_message="u",
+        tech_message="t",
+        traceback=None,
+        support_id="id",
+        context={"tags": {"a", "b"}},
+    )
+    blob = as_json(safe)
+    data = json.loads(blob.decode("utf-8"))
+    assert sorted(data["context"]["tags"]) == ["a", "b"]
+

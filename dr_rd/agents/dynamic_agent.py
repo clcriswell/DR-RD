@@ -61,6 +61,7 @@ class DynamicAgent:
         prompt_spec = {
             "role": role,
             "task": task,
+            "inputs": {"idea": task, "task": task},
             "io_schema_ref": self.IO_SCHEMA,
             "retrieval_policy": spec.get("retrieval_policy", RetrievalPolicy.NONE),
         }

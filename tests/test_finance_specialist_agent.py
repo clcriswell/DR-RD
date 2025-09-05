@@ -31,3 +31,4 @@ def test_finance_agent(monkeypatch):
     res = agent.run("eval", items, [10.0], {"x": {"mean": 1.0, "std": 0.1}})
     assert res["unit_economics"]["gross_margin"] == 40
     assert res["npv"] == 10.0
+    assert {"assumptions", "risks", "next_steps", "sources"}.issubset(res)

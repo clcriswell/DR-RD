@@ -100,5 +100,21 @@ def make_safe_error(
     return safe
 
 
+def redact(text: str) -> str:
+    """Back-compat wrapper for redaction."""
+    return redact_text(text)
+
+
+def _coerce_sets(obj: Any) -> Any:
+    if isinstance(obj, set):
+        return list(obj)
+    if isinstance(obj, dict):
+        return {k: _coerce_sets(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_coerce_sets(v) for v in obj]
+    return obj
+
+
 def as_json(safe: SafeError) -> bytes:
-    return json.dumps(asdict(safe), ensure_ascii=False).encode("utf-8")
+    data = _coerce_sets(asdict(safe))
+    return json.dumps(data, ensure_ascii=False).encode("utf-8")
