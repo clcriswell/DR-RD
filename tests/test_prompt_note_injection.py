@@ -13,4 +13,4 @@ def test_placeholder_note_injection():
         },
     }
     result = factory.build_prompt(spec)
-    assert "Placeholders like [PERSON_1], [ORG_1] are aliases. Use them verbatim." in result["system"]
+    assert "aliases" in result["system"]

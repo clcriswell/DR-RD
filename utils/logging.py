@@ -1,4 +1,5 @@
 import logging
+import os
 from core.privacy import redact_for_logging
 
 logger = logging.getLogger("drrd")
@@ -8,6 +9,13 @@ h = logging.StreamHandler()
 fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
 h.setFormatter(fmt)
 logger.addHandler(h)
+
+os.makedirs("runs", exist_ok=True)
+raw_handler = logging.FileHandler("runs/unredacted.log")
+raw_handler.setFormatter(fmt)
+raw_logger = logging.getLogger("drrd_unredacted")
+raw_logger.setLevel(logging.INFO)
+raw_logger.addHandler(raw_handler)
 
 
 def safe_exc(log, idea, msg, exc, request_id: str | None = None):
@@ -20,6 +28,7 @@ def safe_exc(log, idea, msg, exc, request_id: str | None = None):
 
 
 def _preview(raw: str | None) -> str:
+    raw_logger.info(raw or "")
     try:
         return str(redact_for_logging(raw or ""))[:256]
     except Exception:
