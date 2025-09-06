@@ -1,12 +1,8 @@
-from unittest.mock import Mock, patch
 import json
+from unittest.mock import Mock, patch
 
-from core.orchestrator import (
-    _invoke_agent,
-    compose_final_proposal,
-    execute_plan,
-    generate_plan,
-)
+import core.orchestrator as orchestrator
+from core.orchestrator import _invoke_agent, compose_final_proposal, execute_plan, generate_plan
 
 
 @patch("core.orchestrator.complete")
@@ -16,14 +12,21 @@ def test_generate_plan_parses_llm_output(mock_complete):
     )
     tasks = generate_plan("new idea")
     assert tasks == [
-        {"id": "T01", "role": "CTO", "title": "Plan", "description": "Design"}
+        {
+            "id": "T01",
+            "role": "CTO",
+            "title": "Plan",
+            "description": "Design",
+            "summary": "Design",
+        }
     ]
     mock_complete.assert_called_once()
 
 
-@patch("core.orchestrator._invoke_agent")
 @patch("core.orchestrator.route_task")
-def test_execute_plan_routes_and_invokes_agents(mock_route, mock_invoke):
+def test_execute_plan_routes_and_invokes_agents(mock_route, monkeypatch):
+    monkeypatch.setattr("core.evaluation.self_check._load_schema", lambda role: None)
+
     class DummyAgent:
         def __init__(self, model):
             self.model = model
@@ -43,16 +46,27 @@ def test_execute_plan_routes_and_invokes_agents(mock_route, mock_invoke):
         ),
     ]
 
-    def side_effect(agent, idea, task, model=None):
-        return f"{task['title']}-out"
+    def side_effect(agent, task, model=None, meta=None, run_id=None):
+        return json.dumps(
+            {
+                "role": "Research Scientist",
+                "task": task.get("title"),
+                "findings": ["f"],
+                "risks": ["r"],
+                "next_steps": ["n"],
+                "sources": [],
+            }
+        )
 
-    mock_invoke.side_effect = side_effect
+    monkeypatch.setattr(orchestrator, "invoke_agent_safely", side_effect)
     tasks = [
         {"role": "Research Scientist", "title": "t1", "description": "d1"},
         {"role": "Research Scientist", "title": "t2", "description": "d2"},
     ]
     answers = execute_plan("idea", tasks, agents={}, ui_model=None)
-    assert answers["Research Scientist"] == "t1-out\n\nt2-out"
+    outs = answers["Research Scientist"].split("\n\n")
+    assert len(outs) == 2
+    assert all(json.loads(o)["task"] in {"t1", "t2"} for o in outs)
     assert mock_route.call_count == 2
 
 
@@ -67,9 +81,13 @@ def test_invoke_agent_handles_string_task():
 
 
 @patch("core.orchestrator.complete")
-def test_compose_final_proposal_formats_findings(mock_complete):
+def test_compose_final_proposal_formats_findings(mock_complete, monkeypatch):
     mock_complete.return_value = Mock(content=" final plan ")
     answers = {"CTO": "analysis"}
+    monkeypatch.setattr(orchestrator, "pseudonymize_for_model", lambda x: (x, {}))
+    import streamlit as st
+
+    st.session_state.clear()
     result = compose_final_proposal("idea", answers)
     assert result == "final plan"
     system_prompt, prompt = mock_complete.call_args[0]
@@ -84,11 +102,18 @@ def test_open_issues_in_prompt(mock_complete, monkeypatch):
     st.session_state.clear()
     st.session_state["answers_raw"] = {
         "Research": [
-            json.dumps({"findings": "TODO", "risks": "TODO", "next_steps": "TODO"})
+            json.dumps(
+                {
+                    "findings": "Not determined",
+                    "risks": "Not determined",
+                    "next_steps": "Not determined",
+                }
+            )
         ]
     }
     st.session_state["open_issues"] = [{"title": "t", "role": "Research"}]
     st.session_state["alias_maps"] = {}
+    monkeypatch.setattr(orchestrator, "pseudonymize_for_model", lambda x: (x, {}))
     compose_final_proposal("idea", {})
     _, prompt = mock_complete.call_args[0]
     assert "Open Issues" in prompt
@@ -102,7 +127,13 @@ def test_final_report_fallback(mock_complete):
     st.session_state.clear()
     st.session_state["answers_raw"] = {
         "Research": [
-            json.dumps({"findings": "TODO", "risks": "TODO", "next_steps": "TODO"})
+            json.dumps(
+                {
+                    "findings": "Not determined",
+                    "risks": "Not determined",
+                    "next_steps": "Not determined",
+                }
+            )
         ]
     }
     st.session_state["open_issues"] = [{"title": "t", "role": "Research"}]

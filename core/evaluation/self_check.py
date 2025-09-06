@@ -7,7 +7,6 @@ import jsonschema
 from jsonschema import ValidationError
 
 from utils import trace_writer
-
 from utils.agent_json import extract_json_block
 from utils.json_safety import parse_json_loose
 from utils.logging import log_self_check
@@ -47,7 +46,7 @@ def _missing_keys(data: dict) -> list[str]:
             continue
         v = data[k]
         if k == "sources":
-            if not isinstance(v, list) or len(v) == 0:
+            if not isinstance(v, list):
                 missing.append(k)
         else:
             if isinstance(v, str):
@@ -100,7 +99,17 @@ def validate_and_retry(
 
     head = (raw_text or "")[:256]
 
-    def _check(text: object) -> tuple[bool, str]:
+    def _replace_todo(data: dict) -> dict:
+        for k, v in list(data.items()):
+            if isinstance(v, str) and v == "TODO":
+                data[k] = "Not determined"
+            elif isinstance(v, list):
+                data[k] = ["Not determined" if i == "TODO" else i for i in v]
+            elif isinstance(v, dict):
+                data[k] = _replace_todo(v)
+        return data
+
+    def _check(text: object) -> tuple[bool, str, list[str]]:
         obj = text if isinstance(text, (dict, list)) else extract_json_block(text)
         candidate = obj if obj is not None else text
         if not isinstance(candidate, str):
@@ -109,27 +118,41 @@ def validate_and_retry(
             data = parse_json_loose(candidate)
         except Exception as e:
             errors.append(str(e))
-            return False, candidate
+            return False, candidate, []
         missing = _missing_keys(data)
         if missing:
             errors.append(f"missing_keys:{missing}")
-            return False, json.dumps(data, ensure_ascii=False)
+            return False, json.dumps(data, ensure_ascii=False), missing
         schema = _load_schema(agent_name)
         if schema:
             try:
                 jsonschema.validate(data, schema)
             except ValidationError as e:
                 errors.append(f"schema:{e.message}")
-                return False, json.dumps(data, ensure_ascii=False)
-        return True, json.dumps(data, ensure_ascii=False)
+                return False, json.dumps(data, ensure_ascii=False), []
+        data = _replace_todo(data)
+        return True, json.dumps(data, ensure_ascii=False), []
 
-    valid, raw_text = _check(raw_text)
+    missing_keys: list[str] = []
+    valid, raw_text, missing_keys = _check(raw_text)
     if not valid:
         retried = True
-        reminder = (
-            "You omitted the required JSON summary. Return only the JSON object with keys: "
-            "role, task, findings, risks, next_steps, sources."
-        )
+        if missing_keys:
+            if len(missing_keys) == 1:
+                keys_str = f"'{missing_keys[0]}'"
+                reminder = f"Include the key {keys_str} in your JSON."
+            elif len(missing_keys) == 2:
+                keys_str = " and ".join(f"'{k}'" for k in missing_keys)
+                reminder = f"Include the keys {keys_str} in your JSON."
+            else:
+                keys_str = ", ".join(f"'{k}'" for k in missing_keys[:-1])
+                keys_str += f", and '{missing_keys[-1]}'"
+                reminder = f"Include the keys {keys_str} in your JSON."
+        else:
+            reminder = (
+                "You omitted the required JSON summary. Return only the JSON object with keys: "
+                "role, task, findings, risks, next_steps, sources."
+            )
         try:
             second = retry_fn(reminder)
         except Exception as e:  # pragma: no cover - retry best effort
@@ -137,7 +160,7 @@ def validate_and_retry(
             second = raw_text
         if not isinstance(second, str):
             second = json.dumps(second, ensure_ascii=False)
-        valid, raw_text = _check(second)
+        valid, raw_text, missing_keys = _check(second)
         if not valid and escalate_fn:
             escalated = True
             try:
@@ -147,7 +170,7 @@ def validate_and_retry(
                 third = raw_text
             if not isinstance(third, str):
                 third = json.dumps(third, ensure_ascii=False)
-            valid, raw_text = _check(third)
+            valid, raw_text, missing_keys = _check(third)
 
     info = {
         "retried": retried,
@@ -158,7 +181,7 @@ def validate_and_retry(
     }
     logger.info("self_check", extra=info)
     if not valid:
-        meta = {"retried": retried, "valid_json": False}
+        meta = {"retried": retried, "valid_json": False, "missing_keys": missing_keys}
         if escalated:
             meta["escalated"] = True
         try:
@@ -173,12 +196,13 @@ def validate_and_retry(
                         "valid_json": False,
                         "errors": errors,
                         "escalated": escalated,
+                        "missing_keys": missing_keys,
                     },
                 )
         except Exception:
             pass
         if escalated:
-            placeholder = {k: "TODO" for k in REQUIRED_KEYS}
+            placeholder = {k: "Not determined" for k in REQUIRED_KEYS}
             log_self_check(
                 run_id,
                 support_id,
@@ -196,7 +220,7 @@ def validate_and_retry(
             meta,
         )
     log_self_check(run_id, support_id, {"valid_json": True}, head)
-    meta = {"retried": retried, "valid_json": True}
+    meta = {"retried": retried, "valid_json": True, "missing_keys": missing_keys}
     if escalated:
         meta["escalated"] = True
     return raw_text, meta

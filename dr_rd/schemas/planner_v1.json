@@ -3,25 +3,75 @@
   "title": "Planner V1",
   "type": "object",
   "properties": {
-    "plan_id": {"type": "string"},
+    "plan_id": {
+      "type": "string"
+    },
     "tasks": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "id": {"type": "string"},
-          "title": {"type": "string"},
-          "summary": {"type": "string"}
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
         },
-        "required": ["id", "title", "summary"],
+        "required": [
+          "id",
+          "title",
+          "summary"
+        ],
         "additionalProperties": false
       }
     },
-    "constraints": {"type": "string"},
-    "assumptions": {"type": "string"},
-    "metrics": {"type": "string"},
-    "next_steps": {"type": "string"}
+    "constraints": {
+      "type": "string"
+    },
+    "assumptions": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "string"
+    },
+    "next_steps": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "string"
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   },
-  "required": ["plan_id", "tasks"],
+  "required": [
+    "plan_id",
+    "tasks",
+    "role",
+    "task",
+    "findings",
+    "risks",
+    "next_steps",
+    "sources"
+  ],
   "additionalProperties": false
 }

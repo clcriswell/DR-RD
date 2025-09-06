@@ -3,13 +3,65 @@
   "title": "Synthesizer Agent",
   "type": "object",
   "properties": {
-    "summary": {"type": "string"},
-    "key_points": {"type": "array", "items": {"type": "string"}},
-    "contradictions": {"type": "array", "items": {"type": "string"}},
-    "confidence": {"type": "number"},
-    "sources": {"type": "array", "items": {"type": "string"}},
-    "citations_json": {"type": "string"}
+    "summary": {
+      "type": "string"
+    },
+    "key_points": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "citations_json": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "string"
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   },
-  "required": ["summary", "key_points", "citations_json"],
+  "required": [
+    "summary",
+    "key_points",
+    "citations_json",
+    "role",
+    "task",
+    "findings",
+    "risks",
+    "next_steps",
+    "sources"
+  ],
   "additionalProperties": false
 }

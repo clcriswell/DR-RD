@@ -3,39 +3,80 @@
   "title": "Research V2",
   "type": "object",
   "properties": {
-    "role": {"type": "string"},
-    "task": {"type": "string"},
-    "summary": {"type": "string"},
+    "role": {
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
     "findings": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "claim": {"type": "string"},
-          "evidence": {"type": "string"},
-          "citations": {"type": "array", "items": {"type": "string"}}
+          "claim": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         },
-        "required": ["claim", "evidence"],
+        "required": [
+          "claim",
+          "evidence"
+        ],
         "additionalProperties": false
       }
     },
-    "gaps": {"type": "string"},
-    "risks": {"type": "string"},
-    "next_steps": {"type": "string"},
+    "gaps": {
+      "type": "string"
+    },
+    "risks": {
+      "type": "string"
+    },
+    "next_steps": {
+      "type": "string"
+    },
     "sources": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "id": {"type": "string"},
-          "title": {"type": "string"},
-          "url": {"type": "string"}
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
         },
-        "required": ["id", "title"],
+        "required": [
+          "id",
+          "title"
+        ],
         "additionalProperties": false
       }
     }
   },
-  "required": ["role", "task", "summary", "findings", "risks", "next_steps", "sources"],
+  "required": [
+    "role",
+    "task",
+    "summary",
+    "findings",
+    "risks",
+    "next_steps",
+    "sources"
+  ],
   "additionalProperties": false
 }

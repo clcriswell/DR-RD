@@ -1,34 +1,100 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["role", "task", "unit_economics", "npv", "simulations", "assumptions", "risks", "next_steps", "sources"],
+  "required": [
+    "role",
+    "task",
+    "unit_economics",
+    "npv",
+    "simulations",
+    "assumptions",
+    "risks",
+    "next_steps",
+    "sources",
+    "findings"
+  ],
   "properties": {
-    "role": {"type": "string"},
-    "task": {"type": "string"},
+    "role": {
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
     "unit_economics": {
       "type": "object",
-      "required": ["total_revenue", "total_cost", "gross_margin", "contribution_margin"],
+      "required": [
+        "total_revenue",
+        "total_cost",
+        "gross_margin",
+        "contribution_margin"
+      ],
       "properties": {
-        "total_revenue": {"type": "number"},
-        "total_cost": {"type": "number"},
-        "gross_margin": {"type": "number"},
-        "contribution_margin": {"type": "number"}
+        "total_revenue": {
+          "type": "number"
+        },
+        "total_cost": {
+          "type": "number"
+        },
+        "gross_margin": {
+          "type": "number"
+        },
+        "contribution_margin": {
+          "type": "number"
+        }
       }
     },
-    "npv": {"type": "number"},
+    "npv": {
+      "type": "number"
+    },
     "simulations": {
       "type": "object",
-      "required": ["mean", "std_dev", "p5", "p95"],
+      "required": [
+        "mean",
+        "std_dev",
+        "p5",
+        "p95"
+      ],
       "properties": {
-        "mean": {"type": "number"},
-        "std_dev": {"type": "number"},
-        "p5": {"type": "number"},
-        "p95": {"type": "number"}
+        "mean": {
+          "type": "number"
+        },
+        "std_dev": {
+          "type": "number"
+        },
+        "p5": {
+          "type": "number"
+        },
+        "p95": {
+          "type": "number"
+        }
       }
     },
-    "assumptions": {"type": "array", "items": {"type": "string"}},
-    "risks": {"type": "array", "items": {"type": "string"}},
-    "next_steps": {"type": "array", "items": {"type": "string"}},
-    "sources": {"type": "array", "items": {"type": "string"}}
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "findings": {
+      "type": "string"
+    }
   }
 }
