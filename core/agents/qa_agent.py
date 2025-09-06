@@ -11,6 +11,7 @@ from jsonschema import validate
 from core.llm import complete
 from core.tool_router import allow_tools, call_tool
 from dr_rd.prompting import PromptFactory, RetrievalPolicy
+from core.agents.prompt_agent import strip_additional_properties
 
 
 class QAAgent:
@@ -68,10 +69,14 @@ class QAAgent:
             s = text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
             try:
                 data = json.loads(s)
+                data = strip_additional_properties(data, schema)
                 validate(data, schema)
                 return data
             except Exception:
-                repair_user = prompt["user"] + "\nFix to schema."
+                repair_user = (
+                    prompt["user"]
+                    + "\nFix to schema. Only include the JSON keys defined in the schema. Do not add any other fields."
+                )
                 resp = complete(
                     prompt["system"], repair_user, model=self.model, **prompt["llm_hints"]
                 )
@@ -81,7 +86,9 @@ class QAAgent:
                     else json.dumps(resp.content, ensure_ascii=False)
                 )
                 data = json.loads(s)
+                data = strip_additional_properties(data, schema)
                 validate(data, schema)
                 return data
+        data = strip_additional_properties(data, schema)
         validate(data, schema)
         return data

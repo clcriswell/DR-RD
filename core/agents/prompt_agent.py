@@ -12,6 +12,23 @@ from dr_rd.prompting.prompt_factory import PromptFactory
 from utils.logging import logger
 
 
+def strip_additional_properties(data: Any, schema: dict) -> Any:
+    """Recursively remove keys not defined in the schema."""
+    if not isinstance(schema, dict):
+        return data
+    if isinstance(data, dict):
+        props = schema.get("properties", {}) or {}
+        new: dict[str, Any] = {}
+        for key, value in data.items():
+            if key in props:
+                new[key] = strip_additional_properties(value, props[key])
+        return new
+    if isinstance(data, list):
+        item_schema = schema.get("items", {}) or {}
+        return [strip_additional_properties(item, item_schema) for item in data]
+    return data
+
+
 class PromptFactoryAgent(LLMRoleAgent):
     """Mixin providing PromptFactory-based execution with schema validation
     and optional evaluator hooks."""
@@ -39,6 +56,7 @@ class PromptFactoryAgent(LLMRoleAgent):
             try:
                 data = json.loads(raw)
                 if schema is not None:
+                    data = strip_additional_properties(data, schema)
                     jsonschema.validate(data, schema)
                 valid = True
             except Exception as e:

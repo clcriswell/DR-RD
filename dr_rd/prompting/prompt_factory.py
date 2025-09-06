@@ -51,14 +51,19 @@ class PromptFactory:
             evaluation_hooks = spec.get("evaluation_hooks") or template.evaluation_hooks
             provider_hints = template.provider_hints or {}
             system = template.system
-            ast = JINJA_ENV.parse(template.user_template)
-            placeholders = meta.find_undeclared_variables(ast)
-            missing = [k for k in placeholders if k not in inputs]
-            if missing:
-                raise ValueError(
-                    "Missing required fields in PromptAgent inputs: " + ", ".join(sorted(missing))
-                )
-            user_prompt = JINJA_ENV.from_string(template.user_template).render(**inputs)
+            user_template = template.user_template or ""
+            if user_template:
+                ast = JINJA_ENV.parse(user_template)
+                placeholders = meta.find_undeclared_variables(ast)
+                missing = [k for k in placeholders if k not in inputs]
+                if missing:
+                    raise ValueError(
+                        "Missing required fields in PromptAgent inputs: " + ", ".join(sorted(missing))
+                    )
+                user_prompt = JINJA_ENV.from_string(user_template).render(**inputs)
+            else:
+                placeholders = set()
+                user_prompt = ""
         else:
             io_schema_ref = spec.get("io_schema_ref") or "unknown"
             retrieval_policy = spec.get("retrieval_policy") or RetrievalPolicy.NONE
