@@ -78,7 +78,7 @@ Every model call returns token usage and cost data from the provider. Per-step t
 Secrets are stored in Streamlit's encrypted settings or local `.env` files. Only the provided API keys are sent to external services. Trace exports redact sensitive fields based on repository policies.
 
 ## FAQ
-**What are Open Issues?** Tasks that failed or returned placeholders. They appear in the final report under an "Open Issues" section so gaps are explicit.
+**What are Gaps and Unresolved Issues?** Tasks that failed or returned placeholders. They appear in the final report under a "Gaps and Unresolved Issues" section so gaps are explicit.
 
 **Can I rerun a session?** Use the **Retry run** button shown on error banners or rerun with the same idea.
 

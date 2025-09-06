@@ -116,7 +116,9 @@ def test_open_issues_in_prompt(mock_complete, monkeypatch):
     monkeypatch.setattr(orchestrator, "pseudonymize_for_model", lambda x: (x, {}))
     compose_final_proposal("idea", {})
     _, prompt = mock_complete.call_args[0]
-    assert "Open Issues" in prompt
+    assert "### Research" in prompt
+    assert "[No data provided]" in prompt
+    assert "Open Issues" not in prompt
 
 
 @patch("core.orchestrator.complete")
@@ -140,4 +142,4 @@ def test_final_report_fallback(mock_complete):
     st.session_state["alias_maps"] = {}
     out = compose_final_proposal("idea", {})
     assert out.strip() != ""
-    assert "Open Issues" in out
+    assert "## Gaps and Unresolved Issues" in out

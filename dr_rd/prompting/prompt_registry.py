@@ -132,6 +132,7 @@ registry.register(
             "- ## IP & Prior Art\n"
             "- ## Market & GTM\n"
             "- ## Cost Overview\n"
+            "- ## Gaps and Unresolved Issues\n"
             "- ## Next Steps"
         ),
         io_schema_ref="dr_rd/schemas/synthesizer_agent.json",

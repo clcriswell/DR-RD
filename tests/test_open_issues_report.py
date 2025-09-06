@@ -28,5 +28,5 @@ def test_open_issues_section_in_report():
         {"task_id": "T1", "role": "CTO", "result": placeholder, "title": "t"}
     ]
     report = compose_final_proposal("idea", {"CTO": json.dumps(valid)})
-    assert "## Open Issues" in report
-    assert "T1" in report
+    assert "## Gaps and Unresolved Issues" in report
+    assert "CTO analysis could not be completed." in report

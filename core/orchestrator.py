@@ -1424,7 +1424,7 @@ def compose_final_proposal(
             raise TimeoutError("deadline reached")
 
     _check()
-    # Build findings markdown excluding placeholder results
+    # Build findings markdown, inserting placeholders for missing roles
     raw = st.session_state.get("answers_raw") or {k: [v] for k, v in answers.items()}
 
     def _is_placeholder(txt: str) -> bool:
@@ -1439,21 +1439,26 @@ def compose_final_proposal(
             pass
         return txt.strip() in ("TODO", "Not determined")
 
+    expected_roles = set(raw.keys())
+    for t in st.session_state.get("plan_tasks", []):
+        r = t.get("role")
+        if r:
+            expected_roles.add(r)
+
     parts: list[str] = []
-    for role, outs in raw.items():
-        for out in outs:
-            if _is_placeholder(out):
-                continue
-            parts.append(f"### {role}\n{out}")
-    open_issues = st.session_state.get("open_issues", [])
-    if open_issues:
-        parts.append("## Open Issues")
-        for issue in open_issues:
-            parts.append(
-                f"- {issue.get('task_id','')} ({issue.get('role','')}): "
-                f"{json.dumps(issue.get('result'), ensure_ascii=False)}"
-            )
+    missing_roles: list[str] = []
+    for role in expected_roles:
+        outs = raw.get(role) or []
+        non_placeholder = [o for o in outs if not _is_placeholder(o)]
+        if not non_placeholder:
+            parts.append(f"### {role}\n[No data provided]")
+            missing_roles.append(role)
+        else:
+            for out in non_placeholder:
+                parts.append(f"### {role}\n{out}")
+
     findings_md = "\n".join(parts)
+    open_issues = st.session_state.get("open_issues", [])
     alias_map: dict[str, str] = {}
     try:
         for m in st.session_state.get("alias_maps", {}).values():
@@ -1477,16 +1482,17 @@ def compose_final_proposal(
     final_markdown = (result.content or "").strip()
     if not final_markdown:
         final_markdown = "Final report generation failed."
-    if open_issues:
-        issues_md = "\n".join(
-            ["## Open Issues"]
-            + [
-                f"- {i.get('task_id','')} ({i.get('role','')}): "
-                f"{json.dumps(i.get('result'), ensure_ascii=False)}"
-                for i in open_issues
-            ]
-        )
-        final_markdown = (final_markdown + "\n\n" + issues_md).strip()
+
+    gap_lines: list[str] = []
+    if missing_roles or open_issues:
+        gap_lines.append("## Gaps and Unresolved Issues")
+        for role in missing_roles:
+            gap_lines.append(f"- {role} analysis is not available in this run.")
+        for issue in open_issues:
+            r = issue.get("role") or "Unknown role"
+            gap_lines.append(f"- {r} analysis could not be completed.")
+    if gap_lines:
+        final_markdown = final_markdown + "\n\n" + "\n".join(gap_lines)
     if alias_map:
         final_markdown = rehydrate_output(final_markdown, alias_map)
     run_id = st.session_state.get("run_id")
