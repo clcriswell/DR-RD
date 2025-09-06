@@ -1,0 +1,8 @@
+# Work Plan
+
+{% for phase, tasks in phases.items() %}
+**{{ phase }}**
+{% for t in tasks %}
+- *{{ t.id }} ({{ t.role }})* – **{{ t.title }}:** {{ t.summary }}
+{% endfor %}
+{% endfor %}

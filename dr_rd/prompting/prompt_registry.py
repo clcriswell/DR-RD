@@ -80,7 +80,7 @@ registry = PromptRegistry()
 registry.register(
     PromptTemplate(
         id="planner",
-        version="v1",
+        version="v2",
         role="Planner",
         task_key=None,
         system=(
@@ -94,14 +94,17 @@ registry.register(
             "should default to 'Dynamic Specialist'. Prefer ids "
             '"T01","T02",... If the user supplies ids, convert to that '
             "format. Produce at least six tasks spanning design/architecture, "
-            "materials, regulatory/IP, finance, marketing, and QA/testing. "
-            'If required information is missing, return {"error":"MISSING_INFO",'
-            '"needs":[...]} instead of empty fields.'
+            "materials, regulatory/IP, finance, marketing, and QA/testing.\n"
+            "Required JSON keys:\n"
+            "- tasks\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
+            "Example:\n"
+            '{"tasks": [{"id": "T01", "title": "Define architecture", "summary": "...", "description": "...", "role": "CTO"}]}\n'
+            'If required information is missing, return {"error":"MISSING_INFO","needs":[...]} instead of empty fields.'
         ),
         user_template=(
             "Project idea: {idea}{constraints_section}{risk_section}\n\n"
-            "Follow the planner schema exactly and return only the JSON object. "
-            "No extra text."
+            "Follow the planner schema exactly and return only the JSON object. No extra text."
         ),
         io_schema_ref="dr_rd/schemas/planner_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -111,7 +114,7 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="synthesizer",
-        version="v1",
+        version="v2",
         role="Synthesizer",
         task_key=None,
         system="You are a multi-disciplinary R&D lead.",
@@ -124,6 +127,7 @@ registry.register(
             "project concept, researched data, and a build guide. Use clear "
             "Markdown with these sections:\n\n"
             "- ## Executive Summary\n"
+            "- ## Key Results\n"
             "- ## Problem & Value\n"
             "- ## Research Findings\n"
             "- ## Risks & Unknowns\n"
@@ -133,7 +137,8 @@ registry.register(
             "- ## Market & GTM\n"
             "- ## Cost Overview\n"
             "- ## Gaps and Unresolved Issues\n"
-            "- ## Next Steps"
+            "- ## Next Steps\n\n"
+            "Summarize the most important findings in 'Key Results'."
         ),
         io_schema_ref="dr_rd/schemas/synthesizer_agent.json",
         retrieval_policy=RetrievalPolicy.NONE,
@@ -157,6 +162,7 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "CTO", "task": "Assess architecture", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
@@ -189,6 +195,7 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "Regulatory", "task": "Check standards", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
@@ -226,6 +233,7 @@ registry.register(
             "- npv\n"
             "- simulations\n"
             "- assumptions\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "Finance", "task": "Estimate costs", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."], '
@@ -260,6 +268,7 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "Marketing Analyst", "task": "Assess market", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
@@ -291,6 +300,7 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "IP Analyst", "task": "Review patents", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
@@ -322,6 +332,7 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "Patent", "task": "Assess claims", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
@@ -354,6 +365,7 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "Research Scientist", "task": "Study phenomenon", "summary": "...", '
             '"findings": [{"claim": "...", "evidence": "..."}], "gaps": "...", '
@@ -362,7 +374,9 @@ registry.register(
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide detailed scientific analysis "
-            "with findings, risks, next_steps, and sources in JSON."
+            "with findings, gaps, risks, next_steps, and sources in JSON. Lists such as findings must be arrays and fields like risks and next_steps cannot be blank.\n"
+            "Example:\n"
+            '{"role": "Research Scientist", "task": "Study phenomenon", "summary": "...", "findings": [{"claim": "...", "evidence": "..."}], "gaps": "...", "risks": ["..."], "next_steps": ["..."], "sources": [{"id": "1", "title": "..."}]}'
         ),
         io_schema_ref="dr_rd/schemas/research_v2.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
@@ -386,6 +400,7 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "HRM", "task": "Plan team", "summary": "...", "findings": "...", '
             '"risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
@@ -419,6 +434,7 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "Materials Engineer", "task": "Select materials", "summary": "...", '
             '"findings": "...", "properties": [], "tradeoffs": ["..."], '
@@ -428,7 +444,9 @@ registry.register(
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide material selection and "
             "feasibility analysis, including summary, properties, tradeoffs, "
-            "risks, next_steps, and sources in JSON."
+            "risks, next_steps, and sources in JSON. Lists such as properties and tradeoffs must be arrays and fields like risks and next_steps cannot be blank.\n"
+            "Example:\n"
+            '{"role": "Materials Engineer", "task": "Select materials", "summary": "...", "findings": "...", "properties": [], "tradeoffs": [], "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}'
         ),
         io_schema_ref="dr_rd/schemas/materials_engineer_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -452,13 +470,16 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "Dynamic Specialist", "task": "General analysis", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide a concise analysis and " "recommendations."
+            "Idea: {idea}\nTask: {task}\nProvide a concise analysis and recommendations. Lists must be arrays where appropriate and fields like risks and next_steps cannot be blank.\n"
+            "Example:\n"
+            '{"role": "Dynamic Specialist", "task": "General analysis", "summary": "...", "findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}'
         ),
         io_schema_ref="dr_rd/schemas/generic_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -485,6 +506,7 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"role": "QA", "task": "Test review", "summary": "...", "findings": "...", '
             '"defects": ["..."], "coverage": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'

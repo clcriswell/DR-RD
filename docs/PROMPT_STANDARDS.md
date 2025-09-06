@@ -25,6 +25,9 @@ All prompts include safety instructions:
 
 When retrieval is enabled, prompts also require inline numbered citations and a final `sources` list.
 
+## JSON Key Conventions
+System prompts enumerate a **Required JSON keys** section. All listed keys must appear in the model output; use empty strings or arrays or the string "Not determined" when data is unavailable. Agents may not add additional keys. Roles with frequent schema errors embed an example JSON object in the user prompt, and user templates clarify that list fields (e.g. `properties`, `tradeoffs`) must be arrays and that fields like `risks` and `next_steps` cannot be blank. The Synthesizer includes a "## Key Results" section after the Executive Summary to highlight the most important findings.
+
 ## Using the PromptFactory
 Agents request prompts through `PromptFactory.build_prompt` providing:
 `{"role", "task", "inputs", "io_schema_ref", "retrieval_policy", ...}`.

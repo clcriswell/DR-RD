@@ -1,6 +1,7 @@
 # core/redaction.py
 from __future__ import annotations
 import re
+import random
 from dataclasses import dataclass, field
 from typing import Dict, Set, Tuple, Optional, Iterable
 
@@ -69,11 +70,21 @@ DEFAULT_GLOBAL_WHITELIST = {
 DEFAULT_ROLE_WHITELIST = {role: set() for role in ROLE_NAMES}
 DEFAULT_ROLE_WHITELIST["Regulatory"].update({"FAA", "FDA", "ISO", "IEC", "CE"})
 
+ROLE_SUFFIXES = {
+    "Materials Engineer": ["Scope", "Alloy", "Composite"],
+    "Research Scientist": ["Lab", "Analyzer", "Scope"],
+    "Dynamic Specialist": ["Module", "Unit"],
+    "CTO": ["Core", "System"],
+}
+LOW_NEED_ROLES = {"Finance", "QA", "HRM", "Marketing Analyst", "Marketing", "IP Analyst"}
+GENERIC_ALIASES = ["the product", "the device", "the system"]
+
 @dataclass
 class Redactor:
     global_whitelist: Dict[str, Set[str]] = field(default_factory=lambda: {k:set(v) for k,v in DEFAULT_GLOBAL_WHITELIST.items()})
     role_whitelist: Dict[str, Set[str]] = field(default_factory=lambda: {k:set(v) for k,v in DEFAULT_ROLE_WHITELIST.items()})
     alias_map: Dict[str, str] = field(default_factory=dict)
+    project_name: Optional[str] = None
     counters: Dict[str, int] = field(
         default_factory=lambda: {
             k: 0
@@ -163,6 +174,16 @@ class Redactor:
         if not text:
             return text, self.alias_map, set()
         placeholders_seen: Set[str] = set()
+
+        if self.project_name and role:
+            if role in LOW_NEED_ROLES:
+                alias = random.choice(GENERIC_ALIASES)
+            else:
+                base = re.sub(r"\W+", "", self.project_name.title()) or "Project"
+                suffix = random.choice(ROLE_SUFFIXES.get(role, ["Device"]))
+                alias = base + suffix
+            text = re.sub(re.escape(self.project_name), alias, text, flags=re.I)
+            self.alias_map[self.project_name] = alias
 
         if categories is not None:
             order = list(categories)
