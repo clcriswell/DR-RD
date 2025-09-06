@@ -29,6 +29,7 @@ from core.router import route_task
 from core.schemas import Plan, ScopeNote
 from dr_rd.agents.dynamic_agent import EmptyModelOutput
 from dr_rd.prompting.prompt_registry import RetrievalPolicy, registry
+from dr_rd.prompting.prompt_factory import JINJA_ENV
 from memory.decision_log import log_decision
 from orchestrators.executor import execute as exec_artifacts
 from utils import checkpoints, otel, trace_writer
@@ -302,7 +303,7 @@ def generate_plan(
     if placeholders_seen:
         system_prompt += "\n" + redactor.note_for_placeholders(placeholders_seen)
 
-    user_prompt = tpl.user_template.format(
+    user_prompt = JINJA_ENV.from_string(tpl.user_template).render(
         idea=sn.idea,
         constraints_section=constraints_section,
         risk_section=risk_section,
@@ -1411,7 +1412,7 @@ def compose_final_proposal(
     pseudo_payload, extra_map = pseudonymize_for_model({"idea": idea, "findings_md": findings_md})
     alias_map.update(extra_map)
     tpl = registry.get("Synthesizer")
-    prompt = tpl.user_template.format(
+    prompt = JINJA_ENV.from_string(tpl.user_template).render(
         idea=pseudo_payload["idea"], findings_md=pseudo_payload["findings_md"]
     )
     system_prompt = tpl.system
