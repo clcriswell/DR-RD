@@ -8,6 +8,7 @@ from core import orchestrator
 
 def _setup(monkeypatch, outputs):
     monkeypatch.setattr(ff, "PARALLEL_EXEC_ENABLED", False)
+    monkeypatch.setattr(ff, "REFLECTION_ENABLED", False)
 
     class DummyAgent:
         def __init__(self, model):
@@ -22,7 +23,7 @@ def _setup(monkeypatch, outputs):
     monkeypatch.setattr(
         orchestrator,
         "select_model",
-        lambda purpose, agent_name=None: "m-high" if purpose == "agent_high" else "m",
+        lambda purpose, ui_model=None, agent_name=None: "m-high" if purpose == "agent_high" else "m",
     )
     monkeypatch.setattr("core.evaluation.self_check._load_schema", lambda role: None)
 

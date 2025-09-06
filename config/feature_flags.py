@@ -17,7 +17,12 @@ def _flag(name: str) -> bool:
 EVALUATORS_ENABLED = _flag("EVALUATORS_ENABLED")
 PARALLEL_EXEC_ENABLED = _flag("PARALLEL_EXEC_ENABLED")
 TOT_PLANNING_ENABLED = _flag("TOT_PLANNING_ENABLED")
-REFLECTION_ENABLED = _flag("REFLECTION_ENABLED")
+# Reflection is enabled by default unless explicitly disabled via env var.
+REFLECTION_ENABLED = (
+    _flag("REFLECTION_ENABLED")
+    if "REFLECTION_ENABLED" in os.environ
+    else True
+)
 SIM_OPTIMIZER_ENABLED = _flag("SIM_OPTIMIZER_ENABLED")
 SIM_OPTIMIZER_STRATEGY: str = os.getenv("SIM_OPTIMIZER_STRATEGY", "random")
 SIM_OPTIMIZER_MAX_EVALS: int = int(os.getenv("SIM_OPTIMIZER_MAX_EVALS", "50"))

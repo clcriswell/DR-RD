@@ -6,6 +6,7 @@ from datetime import datetime
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
+from collections import defaultdict
 
 import streamlit as st
 
@@ -564,6 +565,7 @@ def execute_plan(
                         pseudo.get("tests", []),
                         pseudo.get("defects", []),
                         idea=pseudo.get("idea", ""),
+                        context=pseudo.get("context_data", ""),
                     )
                 else:
                     out = invoke_agent_safely(
@@ -716,6 +718,7 @@ def execute_plan(
                             routed.get("tests", []),
                             routed.get("defects", []),
                             idea=idea_str,
+                            context=routed.get("context_data", ""),
                         )
                     except Exception as e:
                         _append(
@@ -879,6 +882,7 @@ def execute_plan(
                             routed.get("tests", []),
                             routed.get("defects", []),
                             idea=idea_str,
+                            context=routed.get("context_data", ""),
                         )
                     except Exception as e:
                         _append(
@@ -1114,15 +1118,21 @@ def execute_plan(
         pass
     eval_round = 0
     evaluations: list[dict] = []
+    reflection_attempts = 0
+    reflection_done = False
+    role_retries: dict[str, int] = defaultdict(int)
+    run_state: dict[str, Any] = {}
     while True:
         _check()
+        qa_tasks = [t for t in norm_tasks if (t.get("role") == "QA")]
+        exec_only = [t for t in norm_tasks if t.get("role") != "QA"]
         if ff.PARALLEL_EXEC_ENABLED:
             from types import SimpleNamespace
 
             from core.engine.executor import run_tasks
 
             exec_tasks: list[dict[str, str]] = []
-            for i, t in enumerate(norm_tasks, 1):
+            for i, t in enumerate(exec_only, 1):
                 tmp = dict(t)
                 tmp.setdefault("id", f"T{i:02d}")
                 tmp.setdefault("task", tmp.get("description", ""))
@@ -1141,12 +1151,17 @@ def execute_plan(
 
             run_tasks(exec_tasks, state=_State())
         else:
-            for t in norm_tasks:
+            for t in exec_only:
                 _run_task(t)
                 _check()
 
         follow_ups: list[dict[str, str]] = []
-        if ff.REFLECTION_ENABLED and role_to_findings:
+        if (
+            ff.REFLECTION_ENABLED
+            and not reflection_done
+            and role_to_findings
+            and reflection_attempts < ff.REFLECTION_MAX_ATTEMPTS
+        ):
             reflection_cls = AGENT_REGISTRY.get("Reflection")
             if reflection_cls:
                 reflection_agent = agents.get("Reflection") or reflection_cls(
@@ -1207,6 +1222,8 @@ def execute_plan(
                         follow_ups = []
                     if not isinstance(follow_ups, list):
                         follow_ups = []
+                reflection_attempts += 1
+                reflection_done = True
 
         for ft in follow_ups:
             if isinstance(ft, str):
@@ -1218,7 +1235,37 @@ def execute_plan(
                 task = ft
             else:
                 continue
+            rname = task.get("role")
+            if rname and role_retries.get(rname, 0) >= 1:
+                continue
             _run_task(task)
+            if rname:
+                role_retries[rname] = role_retries.get(rname, 0) + 1
+            _check()
+
+        def _has_placeholder(obj: Any) -> bool:
+            if isinstance(obj, str):
+                return obj.strip() in ("", "Not determined")
+            if isinstance(obj, list):
+                return any(_has_placeholder(v) for v in obj)
+            if isinstance(obj, dict):
+                return any(_has_placeholder(v) for v in obj.values()) or obj == {}
+            return obj in (None, "")
+
+        for role, count in role_retries.items():
+            if count >= 1:
+                payload = role_to_findings.get(role)
+                if _has_placeholder(payload):
+                    note = f"{role} analysis could not be completed after two attempts."
+                    open_issues.append(
+                        {"title": note, "role": role, "task_id": "", "result": payload}
+                    )
+                    run_state["has_failures"] = True
+
+        for qt in qa_tasks:
+            qt = dict(qt)
+            qt["context_data"] = json.dumps(role_to_findings)
+            _run_task(qt)
             _check()
 
         if not ff.EVALUATION_ENABLED:
@@ -1394,6 +1441,7 @@ def execute_plan(
         st.session_state["alias_maps"] = alias_maps
         st.session_state["answers_raw"] = answers
         st.session_state["open_issues"] = open_issues
+        st.session_state["run_state"] = run_state
     except Exception:
         pass
     if norm_tasks:

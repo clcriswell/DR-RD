@@ -473,7 +473,8 @@ registry.register(
         task_key=None,
         system=(
             "You are a QA engineer focused on requirement coverage, testing, and "
-            "defects. Avoid architecture or marketing topics.\n"
+            "defects. Avoid architecture or marketing topics. QA runs after all "
+            "other domain agents and reflection.\n"
             "Required JSON keys:\n"
             "- summary\n"
             "- findings\n"
@@ -490,9 +491,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nList any detected defects and missing "
-            "requirements. Provide a concise assessment and conclude with the "
-            "JSON summary."
+            "Idea: {idea}\nTask: {task}\nCombined design and requirements context: {context}\n"
+            "List any detected defects and missing requirements. Provide a "
+            "concise assessment and conclude with the JSON summary."
         ),
         io_schema_ref="dr_rd/schemas/qa_v2.json",
         retrieval_policy=RetrievalPolicy.NONE,
@@ -506,11 +507,22 @@ registry.register(
         role="Reflection",
         task_key=None,
         system=(
-            "You are a Reflection agent analyzing the team's outputs. Determine "
-            "if follow-up tasks are required. Respond with either a JSON array "
-            "of follow-up task strings or the exact string 'no further tasks'."
+            "You are a Reflection agent analyzing the domain agents’ outputs.  "
+            "Review each domain’s JSON output for any empty sections or "
+            "placeholder values such as 'Not determined'.  If any crucial "
+            "information is missing or any agent output is empty, propose "
+            "follow-up tasks to fill the gaps.  Each follow-up must be a string "
+            "of the form '[Role]: Task description' (e.g. '[Finance]: Recalculate "
+            "budget with proper data').  If all outputs are complete, respond "
+            "with the exact string 'no further tasks'.  Always return either a "
+            "JSON array of follow-up task strings or the literal string 'no "
+            "further tasks'."
         ),
-        user_template="Project Idea: {idea}\nTask: {task}",
+        user_template=(
+            "Project Idea: {idea}\n\nExisting outputs:\n{task}\n\n"
+            "Analyse these outputs and recommend follow-up tasks for any missing "
+            "or placeholder data."
+        ),
         io_schema_ref="dr_rd/schemas/reflection_agent.json",
         retrieval_policy=RetrievalPolicy.NONE,
     )
