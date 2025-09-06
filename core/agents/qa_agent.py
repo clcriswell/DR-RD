@@ -34,6 +34,7 @@ class QAAgent:
         tests: list[str],
         defects: list[dict],
         idea: str = "",
+        context: str = "",
     ) -> Any:
         task_txt = task if isinstance(task, str) else json.dumps(task, ensure_ascii=False)
         matrix = call_tool(
@@ -47,6 +48,7 @@ class QAAgent:
             "inputs": {
                 "idea": idea,
                 "task": task_txt,
+                "context": context,
                 "matrix": matrix,
                 "coverage": coverage,
                 "defects": stats,

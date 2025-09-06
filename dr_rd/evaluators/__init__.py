@@ -8,6 +8,7 @@ from .feasibility import FeasibilityEvaluator
 from .novelty import NoveltyEvaluator
 from .patent_overlap_check import evaluate as patent_overlap_check
 from .reg_citation_check import evaluate as reg_citation_check
+from .placeholder_check import evaluate as placeholder_check
 
 # Register default evaluators
 EvaluatorRegistry.register("cost", CostEvaluator)
@@ -52,6 +53,7 @@ __all__ = [
     "ComplianceEvaluator",
     "reg_citation_check",
     "patent_overlap_check",
+    "placeholder_check",
     "feasibility_ev",
     "clarity_ev",
     "coherence_ev",
