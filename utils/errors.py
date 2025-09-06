@@ -106,11 +106,15 @@ def redact(text: str) -> str:
 
 
 def _coerce_sets(obj: Any) -> Any:
+    """Recursively convert sets to sorted lists for JSON serialization."""
+
     if isinstance(obj, set):
-        return list(obj)
+        # Sort deterministically using string representation to avoid type
+        # comparison issues between heterogeneous elements.
+        return sorted((_coerce_sets(v) for v in obj), key=lambda x: str(x))
     if isinstance(obj, dict):
         return {k: _coerce_sets(v) for k, v in obj.items()}
-    if isinstance(obj, list):
+    if isinstance(obj, (list, tuple)):
         return [_coerce_sets(v) for v in obj]
     return obj
 

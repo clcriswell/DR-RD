@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 from jinja2 import Environment, meta
@@ -13,27 +13,31 @@ from jinja2 import Environment, meta
 from dr_rd.examples import safety_filters
 from dr_rd.prompting import example_selectors
 
-CONFIG_PATH = Path("config/reporting.yaml")
-CONFIG = yaml.safe_load(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
-RAG_CFG = yaml.safe_load(Path("config/rag.yaml").read_text()) if Path("config/rag.yaml").exists() else {}
-PLACEHOLDER_TOKEN_RE = re.compile(r'\[(PERSON|ORG|ADDRESS|IP|DEVICE)_\d+\]')
-JINJA_ENV = Environment()
-
 from .prompt_registry import (
+    RETRIEVAL_POLICY_META,
     PromptRegistry,
     RetrievalPolicy,
-    RETRIEVAL_POLICY_META,
+)
+from .prompt_registry import (
     registry as default_registry,
 )
+
+CONFIG_PATH = Path("config/reporting.yaml")
+CONFIG = yaml.safe_load(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
+RAG_CFG = (
+    yaml.safe_load(Path("config/rag.yaml").read_text()) if Path("config/rag.yaml").exists() else {}
+)
+PLACEHOLDER_TOKEN_RE = re.compile(r"\[(PERSON|ORG|ADDRESS|IP|DEVICE)_\d+\]")
+JINJA_ENV = Environment()
 
 
 class PromptFactory:
     """Build prompts from templates and runtime spec."""
 
-    def __init__(self, registry: Optional[PromptRegistry] = None) -> None:
+    def __init__(self, registry: PromptRegistry | None = None) -> None:
         self.registry = registry or default_registry
 
-    def build_prompt(self, spec: Dict[str, Any]) -> Dict[str, Any]:
+    def build_prompt(self, spec: dict[str, Any]) -> dict[str, Any]:
         role = spec.get("role")
         task_key = spec.get("task_key")
         inputs = spec.get("inputs") or {}
@@ -52,8 +56,7 @@ class PromptFactory:
             missing = [k for k in placeholders if k not in inputs]
             if missing:
                 raise ValueError(
-                    "Missing required fields in PromptAgent inputs: "
-                    + ", ".join(sorted(missing))
+                    "Missing required fields in PromptAgent inputs: " + ", ".join(sorted(missing))
                 )
             user_prompt = JINJA_ENV.from_string(template.user_template).render(**inputs)
         else:
@@ -83,32 +86,37 @@ class PromptFactory:
             or getattr(feature_flags, "ENABLE_LIVE_SEARCH", False)
         )
 
-        meta = RETRIEVAL_POLICY_META.get(
+        policy_meta = RETRIEVAL_POLICY_META.get(
             retrieval_policy, RETRIEVAL_POLICY_META[RetrievalPolicy.NONE]
         )
 
         topk_map = RAG_CFG.get("topk_defaults", {})
-        plan_topk = topk_map.get(retrieval_policy.name, meta["top_k"])
+        plan_topk = topk_map.get(retrieval_policy.name, policy_meta["top_k"])
         retrieval_plan = {
             "policy": retrieval_policy.name,
             "top_k": plan_topk,
-            "domains": meta["source_types"],
-            "budget_hint": meta["budget_hint"],
+            "domains": policy_meta["source_types"],
+            "budget_hint": policy_meta["budget_hint"],
         }
 
         if retrieval_enabled and retrieval_policy != RetrievalPolicy.NONE:
             retrieval_text = (
                 f" Retrieval policy {retrieval_policy.name}: use up to {plan_topk} items from "
-                f"{', '.join(meta['source_types'])}; budget {meta['budget_hint']}."
+                f"{', '.join(policy_meta['source_types'])}; budget {policy_meta['budget_hint']}."
                 " Provide inline numbered citations and a final sources list."
             )
             system += retrieval_text
 
-        system += f" Return only JSON conforming to {io_schema_ref}. Do not include chain of thought."
+        system += (
+            f" Return only JSON conforming to {io_schema_ref}. Do not include chain of thought."
+        )
 
         inputs_blob = (user_prompt or "") + "\n" + (str(inputs) if inputs else "")
         if PLACEHOLDER_TOKEN_RE.search(inputs_blob):
-            system = system.rstrip() + "\n\nPlaceholders like [PERSON_1], [ORG_1] are aliases. Use them verbatim."
+            system = (
+                system.rstrip()
+                + "\n\nPlaceholders like [PERSON_1], [ORG_1] are aliases. Use them verbatim."
+            )
 
         llm_hints = {"provider": "auto", "json_strict": True, "tool_use": "prefer"}
         llm_hints.update(provider_hints)
@@ -121,7 +129,11 @@ class PromptFactory:
             "evaluation_hooks": evaluation_hooks,
         }
 
-        if getattr(feature_flags, "EXAMPLES_ENABLED", True) and template and template.example_policy:
+        if (
+            getattr(feature_flags, "EXAMPLES_ENABLED", True)
+            and template
+            and template.example_policy
+        ):
             pol = {
                 "topk": CONFIG.get("EXAMPLE_TOPK_PER_ROLE", 0),
                 "max_tokens": CONFIG.get("EXAMPLE_MAX_TOKENS", 0),
