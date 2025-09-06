@@ -11,6 +11,7 @@ from jsonschema import validate
 from core.llm import complete
 from core.tool_router import allow_tools, call_tool
 from dr_rd.prompting import PromptFactory, RetrievalPolicy
+from core.agents.prompt_agent import strip_additional_properties
 
 
 class MaterialsAgent:
@@ -41,11 +42,18 @@ class MaterialsAgent:
     def _validate(self, text: str, schema: dict, prompt: dict) -> Any:
         try:
             data = json.loads(text)
+            data = strip_additional_properties(data, schema)
             validate(data, schema)
             return data
         except Exception:
-            repair_user = prompt["user"] + "\nFix to schema."
-            resp = complete(prompt["system"], repair_user, model=self.model, **prompt["llm_hints"])
+            repair_user = (
+                prompt["user"]
+                + "\nFix to schema. Only include the JSON keys defined in the schema. Do not add any other fields. Ensure 'properties' is an array of objects with fields name, property, value, units, source."
+            )
+            resp = complete(
+                prompt["system"], repair_user, model=self.model, **prompt["llm_hints"]
+            )
             data = json.loads(resp.content)
+            data = strip_additional_properties(data, schema)
             validate(data, schema)
             return data
