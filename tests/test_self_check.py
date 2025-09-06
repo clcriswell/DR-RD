@@ -4,9 +4,7 @@ from core.evaluation.self_check import _has_required, validate_and_retry
 
 
 def test_self_check_retry_success(monkeypatch):
-    monkeypatch.setattr(
-        "core.evaluation.self_check._load_schema", lambda role: None
-    )
+    monkeypatch.setattr("core.evaluation.self_check._load_schema", lambda role: None)
     calls = {"count": 0}
 
     def retry_fn(reminder: str) -> str:
@@ -25,30 +23,24 @@ def test_self_check_retry_success(monkeypatch):
     bad_output = "No JSON here"
     fixed, meta = validate_and_retry("Research Scientist", {"title": "t"}, bad_output, retry_fn)
     assert json.loads(fixed)["role"] == "Research Scientist"
-    assert meta == {"retried": True, "valid_json": True}
+    assert meta == {"retried": True, "valid_json": True, "missing_keys": []}
     assert calls["count"] == 1
 
 
 def test_self_check_retry_failure(monkeypatch):
-    monkeypatch.setattr(
-        "core.evaluation.self_check._load_schema", lambda role: None
-    )
+    monkeypatch.setattr("core.evaluation.self_check._load_schema", lambda role: None)
 
     def retry_fn(reminder: str) -> str:
         return "still bad"
 
     bad_output = "No JSON here"
-    fixed, meta = validate_and_retry(
-        "Research Scientist", {"title": "t"}, bad_output, retry_fn
-    )
+    fixed, meta = validate_and_retry("Research Scientist", {"title": "t"}, bad_output, retry_fn)
     assert fixed["valid_json"] is False
-    assert meta == {"retried": True, "valid_json": False}
+    assert meta == {"retried": True, "valid_json": False, "missing_keys": []}
 
 
 def test_self_check_retry_dict_output(monkeypatch):
-    monkeypatch.setattr(
-        "core.evaluation.self_check._load_schema", lambda role: None
-    )
+    monkeypatch.setattr("core.evaluation.self_check._load_schema", lambda role: None)
     calls = {"count": 0}
 
     def retry_fn(reminder: str):
@@ -65,8 +57,33 @@ def test_self_check_retry_dict_output(monkeypatch):
     bad_output = "No JSON here"
     fixed, meta = validate_and_retry("Research Scientist", {"title": "t"}, bad_output, retry_fn)
     assert json.loads(fixed)["role"] == "Research Scientist"
-    assert meta == {"retried": True, "valid_json": True}
+    assert meta == {"retried": True, "valid_json": True, "missing_keys": []}
     assert calls["count"] == 1
+
+
+def test_missing_keys_reminder(monkeypatch):
+    monkeypatch.setattr("core.evaluation.self_check._load_schema", lambda role: None)
+    captured = {}
+
+    def retry_fn(reminder: str) -> str:
+        captured["reminder"] = reminder
+        return json.dumps(
+            {
+                "role": "Research Scientist",
+                "task": "t",
+                "findings": ["f"],
+                "risks": ["r"],
+                "next_steps": ["n"],
+                "sources": [],
+            }
+        )
+
+    bad_output = json.dumps({"role": "Research Scientist", "task": "t"})
+    validate_and_retry("Research Scientist", {"title": "t"}, bad_output, retry_fn)
+    assert (
+        captured["reminder"]
+        == "Include the keys 'findings', 'risks', 'next_steps', and 'sources' in your JSON."
+    )
 
 
 def test_has_required_rejects_empty_strings():

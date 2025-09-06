@@ -4,40 +4,150 @@
   "properties": {
     "records": {
       "type": "array",
-      "items": {"$ref": "#/definitions/patent"}
+      "items": {
+        "$ref": "#/definitions/patent"
+      }
+    },
+    "role": {
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "string"
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
-  "required": ["records"],
+  "required": [
+    "records",
+    "role",
+    "task",
+    "findings",
+    "risks",
+    "next_steps",
+    "sources"
+  ],
   "additionalProperties": false,
   "definitions": {
     "source": {
       "type": "object",
       "properties": {
-        "id": {"type": "string"},
-        "url": {"type": "string"}
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
       },
-      "required": ["id", "url"],
+      "required": [
+        "id",
+        "url"
+      ],
       "additionalProperties": false
     },
     "patent": {
       "type": "object",
       "properties": {
-        "pub_number": {"type": "string"},
-        "app_number": {"type": ["string", "null"]},
-        "title": {"type": "string"},
-        "abstract": {"type": ["string", "null"]},
-        "assignees": {"type": "array", "items": {"type": "string"}},
-        "inventors": {"type": "array", "items": {"type": "string"}},
-        "cpc_codes": {"type": "array", "items": {"type": "string"}},
-        "ipc_codes": {"type": "array", "items": {"type": "string"}},
-        "pub_date": {"type": "string"},
-        "priority_date": {"type": ["string", "null"]},
-        "cited_by_count": {"type": ["number", "null"]},
-        "citations": {"type": "array", "items": {"type": "string"}},
-        "url": {"type": "string"},
-        "source": {"$ref": "#/definitions/source"}
+        "pub_number": {
+          "type": "string"
+        },
+        "app_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "abstract": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "assignees": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inventors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cpc_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ipc_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pub_date": {
+          "type": "string"
+        },
+        "priority_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cited_by_count": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "url": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/definitions/source"
+        }
       },
-      "required": ["pub_number", "title", "assignees", "inventors", "cpc_codes", "ipc_codes", "pub_date", "citations", "url", "source"],
+      "required": [
+        "pub_number",
+        "title",
+        "assignees",
+        "inventors",
+        "cpc_codes",
+        "ipc_codes",
+        "pub_date",
+        "citations",
+        "url",
+        "source"
+      ],
       "additionalProperties": false
     }
   }

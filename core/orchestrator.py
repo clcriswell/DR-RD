@@ -35,7 +35,7 @@ from utils import safety as safety_utils
 from utils.agent_json import extract_json_block, extract_json_strict
 from utils.cancellation import CancellationToken
 from utils.logging import logger, safe_exc
-from utils.paths import ensure_run_dirs
+from utils.paths import ensure_run_dirs, write_text
 from utils.stream_events import Event
 from utils.telemetry import (
     resume_failed,
@@ -977,6 +977,32 @@ def execute_plan(
             payload = obj or {}
             role_to_findings[role] = payload
             norm = _normalize_evidence_payload(payload)
+            artifact_payload = (
+                text if isinstance(text, dict) else (payload if isinstance(payload, dict) else {})
+            )
+            if not artifact_payload:
+                artifact_payload = {"error": "Agent failed to produce output"}
+            artifact_path = None
+            if run_id:
+                try:
+                    artifact_path = write_text(
+                        run_id,
+                        f"{tid}_output",
+                        "json",
+                        json.dumps(artifact_payload, ensure_ascii=False),
+                    )
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_output",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                            "path": str(artifact_path),
+                            "valid_json": meta.get("valid_json"),
+                        }
+                    )
+                except Exception:
+                    pass
             finding_text = ""
             if isinstance(payload, dict):
                 finding_text = str(payload.get("findings") or "")
@@ -988,7 +1014,8 @@ def execute_plan(
             is_placeholder = False
             if isinstance(payload, dict):
                 is_placeholder = all(
-                    payload.get(k) == "TODO" for k in ("findings", "risks", "next_steps")
+                    payload.get(k) in ("TODO", "Not determined")
+                    for k in ("findings", "risks", "next_steps")
                 )
             if not meta.get("valid_json") or is_placeholder:
                 open_issues.append(
@@ -997,6 +1024,7 @@ def execute_plan(
                         "role": role,
                         "task_id": routed.get("id"),
                         "result": payload,
+                        "artifact": str(artifact_path) if artifact_path else None,
                     }
                 )
             if evidence is not None:
@@ -1403,10 +1431,13 @@ def compose_final_proposal(
         try:
             obj = json.loads(txt)
             if isinstance(obj, dict):
-                return all(obj.get(k) == "TODO" for k in ("findings", "risks", "next_steps"))
+                return all(
+                    obj.get(k) in ("TODO", "Not determined")
+                    for k in ("findings", "risks", "next_steps")
+                )
         except Exception:
             pass
-        return txt.strip() == "TODO"
+        return txt.strip() in ("TODO", "Not determined")
 
     parts: list[str] = []
     for role, outs in raw.items():

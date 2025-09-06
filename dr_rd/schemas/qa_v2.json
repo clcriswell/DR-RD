@@ -2,16 +2,56 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
-    "role": {"type": "string"},
-    "task": {"type": "string"},
-    "summary": {"type": "string"},
-    "findings": {"type": "string"},
-    "risks": {"type": "array", "items": {"type": "string"}},
-    "next_steps": {"type": "array", "items": {"type": "string"}},
-    "sources": {"type": "array", "items": {"type": "string"}},
-    "defects": {"type": "array", "items": {"type": "string"}},
-    "coverage": {"type": "string"}
+    "role": {
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "string"
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "defects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "coverage": {
+      "type": "string"
+    }
   },
-  "required": ["role", "task", "summary", "findings", "risks", "next_steps", "sources", "defects", "coverage"],
+  "required": [
+    "role",
+    "task",
+    "summary",
+    "findings",
+    "risks",
+    "next_steps",
+    "sources",
+    "defects",
+    "coverage"
+  ],
   "additionalProperties": false
 }

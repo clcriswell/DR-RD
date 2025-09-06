@@ -4,36 +4,122 @@
   "properties": {
     "records": {
       "type": "array",
-      "items": {"$ref": "#/definitions/reg"}
+      "items": {
+        "$ref": "#/definitions/reg"
+      }
+    },
+    "role": {
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "string"
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
-  "required": ["records"],
+  "required": [
+    "records",
+    "role",
+    "task",
+    "findings",
+    "risks",
+    "next_steps",
+    "sources"
+  ],
   "additionalProperties": false,
   "definitions": {
     "source": {
       "type": "object",
       "properties": {
-        "id": {"type": "string"},
-        "url": {"type": "string"}
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
       },
-      "required": ["id", "url"],
+      "required": [
+        "id",
+        "url"
+      ],
       "additionalProperties": false
     },
     "reg": {
       "type": "object",
       "properties": {
-        "authority": {"type": "string"},
-        "agency": {"type": "string"},
-        "docket_id": {"type": ["string", "null"]},
-        "cfr_refs": {"type": "array", "items": {"type": "string"}},
-        "rule_stage": {"type": ["string", "null"]},
-        "effective_date": {"type": ["string", "null"]},
-        "summary": {"type": ["string", "null"]},
-        "url": {"type": "string"},
-        "applicable": {"type": "boolean"},
-        "source": {"$ref": "#/definitions/source"}
+        "authority": {
+          "type": "string"
+        },
+        "agency": {
+          "type": "string"
+        },
+        "docket_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cfr_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule_stage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effective_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "summary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "type": "string"
+        },
+        "applicable": {
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/definitions/source"
+        }
       },
-      "required": ["authority", "agency", "summary", "url", "applicable", "source"],
+      "required": [
+        "authority",
+        "agency",
+        "summary",
+        "url",
+        "applicable",
+        "source"
+      ],
       "additionalProperties": false
     }
   }
