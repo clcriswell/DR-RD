@@ -572,6 +572,68 @@ def execute_plan(
                         meta=meta_ctx,
                         run_id=run_id,
                     )
+            except ValueError as e:
+                span.set_attribute("status", "error")
+                span.record_exception(e)
+                logger.error(
+                    f"Agent {role} (Task {routed.get('id')}) missing required input fields: {e}"
+                )
+                _append(
+                    {
+                        "phase": "executor",
+                        "event": "agent_error",
+                        "role": role,
+                        "task_id": routed.get("id"),
+                        "error": str(e),
+                    }
+                )
+                call_task.setdefault("role", routed.get("role") or role or "unknown")
+                call_task.setdefault(
+                    "task", routed.get("title") or routed.get("description") or "unknown"
+                )
+                collector.append_event(handle, "retry", {"attempt": 2})
+                collector.append_event(handle, "call", {"attempt": 2})
+                try:
+                    out = invoke_agent_safely(
+                        agent,
+                        task=call_task,
+                        model=model,
+                        meta=meta_ctx,
+                        run_id=run_id,
+                    )
+                except ValueError as e2:
+                    span.record_exception(e2)
+                    logger.error(
+                        f"Agent {role} (Task {routed.get('id')}) missing required input fields after retry: {e2}"
+                    )
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                            "ok": False,
+                            "error": str(e2),
+                        }
+                    )
+                    placeholder = {
+                        "summary": "Not determined",
+                        "findings": "Not determined",
+                        "risks": [],
+                        "next_steps": [],
+                        "sources": [],
+                        "role": role,
+                        "task": routed.get("title")
+                        or routed.get("description")
+                        or "unknown",
+                    }
+                    answers.setdefault(role, []).append(
+                        json.dumps(placeholder, ensure_ascii=False)
+                    )
+                    role_to_findings[role] = placeholder
+                    alias_maps[role] = routed.get("alias_map", {})
+                    collector.finalize_item(handle, "", placeholder, 0, 0, 0.0, [], [])
+                    return
             except (EmptyModelOutput, JSONDecodeError) as e:
                 span.set_attribute("status", "error")
                 span.record_exception(e)

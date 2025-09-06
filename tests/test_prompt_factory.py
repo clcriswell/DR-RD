@@ -3,6 +3,7 @@ import pytest
 from dr_rd.prompting import PromptFactory
 from dr_rd.prompting.prompt_registry import registry as default_registry
 from config import feature_flags
+import pytest
 
 
 def test_template_resolution_and_provider_hints(monkeypatch):
@@ -60,3 +61,18 @@ def test_fallback_when_missing(monkeypatch):
     assert result["io_schema_ref"] == "dr_rd/schemas/custom.json"
     assert result["retrieval_plan"]["policy"] == "NONE"
     assert "unknown" in result["system"].lower()
+
+
+def test_missing_required_fields_raises():
+    factory = PromptFactory(default_registry)
+    spec = {
+        "role": "Planner",
+        "task": "design a drone",
+        "inputs": {
+            "constraints_section": "",
+            "risk_section": "",
+        },
+    }
+    with pytest.raises(ValueError) as exc:
+        factory.build_prompt(spec)
+    assert "idea" in str(exc.value)

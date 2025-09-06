@@ -103,7 +103,7 @@ registry.register(
             'If required information is missing, return {"error":"MISSING_INFO","needs":[...]} instead of empty fields.'
         ),
         user_template=(
-            "Project idea: {idea}{constraints_section}{risk_section}\n\n"
+            "Project idea: {{ idea | default('') }}{{ constraints_section | default('') }}{{ risk_section | default('') }}\n\n"
             "Follow the planner schema exactly and return only the JSON object. No extra text."
         ),
         io_schema_ref="dr_rd/schemas/planner_v1.json",
@@ -119,10 +119,10 @@ registry.register(
         task_key=None,
         system="You are a multi-disciplinary R&D lead.",
         user_template=(
-            "**Goal**: “{idea}”\n\n"
+            "**Goal**: “{{ idea | default('') }}”\n\n"
             "We have gathered the following domain findings (some may include "
             'loop-refined addenda separated by "--- *(Loop-refined)* ---"):\n\n'
-            "{findings_md}\n\n"
+            "{{ findings_md | default('') }}\n\n"
             "Write a comprehensive final report that brings together the "
             "project concept, researched data, and a build guide. Use clear "
             "Markdown with these sections:\n\n"
@@ -169,9 +169,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide technical architecture and risk "
-            "guidance. Summarize with summary, findings, next_steps, and sources "
-            "in JSON."
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Provide technical architecture and risk guidance. Summarize with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/cto_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -202,9 +202,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide a thorough regulatory "
-            "analysis including compliance steps and relevant standards. "
-            "Summarize with summary, findings, next_steps, and sources in JSON."
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Provide a thorough regulatory analysis including compliance steps and relevant standards. Summarize with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/regulatory_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -241,9 +241,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide budget estimates and financial "
-            "risk analysis. Include unit_economics, npv, simulations, "
-            "assumptions, risks, next_steps, and sources in the JSON summary."
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Provide budget estimates and financial risk analysis. Include unit_economics, npv, simulations, assumptions, risks, next_steps, and sources in the JSON summary."
         ),
         io_schema_ref="dr_rd/schemas/finance_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -275,8 +275,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide marketing analysis and conclude "
-            "with summary, findings, next_steps, and sources in JSON."
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Provide marketing analysis and conclude with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/marketing_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -307,8 +308,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide IP analysis and conclude with "
-            "summary, findings, next_steps, and sources in JSON."
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Provide IP analysis and conclude with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/ip_analyst_v2.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
@@ -339,8 +341,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide a patentability analysis and "
-            "summarize findings, risks, next_steps, and sources in JSON."
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Provide a patentability analysis and summarize findings, risks, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/generic_v2.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
@@ -373,7 +376,7 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide detailed scientific analysis "
+            "Idea: {{ idea | default('') }}\nTask: {{ task | default('unknown') }}\nProvide detailed scientific analysis "
             "with findings, gaps, risks, next_steps, and sources in JSON. Lists such as findings must be arrays and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
             '{"role": "Research Scientist", "task": "Study phenomenon", "summary": "...", "findings": [{"claim": "...", "evidence": "..."}], "gaps": "...", "risks": ["..."], "next_steps": ["..."], "sources": [{"id": "1", "title": "..."}]}'
@@ -407,8 +410,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nIdentify the expert roles required and "
-            "summarize with summary, findings, next_steps, and sources in JSON."
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Identify the expert roles required and summarize with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/hrm_v2.json",
         retrieval_policy=RetrievalPolicy.NONE,
@@ -442,9 +446,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide material selection and "
-            "feasibility analysis, including summary, properties, tradeoffs, "
-            "risks, next_steps, and sources in JSON. Lists such as properties and tradeoffs must be arrays and fields like risks and next_steps cannot be blank.\n"
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Provide material selection and feasibility analysis, including summary, properties, tradeoffs, risks, next_steps, and sources in JSON. Lists such as properties and tradeoffs must be arrays and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
             '{"role": "Materials Engineer", "task": "Select materials", "summary": "...", "findings": "...", "properties": [], "tradeoffs": [], "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}'
         ),
@@ -477,7 +481,9 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide a concise analysis and recommendations. Lists must be arrays where appropriate and fields like risks and next_steps cannot be blank.\n"
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Provide a concise analysis and recommendations. Lists must be arrays where appropriate and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
             '{"role": "Dynamic Specialist", "task": "General analysis", "summary": "...", "findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}'
         ),
@@ -513,9 +519,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nCombined design and requirements context: {context}\n"
-            "List any detected defects and missing requirements. Provide a "
-            "concise assessment and conclude with the JSON summary."
+            "Idea: {{ idea | default('') }}\n"
+            "Task: {{ task | default('unknown') }}\n"
+            "Combined design and requirements context: {{ context | default('') }}\n"
+            "List any detected defects and missing requirements. Provide a concise assessment and conclude with the JSON summary."
         ),
         io_schema_ref="dr_rd/schemas/qa_v2.json",
         retrieval_policy=RetrievalPolicy.NONE,
@@ -541,9 +548,9 @@ registry.register(
             "further tasks'."
         ),
         user_template=(
-            "Project Idea: {idea}\n\nExisting outputs:\n{task}\n\n"
-            "Analyse these outputs and recommend follow-up tasks for any missing "
-            "or placeholder data."
+            "Project Idea: {{ idea | default('') }}\n\n"
+            "Existing outputs:\n{{ task | default('unknown') }}\n\n"
+            "Analyse these outputs and recommend follow-up tasks for any missing or placeholder data."
         ),
         io_schema_ref="dr_rd/schemas/reflection_agent.json",
         retrieval_policy=RetrievalPolicy.NONE,
