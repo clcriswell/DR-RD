@@ -17,6 +17,7 @@ REQUIRED_SECTIONS = [
     "Market & GTM",
     "Cost Overview",
     "Next Steps",
+    "Gaps and Unresolved Issues",
 ]
 
 def _ensure_sections(text: str) -> str:
