@@ -13,9 +13,22 @@ def test_schema_agent_returns_valid_json(monkeypatch):
         captured["response_format"] = kwargs.get("response_format")
         return json.dumps(
             {
+                "role": "Materials Engineer",
+                "task": "t",
                 "summary": "",
                 "findings": "",
-                "next_steps": "",
+                "properties": [
+                    {
+                        "name": "mat",
+                        "property": "prop",
+                        "value": 0,
+                        "units": "",
+                        "source": "",
+                    }
+                ],
+                "tradeoffs": [],
+                "risks": [],
+                "next_steps": [],
                 "sources": [],
             }
         )
@@ -24,7 +37,7 @@ def test_schema_agent_returns_valid_json(monkeypatch):
     agent = MaterialsEngineerAgent("gpt-4o-mini")
     out = agent({"description": "t"}, model="gpt-4o-mini", meta={"context": "idea"})
     data = json.loads(out)
-    with open("dr_rd/schemas/materials_engineer_v1.json", encoding="utf-8") as fh:
+    with open("dr_rd/schemas/materials_engineer_v2.json", encoding="utf-8") as fh:
         schema = json.load(fh)
     jsonschema.validate(data, schema)
     assert captured["response_format"]["type"] == "json_schema"

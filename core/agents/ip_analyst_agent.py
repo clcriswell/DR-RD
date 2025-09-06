@@ -13,7 +13,7 @@ from dr_rd.prompting.prompt_registry import RetrievalPolicy
 class IPAnalystAgent(PromptFactoryAgent):
     def act(self, idea: str, task: Any = None, **kwargs) -> str:
         budgets_path = Path(__file__).resolve().parents[2] / "config" / "budgets.yaml"
-        with open(budgets_path, "r", encoding="utf-8") as fh:
+        with open(budgets_path, encoding="utf-8") as fh:
             budgets = yaml.safe_load(fh) or {}
         top_k = budgets.get(feature_flags.BUDGET_PROFILE, {}).get("exec", {}).get("top_k", 5)
         spec = {
@@ -23,7 +23,7 @@ class IPAnalystAgent(PromptFactoryAgent):
                 "idea": idea,
                 "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
             },
-            "io_schema_ref": "dr_rd/schemas/ip_analyst_v1.json",
+            "io_schema_ref": "dr_rd/schemas/ip_analyst_v2.json",
             "retrieval_policy": RetrievalPolicy.AGGRESSIVE,
             "top_k": top_k,
             "capabilities": "prior art search",

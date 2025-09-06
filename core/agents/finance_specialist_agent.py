@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 from jsonschema import validate
 
@@ -15,7 +15,7 @@ from dr_rd.prompting import PromptFactory, RetrievalPolicy
 
 class FinanceSpecialistAgent:
     ROLE = "Finance Specialist"
-    IO_SCHEMA = "dr_rd/schemas/finance_v1.json"
+    IO_SCHEMA = "dr_rd/schemas/finance_v2.json"
     ALLOWLIST = ["calc_unit_economics", "npv", "monte_carlo"]
 
     def __init__(self, model: str) -> None:
@@ -23,7 +23,7 @@ class FinanceSpecialistAgent:
         self.factory = PromptFactory()
         allow_tools(self.ROLE, self.ALLOWLIST)
 
-    def run(self, task: str, line_items: List[dict], cash_flows: List[float], params: dict) -> Any:
+    def run(self, task: str, line_items: list[dict], cash_flows: list[float], params: dict) -> Any:
         econ = call_tool(self.ROLE, "calc_unit_economics", {"line_items": line_items})
         npv_val = call_tool(self.ROLE, "npv", {"cash_flows": cash_flows, "discount_rate": 0.1})
         sim = call_tool(self.ROLE, "monte_carlo", {"params": params, "trials": 100})

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -14,16 +13,16 @@ class PromptTemplate:
     id: str
     version: str
     role: str
-    task_key: Optional[str]
+    task_key: str | None
     system: str
     user_template: str
     io_schema_ref: str
-    retrieval_policy: "RetrievalPolicy"
-    evaluation_hooks: Optional[List[str]] = None
-    safety_notes: Optional[str] = None
-    provider_hints: Optional[Dict] = None
-    examples_ref: Optional[str] = None
-    example_policy: Optional[Dict] = None
+    retrieval_policy: RetrievalPolicy
+    evaluation_hooks: list[str] | None = None
+    safety_notes: str | None = None
+    provider_hints: dict | None = None
+    examples_ref: str | None = None
+    example_policy: dict | None = None
 
 
 class RetrievalPolicy(Enum):
@@ -57,16 +56,16 @@ class PromptRegistry:
     """Registry for prompt templates."""
 
     def __init__(self) -> None:
-        self._templates: Dict[Tuple[str, Optional[str]], PromptTemplate] = {}
+        self._templates: dict[tuple[str, str | None], PromptTemplate] = {}
 
     def register(self, template: PromptTemplate) -> None:
         key = (template.role, template.task_key)
         self._templates[key] = template
 
-    def get(self, role: str, task_key: Optional[str] = None) -> Optional[PromptTemplate]:
+    def get(self, role: str, task_key: str | None = None) -> PromptTemplate | None:
         return self._templates.get((role, task_key)) or self._templates.get((role, None))
 
-    def list(self, role: Optional[str] = None) -> List[PromptTemplate]:
+    def list(self, role: str | None = None) -> list[PromptTemplate]:
         if role is None:
             return list(self._templates.values())
         return [tpl for (r, _), tpl in self._templates.items() if r == role]
@@ -143,20 +142,31 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="cto",
-        version="v1",
+        version="v2",
         role="CTO",
         task_key=None,
         system=(
-            "You are the CTO. Assess feasibility, architecture, and risks. "
-            "Return clear, structured guidance and conclude with a JSON summary "
-            "using keys: role, task, findings, risks, next_steps, sources."
+            "You are the CTO focused on technical feasibility and architecture. "
+            "Avoid compliance or marketing.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "CTO", "task": "Assess architecture", "summary": "...", '
+            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide technical architecture and risk "
             "guidance. Summarize with summary, findings, next_steps, and sources "
             "in JSON."
         ),
-        io_schema_ref="dr_rd/schemas/cto_v1.json",
+        io_schema_ref="dr_rd/schemas/cto_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -164,21 +174,31 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="regulatory",
-        version="v1",
+        version="v2",
         role="Regulatory",
         task_key=None,
         system=(
-            "You are a regulatory compliance expert with knowledge of industry "
-            "standards and laws. You provide detailed compliance analysis, "
-            "referencing standards and guidelines. Conclude with a JSON summary "
-            "using keys: summary, findings, next_steps, sources."
+            "You are a regulatory compliance expert concentrating on standards "
+            "and legal obligations. Avoid technical or financial analysis.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "Regulatory", "task": "Check standards", "summary": "...", '
+            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide a thorough regulatory "
             "analysis including compliance steps and relevant standards. "
             "Summarize with summary, findings, next_steps, and sources in JSON."
         ),
-        io_schema_ref="dr_rd/schemas/regulatory_v1.json",
+        io_schema_ref="dr_rd/schemas/regulatory_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -186,20 +206,37 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="finance",
-        version="v1",
+        version="v2",
         role="Finance",
         task_key=None,
         system=(
-            "You evaluate budgets, BOM costs and financial risks. Conclude with a "
-            "JSON summary using keys: unit_economics, npv, simulations, "
-            "assumptions, risks, next_steps, sources."
+            "You are the Finance specialist focused on budgets, BOM costs, unit "
+            "economics, NPV, simulations, and assumptions. Avoid marketing and "
+            "technical design.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n"
+            "- unit_economics\n"
+            "- npv\n"
+            "- simulations\n"
+            "- assumptions\n\n"
+            "Example:\n"
+            '{"role": "Finance", "task": "Estimate costs", "summary": "...", '
+            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."], '
+            '"unit_economics": {"total_revenue": 0}, "npv": 0, "simulations": {"mean": 0}, "assumptions": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide budget estimates and financial "
             "risk analysis. Include unit_economics, npv, simulations, "
             "assumptions, risks, next_steps, and sources in the JSON summary."
         ),
-        io_schema_ref="dr_rd/schemas/finance_v1.json",
+        io_schema_ref="dr_rd/schemas/finance_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -207,20 +244,31 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="marketing",
-        version="v1",
+        version="v2",
         role="Marketing Analyst",
         task_key=None,
         system=(
-            "You are a marketing analyst with expertise in market research, "
-            "customer segmentation, competitive landscapes and go-to-market "
-            "strategies. Conclude with a JSON summary using keys: summary, "
-            "findings, next_steps, sources."
+            "You are a marketing analyst focused on market research, "
+            "segmentation, competitive landscape, and go-to-market strategy. "
+            "Avoid deep technical details.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "Marketing Analyst", "task": "Assess market", "summary": "...", '
+            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide marketing analysis and conclude "
             "with summary, findings, next_steps, and sources in JSON."
         ),
-        io_schema_ref="dr_rd/schemas/marketing_v1.json",
+        io_schema_ref="dr_rd/schemas/marketing_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -228,19 +276,30 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="ip_analyst",
-        version="v1",
+        version="v2",
         role="IP Analyst",
         task_key=None,
         system=(
-            "You are an intellectual-property analyst skilled at prior-art "
-            "searches, novelty assessment, patentability, and freedom-to-operate "
-            "risk."
+            "You are an intellectual-property analyst focused on prior art, "
+            "novelty, patentability, and IP risk.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "IP Analyst", "task": "Review patents", "summary": "...", '
+            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide IP analysis and conclude with "
             "summary, findings, next_steps, and sources in JSON."
         ),
-        io_schema_ref="dr_rd/schemas/ip_analyst_v1.json",
+        io_schema_ref="dr_rd/schemas/ip_analyst_v2.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
     )
 )
@@ -248,21 +307,30 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="patent",
-        version="v1",
+        version="v2",
         role="Patent",
         task_key=None,
         system=(
             "You are a patent attorney and innovation expert focusing on "
-            "intellectual property. You thoroughly analyze existing patents and "
-            "technical disclosures, referencing diagrams or figures if relevant. "
-            "You justify your conclusions on patentability and can adjust IP "
-            "strategy if new technical feedback warrants it."
+            "prior art and patentability. Avoid non-IP analysis.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "Patent", "task": "Assess claims", "summary": "...", '
+            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide a patentability analysis and "
             "summarize findings, risks, next_steps, and sources in JSON."
         ),
-        io_schema_ref="dr_rd/schemas/generic_v1.json",
+        io_schema_ref="dr_rd/schemas/generic_v2.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
     )
 )
@@ -270,19 +338,32 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="research_scientist",
-        version="v1",
+        version="v2",
         role="Research Scientist",
         task_key=None,
         system=(
-            "You are the Research Scientist. Provide specific, non-generic "
-            "analysis with concrete details. Conclude with a JSON summary using "
-            "keys: role, task, findings, risks, next_steps, sources."
+            "You are the Research Scientist. Provide concrete scientific "
+            "analysis and avoid marketing or compliance topics.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- gaps\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "Research Scientist", "task": "Study phenomenon", "summary": "...", '
+            '"findings": [{"claim": "...", "evidence": "..."}], "gaps": "...", '
+            '"risks": "...", "next_steps": "...", "sources": [{"id": "1", "title": "..."}]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide detailed scientific analysis "
             "with findings, risks, next_steps, and sources in JSON."
         ),
-        io_schema_ref="dr_rd/schemas/research_v1.json",
+        io_schema_ref="dr_rd/schemas/research_v2.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
     )
 )
@@ -290,20 +371,30 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="hrm",
-        version="v1",
+        version="v2",
         role="HRM",
         task_key=None,
         system=(
-            "You are an HR Manager specializing in R&D projects. Identify the "
-            "expert roles needed for the following idea. Conclude with a JSON "
-            "summary using keys: role, task, findings, risks, next_steps, "
-            "sources."
+            "You are an HR Manager for R&D projects focusing on needed roles "
+            "and resources. Avoid technical or regulatory analysis.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "HRM", "task": "Plan team", "summary": "...", "findings": "...", '
+            '"risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nIdentify the expert roles required and "
             "summarize with summary, findings, next_steps, and sources in JSON."
         ),
-        io_schema_ref="dr_rd/schemas/hrm_v1.json",
+        io_schema_ref="dr_rd/schemas/hrm_v2.json",
         retrieval_policy=RetrievalPolicy.NONE,
     )
 )
@@ -311,21 +402,34 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="materials_engineer",
-        version="v1",
+        version="v2",
         role="Materials Engineer",
         task_key=None,
         system=(
-            "You are a Materials Engineer specialized in material selection and "
-            "engineering feasibility. Conclude with a JSON summary using keys: "
-            "role, task, summary, properties, tradeoffs, risks, next_steps, "
-            "sources."
+            "You are a Materials Engineer focused on material selection, "
+            "properties, and trade-offs. Avoid marketing or financial topics.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- properties\n"
+            "- tradeoffs\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "Materials Engineer", "task": "Select materials", "summary": "...", '
+            '"findings": "...", "properties": [], "tradeoffs": ["..."], '
+            '"risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nProvide material selection and "
             "feasibility analysis, including summary, properties, tradeoffs, "
             "risks, next_steps, and sources in JSON."
         ),
-        io_schema_ref="dr_rd/schemas/materials_engineer_v1.json",
+        io_schema_ref="dr_rd/schemas/materials_engineer_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -333,19 +437,29 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="dynamic_specialist",
-        version="v1",
+        version="v2",
         role="Dynamic Specialist",
         task_key=None,
         system=(
-            "You are a flexible domain expert providing analysis for any topic. "
-            "Conclude with a JSON summary using keys: role, task, findings, risks, "
-            "next_steps, sources."
+            "You are a flexible generalist adapting to any topic. Avoid deep "
+            "domain specificity without evidence.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "Dynamic Specialist", "task": "General analysis", "summary": "...", '
+            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {idea}\nTask: {task}\nProvide a concise analysis and "
-            "recommendations."
+            "Idea: {idea}\nTask: {task}\nProvide a concise analysis and " "recommendations."
         ),
-        io_schema_ref="dr_rd/schemas/generic_v1.json",
+        io_schema_ref="dr_rd/schemas/generic_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
     )
 )
@@ -353,20 +467,33 @@ registry.register(
 registry.register(
     PromptTemplate(
         id="qa",
-        version="v1",
+        version="v2",
         role="QA",
         task_key=None,
         system=(
-            "You are a QA engineer ensuring requirement coverage and defect "
-            "analysis. Conclude with a JSON summary using keys: role, task, "
-            "findings, risks, next_steps, sources."
+            "You are a QA engineer focused on requirement coverage, testing, and "
+            "defects. Avoid architecture or marketing topics.\n"
+            "Required JSON keys:\n"
+            "- summary\n"
+            "- findings\n"
+            "- defects\n"
+            "- coverage\n"
+            "- risks\n"
+            "- next_steps\n"
+            "- sources\n"
+            "- role\n"
+            "- task\n\n"
+            "Example:\n"
+            '{"role": "QA", "task": "Test review", "summary": "...", "findings": "...", '
+            '"defects": ["..."], "coverage": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {idea}\nTask: {task}\nList any detected defects and missing "
             "requirements. Provide a concise assessment and conclude with the "
             "JSON summary."
         ),
-        io_schema_ref="dr_rd/schemas/qa_v1.json",
+        io_schema_ref="dr_rd/schemas/qa_v2.json",
         retrieval_policy=RetrievalPolicy.NONE,
     )
 )

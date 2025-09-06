@@ -1,12 +1,13 @@
 import json
-from dr_rd.prompting.prompt_factory import PromptFactory
+
+from config import feature_flags
 from core.agents.base_agent import LLMRoleAgent
-from core.agents.research_scientist_agent import ResearchScientistAgent
-from core.agents.regulatory_agent import RegulatoryAgent
 from core.agents.marketing_agent import MarketingAgent
 from core.agents.planner_agent import PlannerAgent
+from core.agents.regulatory_agent import RegulatoryAgent
+from core.agents.research_scientist_agent import ResearchScientistAgent
 from core.agents.synthesizer_agent import SynthesizerAgent
-from config import feature_flags
+from dr_rd.prompting.prompt_factory import PromptFactory
 
 
 def _make_valid():
@@ -32,15 +33,15 @@ def test_agents_use_promptfactory(monkeypatch):
     feature_flags.RAG_ENABLED = True
     calls = _spy_factory(monkeypatch)
     ResearchScientistAgent("model").act("idea", "task")
-    assert calls["spec"]["io_schema_ref"].endswith("research_v1.json")
+    assert calls["spec"]["io_schema_ref"].endswith("research_v2.json")
 
     calls = _spy_factory(monkeypatch)
     RegulatoryAgent("model").act("idea", "task")
-    assert calls["spec"]["io_schema_ref"].endswith("regulatory_v1.json")
+    assert calls["spec"]["io_schema_ref"].endswith("regulatory_v2.json")
 
     calls = _spy_factory(monkeypatch)
     MarketingAgent("model").act("idea", "task")
-    assert calls["spec"]["io_schema_ref"].endswith("marketing_v1.json")
+    assert calls["spec"]["io_schema_ref"].endswith("marketing_v2.json")
 
     calls = _spy_factory(monkeypatch)
     PlannerAgent("model").act("idea", "task")

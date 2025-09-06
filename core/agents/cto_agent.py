@@ -25,7 +25,7 @@ class CTOAgent(PromptFactoryAgent):
                 "idea": idea,
                 "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
             },
-            "io_schema_ref": "dr_rd/schemas/cto_v1.json",
+            "io_schema_ref": "dr_rd/schemas/cto_v2.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "technical strategy",
             "evaluation_hooks": ["self_check_minimal"],
