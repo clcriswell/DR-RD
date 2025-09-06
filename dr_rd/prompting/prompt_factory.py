@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import yaml
+from jinja2 import Environment, meta
 
 from dr_rd.examples import safety_filters
 from dr_rd.prompting import example_selectors
@@ -16,6 +17,7 @@ CONFIG_PATH = Path("config/reporting.yaml")
 CONFIG = yaml.safe_load(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
 RAG_CFG = yaml.safe_load(Path("config/rag.yaml").read_text()) if Path("config/rag.yaml").exists() else {}
 PLACEHOLDER_TOKEN_RE = re.compile(r'\[(PERSON|ORG|ADDRESS|IP|DEVICE)_\d+\]')
+JINJA_ENV = Environment()
 
 from .prompt_registry import (
     PromptRegistry,
@@ -45,7 +47,15 @@ class PromptFactory:
             evaluation_hooks = spec.get("evaluation_hooks") or template.evaluation_hooks
             provider_hints = template.provider_hints or {}
             system = template.system
-            user_prompt = template.user_template.format(**inputs)
+            ast = JINJA_ENV.parse(template.user_template)
+            placeholders = meta.find_undeclared_variables(ast)
+            missing = [k for k in placeholders if k not in inputs]
+            if missing:
+                raise ValueError(
+                    "Missing required fields in PromptAgent inputs: "
+                    + ", ".join(sorted(missing))
+                )
+            user_prompt = JINJA_ENV.from_string(template.user_template).render(**inputs)
         else:
             io_schema_ref = spec.get("io_schema_ref") or "unknown"
             retrieval_policy = spec.get("retrieval_policy") or RetrievalPolicy.NONE
