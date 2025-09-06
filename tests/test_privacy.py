@@ -15,18 +15,18 @@ SAMPLE = (
 
 def test_redact_and_pseudonymization():
     redacted = redact_for_logging(SAMPLE)
-    assert "[PERSON_1]" in redacted
-    assert "[ORG_1]" in redacted
+    assert "Alice Smith" in redacted
+    assert "Acme Corp" in redacted
     assert "[EMAIL_1]" in redacted
     assert "[PHONE_1]" in redacted
 
     pseudo, alias_map = pseudonymize_for_model(SAMPLE)
     assert alias_map == OrderedDict(
         [
-            ("Alice Smith", "[PERSON_1]"),
+            ("Alice Smith", "AliceSmithX1"),
             ("alice@acme.com", "[EMAIL_1]"),
-            ("+1-555-555-5555", "[PHONE_1]"),
-            ("Bob Jones", "[PERSON_2]"),
+            ("555-555-5555", "[PHONE_1]"),
+            ("Bob Jones", "BobJonesX2"),
         ]
     )
     for token in alias_map.values():

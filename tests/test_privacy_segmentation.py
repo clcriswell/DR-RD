@@ -13,7 +13,7 @@ def test_no_raw_entities_in_agent_call():
             recorded["task"] = task
             return "{}"
 
-    task = {"title": "Greet", "description": "Meet Alice at Bob Corp", "context": "Meet Alice at Bob Corp"}
+    task = {"title": "Greet", "description": "Meet Alice Smith at Bob Corp", "context": "Meet Alice Smith at Bob Corp"}
     orchestrator._invoke_agent(FakeAgent(), "irrelevant", task)
     assert "Alice" not in recorded["context"]
     assert task["alias_map"]
@@ -26,8 +26,8 @@ def test_alias_map_per_field():
         def run(self, context, task, model=None):
             return "{}"
 
-    t1 = {"title": "T1", "description": "Talk to Alice", "context": "Talk to Alice"}
-    t2 = {"title": "T2", "description": "Email Bob", "context": "Email Bob"}
+    t1 = {"title": "T1", "description": "Talk to Alice Smith", "context": "Talk to Alice Smith"}
+    t2 = {"title": "T2", "description": "Email Bob Jones", "context": "Email Bob Jones"}
     orchestrator._invoke_agent(FakeAgent(), "i1", t1)
     orchestrator._invoke_agent(FakeAgent(), "i2", t2)
     assert t1["alias_map"] != t2["alias_map"]
@@ -35,17 +35,17 @@ def test_alias_map_per_field():
 
 def test_synthesis_de_aliases(monkeypatch):
     st.session_state.clear()
-    st.session_state["alias_maps"] = {"r": {"Alice": "[PERSON_1]"}}
+    st.session_state["alias_maps"] = {"r": {"Alice": "AliceX1"}}
 
     captured = {}
 
     def fake_complete(system, prompt):
         captured["prompt"] = prompt
-        return type("R", (), {"content": "Report about [PERSON_1]"})()
+        return type("R", (), {"content": "Report about AliceX1"})()
 
     monkeypatch.setattr(orchestrator, "complete", fake_complete)
-    out = orchestrator.compose_final_proposal("Idea about Alice", {"r": "[PERSON_1] did work"})
-    assert "[PERSON_1]" in captured["prompt"]
+    out = orchestrator.compose_final_proposal("Idea about Alice", {"r": "AliceX1 did work"})
+    assert "AliceX1" in captured["prompt"]
     assert "Alice" in out
 
 
