@@ -15,7 +15,7 @@ class FinanceAgent(PromptFactoryAgent):
                 "idea": idea,
                 "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
             },
-            "io_schema_ref": "dr_rd/schemas/finance_v1.json",
+            "io_schema_ref": "dr_rd/schemas/finance_v2.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "budgeting and costs",
             "evaluation_hooks": ["self_check_minimal"],

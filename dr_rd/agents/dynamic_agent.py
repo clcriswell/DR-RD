@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from jsonschema import validate
 
@@ -39,13 +39,13 @@ class EmptyModelOutput(Exception):
 
 
 class DynamicAgent:
-    IO_SCHEMA = "dr_rd/schemas/generic_v1.json"
+    IO_SCHEMA = "dr_rd/schemas/generic_v2.json"
 
     def __init__(self, model: str) -> None:
         self.model = model
         self.factory = PromptFactory()
 
-    def run(self, spec: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def run(self, spec: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         role = spec.get("role_name", "Dynamic Specialist")
         task = spec.get("task_brief", "")
         context = spec.get("context", {})
@@ -53,7 +53,7 @@ class DynamicAgent:
         run_id = context.get("run_id")
         support_id = context.get("support_id")
         io_schema_ref = spec.get("io_schema_ref")
-        schema: Dict[str, Any] | None = None
+        schema: dict[str, Any] | None = None
         if not io_schema_ref:
             draft = spec.get("schema_draft", {"type": "object"})
             schema = {"$schema": "http://json-schema.org/draft-07/schema#"}
@@ -75,12 +75,12 @@ class DynamicAgent:
     def _validate(
         self,
         resp: Any,
-        schema: Dict[str, Any],
+        schema: dict[str, Any],
         role: str,
         task: str,
         run_id: str | None,
         support_id: str | None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Return parsed JSON from ``resp`` or raise :class:`EmptyModelOutput`."""
 
         if isinstance(resp, dict):

@@ -18,7 +18,7 @@ class MaterialsEngineerAgent(PromptFactoryAgent):
             "role": "Materials Engineer",
             "task": text,
             "inputs": {"idea": idea, "task": text},
-            "io_schema_ref": "dr_rd/schemas/materials_engineer_v1.json",
+            "io_schema_ref": "dr_rd/schemas/materials_engineer_v2.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "materials selection",
             "evaluation_hooks": ["self_check_minimal"],

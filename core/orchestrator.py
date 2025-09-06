@@ -2,8 +2,8 @@ import json
 import os
 import re
 from dataclasses import asdict, dataclass
-from json import JSONDecodeError
 from datetime import datetime
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
@@ -23,18 +23,30 @@ from core.observability import (
 )
 from core.privacy import pseudonymize_for_model, rehydrate_output
 from core.redaction import Redactor
-from core.router import route_task
 from core.roles import normalize_role
+from core.router import route_task
 from core.schemas import Plan, ScopeNote
+from dr_rd.agents.dynamic_agent import EmptyModelOutput
+from dr_rd.prompting.prompt_registry import RetrievalPolicy, registry
 from memory.decision_log import log_decision
 from orchestrators.executor import execute as exec_artifacts
-from dr_rd.prompting.prompt_registry import registry, RetrievalPolicy
 from utils import checkpoints, otel, trace_writer
 from utils import safety as safety_utils
 from utils.agent_json import extract_json_block, extract_json_strict
 from utils.cancellation import CancellationToken
 from utils.logging import logger, safe_exc
-from dr_rd.agents.dynamic_agent import EmptyModelOutput
+from utils.paths import ensure_run_dirs
+from utils.stream_events import Event
+from utils.telemetry import (
+    resume_failed,
+    run_resumed,
+    safety_flagged_step,
+    stream_completed,
+    stream_started,
+    tasks_normalized,
+    tasks_planned,
+)
+from utils.timeouts import Deadline, with_deadline
 
 
 @dataclass
@@ -50,18 +62,7 @@ def _to_text(x: Any) -> str:
     if isinstance(x, str):
         return x
     return json.dumps(x, ensure_ascii=False)
-from utils.paths import ensure_run_dirs
-from utils.stream_events import Event
-from utils.telemetry import (
-    resume_failed,
-    run_resumed,
-    safety_flagged_step,
-    stream_completed,
-    stream_started,
-    tasks_normalized,
-    tasks_planned,
-)
-from utils.timeouts import Deadline, with_deadline
+
 
 evidence: EvidenceSet | None = None
 
@@ -453,7 +454,9 @@ def execute_plan(
     if not exec_tasks:
         try:
             _append({"phase": "executor", "summary": [], "meta": {"reason": "no_executable_tasks"}})
-            _flush("executor", {"routed_tasks": 0, "exec_tasks": 0, "reason": "no_executable_tasks"})
+            _flush(
+                "executor", {"routed_tasks": 0, "exec_tasks": 0, "reason": "no_executable_tasks"}
+            )
         except Exception:
             pass
 
@@ -506,10 +509,10 @@ def execute_plan(
             collector.append_event(handle, "call", {"attempt": 1})
             redactor = _get_redactor()
             if role == "Dynamic Specialist":
-                brief = (routed.get("title") or "") + " — " + (
-                    routed.get("description")
-                    or routed.get("summary")
-                    or ""
+                brief = (
+                    (routed.get("title") or "")
+                    + " — "
+                    + (routed.get("description") or routed.get("summary") or "")
                 )
                 rb, _, _ = redactor.redact(brief, mode="light", role=role)
                 spec = {
@@ -520,7 +523,7 @@ def execute_plan(
                         "run_id": st.session_state.get("run_id"),
                         "support_id": st.session_state.get("support_id"),
                     },
-                    "io_schema_ref": "dr_rd/schemas/generic_v1.json",
+                    "io_schema_ref": "dr_rd/schemas/generic_v2.json",
                     "retrieval_policy": RetrievalPolicy.LIGHT,
                 }
                 routed["alias_map"] = dict(redactor.alias_map)
@@ -542,16 +545,18 @@ def execute_plan(
                 routed["alias_map"] = dict(redactor.alias_map)
                 call_task = pseudo
                 meta_ctx = pseudo.get("context")
-            _append({
-                "phase": "executor",
-                "event": "agent_start",
-                "role": role,
-                "task_id": routed.get("id"),
-            })
+            _append(
+                {
+                    "phase": "executor",
+                    "event": "agent_start",
+                    "role": role,
+                    "task_id": routed.get("id"),
+                }
+            )
             try:
                 if role == "QA":
-                    qa_brief = (pseudo.get("title") or "") + " — " + (
-                        pseudo.get("description") or ""
+                    qa_brief = (
+                        (pseudo.get("title") or "") + " — " + (pseudo.get("description") or "")
                     )
                     out = agent.run(
                         qa_brief,
@@ -572,14 +577,16 @@ def execute_plan(
                 span.set_attribute("status", "error")
                 span.record_exception(e)
                 safe_exc(logger, idea, f"invoke_agent[{role}]", e)
-                _append({
-                    "phase": "executor",
-                    "event": "agent_end",
-                    "role": role,
-                    "task_id": routed.get("id"),
-                    "ok": False,
-                    "error": str(e),
-                })
+                _append(
+                    {
+                        "phase": "executor",
+                        "event": "agent_end",
+                        "role": role,
+                        "task_id": routed.get("id"),
+                        "ok": False,
+                        "error": str(e),
+                    }
+                )
                 err = getattr(
                     e,
                     "payload",
@@ -601,21 +608,25 @@ def execute_plan(
                 span.set_attribute("status", "error")
                 span.record_exception(e)
                 safe_exc(logger, idea, f"invoke_agent[{role}]", e)
-                _append({
+                _append(
+                    {
+                        "phase": "executor",
+                        "event": "agent_error",
+                        "role": role,
+                        "task_id": routed.get("id"),
+                        "error": str(e),
+                    }
+                )
+                raise RuntimeError(f"agent {role} failed") from e
+            _append(
+                {
                     "phase": "executor",
-                    "event": "agent_error",
+                    "event": "agent_end",
                     "role": role,
                     "task_id": routed.get("id"),
-                    "error": str(e),
-                })
-                raise RuntimeError(f"agent {role} failed") from e
-            _append({
-                "phase": "executor",
-                "event": "agent_end",
-                "role": role,
-                "task_id": routed.get("id"),
-                "ok": True,
-            })
+                    "ok": True,
+                }
+            )
             _check()
             text = out
 
@@ -639,7 +650,7 @@ def execute_plan(
                             "run_id": st.session_state.get("run_id"),
                             "support_id": st.session_state.get("support_id"),
                         },
-                        "io_schema_ref": "dr_rd/schemas/generic_v1.json",
+                        "io_schema_ref": "dr_rd/schemas/generic_v2.json",
                         "retrieval_policy": RetrievalPolicy.LIGHT,
                     }
                     routed["alias_map"] = dict(redactor.alias_map)
@@ -682,9 +693,13 @@ def execute_plan(
                     )
                     return result
                 if role == "QA":
-                    brief = ((routed.get("title") or "") + " \u2014 " + (
-                        routed.get("description") or routed.get("summary") or ""
-                    ) + "\n" + rem).strip()
+                    brief = (
+                        (routed.get("title") or "")
+                        + " \u2014 "
+                        + (routed.get("description") or routed.get("summary") or "")
+                        + "\n"
+                        + rem
+                    ).strip()
                     rb, _, _ = redactor.redact(brief, mode="light", role=role)
                     _append(
                         {
@@ -736,12 +751,14 @@ def execute_plan(
                 }
                 pseudo_r, alias_map2 = pseudonymize_for_model(pseudo_r)
                 retry_task["alias_map"] = alias_map2
-                _append({
-                    "phase": "executor",
-                    "event": "agent_start",
-                    "role": role,
-                    "task_id": retry_task.get("id"),
-                })
+                _append(
+                    {
+                        "phase": "executor",
+                        "event": "agent_start",
+                        "role": role,
+                        "task_id": retry_task.get("id"),
+                    }
+                )
                 try:
                     result = invoke_agent_safely(
                         agent,
@@ -751,22 +768,26 @@ def execute_plan(
                         run_id=run_id,
                     )
                 except Exception as e:
-                    _append({
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": role,
+                            "task_id": retry_task.get("id"),
+                            "ok": False,
+                            "error": str(e),
+                        }
+                    )
+                    raise RuntimeError(f"agent {role} failed") from e
+                _append(
+                    {
                         "phase": "executor",
                         "event": "agent_end",
                         "role": role,
                         "task_id": retry_task.get("id"),
-                        "ok": False,
-                        "error": str(e),
-                    })
-                    raise RuntimeError(f"agent {role} failed") from e
-                _append({
-                    "phase": "executor",
-                    "event": "agent_end",
-                    "role": role,
-                    "task_id": retry_task.get("id"),
-                    "ok": True,
-                })
+                        "ok": True,
+                    }
+                )
                 routed["alias_map"] = retry_task.get("alias_map", {})
                 return result
 
@@ -792,7 +813,7 @@ def execute_plan(
                             "run_id": st.session_state.get("run_id"),
                             "support_id": st.session_state.get("support_id"),
                         },
-                        "io_schema_ref": "dr_rd/schemas/generic_v1.json",
+                        "io_schema_ref": "dr_rd/schemas/generic_v2.json",
                         "retrieval_policy": RetrievalPolicy.LIGHT,
                     }
                     routed["alias_map"] = dict(redactor.alias_map)
@@ -835,9 +856,13 @@ def execute_plan(
                     )
                     return result
                 if role == "QA":
-                    brief = ((routed.get("title") or "") + " \u2014 " + (
-                        routed.get("description") or routed.get("summary") or ""
-                    ) + "\n" + rem).strip()
+                    brief = (
+                        (routed.get("title") or "")
+                        + " \u2014 "
+                        + (routed.get("description") or routed.get("summary") or "")
+                        + "\n"
+                        + rem
+                    ).strip()
                     rb, _, _ = redactor.redact(brief, mode="light", role=role)
                     _append(
                         {
@@ -878,9 +903,7 @@ def execute_plan(
                     )
                     return result
                 retry_task = dict(routed)
-                retry_task["description"] = (
-                    routed.get("description", "") + "\n" + rem
-                ).strip()
+                retry_task["description"] = (routed.get("description", "") + "\n" + rem).strip()
                 pseudo_r = {
                     **retry_task,
                     "idea": idea_str,
@@ -891,12 +914,14 @@ def execute_plan(
                 }
                 pseudo_r, alias_map2 = pseudonymize_for_model(pseudo_r)
                 retry_task["alias_map"] = alias_map2
-                _append({
-                    "phase": "executor",
-                    "event": "agent_start",
-                    "role": role,
-                    "task_id": retry_task.get("id"),
-                })
+                _append(
+                    {
+                        "phase": "executor",
+                        "event": "agent_start",
+                        "role": role,
+                        "task_id": retry_task.get("id"),
+                    }
+                )
                 try:
                     result = invoke_agent_safely(
                         agent,
@@ -1373,6 +1398,7 @@ def compose_final_proposal(
     _check()
     # Build findings markdown excluding placeholder results
     raw = st.session_state.get("answers_raw") or {k: [v] for k, v in answers.items()}
+
     def _is_placeholder(txt: str) -> bool:
         try:
             obj = json.loads(txt)
@@ -1897,9 +1923,7 @@ def run_stream(
 def run_pipeline(idea: str, **kwargs):
     import logging
 
-    logging.warning(
-        "core.orchestrator.run_pipeline is deprecated; using unified pipeline."
-    )
+    logging.warning("core.orchestrator.run_pipeline is deprecated; using unified pipeline.")
     run_ctx = {}
     generate_plan(idea, run_ctx=run_ctx)
     tasks = st.session_state.get("plan_tasks", [])
