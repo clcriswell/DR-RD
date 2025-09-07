@@ -85,22 +85,22 @@ registry.register(
         task_key=None,
         system=(
             "You are the Planner. Output ONLY a JSON object of the form "
-            '{"tasks":[...]}. Each task MUST contain non-empty strings: id, '
+            '{"tasks": []}. Each task MUST contain non-empty strings: id, '
             "title, summary, description, role. Allowed roles: "
             '["CTO","Research Scientist","Regulatory","Finance","Marketing '
             'Analyst","IP Analyst","HRM","Materials Engineer","QA",'
             '"Simulation","Dynamic Specialist"]. Each task should include a '
             "brief description in 1–3 sentences and a role. Unknown domains "
             "should default to 'Dynamic Specialist'. Prefer ids "
-            '"T01","T02",... If the user supplies ids, convert to that '
+            '"T01","T02", etc. If the user supplies ids, convert to that '
             "format. Produce at least six tasks spanning design/architecture, "
             "materials, regulatory/IP, finance, marketing, and QA/testing.\n"
             "Required JSON keys:\n"
             "- tasks\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"tasks": [{"id": "T01", "title": "Define architecture", "summary": "...", "description": "...", "role": "CTO"}]}\n'
-            'If required information is missing, return {"error":"MISSING_INFO","needs":[...]} instead of empty fields.'
+            '{"tasks": [{"id": "T01", "title": "<TASK_TITLE>", "summary": "", "description": "", "role": "CTO"}]}\n'
+            'If required information is missing, return {"error":"MISSING_INFO","needs":[]} instead of empty fields.'
         ),
         user_template=(
             "Project idea: {{ idea | default('') }}{{ constraints_section | default('') }}{{ risk_section | default('') }}\n\n"
@@ -165,8 +165,8 @@ registry.register(
             "All listed keys must appear and no other keys are allowed. Use empty strings/arrays or 'Not determined' when data is unavailable.\n"
             "**If the schema expects a string but you have a list, join items with semicolons into a single string.**\n"
             "Example:\n"
-            '{"role": "CTO", "task": "<TASK_TITLE>", "summary": "...", '
-            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            '{"role": "CTO", "task": "<TASK_TITLE>", "summary": "", '
+            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -199,8 +199,8 @@ registry.register(
             "**LIST EACH RISK AS A SEPARATE ITEM IN `risks`. DO NOT COMBINE MULTIPLE RISKS INTO ONE PARAGRAPH.**\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Regulatory", "task": "<TASK_TITLE>", "summary": "...", '
-            '"findings": "...", "risks": ["risk 1", "risk 2"], "next_steps": ["..."], "sources": ["..."]}\n'
+            '{"role": "Regulatory", "task": "<TASK_TITLE>", "summary": "", '
+            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
             "Return only the JSON keys defined in the schema. **If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons).** Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
@@ -240,10 +240,10 @@ registry.register(
             "All listed keys must appear and no other keys are allowed. Use empty strings/arrays or 'Not determined' when data is unavailable.\n"
             "**If the schema expects a string but you have a list, join items with semicolons into a single string.**\n"
             "Example:\n"
-            '{"role": "Finance", "task": "<TASK_TITLE>", "summary": "...", '
-            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."], '
+            '{"role": "Finance", "task": "<TASK_TITLE>", "summary": "", '
+            '"findings": "", "risks": [], "next_steps": [], "sources": [], '
             '"unit_economics": {"total_revenue": 0, "total_cost": 0, "gross_margin": 0, "contribution_margin": 0}, "npv": 0, '
-            '"simulations": {"mean": 0, "std_dev": 0, "p5": 0, "p95": 0}, "assumptions": ["..."]}\n'
+            '"simulations": {"mean": 0, "std_dev": 0, "p5": 0, "p95": 0}, "assumptions": []}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -276,8 +276,8 @@ registry.register(
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Marketing Analyst", "task": "Assess market", "summary": "...", '
-            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            '{"role": "Marketing Analyst", "task": "<TASK_TITLE>", "summary": "", '
+            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
             "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
@@ -310,8 +310,8 @@ registry.register(
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "IP Analyst", "task": "Review patents", "summary": "...", '
-            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            '{"role": "IP Analyst", "task": "<TASK_TITLE>", "summary": "", '
+            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -343,8 +343,8 @@ registry.register(
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Patent", "task": "Assess claims", "summary": "...", '
-            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            '{"role": "Patent", "task": "<TASK_TITLE>", "summary": "", '
+            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -377,16 +377,16 @@ registry.register(
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Research Scientist", "task": "Study phenomenon", "summary": "...", '
-            '"findings": [{"claim": "...", "evidence": "..."}], "gaps": "...", '
-            '"risks": "...", "next_steps": "...", "sources": [{"id": "1", "title": "..."}]}\n'
+            '{"role": "Research Scientist", "task": "<TASK_TITLE>", "summary": "", '
+            '"findings": [{"claim": "", "evidence": ""}], "gaps": "", '
+            '"risks": [], "next_steps": [], "sources": [{"id": "", "title": ""}]}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
             "Idea: {{ idea | default('') }}\nTask: {{ task | default('unknown') }}\nProvide detailed scientific analysis "
             "with findings, gaps, risks, next_steps, and sources in JSON. Lists such as findings must be arrays and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
-            '{"role": "Research Scientist", "task": "Study phenomenon", "summary": "...", "findings": [{"claim": "...", "evidence": "..."}], "gaps": "...", "risks": ["..."], "next_steps": ["..."], "sources": [{"id": "1", "title": "..."}]}'
+            '{"role": "Research Scientist", "task": "<TASK_TITLE>", "summary": "", "findings": [{"claim": "", "evidence": ""}], "gaps": "", "risks": [], "next_steps": [], "sources": [{"id": "", "title": ""}]}'
         ),
         io_schema_ref="dr_rd/schemas/research_v2.json",
         retrieval_policy=RetrievalPolicy.AGGRESSIVE,
@@ -412,8 +412,8 @@ registry.register(
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "HRM", "task": "Plan team", "summary": "...", "findings": "...", '
-            '"risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            '{"role": "HRM", "task": "<TASK_TITLE>", "summary": "", "findings": "", '
+            '"risks": [], "next_steps": [], "sources": []}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -448,9 +448,9 @@ registry.register(
             "**`properties` MUST BE A LIST OF OBJECTS (each with `name`, `property`, `value`, `units`, `source`) — NOT AN ARRAY OF PLAIN STRINGS.**\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "...", '
-            '"findings": "...", "properties": [{"name": "X", "property": "Y", "value": 0, "units": "", "source": ""}], "tradeoffs": ["..."], '
-            '"risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "", '
+            '"findings": "", "properties": [{"name": "X", "property": "Y", "value": 0, "units": "", "source": ""}], "tradeoffs": [], '
+            '"risks": [], "next_steps": [], "sources": []}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -458,7 +458,7 @@ registry.register(
             "Task: {{ task | default('unknown') }}\n"
             "Provide material selection and feasibility analysis, including summary, properties, tradeoffs, risks, next_steps, and sources in JSON. Lists such as properties and tradeoffs must be arrays and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
-            '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "...", "findings": "...", "properties": [{"name": "X", "property": "Y", "value": 0, "units": "", "source": ""}], "tradeoffs": ["..."], "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}'
+            '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "", "findings": "", "properties": [{"name": "X", "property": "Y", "value": 0, "units": "", "source": ""}], "tradeoffs": [], "risks": [], "next_steps": [], "sources": []}'
         ),
         io_schema_ref="dr_rd/schemas/materials_engineer_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -484,8 +484,8 @@ registry.register(
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Dynamic Specialist", "task": "General analysis", "summary": "...", '
-            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            '{"role": "Dynamic Specialist", "task": "<TASK_TITLE>", "summary": "", '
+            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -493,7 +493,7 @@ registry.register(
             "Task: {{ task | default('unknown') }}\n"
             "Provide a concise analysis and recommendations. Lists must be arrays where appropriate and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
-            '{"role": "Dynamic Specialist", "task": "General analysis", "summary": "...", "findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}'
+            '{"role": "Dynamic Specialist", "task": "<TASK_TITLE>", "summary": "", "findings": "", "risks": [], "next_steps": [], "sources": []}'
         ),
         io_schema_ref="dr_rd/schemas/generic_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -522,8 +522,8 @@ registry.register(
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "QA", "task": "Test review", "summary": "...", "findings": "...", '
-            '"defects": ["..."], "coverage": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            '{"role": "QA", "task": "<TASK_TITLE>", "summary": "", "findings": "", '
+            '"defects": [], "coverage": "", "risks": [], "next_steps": [], "sources": []}\n'
             "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
