@@ -1280,6 +1280,8 @@ def execute_plan(
     from utils.reportgen import render, write_csv
 
     joined_answers = {k: "\n\n".join(v) for k, v in answers.items()}
+    for role, text in list(joined_answers.items()):
+        joined_answers[role] = rehydrate_output(text, alias_maps.get(role, {}))
     sdd, impl = assemble_from_agent_payloads(project_name, idea_str, joined_answers)
     out_dir = f"audits/{project_id}/build"
     os.makedirs(out_dir, exist_ok=True)

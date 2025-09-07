@@ -75,7 +75,7 @@ ROLE_SUFFIXES = {
     "Dynamic Specialist": ["Module", "Unit"],
     "CTO": ["Core", "System"],
 }
-LOW_NEED_ROLES = {"Finance", "QA", "HRM", "Marketing Analyst", "Marketing", "IP Analyst"}
+LOW_NEED_ROLES = {"QA", "HRM", "IP Analyst"}
 GENERIC_ALIASES = ["the product", "the device", "the system"]
 
 @dataclass

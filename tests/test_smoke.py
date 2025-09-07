@@ -6,7 +6,7 @@ def test_feature_flags_default_false():
     assert not flags.EVALUATORS_ENABLED
     assert not flags.PARALLEL_EXEC_ENABLED
     assert not flags.TOT_PLANNING_ENABLED
-    assert not flags.REFLECTION_ENABLED
+    assert flags.REFLECTION_ENABLED
     assert not flags.SIM_OPTIMIZER_ENABLED
     assert not flags.RAG_ENABLED
 
