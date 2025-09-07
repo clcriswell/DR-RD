@@ -99,8 +99,13 @@ def execute(plan: List[Dict[str, Any]], ctx: Dict[str, Any]) -> Dict[str, Path]:
             "id": t.get("id"),
             "role": t.get("role"),
             "title": t.get("title"),
-            "summary": t.get("summary") or t.get("description", ""),
         }
+        payload = findings.get(t.get("role"), {})
+        agent_summary = (payload.get("summary") or "").strip()
+        if agent_summary and agent_summary.lower() != "not determined":
+            entry["summary"] = agent_summary
+        else:
+            entry["summary"] = "(Agent failed to return content)"
         placed = False
         for phase, roles in phase_roles.items():
             if t.get("role") in roles:
