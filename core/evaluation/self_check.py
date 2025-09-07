@@ -1,7 +1,9 @@
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Callable, Tuple
+import re
 
 import jsonschema
 from jsonschema import ValidationError
@@ -123,10 +125,11 @@ def validate_and_retry(
             return False, json.dumps(data, ensure_ascii=False), missing
         schema = _load_schema(agent_name)
         if schema:
-            try:
-                jsonschema.validate(data, schema)
-            except ValidationError as e:
-                errors.append(f"schema:{e.message}")
+            validator = jsonschema.Draft7Validator(schema)
+            schema_errors = sorted(validator.iter_errors(data), key=lambda e: e.path)
+            if schema_errors:
+                for e in schema_errors:
+                    errors.append(f"schema:{e.message}")
                 return False, json.dumps(data, ensure_ascii=False), []
         data = _replace_todo(data)
         return True, json.dumps(data, ensure_ascii=False), []
@@ -135,22 +138,95 @@ def validate_and_retry(
     valid, raw_text, missing_keys = _check(raw_text)
     if not valid:
         retried = True
-        if missing_keys:
-            if len(missing_keys) == 1:
-                keys_str = f"'{missing_keys[0]}'"
-                reminder = f"Include the key {keys_str} in your JSON."
-            elif len(missing_keys) == 2:
-                keys_str = " and ".join(f"'{k}'" for k in missing_keys)
-                reminder = f"Include the keys {keys_str} in your JSON."
-            else:
-                keys_str = ", ".join(f"'{k}'" for k in missing_keys[:-1])
-                keys_str += f", and '{missing_keys[-1]}'"
-                reminder = f"Include the keys {keys_str} in your JSON."
+        issues: list[str] = []
+        seen: set[str] = set()
+
+        for k in missing_keys:
+            issue = f"missing '{k}'"
+            issues.append(issue)
+            seen.add(issue)
+
+        for err in errors:
+            if not err.startswith("schema:"):
+                continue
+            msg = err.split("schema:", 1)[1]
+            if m := re.search(r"'([^']+)' is a required property", msg):
+                issue = f"missing '{m.group(1)}'"
+                if issue not in seen:
+                    issues.append(issue)
+                    seen.add(issue)
+                continue
+            if "is not of type 'string'" in msg:
+                inst = msg.split(" is not of type", 1)[0].strip()
+                if inst.startswith("["):
+                    issue = "used a list where a single string was required"
+                elif inst.startswith("{"):
+                    issue = "used an object where a single string was required"
+                else:
+                    continue
+                if issue not in seen:
+                    issues.append(issue)
+                    seen.add(issue)
+                continue
+            if "is not of type 'array'" in msg:
+                inst = msg.split(" is not of type", 1)[0].strip()
+                if inst.startswith("'"):
+                    issue = "used a string where an array was required"
+                elif inst.startswith("{"):
+                    issue = "used an object where an array was required"
+                else:
+                    issue = "used a non-array where an array was required"
+                if issue not in seen:
+                    issues.append(issue)
+                    seen.add(issue)
+                continue
+            if "is not of type 'object'" in msg:
+                inst = msg.split(" is not of type", 1)[0].strip()
+                if inst.startswith("["):
+                    issue = "used an array where an object was required"
+                else:
+                    issue = "used a non-object where an object was required"
+                if issue not in seen:
+                    issues.append(issue)
+                    seen.add(issue)
+                continue
+            if "is not of type 'number'" in msg:
+                if "'Not determined'" in msg:
+                    issue = "used 'Not determined' for a numeric field"
+                else:
+                    issue = "used a non-numeric value where a number was required"
+                if issue not in seen:
+                    issues.append(issue)
+                    seen.add(issue)
+
+        if issues:
+            joined = " and ".join(issues)
+            fix = "these issues" if len(issues) > 1 else "this issue"
+            reminder = (
+                f"Reminder: Your last output was {joined}. "
+                f"Fix {fix} and return a valid JSON."
+            )
         else:
             reminder = (
-                "You omitted the required JSON summary. Return only the JSON object with keys: "
-                "role, task, findings, risks, next_steps, sources."
+                "Reminder: Return only the JSON object with keys role, task, "
+                "findings, risks, next_steps, and sources."
             )
+
+        try:
+            if run_id:
+                trace_writer.append_step(
+                    run_id,
+                    {
+                        "phase": "executor",
+                        "event": "retry_prompt",
+                        "role": agent_name,
+                        "task_id": task.get("id"),
+                        "prompt": reminder,
+                    },
+                )
+        except Exception:
+            pass
+        logger.info("retry_prompt", extra={"role": agent_name, "prompt": reminder})
         try:
             second = retry_fn(reminder)
         except Exception as e:  # pragma: no cover - retry best effort
