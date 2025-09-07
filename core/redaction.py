@@ -178,9 +178,18 @@ class Redactor:
             if role in LOW_NEED_ROLES:
                 alias = random.choice(GENERIC_ALIASES)
             else:
-                base = re.sub(r"\W+", "", self.project_name.title()) or "Project"
+                base = self.project_name.title()
+                base = re.sub(r'^(?:A |An |The )', '', base)
+                base = re.sub(r"[^0-9A-Za-z]+", "", base) or "Project"
                 suffix = random.choice(ROLE_SUFFIXES.get(role, ["Device"]))
-                alias = base + suffix
+                m = re.match(r"[A-Za-z]+", suffix)
+                prefix = m.group(0) if m else ""
+                if base.lower().endswith("device") and prefix.lower() != "device":
+                    base = base[: -len("Device")]
+                if prefix and base.lower().endswith(prefix.lower()):
+                    alias = f"{base}{suffix[m.end():]}"
+                else:
+                    alias = f"{base}{suffix}"
             text = re.sub(re.escape(self.project_name), alias, text, flags=re.I)
             self.alias_map[self.project_name] = alias
 

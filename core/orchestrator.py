@@ -143,7 +143,7 @@ def _invoke_agent(agent, context, task, model=None):
     role = payload.get("role")
     red_task = {}
     for k, v in payload.items():
-        if isinstance(v, str) and k != "role":
+        if isinstance(v, str) and k not in {"role", "title", "task"}:
             rv, _, _ = redactor.redact(v, mode="light", role=role)
             red_task[k] = rv
         else:
