@@ -93,6 +93,7 @@ def validate_and_retry(
     retried = False
     valid = False
     errors: list[str] = []
+    escalated = False
 
     if not isinstance(raw_text, str):
         raw_text = json.dumps(raw_text, ensure_ascii=False)
@@ -235,17 +236,56 @@ def validate_and_retry(
         if not isinstance(second, str):
             second = json.dumps(second, ensure_ascii=False)
         valid, raw_text, missing_keys = _check(second)
+        if not valid:
+            final_reminder = (
+                "Final attempt: Summarize your output in one paragraph; "
+                "convert any lists to semicolon-separated strings so the JSON schema is satisfied."
+            )
+            try:
+                if run_id:
+                    trace_writer.append_step(
+                        run_id,
+                        {
+                            "phase": "executor",
+                            "event": "final_retry_prompt",
+                            "role": agent_name,
+                            "attempt": 2,
+                            "task_id": task.get("id"),
+                            "prompt": final_reminder,
+                        },
+                    )
+            except Exception:
+                pass
+            logger.info(
+                "final_retry_prompt",
+                extra={"role": agent_name, "prompt": final_reminder},
+            )
+            try:
+                third = retry_fn(final_reminder)
+            except Exception as e:  # pragma: no cover - retry best effort
+                logger.warning("Final retry failed for %s: %s", agent_name, e)
+                third = raw_text
+            if not isinstance(third, str):
+                third = json.dumps(third, ensure_ascii=False)
+            valid, raw_text, missing_keys = _check(third)
+            if not valid:
+                escalated = True
 
     info = {
         "retried": retried,
         "valid_json": valid,
         "role": agent_name,
         "task": task.get("title"),
-        "escalated": False,
+        "escalated": escalated,
     }
     logger.info("self_check", extra=info)
     if not valid:
-        meta = {"retried": retried, "valid_json": False, "missing_keys": missing_keys}
+        meta = {
+            "retried": retried,
+            "valid_json": False,
+            "missing_keys": missing_keys,
+            "escalated": escalated,
+        }
         try:
             if run_id:
                 trace_writer.append_step(
@@ -257,7 +297,7 @@ def validate_and_retry(
                         "task_id": task.get("id"),
                         "valid_json": False,
                         "errors": errors,
-                        "escalated": False,
+                        "escalated": escalated,
                         "missing_keys": missing_keys,
                     },
                 )
@@ -270,5 +310,10 @@ def validate_and_retry(
             pass
         return placeholder, meta
     log_self_check(run_id, support_id, {"valid_json": True}, head)
-    meta = {"retried": retried, "valid_json": True, "missing_keys": missing_keys}
+    meta = {
+        "retried": retried,
+        "valid_json": True,
+        "missing_keys": missing_keys,
+        "escalated": escalated,
+    }
     return raw_text, meta
