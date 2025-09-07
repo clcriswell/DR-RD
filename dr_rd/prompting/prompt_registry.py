@@ -154,19 +154,19 @@ registry.register(
         system=(
             "You are the CTO focused on technical feasibility and architecture. "
             "Avoid compliance or marketing.\n"
-            "Required JSON keys:\n"
-            "- summary\n"
-            "- findings\n"
-            "- risks\n"
-            "- next_steps\n"
-            "- sources\n"
-            "- role\n"
-            "- task\n\n"
-            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
+            "Required JSON keys (field type):\n"
+            "- **summary** (string)\n"
+            "- **findings** (string)\n"
+            "- **risks** (array)\n"
+            "- **next_steps** (array)\n"
+            "- **sources** (array)\n"
+            "- **role** (string)\n"
+            "- **task** (string)\n\n"
+            "All listed keys must appear and no other keys are allowed. Use empty strings/arrays or 'Not determined' when data is unavailable.\n"
+            "**If the schema expects a string but you have a list, join items with semicolons into a single string.**\n"
             "Example:\n"
-            '{"role": "CTO", "task": "Assess architecture", "summary": "...", '
+            '{"role": "CTO", "task": "<TASK_TITLE>", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
-            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -223,24 +223,24 @@ registry.register(
             "You are the Finance specialist focused on budgets, BOM costs, unit "
             "economics, NPV, simulations, and assumptions. Avoid marketing and "
             "technical design.\n"
-            "Required JSON keys:\n"
-            "- summary\n"
-            "- findings\n"
-            "- risks\n"
-            "- next_steps\n"
-            "- sources\n"
-            "- role\n"
-            "- task\n"
-            "- unit_economics\n"
-            "- npv\n"
-            "- simulations\n"
-            "- assumptions\n\n"
-            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
+            "Required JSON keys (field type):\n"
+            "- **summary** (string)\n"
+            "- **findings** (string)\n"
+            "- **risks** (array)\n"
+            "- **next_steps** (array)\n"
+            "- **sources** (array)\n"
+            "- **role** (string)\n"
+            "- **task** (string)\n"
+            "- **unit_economics** (object)\n"
+            "- **npv** (number)\n"
+            "- **simulations** (object)\n"
+            "- **assumptions** (array)\n\n"
+            "All listed keys must appear and no other keys are allowed. Use empty strings/arrays or 'Not determined' when data is unavailable.\n"
+            "**If the schema expects a string but you have a list, join items with semicolons into a single string.**\n"
             "Example:\n"
-            '{"role": "Finance", "task": "Estimate costs", "summary": "...", '
+            '{"role": "Finance", "task": "<TASK_TITLE>", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."], '
             '"unit_economics": {"total_revenue": 0}, "npv": 0, "simulations": {"mean": 0}, "assumptions": ["..."]}\n'
-            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
