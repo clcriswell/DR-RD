@@ -18,5 +18,4 @@ def test_self_check_returns_structured_failure():
     bad = "not json"
     result, meta = validate_and_retry("r", {"id": 1, "title": "t"}, bad, lambda _: bad)
     assert meta["valid_json"] is False
-    assert result["valid_json"] is False
-    assert "raw_head" in result
+    assert result["findings"] == "Not determined"
