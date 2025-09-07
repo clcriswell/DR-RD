@@ -18,6 +18,8 @@ import streamlit as st
 from markdown_pdf import MarkdownPdf, Section
 
 from dr_rd.config.env import get_env
+from dr_rd.telemetry.api_call_log import APICallLogger
+from dr_rd.telemetry import loggers as api_loggers
 from utils.i18n import missing_keys, set_locale
 from utils.i18n import tr as t
 from utils.session_store import get_session_id, init_stores  # noqa: F401
@@ -514,6 +516,13 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
 
     current_phase = "start"
     current_box = None
+    log_enabled = os.getenv("DRRD_API_CALL_LOG", "true").lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+    api_logger = APICallLogger(run_id, ensure_run_dirs(run_id), enabled=log_enabled)
+    api_loggers.set_api_call_logger(api_logger)
 
     try:
         start = time.time()
@@ -841,6 +850,11 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         run_lock_released(run_id)
         st.session_state["active_run"] = None
         st.session_state["submit_token"] = None
+        run_cancelled(run_id)
+        try:
+            api_logger.close()
+        finally:
+            api_loggers.set_api_call_logger(None)
 
 
 def generate_pdf(markdown_text):

@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-09-06T23:57:59.463369Z'
-git_sha: 6bb1b82dde1498d861701d463cf8241d0b4cfb27
+generated_at: '2025-09-07T00:09:10.711737Z'
+git_sha: dea9f84f8b27a69b79446629078cfb0036bb3198
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -173,28 +173,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/__init__.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/plan_utils.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
 - path: orchestrators/qa_router.py
-  role: Orchestrator
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: orchestrators/app_builder.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -208,6 +187,20 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
+- path: orchestrators/plan_utils.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: orchestrators/app_builder.py
+  role: Orchestrator
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
 - path: orchestrators/spec_builder.py
   role: Orchestrator
   responsibilities: []
@@ -215,15 +208,8 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/integrator.py
-  role: Summarization
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
-- path: core/summarization/__init__.py
-  role: Summarization
+- path: orchestrators/__init__.py
+  role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
@@ -237,6 +223,20 @@ modules:
   invoked_by: []
   invokes: []
 - path: core/summarization/role_summarizer.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/__init__.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/integrator.py
   role: Summarization
   responsibilities: []
   inputs: []
