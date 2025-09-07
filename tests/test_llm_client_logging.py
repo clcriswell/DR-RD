@@ -13,6 +13,7 @@ class DummyResp:
 
 
 def test_llm_logging_success(monkeypatch, caplog):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setattr(
         llm_client.client.responses,
         "create",
@@ -36,6 +37,7 @@ def test_llm_logging_exception(monkeypatch, caplog):
     def boom(**kwargs):
         raise RuntimeError("404 boom")
 
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setattr(llm_client.client.responses, "create", boom)
 
     class BoomChat:

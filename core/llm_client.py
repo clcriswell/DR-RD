@@ -14,6 +14,7 @@ from utils.clients import get_cloud_logging_client
 from utils.config import load_config
 from utils.lazy_import import lazy
 from utils.telemetry import usage_exceeded, usage_threshold_crossed
+from dr_rd.telemetry.api_call_log import instrumented_api_call
 from utils.usage import Usage, add_delta, thresholds
 
 _openai = lazy("openai")
@@ -43,6 +44,16 @@ def _client() -> Any:
 
         _client_instance = _openai.OpenAI(api_key=get_env("OPENAI_API_KEY", "test"))
     return _client_instance
+
+
+class _ClientProxy:
+    """Lazy proxy exposing attributes of the OpenAI client."""
+
+    def __getattr__(self, name: str) -> Any:  # pragma: no cover - simple proxy
+        return getattr(_client(), name)
+
+
+client = _ClientProxy()
 
 
 def _supports_response_format() -> bool:
@@ -406,7 +417,15 @@ def call_openai(
         client = _client()
         for attempt in range(4):
             try:
-                resp = client.responses.create(**payload)
+                resp = instrumented_api_call(
+                    api_name="openai.responses",
+                    endpoint="/responses",
+                    params=payload,
+                    prompt_text=compiled_prompt,
+                    call=lambda: client.responses.create(**payload),
+                    task_id=meta.get("task_id", "") if meta else "",
+                    agent=meta.get("agent", "") if meta else "",
+                )
                 http_status_or_exc = getattr(resp, "http_status", 200)
                 text = extract_text(resp)
                 return {"raw": resp, "text": text}
@@ -440,8 +459,16 @@ def call_openai(
             chat_params["max_tokens"] = chat_params.pop("max_output_tokens")
         logger.info("call_openai: model=%s api=Chat", model)
         client = _client()
-        resp = client.chat.completions.create(
-            model=model, messages=_to_chat_messages(messages), **chat_params
+        resp = instrumented_api_call(
+            api_name="openai.chat.completions",
+            endpoint="/chat/completions",
+            params={"model": model, "messages": _to_chat_messages(messages), **chat_params},
+            prompt_text=compiled_prompt,
+            call=lambda: client.chat.completions.create(
+                model=model, messages=_to_chat_messages(messages), **chat_params
+            ),
+            task_id=meta.get("task_id", "") if meta else "",
+            agent=meta.get("agent", "") if meta else "",
         )
         http_status_or_exc = getattr(resp, "http_status", 200)
         text = extract_text(resp)
