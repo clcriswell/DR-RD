@@ -32,7 +32,6 @@ User idea → Planner → Router/Registry → Executor → Summarization → Syn
 | Chief Scientist | `core/agents/chief_scientist_agent.py` | JSON |
 | Regulatory Specialist | `core/agents/regulatory_specialist_agent.py` | JSON |
 | Evaluation | `core/agents/evaluation_agent.py` | JSON |
-| Materials | `core/agents/materials_agent.py` | JSON |
 | QA | `core/agents/qa_agent.py` | JSON |
 | Finance Specialist | `core/agents/finance_specialist_agent.py` | JSON |
 | Simulation | `core/agents/simulation_agent.py` | JSON |
@@ -56,4 +55,4 @@ Streamlit imports `app.main` from `app/__init__.py`.
 ## Change Rules & Conventions
 See [REPO_RULES.md](REPO_RULES.md).
 
-_Last generated at 2025-09-06T21:32:18.961883Z from commit 58ea04f_
+_Last generated at 2025-09-06T23:57:59.463369Z from commit 6bb1b82_

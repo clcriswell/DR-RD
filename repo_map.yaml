@@ -1,6 +1,6 @@
 version: 1
-generated_at: '2025-09-06T21:32:18.961883Z'
-git_sha: 58ea04f375ffeea24a80570a9c9e2cf6bad89ae8
+generated_at: '2025-09-06T23:57:59.463369Z'
+git_sha: 6bb1b82dde1498d861701d463cf8241d0b4cfb27
 entry_points:
 - name: streamlit_app
   path: app.py
@@ -145,13 +145,6 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/agents/materials_agent.py
-  role: Agent[Materials]
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
 - path: core/agents/qa_agent.py
   role: Agent[QA]
   responsibilities: []
@@ -187,14 +180,14 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/qa_router.py
+- path: orchestrators/plan_utils.py
   role: Orchestrator
   responsibilities: []
   inputs: []
   outputs: []
   invoked_by: []
   invokes: []
-- path: orchestrators/plan_utils.py
+- path: orchestrators/qa_router.py
   role: Orchestrator
   responsibilities: []
   inputs: []
@@ -222,13 +215,6 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/__init__.py
-  role: Summarization
-  responsibilities: []
-  inputs: []
-  outputs: []
-  invoked_by: []
-  invokes: []
 - path: core/summarization/integrator.py
   role: Summarization
   responsibilities: []
@@ -236,7 +222,7 @@ modules:
   outputs: []
   invoked_by: []
   invokes: []
-- path: core/summarization/role_summarizer.py
+- path: core/summarization/__init__.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -244,6 +230,13 @@ modules:
   invoked_by: []
   invokes: []
 - path: core/summarization/schemas.py
+  role: Summarization
+  responsibilities: []
+  inputs: []
+  outputs: []
+  invoked_by: []
+  invokes: []
+- path: core/summarization/role_summarizer.py
   role: Summarization
   responsibilities: []
   inputs: []
@@ -280,7 +273,6 @@ agent_registry:
   Chief Scientist: core/agents/chief_scientist_agent.py
   Regulatory Specialist: core/agents/regulatory_specialist_agent.py
   Evaluation: core/agents/evaluation_agent.py
-  Materials: core/agents/materials_agent.py
   QA: core/agents/qa_agent.py
   Finance Specialist: core/agents/finance_specialist_agent.py
   Simulation: core/agents/simulation_agent.py

@@ -11,7 +11,7 @@ from jsonschema import validate
 from core.llm import complete
 from core.tool_router import allow_tools, call_tool
 from dr_rd.prompting import PromptFactory, RetrievalPolicy
-from core.agents.prompt_agent import strip_additional_properties
+from core.agents.prompt_agent import coerce_types, strip_additional_properties
 
 
 class QAAgent:
@@ -69,6 +69,8 @@ class QAAgent:
             s = text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
             try:
                 data = json.loads(s)
+                data.pop("combined_context", None)
+                data = coerce_types(data, schema)
                 data = strip_additional_properties(data, schema)
                 validate(data, schema)
                 return data
@@ -86,9 +88,13 @@ class QAAgent:
                     else json.dumps(resp.content, ensure_ascii=False)
                 )
                 data = json.loads(s)
+                data.pop("combined_context", None)
+                data = coerce_types(data, schema)
                 data = strip_additional_properties(data, schema)
                 validate(data, schema)
                 return data
+        data.pop("combined_context", None)
+        data = coerce_types(data, schema)
         data = strip_additional_properties(data, schema)
         validate(data, schema)
         return data

@@ -28,10 +28,10 @@ def test_run_specialist_passes_flags(monkeypatch):
     monkeypatch.setattr("core.agents.unified_registry.get_agent", fake_get)
     monkeypatch.setattr("core.runner.execute_task", fake_exec)
 
-    res = ui_bridge.run_specialist("Materials", "t", "d", {}, {"RAG_ENABLED": False})
-    assert res["role"] == "Materials"
+    res = ui_bridge.run_specialist("Materials Engineer", "t", "d", {}, {"RAG_ENABLED": False})
+    assert res["role"] == "Materials Engineer"
     assert called["exec_overrides"] == {"RAG_ENABLED": False}
-    assert called["role"] == "Materials"
+    assert called["role"] == "Materials Engineer"
 
 
 def test_run_dynamic_passes_flags(monkeypatch):

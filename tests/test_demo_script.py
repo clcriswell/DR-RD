@@ -5,10 +5,10 @@ from scripts import demo_specialists
 
 def test_demo_script_runs(monkeypatch):
     calls = [
-        {"role": "Materials"},
+        {"role": "Materials Engineer"},
         {"role": "QA"},
         {"role": "Finance"},
-        {"role": "Materials"},
+        {"role": "Materials Engineer"},
     ]
 
     def fake_run(role, title, desc, inputs, flag_overrides):
