@@ -15,7 +15,6 @@ from core.agents.hrm_agent import HRMAgent
 from core.agents.invoke import resolve_invoker
 from core.agents.ip_analyst_agent import IPAnalystAgent
 from core.agents.marketing_agent import MarketingAgent
-from core.agents.materials_agent import MaterialsAgent
 from core.agents.materials_engineer_agent import MaterialsEngineerAgent
 from core.agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
 from core.agents.planner_agent import PlannerAgent
@@ -49,7 +48,6 @@ AGENT_REGISTRY: Dict[str, Type[BaseAgent]] = {
     "Chief Scientist": ChiefScientistAgent,
     "Regulatory Specialist": RegulatorySpecialistAgent,
     "Evaluation": EvaluationAgent,
-    "Materials": MaterialsAgent,
     "QA": QAAgent,
     "Finance Specialist": FinanceSpecialistAgent,
     "Simulation": SimulationAgent,

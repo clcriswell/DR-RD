@@ -23,7 +23,7 @@ def run_demo() -> List[Dict[str, Any]]:
             return {"role": role, "error": str(e)}
 
     mat = _safe_call(
-        "Materials",
+        "Materials Engineer",
         "Alloy query",
         "Lookup 6061 alloy composition",
         {"query": "6061 aluminum"},
@@ -54,7 +54,7 @@ def run_demo() -> List[Dict[str, Any]]:
 
     on = {"RAG_ENABLED": True, "ENABLE_LIVE_SEARCH": True}
     _safe_call(
-        "Materials",
+        "Materials Engineer",
         "Alloy query",
         "Lookup 6061 alloy composition",
         {"query": "6061 aluminum"},

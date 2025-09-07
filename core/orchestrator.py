@@ -875,6 +875,8 @@ def execute_plan(
             alias_maps[role] = routed.get("alias_map", {})
             obj = text if isinstance(text, (dict, list)) else extract_json_block(text)
             payload = obj or {}
+            if isinstance(payload, dict):
+                payload.pop("combined_context", None)
             role_to_findings[role] = payload
             norm = _normalize_evidence_payload(payload)
             artifact_payload = (

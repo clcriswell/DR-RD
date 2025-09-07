@@ -45,7 +45,6 @@ ROLE_NAMES = {
     "Evaluation",
     "Finance Specialist",
     "Simulation",
-    "Materials",
     "Reflection",
     "Mechanical Systems Lead",
 }

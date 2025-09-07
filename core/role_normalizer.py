@@ -41,10 +41,11 @@ SYNONYMS: dict[str, set[str]] = {
         "Product Marketing",
     },
     "Research Scientist": {
-        "Materials Engineer",
+        "R&D Scientist",
+    },
+    "Materials Engineer": {
         "Materials Scientist",
         "Coating Process Engineer",
-        "R&D Scientist",
     },
     "IP Analyst": {
         "Patent Analyst",

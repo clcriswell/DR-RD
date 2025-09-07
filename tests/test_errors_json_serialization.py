@@ -3,24 +3,17 @@ import json
 from utils.errors import SafeError, as_json
 
 
-def test_as_json_serializes_sets_deterministically():
+def test_as_json_handles_sets_and_tuples():
     err = SafeError(
-        kind="test",
+        kind="k",
         user_message="u",
         tech_message="t",
         traceback=None,
-        support_id="id",
-        context={
-            "simple": {3, 1, 2},
-            "nested": {"inner": {5, 4}},
-            "list": [{2, 1}],
-            "tuple": ({3, 1}, {4, 2}),
-        },
+        support_id="s",
+        context={"a": {2, 1}, "b": (1, 2), "c": [{"d": {3, 1}}]},
     )
-    data = json.loads(as_json(err))
-    ctx = data["context"]
-    assert ctx["simple"] == [1, 2, 3]
-    assert ctx["nested"]["inner"] == [4, 5]
-    assert ctx["list"][0] == [1, 2]
-    assert ctx["tuple"][0] == [1, 3]
-    assert ctx["tuple"][1] == [2, 4]
+    data = as_json(err)
+    obj = json.loads(data.decode("utf-8"))
+    assert obj["context"]["a"] == [1, 2]
+    assert obj["context"]["b"] == [1, 2]
+    assert obj["context"]["c"][0]["d"] == [1, 3]

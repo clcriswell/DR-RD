@@ -12,6 +12,23 @@ from dr_rd.prompting.prompt_factory import PromptFactory
 from utils.logging import logger
 
 
+def coerce_types(data: Any, schema: dict) -> Any:
+    """Coerce list values into strings when schema expects string."""
+    if not isinstance(schema, dict):
+        return data
+    if schema.get("type") == "string" and isinstance(data, list):
+        if all(isinstance(x, str) for x in data):
+            return "; ".join(data)
+        return data
+    if isinstance(data, dict):
+        props = schema.get("properties", {}) or {}
+        return {k: coerce_types(v, props.get(k, {})) for k, v in data.items()}
+    if isinstance(data, list):
+        item_schema = schema.get("items", {}) or {}
+        return [coerce_types(item, item_schema) for item in data]
+    return data
+
+
 def strip_additional_properties(data: Any, schema: dict) -> Any:
     """Recursively remove keys not defined in the schema."""
     if not isinstance(schema, dict):
@@ -56,6 +73,7 @@ class PromptFactoryAgent(LLMRoleAgent):
             try:
                 data = json.loads(raw)
                 if schema is not None:
+                    data = coerce_types(data, schema)
                     data = strip_additional_properties(data, schema)
                     jsonschema.validate(data, schema)
                 valid = True

@@ -166,6 +166,7 @@ registry.register(
             "Example:\n"
             '{"role": "CTO", "task": "Assess architecture", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -199,6 +200,7 @@ registry.register(
             "Example:\n"
             '{"role": "Regulatory", "task": "Check standards", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -238,6 +240,7 @@ registry.register(
             '{"role": "Finance", "task": "Estimate costs", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."], '
             '"unit_economics": {"total_revenue": 0}, "npv": 0, "simulations": {"mean": 0}, "assumptions": ["..."]}\n'
+            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -272,6 +275,7 @@ registry.register(
             "Example:\n"
             '{"role": "Marketing Analyst", "task": "Assess market", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -516,6 +520,7 @@ registry.register(
             "Example:\n"
             '{"role": "QA", "task": "Test review", "summary": "...", "findings": "...", '
             '"defects": ["..."], "coverage": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
