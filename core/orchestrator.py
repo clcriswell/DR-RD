@@ -1433,14 +1433,18 @@ def compose_final_proposal(
 
     gap_lines: list[str] = []
     if missing_roles or open_issues:
-        gap_lines.append("## Gaps and Unresolved Issues")
         for role in missing_roles:
             gap_lines.append(f"- {role} analysis is not available in this run.")
         for issue in open_issues:
             r = issue.get("role") or "Unknown role"
             gap_lines.append(f"- {r} analysis could not be completed.")
     if gap_lines:
-        final_markdown = final_markdown + "\n\n" + "\n".join(gap_lines)
+        header = "## Gaps and Unresolved Issues"
+        final_markdown = final_markdown.rstrip()
+        if header in final_markdown:
+            final_markdown = final_markdown + "\n" + "\n".join(gap_lines)
+        else:
+            final_markdown = final_markdown + f"\n\n{header}\n" + "\n".join(gap_lines)
     if alias_map:
         final_markdown = rehydrate_output(final_markdown, alias_map)
     run_id = st.session_state.get("run_id")

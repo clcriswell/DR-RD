@@ -5,7 +5,7 @@ from typing import Dict, Any
 from core.spec.models import *
 
 
-def _safe(x, default: str = ""):
+def _safe(x, default: str = "(This section was not completed in this research pass.)"):
     if not x or x == "Not determined":
         return default
     return x
