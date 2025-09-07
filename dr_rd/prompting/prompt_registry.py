@@ -167,6 +167,7 @@ registry.register(
             "Example:\n"
             '{"role": "CTO", "task": "<TASK_TITLE>", "summary": "", '
             '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            "If the task is to design a system architecture, break your description into key components (e.g., optics, control loops, signal processing, data pipeline) and address each one in turn. This way, your **findings** can clearly call out each subsystem and its rationale. All required JSON fields must be filled; use \"Not determined\" only as a last resort after multiple attempts.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -198,6 +199,7 @@ registry.register(
             "- task\n\n"
             "**LIST EACH RISK AS A SEPARATE ITEM IN `risks`. DO NOT COMBINE MULTIPLE RISKS INTO ONE PARAGRAPH.**\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
+            "Context: Relevant regulations may involve biomedical devices (FDA requirements), import/export controls (e.g., ITAR), and product safety (ISO/IEC standards). Include at least one applicable standard or regulation in your analysis. All required JSON fields must appear; use \"Not determined\" only if information is truly unavailable after multiple attempts.\n"
             "Example:\n"
             '{"role": "Regulatory", "task": "<TASK_TITLE>", "summary": "", '
             '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
@@ -275,6 +277,7 @@ registry.register(
             "- role\n"
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
+            "Be concise and factual—avoid repetition or marketing buzzwords. When appropriate, include a short bulleted list (5–7 bullets) covering: Total Addressable Market (TAM), Ideal Customer Profile (ICP), channels, pricing strategy, and key assumptions. All listed fields must appear and \"Not determined\" should only be used as a last-resort placeholder after retries.\n"
             "Example:\n"
             '{"role": "Marketing Analyst", "task": "<TASK_TITLE>", "summary": "", '
             '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
