@@ -196,11 +196,12 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "**LIST EACH RISK AS A SEPARATE ITEM IN `risks`. DO NOT COMBINE MULTIPLE RISKS INTO ONE PARAGRAPH.**\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Regulatory", "task": "Check standards", "summary": "...", '
-            '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
-            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
+            '{"role": "Regulatory", "task": "<TASK_TITLE>", "summary": "...", '
+            '"findings": "...", "risks": ["risk 1", "risk 2"], "next_steps": ["..."], "sources": ["..."]}\n'
+            "Return only the JSON keys defined in the schema. **If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons).** Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -235,12 +236,14 @@ registry.register(
             "- **npv** (number)\n"
             "- **simulations** (object)\n"
             "- **assumptions** (array)\n\n"
+            "**DO NOT OMIT `total_cost` or `contribution_margin` in `unit_economics`. ENSURE `npv` IS A NUMBER (not a placeholder string).**\n"
             "All listed keys must appear and no other keys are allowed. Use empty strings/arrays or 'Not determined' when data is unavailable.\n"
             "**If the schema expects a string but you have a list, join items with semicolons into a single string.**\n"
             "Example:\n"
             '{"role": "Finance", "task": "<TASK_TITLE>", "summary": "...", '
             '"findings": "...", "risks": ["..."], "next_steps": ["..."], "sources": ["..."], '
-            '"unit_economics": {"total_revenue": 0}, "npv": 0, "simulations": {"mean": 0}, "assumptions": ["..."]}\n'
+            '"unit_economics": {"total_revenue": 0, "total_cost": 0, "gross_margin": 0, "contribution_margin": 0}, "npv": 0, '
+            '"simulations": {"mean": 0, "std_dev": 0, "p5": 0, "p95": 0}, "assumptions": ["..."]}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -442,10 +445,11 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "**`properties` MUST BE A LIST OF OBJECTS (each with `name`, `property`, `value`, `units`, `source`) — NOT AN ARRAY OF PLAIN STRINGS.**\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Materials Engineer", "task": "Select materials", "summary": "...", '
-            '"findings": "...", "properties": [], "tradeoffs": ["..."], '
+            '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "...", '
+            '"findings": "...", "properties": [{"name": "X", "property": "Y", "value": 0, "units": "", "source": ""}], "tradeoffs": ["..."], '
             '"risks": ["..."], "next_steps": ["..."], "sources": ["..."]}\n'
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
@@ -454,7 +458,7 @@ registry.register(
             "Task: {{ task | default('unknown') }}\n"
             "Provide material selection and feasibility analysis, including summary, properties, tradeoffs, risks, next_steps, and sources in JSON. Lists such as properties and tradeoffs must be arrays and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
-            '{"role": "Materials Engineer", "task": "Select materials", "summary": "...", "findings": "...", "properties": [], "tradeoffs": [], "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}'
+            '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "...", "findings": "...", "properties": [{"name": "X", "property": "Y", "value": 0, "units": "", "source": ""}], "tradeoffs": ["..."], "risks": ["..."], "next_steps": ["..."], "sources": ["..."]}'
         ),
         io_schema_ref="dr_rd/schemas/materials_engineer_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
