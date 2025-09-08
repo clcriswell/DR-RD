@@ -164,9 +164,13 @@ registry.register(
             "- **task** (string)\n\n"
             "All listed keys must appear and no other keys are allowed. Use empty strings/arrays or 'Not determined' when data is unavailable.\n"
             "**If the schema expects a string but you have a list, join items with semicolons into a single string.**\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). Each field’s value must conform to the expected type without extra formatting. If the schema expects a string but you have multiple items, join them with semicolons.\n"
             "Example:\n"
             '{"role": "CTO", "task": "<TASK_TITLE>", "summary": "", '
             '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            "Incorrect Example:\n"
+            "{'role': 'CTO', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': ['compA','compB'], 'risks': [], 'next_steps': [], 'sources': []}\n"
+            "Explanation: this is invalid because markdown-style bullets and arrays in place of strings break the JSON schema.\n"
             "If the task is to design a system architecture, break your description into key components (e.g., optics, control loops, signal processing, data pipeline) and address each one in turn. This way, your **findings** can clearly call out each subsystem and its rationale. All required JSON fields must be filled; use \"Not determined\" only as a last resort after multiple attempts.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
@@ -203,7 +207,11 @@ registry.register(
             "Example:\n"
             '{"role": "Regulatory", "task": "<TASK_TITLE>", "summary": "", '
             '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
-            "Return only the JSON keys defined in the schema. **If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons).** Do not include any other keys.\n"
+            "Incorrect Example:\n"
+            "{'role': 'Regulatory', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': ['regA','regB'], 'risks': [], 'next_steps': [], 'sources': []}\n"
+            "Explanation: this is invalid because markdown-style bullets and arrays in place of strings break the JSON schema.\n"
+            "Return only the JSON keys defined in the schema. **If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Arrays such as `risks` and `next_steps` should contain concise strings without internal formatting.** Do not include any other keys.\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). Each field’s value must conform to the expected type without extra formatting. If the schema expects a string but you have multiple items, join them with semicolons.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -277,11 +285,16 @@ registry.register(
             "- role\n"
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
-            "Be concise and factual—avoid repetition or marketing buzzwords. When appropriate, include a short bulleted list (5–7 bullets) covering: Total Addressable Market (TAM), Ideal Customer Profile (ICP), channels, pricing strategy, and key assumptions. All listed fields must appear and \"Not determined\" should only be used as a last-resort placeholder after retries.\n"
+            "Be concise and factual—avoid repetition or marketing buzzwords. Include a short list of 5–7 key market points covering Total Addressable Market (TAM), Ideal Customer Profile (ICP), channels, pricing strategy, and key assumptions.\n"
+            "Format these points as separate sentences within a single semicolon-separated string or as individual items in the `risks` or `next_steps` arrays; never use markdown bullets or newline-separated lists. No '-' or '*' bullet characters should appear in any JSON field.\n"
             "Example:\n"
             '{"role": "Marketing Analyst", "task": "<TASK_TITLE>", "summary": "", '
             '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
-            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
+            "Incorrect Example:\n"
+            "{'role': 'Marketing Analyst', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': ['pointA','pointB'], 'risks': [], 'next_steps': [], 'sources': []}\n"
+            "Explanation: this is invalid because markdown-style bullets and arrays in place of strings break the JSON schema.\n"
+            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Arrays such as `risks` and `next_steps` should contain concise strings without internal formatting. Do not include any other keys.\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). Each field’s value must conform to the expected type without extra formatting. If the schema expects a string but you have multiple items, join them with semicolons.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
