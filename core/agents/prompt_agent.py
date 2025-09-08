@@ -13,6 +13,7 @@ from dr_rd.prompting.prompt_factory import PromptFactory
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 from utils.logging import logger
 from utils.json_fixers import attempt_auto_fix
+from utils.agent_json import sanitize_sources
 
 
 class AgentRunResult(str):
@@ -116,6 +117,7 @@ class PromptFactoryAgent(LLMRoleAgent):
         try:
             data = json.loads(raw)
             if schema is not None:
+                data = sanitize_sources(data, schema)
                 data = coerce_types(data, schema)
                 data = strip_additional_properties(data, schema)
                 jsonschema.validate(data, schema)
@@ -130,6 +132,7 @@ class PromptFactoryAgent(LLMRoleAgent):
                         placeholder = make_empty_payload(schema)
                         placeholder.update(data)
                         data = placeholder
+                    data = sanitize_sources(data, schema)
                     data = coerce_types(data, schema)
                     data = strip_additional_properties(data, schema)
                     jsonschema.validate(data, schema)
@@ -189,6 +192,7 @@ class PromptFactoryAgent(LLMRoleAgent):
         try:
             data = json.loads(raw)
             if fallback_schema is not None:
+                data = sanitize_sources(data, fallback_schema)
                 data = coerce_types(data, fallback_schema)
                 data = strip_additional_properties(data, fallback_schema)
                 jsonschema.validate(data, fallback_schema)

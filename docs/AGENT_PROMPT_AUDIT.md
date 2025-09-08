@@ -247,6 +247,7 @@ Generated on 2025-08-28T20:12:06.612544 UTC.
 - **Known Issues**: schema enforcement missing
 - **Recommended Fix**: Add schema enforcement
 - **Tests Coverage Found**: no
+- **Notes**: `sources` must be objects with `id`, `title`, and optional `url`; do not use markdown link strings.
 
 ## Generic Domain
 - **Prompt Location**: core/agents/generic_domain_agent.py

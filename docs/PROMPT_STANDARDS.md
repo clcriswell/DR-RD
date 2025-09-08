@@ -68,6 +68,7 @@ are false, prompts avoid retrieval language and sources are optional. When
 enabled and the template `retrieval_policy` is not `NONE`, prompts demand inline
 evidence markers and a non empty `sources` array of `{id,title,url}` objects.
 Agents returning empty sources in this mode trigger the evaluator retry.
+Sources must not be plain strings or markdown links; each entry must be a JSON object.
 
 ## Migration Notes
 Roles now powered by `PromptFactory`: CTO, Research Scientist, Regulatory,
