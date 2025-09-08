@@ -16,7 +16,8 @@ Critical fixes are backported to active LTS branches only.
 - Maintain corresponding `*_fallback.json` schemas with relaxed validation used
   for retry flows. Finance, Research Scientist, and Materials Engineer now ship
   fallback schemas alongside their primary contracts, joining the existing CTO,
-  Regulatory, and Marketing roles.
+  Regulatory, and Marketing roles. These fallback contracts require only
+  `role`, `task`, and `summary`, permitting minimal payloads on retry.
 
 When an agent's response fails schema validation, the system retries using the
 fallback schema and a prompt requesting a minimal JSON payload. If this second
@@ -26,10 +27,10 @@ returned so downstream consumers always receive compliant output.
 ## JSON Output Sanitization
 
 Use `utils.agent_json.clean_json_payload` before validating agent responses.
-This helper strips unknown keys, normalizes `sources`, removes markdown bullets
-and joins multi-line strings, coerces strings/lists, and fills any missing
-required fields with defaults. Running it keeps schema validation strict while
-reducing manual repair work.
+This helper strips unknown keys (e.g. `tool_result`), normalizes `sources`,
+removes markdown bullets and joins multi-line strings, coerces strings/lists,
+and fills any missing required fields with defaults. Running it keeps schema
+validation strict while reducing manual repair work.
 
 ## On‑Call
 
