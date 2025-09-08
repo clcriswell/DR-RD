@@ -17,3 +17,12 @@ External queries follow a strict order: **redact → route → log → network**
 ## Intake Fields
 
 The intake UI accepts optional **Constraints** and a **Risk posture** selection (Low/Medium/High). These values are threaded into planning prompts and persisted with each project.
+
+## Retry and Fallback
+
+Agents built on `PromptFactoryAgent` first attempt to auto-correct malformed JSON
+responses.  Structural fixes (trailing commas, unquoted keys, etc.) are applied
+before validating against the role schema.  If the response still fails
+validation or required fields are missing, the agent issues a simplified
+fallback prompt with a relaxed schema.  The fallback always yields a minimal but
+valid JSON object so downstream stages never see `(Agent failed to return content)`.

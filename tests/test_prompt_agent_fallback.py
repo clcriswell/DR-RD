@@ -59,3 +59,41 @@ def test_fallback_returns_placeholder_on_failure(monkeypatch):
     assert result.fallback_used is True
     assert {"role", "task", "summary"}.issubset(data)
     assert data["summary"] == "Not determined"
+
+
+def _cto_spec():
+    return {
+        "role": "CTO",
+        "task": "X",
+        "inputs": {"idea": "i", "task": "X"},
+        "io_schema_ref": "dr_rd/schemas/cto_v2.json",
+    }
+
+
+def test_schema_parse_failure_triggers_fallback(monkeypatch):
+    agent = DummyAgent("gpt-4o-mini")
+    outputs = iter(
+        [
+            '{"role": "CTO", "task": "X", "summary": "- point1\n- point2"}',
+            '{"role":"CTO","task":"X","summary":"Feasibility ok.","findings":"","risks":[],"next_steps":"","sources":[]}',
+        ]
+    )
+
+    def fake_act(self, system, user, **kwargs):  # type: ignore[override]
+        return next(outputs)
+
+    monkeypatch.setattr(LLMRoleAgent, "act", fake_act)
+
+    def fail_auto_fix(raw):
+        if raw.strip().startswith('{"role": "CTO"'):
+            return False, raw
+        from utils.json_fixers import attempt_auto_fix as real
+
+        return real(raw)
+
+    monkeypatch.setattr("core.agents.prompt_agent.attempt_auto_fix", fail_auto_fix)
+
+    result = agent.run_with_spec(_cto_spec())
+    assert result.fallback_used is True
+    data = json.loads(result)
+    assert data["summary"] == "Feasibility ok."

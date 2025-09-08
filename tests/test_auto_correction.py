@@ -4,6 +4,7 @@ import pytest
 from core.agents.prompt_agent import PromptFactoryAgent
 from core.agents.base_agent import LLMRoleAgent
 from config import feature_flags
+from utils.json_fixers import attempt_auto_fix
 
 
 class DummyAgent(PromptFactoryAgent):
@@ -55,3 +56,17 @@ def test_auto_correction_no_fallback(tmp_path, monkeypatch, raw, expected):
     assert len(calls) == 1
     assert result.fallback_used is False
     assert json.loads(result) == expected
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("{\"a\": [\"b\",]}", {"a": ["b"]}),
+        ("{\"a\": }", {"a": None}),
+        ("```json\n{\"a\":1}\n```", {"a": 1}),
+    ],
+)
+def test_attempt_auto_fix_handles_edge_cases(raw, expected):
+    ok, fixed = attempt_auto_fix(raw)
+    assert ok
+    assert fixed == expected
