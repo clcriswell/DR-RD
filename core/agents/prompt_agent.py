@@ -12,6 +12,7 @@ from core.llm_client import responses_json_schema_from_file
 from dr_rd.prompting.prompt_factory import PromptFactory
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 from utils.logging import logger
+from utils.json_fixers import attempt_auto_fix
 
 
 class AgentRunResult(str):
@@ -121,7 +122,23 @@ class PromptFactoryAgent(LLMRoleAgent):
             valid = True
         except Exception as e:
             logger.debug("schema_validation_failed: %s", e)
-            valid = False
+            ok, fixed = attempt_auto_fix(raw)
+            if ok:
+                data = fixed
+                if schema is not None:
+                    if isinstance(data, dict):
+                        placeholder = make_empty_payload(schema)
+                        placeholder.update(data)
+                        data = placeholder
+                    data = coerce_types(data, schema)
+                    data = strip_additional_properties(data, schema)
+                    jsonschema.validate(data, schema)
+                valid = True
+                logger.info(
+                    "auto_correction_applied role=%s", spec.get("role", getattr(self, "name", ""))
+                )
+            else:
+                valid = False
         evaluator_fail = False
         if valid and feature_flags.EVALUATORS_ENABLED:
             if (

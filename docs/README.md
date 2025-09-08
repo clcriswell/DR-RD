@@ -29,4 +29,8 @@ pytest -q e2e
 
 ## Agents
 
-Schema-constrained agents enforce OpenAI's `response_format={"type":"json_object"}` and fall back to a tolerant JSON parser when validating model output.
+Schema-constrained agents enforce OpenAI's `response_format={"type":"json_object"}`.
+If the initial `json.loads` fails, agent output undergoes an auto-correction
+pass that strips code fences, sanitizes quotes, repairs common JSON mistakes
+(`auto_repair_json`, `extract_json_block`, etc.), and reparses before the
+fallback prompt is triggered.
