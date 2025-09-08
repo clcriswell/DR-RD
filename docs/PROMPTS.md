@@ -23,3 +23,9 @@ validation still fails, the agent retries with a simplified prompt and a
 relaxed fallback schema. The fallback may leave non-essential fields blank or
 marked as "Not determined," but a valid JSON object is always returned so
 downstream orchestrators do not crash.
+
+Before validation, responses pass through a `sanitize_sources` step that coerces
+the `sources` field to match each role's schema. Finance and Marketing agents
+must return `sources` as a list of citation strings or URLs; any objects or empty
+entries are dropped. Regulatory still expects `sources` to be objects with
+`id`, `title`, and optional `url` fields.

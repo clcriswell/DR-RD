@@ -249,6 +249,9 @@ registry.register(
             "- **npv** (number)\n"
             "- **simulations** (object)\n"
             "- **assumptions** (array)\n\n"
+            "`sources` must be a list of strings representing citations or URLs. Example: \"sources\": [\"https://example.com/funding-analysis\"]\n"
+            "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
+            "Incorrect Example: {\"sources\": [\"https://example.com\", {}]} — `{}` breaks the schema.\n"
             "**DO NOT OMIT `total_cost` or `contribution_margin` in `unit_economics`. ENSURE `npv` IS A NUMBER (not a placeholder string).**\n"
             "All listed keys must appear and no other keys are allowed. Use empty strings/arrays or 'Not determined' when data is unavailable.\n"
             "**If the schema expects a string but you have a list, join items with semicolons into a single string.**\n"
@@ -262,7 +265,7 @@ registry.register(
         user_template=(
             "Idea: {{ idea | default('') }}\n"
             "Task: {{ task | default('unknown') }}\n"
-            "Provide budget estimates and financial risk analysis. Include unit_economics, npv, simulations, assumptions, risks, next_steps, and sources in the JSON summary."
+            "Provide budget estimates and financial risk analysis. Include unit_economics, npv, simulations, assumptions, risks, next_steps, and sources in the JSON summary. Return `sources` as a list of citation URLs (strings)."
         ),
         io_schema_ref="dr_rd/schemas/finance_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
@@ -288,6 +291,9 @@ registry.register(
             "- role\n"
             "- task\n\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
+            "`sources` must be a list of strings representing citations or URLs. Example: \"sources\": [\"https://example.com/market-report\"]\n"
+            "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
+            "Incorrect Example: {\"sources\": [{}, \"https://example.com/market\"]} — `{}` breaks the schema.\n"
             "Be concise and factual—avoid repetition or marketing buzzwords. Include a short list of 5–7 key market points covering Total Addressable Market (TAM), Ideal Customer Profile (ICP), channels, pricing strategy, and key assumptions.\n"
             "Format these points as separate sentences within a single semicolon-separated string or as individual items in the `risks` or `next_steps` arrays; never use markdown bullets or newline-separated lists. No '-' or '*' bullet characters should appear in any JSON field.\n"
             "Example:\n"
@@ -303,7 +309,7 @@ registry.register(
         user_template=(
             "Idea: {{ idea | default('') }}\n"
             "Task: {{ task | default('unknown') }}\n"
-            "Provide marketing analysis and conclude with summary, findings, next_steps, and sources in JSON."
+            "Provide marketing analysis and conclude with summary, findings, next_steps, and sources in JSON. Return `sources` as a list of citation URLs (strings)."
         ),
         io_schema_ref="dr_rd/schemas/marketing_v2.json",
         retrieval_policy=RetrievalPolicy.LIGHT,

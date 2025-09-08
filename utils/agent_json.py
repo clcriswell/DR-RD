@@ -70,40 +70,77 @@ def _slugify(text: str) -> str:
 
 
 def sanitize_sources(data: dict[str, Any], schema: dict) -> dict[str, Any]:
+    """Ensure the ``sources`` field conforms to the schema.
+
+    Parameters
+    ----------
+    data:
+        Parsed model response.
+    schema:
+        JSON schema describing the expected structure.
+
+    Returns
+    -------
+    dict
+        Copy of *data* with a sanitized ``sources`` field when applicable.
+    """
+
     if not isinstance(data, dict):
         return data
     props = schema.get("properties") or {}
-    if "sources" not in props:
+    src_schema = props.get("sources")
+    if not src_schema:
         return data
     sources = data.get("sources")
     if not isinstance(sources, list):
         return data
-    sanitized: list[dict[str, Any]] = []
-    for item in sources:
-        if isinstance(item, dict):
-            sid = item.get("id") or item.get("url") or ""
-            title = item.get("title") or item.get("url") or ""
-            url = item.get("url")
-            entry: dict[str, Any] = {"id": sid, "title": title}
-            if url:
-                entry["url"] = url
-            sanitized.append(entry)
-        elif isinstance(item, str):
-            m = re.search(r"\[(.*?)\]\((.*?)\)", item)
-            if m:
-                title = m.group(1).strip()
-                url = m.group(2).strip()
-                entry = {"id": _slugify(title) or url, "title": title}
-                if url:
+
+    item_schema = src_schema.get("items", {}) if isinstance(src_schema, dict) else {}
+    item_type = item_schema.get("type")
+
+    if item_type == "string" or (isinstance(item_type, list) and "string" in item_type):
+        sanitized: list[str] = []
+        for item in sources:
+            if isinstance(item, str):
+                sanitized.append(item)
+            elif isinstance(item, dict):
+                if isinstance(item.get("url"), str):
+                    sanitized.append(item["url"])
+                elif isinstance(item.get("title"), str):
+                    sanitized.append(item["title"])
+        new = dict(data)
+        new["sources"] = sanitized
+        return new
+
+    if item_type == "object" or (isinstance(item_type, list) and "object" in item_type):
+        sanitized_objs: list[dict[str, Any]] = []
+        for item in sources:
+            if isinstance(item, dict):
+                sid = str(item.get("id") or item.get("url") or item.get("title") or "")
+                title = str(item.get("title") or item.get("url") or "")
+                url = item.get("url")
+                entry: dict[str, Any] = {"id": sid, "title": title}
+                if isinstance(url, str):
                     entry["url"] = url
-                sanitized.append(entry)
-            else:
-                url = item.strip()
-                entry = {"id": url, "title": url}
-                if url:
-                    entry["url"] = url
-                sanitized.append(entry)
-        # silently drop unsupported types
-    new = dict(data)
-    new["sources"] = sanitized
-    return new
+                sanitized_objs.append(entry)
+            elif isinstance(item, str):
+                m = re.search(r"\[(.*?)\]\((.*?)\)", item)
+                if m:
+                    title = m.group(1).strip()
+                    url = m.group(2).strip()
+                    sid = _slugify(title) or url
+                    entry = {"id": sid or "", "title": title or ""}
+                    if url:
+                        entry["url"] = url
+                    sanitized_objs.append(entry)
+                else:
+                    url = item.strip()
+                    entry = {"id": url or "", "title": url or ""}
+                    if url:
+                        entry["url"] = url
+                    sanitized_objs.append(entry)
+        new = dict(data)
+        new["sources"] = sanitized_objs
+        return new
+
+    return data

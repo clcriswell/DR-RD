@@ -117,7 +117,8 @@ class PromptFactoryAgent(LLMRoleAgent):
         try:
             data = json.loads(raw)
             if schema is not None:
-                data = sanitize_sources(data, schema)
+                if (schema.get("properties") or {}).get("sources") is not None:
+                    data = sanitize_sources(data, schema)
                 data = coerce_types(data, schema)
                 data = strip_additional_properties(data, schema)
                 jsonschema.validate(data, schema)
@@ -132,7 +133,8 @@ class PromptFactoryAgent(LLMRoleAgent):
                         placeholder = make_empty_payload(schema)
                         placeholder.update(data)
                         data = placeholder
-                    data = sanitize_sources(data, schema)
+                    if (schema.get("properties") or {}).get("sources") is not None:
+                        data = sanitize_sources(data, schema)
                     data = coerce_types(data, schema)
                     data = strip_additional_properties(data, schema)
                     jsonschema.validate(data, schema)
@@ -192,7 +194,8 @@ class PromptFactoryAgent(LLMRoleAgent):
         try:
             data = json.loads(raw)
             if fallback_schema is not None:
-                data = sanitize_sources(data, fallback_schema)
+                if (fallback_schema.get("properties") or {}).get("sources") is not None:
+                    data = sanitize_sources(data, fallback_schema)
                 data = coerce_types(data, fallback_schema)
                 data = strip_additional_properties(data, fallback_schema)
                 jsonschema.validate(data, fallback_schema)
