@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "role": { "type": ["string", "null"] },
+    "task": { "type": ["string", "null"] },
+    "summary": { "type": ["string", "null"] },
+    "findings": { "type": ["string", "null"] },
+    "properties": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": ["string", "null"] },
+          "property": { "type": ["string", "null"] },
+          "value": {},
+          "units": { "type": ["string", "null"] },
+          "source": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tradeoffs": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "risks": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "next_steps": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "sources": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["role", "task", "summary"],
+  "additionalProperties": false
+}
+

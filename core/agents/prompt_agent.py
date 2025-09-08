@@ -62,32 +62,34 @@ def strip_additional_properties(data: Any, schema: dict) -> Any:
 
 
 def _fallback_schema_path(path: str) -> str:
+    """Return the relaxed fallback schema path for a given schema ref."""
+    if path.endswith("_v2.json"):
+        return path.replace("_v2.json", "_v2_fallback.json")
     root, ext = os.path.splitext(path)
     return f"{root}_fallback{ext}"
 
 
 def make_empty_payload(schema: dict) -> dict[str, Any]:
-    props = schema.get("properties", {}) or {}
-    payload: dict[str, Any] = {}
-    for key, prop in props.items():
+    def _empty(prop: dict) -> Any:
         t = prop.get("type")
         if isinstance(t, list):
+            if "object" in t:
+                return {k: _empty(v) for k, v in (prop.get("properties") or {}).items()}
             if "array" in t:
-                payload[key] = []
-            elif "object" in t:
-                payload[key] = {}
-            else:
-                payload[key] = ""
-        elif t == "array":
-            payload[key] = []
-        elif t == "object":
-            payload[key] = {}
-        else:
-            payload[key] = ""
-    for key in schema.get("required", []):
-        if payload.get(key) in ("", None, {}):
-            payload[key] = "Not determined"
-    return payload
+                return []
+            if "number" in t or "integer" in t:
+                return 0
+            return "Not determined"
+        if t == "object":
+            return {k: _empty(v) for k, v in (prop.get("properties") or {}).items()}
+        if t == "array":
+            return []
+        if t in ("number", "integer"):
+            return 0
+        return "Not determined"
+
+    props = schema.get("properties", {}) or {}
+    return {key: _empty(prop) for key, prop in props.items()}
 
 
 class PromptFactoryAgent(LLMRoleAgent):

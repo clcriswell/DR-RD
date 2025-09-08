@@ -6,6 +6,9 @@ SCHEMAS = [
     "dr_rd/schemas/cto_v2_fallback.json",
     "dr_rd/schemas/regulatory_v2_fallback.json",
     "dr_rd/schemas/marketing_v2_fallback.json",
+    "dr_rd/schemas/finance_v2_fallback.json",
+    "dr_rd/schemas/research_v2_fallback.json",
+    "dr_rd/schemas/materials_engineer_v2_fallback.json",
 ]
 
 

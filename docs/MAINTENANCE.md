@@ -14,7 +14,14 @@ Critical fixes are backported to active LTS branches only.
 - Document migration notes in `MIGRATION_GUIDE_v1_to_v2.md`.
 - Update `PromptRegistry` entries accordingly.
 - Maintain corresponding `*_fallback.json` schemas with relaxed validation used
-  for retry flows.
+  for retry flows. Finance, Research Scientist, and Materials Engineer now ship
+  fallback schemas alongside their primary contracts, joining the existing CTO,
+  Regulatory, and Marketing roles.
+
+When an agent's response fails schema validation, the system retries using the
+fallback schema and a prompt requesting a minimal JSON payload. If this second
+attempt still fails validation, a fully populated placeholder JSON object is
+returned so downstream consumers always receive compliant output.
 
 ## JSON Output Sanitization
 
