@@ -24,8 +24,15 @@ def test_fallback_produces_valid_json(monkeypatch):
         "not json",
         json.dumps({"role": "Marketing Analyst", "task": "t", "summary": "ok"}),
     ])
+    required_calls: list[list[str] | None] = []
 
     def fake_act(self, system, user, **kwargs):
+        fmt = (
+            kwargs.get("response_format", {})
+            .get("json_schema", {})
+            .get("schema", {})
+        )
+        required_calls.append(fmt.get("required"))
         return next(outputs)
 
     monkeypatch.setattr(LLMRoleAgent, "act", fake_act)
@@ -34,6 +41,9 @@ def test_fallback_produces_valid_json(monkeypatch):
     assert result.fallback_used is True
     data = json.loads(result)
     assert data["summary"] == "ok"
+    # first call uses full schema, second call uses fallback
+    assert required_calls[0] != required_calls[1]
+    assert required_calls[1] == ["role", "task", "summary"]
 
 
 def test_fallback_returns_placeholder_on_failure(monkeypatch):

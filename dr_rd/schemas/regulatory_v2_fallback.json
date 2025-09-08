@@ -7,12 +7,12 @@
     "summary": { "type": ["string", "null"] },
     "findings": { "type": ["string", "null"] },
     "risks": {
-      "type": "array",
+      "type": ["array", "null"],
       "items": { "type": "string" }
     },
     "next_steps": { "type": ["string", "null"] },
     "sources": {
-      "type": "array",
+      "type": ["array", "null"],
       "items": {
         "type": "object",
         "properties": {

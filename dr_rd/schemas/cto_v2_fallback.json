@@ -15,7 +15,7 @@
       "type": ["string", "null"]
     },
     "risks": {
-      "type": "array",
+      "type": ["array", "null"],
       "items": {
         "type": "string"
       }
@@ -24,7 +24,7 @@
       "type": ["string", "null"]
     },
     "sources": {
-      "type": "array",
+      "type": ["array", "null"],
       "items": {
         "type": "object",
         "properties": {
