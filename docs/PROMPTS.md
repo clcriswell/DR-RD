@@ -14,10 +14,12 @@ The previous YAML-based prompt files and editing utilities have been removed.
 The registry is the single source of truth and prompts cannot be modified at
 runtime.
 
-## JSON Validation Fallback
+## Auto-Correction and Fallback
 
-Agents invoked through `PromptFactoryAgent` automatically retry with a
-simplified prompt and a relaxed fallback schema when the initial response fails
-JSON validation.  The fallback may leave non-essential fields blank or marked as
-"Not determined," but a valid JSON object is always returned so downstream
-orchestrators do not crash.
+Agents invoked through `PromptFactoryAgent` attempt to repair malformed JSON
+before giving up.  Common issues like trailing commas, unquoted keys and fenced
+code blocks are auto-corrected and then revalidated against the role schema. If
+validation still fails, the agent retries with a simplified prompt and a
+relaxed fallback schema. The fallback may leave non-essential fields blank or
+marked as "Not determined," but a valid JSON object is always returned so
+downstream orchestrators do not crash.
