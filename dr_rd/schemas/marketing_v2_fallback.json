@@ -13,15 +13,7 @@
     "next_steps": { "type": ["string", "null"] },
     "sources": {
       "type": ["array", "null"],
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": { "type": ["string", "null"] },
-          "title": { "type": ["string", "null"] },
-          "url": { "type": ["string", "null"] }
-        },
-        "required": ["id", "title"]
-      }
+      "items": { "type": "string" }
     }
   },
   "required": ["role", "task", "summary"],

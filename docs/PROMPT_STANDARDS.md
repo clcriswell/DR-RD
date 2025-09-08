@@ -66,9 +66,11 @@ are logged for debugging but not exposed to end users.
 Retrieval behaviour follows `RAG_ENABLED` / `ENABLE_LIVE_SEARCH` flags. If both
 are false, prompts avoid retrieval language and sources are optional. When
 enabled and the template `retrieval_policy` is not `NONE`, prompts demand inline
-evidence markers and a non empty `sources` array of `{id,title,url}` objects.
-Agents returning empty sources in this mode trigger the evaluator retry.
-Sources must not be plain strings or markdown links; each entry must be a JSON object.
+evidence markers and a non empty `sources` array. Finance and Marketing agents
+emit `sources` as a list of strings, while Regulatory and other roles expect
+`{id,title,url}` objects. A sanitization step converts markdown links or bare
+URLs into the appropriate format and drops malformed items. Agents returning
+empty sources in this mode trigger the evaluator retry.
 
 ## Migration Notes
 Roles now powered by `PromptFactory`: CTO, Research Scientist, Regulatory,
