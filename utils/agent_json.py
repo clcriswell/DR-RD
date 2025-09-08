@@ -70,19 +70,10 @@ def _slugify(text: str) -> str:
 
 
 def sanitize_sources(data: dict[str, Any], schema: dict) -> dict[str, Any]:
-    """Ensure the ``sources`` field conforms to the schema.
+    """Normalize ``sources`` entries based on the provided *schema*.
 
-    Parameters
-    ----------
-    data:
-        Parsed model response.
-    schema:
-        JSON schema describing the expected structure.
-
-    Returns
-    -------
-    dict
-        Copy of *data* with a sanitized ``sources`` field when applicable.
+    Handles both ``string`` and ``object`` array item types, converts markdown
+    links, drops malformed items, and removes unknown keys from source objects.
     """
 
     if not isinstance(data, dict):
@@ -102,12 +93,25 @@ def sanitize_sources(data: dict[str, Any], schema: dict) -> dict[str, Any]:
         sanitized: list[str] = []
         for item in sources:
             if isinstance(item, str):
-                sanitized.append(item)
+                m = re.match(r"\[(.*?)\]\((.*?)\)", item.strip())
+                if m:
+                    title = m.group(1).strip()
+                    url = m.group(2).strip()
+                    combined = ": ".join(filter(None, [title, url]))
+                    if combined:
+                        sanitized.append(combined)
+                else:
+                    val = item.strip()
+                    if val:
+                        sanitized.append(val)
             elif isinstance(item, dict):
-                if isinstance(item.get("url"), str):
-                    sanitized.append(item["url"])
-                elif isinstance(item.get("title"), str):
-                    sanitized.append(item["title"])
+                title = (item.get("title") or "").strip()
+                url = (item.get("url") or "").strip()
+                if title or url:
+                    if title and url:
+                        sanitized.append(f"{title}: {url}")
+                    else:
+                        sanitized.append(title or url)
         new = dict(data)
         new["sources"] = sanitized
         return new
@@ -116,31 +120,114 @@ def sanitize_sources(data: dict[str, Any], schema: dict) -> dict[str, Any]:
         sanitized_objs: list[dict[str, Any]] = []
         for item in sources:
             if isinstance(item, dict):
-                sid = str(item.get("id") or item.get("url") or item.get("title") or "")
-                title = str(item.get("title") or item.get("url") or "")
-                url = item.get("url")
-                entry: dict[str, Any] = {"id": sid, "title": title}
-                if isinstance(url, str):
-                    entry["url"] = url
-                sanitized_objs.append(entry)
+                title = (item.get("title") or item.get("url") or "").strip()
+                sid = (item.get("id") or item.get("url") or _slugify(title)).strip()
+                url = (item.get("url") or "").strip()
+                if not sid and url:
+                    sid = url
+                if not title and url:
+                    title = url
+                if sid and title:
+                    entry = {"id": sid, "title": title}
+                    if url:
+                        entry["url"] = url
+                    sanitized_objs.append(entry)
             elif isinstance(item, str):
-                m = re.search(r"\[(.*?)\]\((.*?)\)", item)
+                m = re.match(r"\[(.*?)\]\((.*?)\)", item.strip())
                 if m:
                     title = m.group(1).strip()
                     url = m.group(2).strip()
                     sid = _slugify(title) or url
-                    entry = {"id": sid or "", "title": title or ""}
+                    entry = {"id": sid or url or title or "", "title": title or url or ""}
                     if url:
                         entry["url"] = url
                     sanitized_objs.append(entry)
                 else:
                     url = item.strip()
-                    entry = {"id": url or "", "title": url or ""}
                     if url:
+                        entry = {"id": url, "title": url}
                         entry["url"] = url
-                    sanitized_objs.append(entry)
+                        sanitized_objs.append(entry)
         new = dict(data)
         new["sources"] = sanitized_objs
         return new
 
+    return data
+
+
+def clean_json_payload(data: dict, schema: dict) -> dict:
+    """Return *data* normalized against *schema* before validation.
+
+    - Unknown keys are stripped when ``additionalProperties`` is ``false``.
+    - ``sources`` entries are sanitized for both string and object modes.
+    - Bullet points and multiline strings are collapsed into semicolon separated
+      strings.
+    - Array fields accept single strings split on semicolons or newlines.
+    - Missing required fields are filled with defaults via ``make_empty_payload``.
+    """
+
+    from core.agents.prompt_agent import (
+        strip_additional_properties,
+        make_empty_payload,
+        coerce_types,
+    )
+
+    if not isinstance(data, dict):
+        data = {}
+
+    if (schema.get("properties") or {}).get("sources") is not None:
+        data = sanitize_sources(data, schema)
+    data = strip_additional_properties(data, schema)
+
+    def _strip_bullet(text: str) -> str:
+        return re.sub(r"^[\s]*[-*]\s*", "", text).strip()
+
+    def _normalize(obj: Any, sch: dict) -> Any:
+        if not isinstance(sch, dict):
+            return obj
+        t = sch.get("type")
+        if isinstance(t, list):
+            if "object" in t:
+                t = "object"
+            elif "array" in t:
+                t = "array"
+            elif "string" in t:
+                t = "string"
+        if t == "object":
+            if isinstance(obj, dict):
+                props = sch.get("properties", {}) or {}
+                return {k: _normalize(v, props.get(k, {})) for k, v in obj.items() if k in props}
+            return {}
+        if t == "array":
+            item_schema = sch.get("items", {}) or {}
+            item_type = item_schema.get("type")
+            if isinstance(item_type, list) and "string" in item_type:
+                item_type = "string"
+            if item_type == "string":
+                if isinstance(obj, str):
+                    parts = re.split(r"[\n;]+", obj)
+                    return [p for p in (_strip_bullet(x) for x in parts) if p]
+                if isinstance(obj, list):
+                    return [p for p in (_strip_bullet(str(x)) for x in obj if isinstance(x, str)) if p]
+                return []
+            if isinstance(obj, list):
+                return [_normalize(x, item_schema) for x in obj]
+            return []
+        if t == "string":
+            if isinstance(obj, list):
+                items = [p for p in (_strip_bullet(str(x)) for x in obj if isinstance(x, str)) if p]
+                return "; ".join(items)
+            if isinstance(obj, str):
+                parts = re.split(r"[\n;]+", obj)
+                items = [p for p in (_strip_bullet(x) for x in parts) if p]
+                return "; ".join(items)
+            return obj if isinstance(obj, str) else ""
+        return obj
+
+    data = _normalize(data, schema)
+
+    placeholder = make_empty_payload(schema)
+    placeholder.update(data)
+    data = strip_additional_properties(placeholder, schema)
+    data = coerce_types(data, schema)
     return data

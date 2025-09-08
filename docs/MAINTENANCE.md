@@ -16,6 +16,14 @@ Critical fixes are backported to active LTS branches only.
 - Maintain corresponding `*_fallback.json` schemas with relaxed validation used
   for retry flows.
 
+## JSON Output Sanitization
+
+Use `utils.agent_json.clean_json_payload` before validating agent responses.
+This helper strips unknown keys, normalizes `sources`, removes markdown bullets
+and joins multi-line strings, coerces strings/lists, and fills any missing
+required fields with defaults. Running it keeps schema validation strict while
+reducing manual repair work.
+
 ## On‑Call
 
 See [ONCALL_RUNBOOK.md](ONCALL_RUNBOOK.md) for rotation details.
