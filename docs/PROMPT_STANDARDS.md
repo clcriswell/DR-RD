@@ -69,8 +69,10 @@ enabled and the template `retrieval_policy` is not `NONE`, prompts demand inline
 evidence markers and a non empty `sources` array. Finance and Marketing agents
 emit `sources` as a list of strings, while Regulatory and other roles expect
 `{id,title,url}` objects. A sanitization step converts markdown links or bare
-URLs into the appropriate format and drops malformed items. Agents returning
-empty sources in this mode trigger the evaluator retry.
+URLs into the appropriate format, drops malformed items, strips markdown bullets
+and multi-line formatting, coerces between lists and strings, fills missing
+required fields with defaults, and removes extra keys such as `tool_result`.
+Agents returning empty sources in this mode trigger the evaluator retry.
 
 ## Migration Notes
 Roles now powered by `PromptFactory`: CTO, Research Scientist, Regulatory,
