@@ -22,11 +22,11 @@ def _setup(monkeypatch):
         lambda: [
             {
                 "kind": "page",
-                "id": "trace",
-                "label": "Trace",
+                "id": "results",
+                "label": "Results",
                 "hint": "Open page",
-                "payload": {"page": "pages/10_Trace.py"},
-                "text": "trace page",
+                "payload": {"page": "pages/02_Results.py"},
+                "text": "results page",
             },
             {
                 "kind": "cmd",
@@ -40,9 +40,9 @@ def _setup(monkeypatch):
     )
 
 
-def test_search_trace(monkeypatch):
+def test_search_results(monkeypatch):
     _setup(monkeypatch)
-    res = gs.search("trace")
+    res = gs.search("results")
     assert res
     assert res[0]["kind"] in {"page", "run"}
 

@@ -15,9 +15,9 @@ from . import runs_index, run_notes, knowledge_store
 
 # Result schema:
 # {'kind': 'page'|'cmd'|'run'|'knowledge',
-#  'id': 'trace'|'reports'|run_id|item_id|...,
-#  'label': 'Trace — 2025-08-29 — Idea…',
-#  'hint': 'Open page'|'Open trace'|'Open reports'|'Use source'|...,
+#  'id': 'results'|'reports'|run_id|item_id|...,
+#  'label': 'Results — 2025-08-29 — Idea…',
+#  'hint': 'Open page'|'Open results'|'Open reports'|'Use source'|...,
 #  'score': float,
 #  'payload': {...}}  # for actions
 
@@ -40,13 +40,13 @@ def build_corpus(*, runs: List[Dict], notes: Dict[str, Dict], knowledge: List[Di
                 " ".join(note.get("tags", [])),
             ]
         )
-        label = f"Trace — {date} — {title}"
+        label = f"Results — {date} — {title}"
         corpus.append(
             {
                 "kind": "run",
-                "id": f"{rid}:trace",
+                "id": f"{rid}:results",
                 "label": label,
-                "hint": "Open trace",
+                "hint": "Open results",
                 "payload": {"view": "trace", "run_id": rid},
                 "text": hay,
             }
@@ -110,14 +110,10 @@ def default_actions() -> List[Dict]:
     actions: List[Dict] = []
     pages = [
         ("run", "Run", "app.py"),
-        ("trace", "Trace", "pages/10_Trace.py"),
-        ("reports", "Reports", "pages/20_Reports.py"),
-        ("metrics", "Metrics", "pages/30_Metrics.py"),
-        ("compare", "Compare", "pages/25_Compare.py"),
-        ("knowledge", "Knowledge", "pages/15_Knowledge.py"),
-        ("history", "History", "pages/12_History.py"),
-        ("settings", "Settings", "pages/90_Settings.py"),
-        ("health", "Health", "pages/05_Health.py"),
+        ("results", "Results", "pages/02_Results.py"),
+        ("reports", "Reports", "pages/03_Reports.py"),
+        ("history", "History", "pages/04_History.py"),
+        ("settings", "Settings", "pages/05_Settings.py"),
     ]
     for pid, label, page in pages:
         actions.append(
@@ -159,11 +155,11 @@ def default_actions() -> List[Dict]:
         actions.append(
             {
                 "kind": "cmd",
-                "id": "open_latest_trace",
-                "label": "Open latest trace",
-                "hint": "Go to last trace",
+                "id": "open_latest_results",
+                "label": "Open latest results",
+                "hint": "Go to last results",
                 "payload": {"run_id": last_run_id},
-                "text": f"latest trace {last_run_id}",
+                "text": f"latest results {last_run_id}",
             }
         )
     if resumable_id:
@@ -235,7 +231,7 @@ def resolve_action(item: Dict[str, Any]) -> Dict[str, Any]:
             return {"action": "set_params", "params": {"resume_from": rid, "view": "run"}, "kind": kind}
         if cid == "copy_share_link":
             return {"action": "copy", "params": {"text": payload.get("text", "")}, "kind": kind}
-        if cid == "open_latest_trace":
+        if cid == "open_latest_results":
             rid = payload.get("run_id")
             return {"action": "set_params", "params": {"view": "trace", "run_id": rid}, "kind": kind}
         if cid == "open_flags":

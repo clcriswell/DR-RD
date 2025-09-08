@@ -240,10 +240,10 @@ def main() -> None:
         view_state = view_state_from_params(st.query_params)
         if view_state["view"] != "run":
             target = {
-                "trace": "pages/10_Trace.py",
-                "reports": "pages/20_Reports.py",
-                "metrics": "pages/30_Metrics.py",
-                "settings": "pages/90_Settings.py",
+                "trace": "pages/02_Results.py",
+                "reports": "pages/03_Reports.py",
+                "history": "pages/04_History.py",
+                "settings": "pages/05_Settings.py",
             }.get(view_state["view"])
             if target:
                 st.switch_page(target)
@@ -359,7 +359,7 @@ def main() -> None:
                 st.session_state["submit_token"] = tok
                 run_duplicate_detected(qp_run)
                 st.query_params["run_id"] = qp_run
-                st.switch_page("pages/10_Trace.py")
+                st.switch_page("pages/02_Results.py")
         with col2:
             if st.button("Start a new run", key="start_new_run"):
                 st.query_params.pop("run_id", None)
@@ -426,7 +426,7 @@ def main() -> None:
         st.query_params.update({"run_id": run_id, "view": "trace"})
         demo_completed(run_id)
         if prefs["ui"].get("show_trace_by_default"):
-            st.switch_page("pages/10_Trace.py")
+            st.switch_page("pages/02_Results.py")
         else:
             st.markdown("[Open Trace](./Trace)")
             st.caption("Use the Trace page to inspect step details.")
@@ -699,7 +699,7 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
             except Exception:
                 pass
         if prefs["ui"].get("show_trace_by_default"):
-            st.switch_page("pages/10_Trace.py")
+            st.switch_page("pages/02_Results.py")
         else:
             st.markdown("[Open Trace](./Trace)")
             st.caption("Use the Trace page to inspect step details.")
@@ -754,7 +754,7 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         if open_trace:
             st.query_params["run_id"] = err.context.get("run_id") or ""
             st.query_params["view"] = "trace"
-            st.switch_page("pages/10_Trace.py")
+            st.switch_page("pages/02_Results.py")
         if resume:
             st.query_params["resume_from"] = err.context.get("run_id") or ""
             st.rerun()
@@ -800,7 +800,7 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         if open_trace:
             st.query_params["run_id"] = err.context.get("run_id") or ""
             st.query_params["view"] = "trace"
-            st.switch_page("pages/10_Trace.py")
+            st.switch_page("pages/02_Results.py")
         if resume:
             st.query_params["resume_from"] = err.context.get("run_id") or ""
             st.rerun()
@@ -843,7 +843,7 @@ def _run(run_id: str, kwargs: dict, prefs: dict, origin_run_id: str | None) -> N
         if open_trace:
             st.query_params["run_id"] = err.context.get("run_id") or ""
             st.query_params["view"] = "trace"
-            st.switch_page("pages/10_Trace.py")
+            st.switch_page("pages/02_Results.py")
 
     finally:
         session_guard.release(run_id)
