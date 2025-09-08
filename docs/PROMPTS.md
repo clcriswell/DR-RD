@@ -29,3 +29,10 @@ the `sources` field to match each role's schema. Finance and Marketing agents
 must return `sources` as a list of citation strings or URLs; any objects or empty
 entries are dropped. Regulatory still expects `sources` to be objects with
 `id`, `title`, and optional `url` fields.
+
+## JSON Formatting Rules
+
+Each agent prompt explicitly defines the required `sources` type (strings or
+objects with `id`, `title`, and optional `url`). Markdown links and bullet lists
+are prohibited inside JSON values. If multiple items belong in a string field,
+join them with semicolons in a single string.
