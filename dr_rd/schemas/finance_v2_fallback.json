@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "role": { "type": ["string", "null"] },
+    "task": { "type": ["string", "null"] },
+    "summary": { "type": ["string", "null"] },
+    "findings": { "type": ["string", "null"] },
+    "unit_economics": {
+      "type": ["object", "null"],
+      "properties": {
+        "total_revenue": { "type": ["number", "null"] },
+        "total_cost": { "type": ["number", "null"] },
+        "gross_margin": { "type": ["number", "null"] },
+        "contribution_margin": { "type": ["number", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "npv": { "type": ["number", "null"] },
+    "simulations": {
+      "type": ["object", "null"],
+      "properties": {
+        "mean": { "type": ["number", "null"] },
+        "std_dev": { "type": ["number", "null"] },
+        "p5": { "type": ["number", "null"] },
+        "p95": { "type": ["number", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "assumptions": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "risks": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "next_steps": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "sources": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["role", "task", "summary"],
+  "additionalProperties": false
+}
+

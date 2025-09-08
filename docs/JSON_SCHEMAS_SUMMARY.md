@@ -44,3 +44,6 @@ Generated on 2025-08-28T20:12:06.613328 UTC.
 - **CTO (Fallback)**: dr_rd/schemas/cto_v2_fallback.json
 - **Regulatory (Fallback)**: dr_rd/schemas/regulatory_v2_fallback.json
 - **Marketing (Fallback)**: dr_rd/schemas/marketing_v2_fallback.json
+- **Finance (Fallback)**: dr_rd/schemas/finance_v2_fallback.json
+- **Research Scientist (Fallback)**: dr_rd/schemas/research_v2_fallback.json
+- **Materials Engineer (Fallback)**: dr_rd/schemas/materials_engineer_v2_fallback.json

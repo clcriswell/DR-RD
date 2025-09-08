@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Research V2 Fallback",
+  "type": "object",
+  "properties": {
+    "role": { "type": ["string", "null"] },
+    "task": { "type": ["string", "null"] },
+    "summary": { "type": ["string", "null"] },
+    "findings": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "claim": { "type": ["string", "null"] },
+          "evidence": { "type": ["string", "null"] },
+          "citations": {
+            "type": ["array", "null"],
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "gaps": { "type": ["string", "null"] },
+    "risks": { "type": ["string", "null"] },
+    "next_steps": { "type": ["string", "null"] },
+    "sources": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["string", "null"] },
+          "title": { "type": ["string", "null"] },
+          "url": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["role", "task", "summary"],
+  "additionalProperties": false
+}
+
