@@ -201,6 +201,9 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "Each item in `sources` must be an object with `id`, `title`, and optional `url` fields. Do not use plain strings or markdown links in `sources`. For example, use {'id': 'Doe2024', 'title': 'Quantum Ethics Whitepaper', 'url': 'https://example.com/ethics.pdf'}. Avoid markdown syntax like [title](url).\n"
+            "Incorrect Example:\n"
+            '{"sources": ["[yjolt.org](https://yjolt.org/blog/establishing-legal-ethical-framework-quantum-technology?utm_source=openai)"]}\n'
             "**LIST EACH RISK AS A SEPARATE ITEM IN `risks`. DO NOT COMBINE MULTIPLE RISKS INTO ONE PARAGRAPH.**\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Context: Relevant regulations may involve biomedical devices (FDA requirements), import/export controls (e.g., ITAR), and product safety (ISO/IEC standards). Include at least one applicable standard or regulation in your analysis. All required JSON fields must appear; use \"Not determined\" only if information is truly unavailable after multiple attempts.\n"
