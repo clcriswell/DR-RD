@@ -13,6 +13,8 @@ Critical fixes are backported to active LTS branches only.
 - Bump schema version and template id (`<role>.v{n}`).
 - Document migration notes in `MIGRATION_GUIDE_v1_to_v2.md`.
 - Update `PromptRegistry` entries accordingly.
+- Maintain corresponding `*_fallback.json` schemas with relaxed validation used
+  for retry flows.
 
 ## On‑Call
 
