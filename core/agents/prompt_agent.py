@@ -137,13 +137,17 @@ class PromptFactoryAgent(LLMRoleAgent):
         # Fallback attempt
         fallback_path = _fallback_schema_path(schema_path) if schema_path else None
         fallback_schema = schema
-        if fallback_path:
-            try:
-                with open(fallback_path, encoding="utf-8") as fh:
-                    fallback_schema = json.load(fh)
-            except Exception:
-                fallback_schema = schema
+        if fallback_path and os.path.exists(fallback_path):
+            with open(fallback_path, encoding="utf-8") as fh:
+                fallback_schema = json.load(fh)
             response_format = responses_json_schema_from_file(fallback_path)
+        else:
+            fallback_path = None
+            response_format = (
+                responses_json_schema_from_file(schema_path)
+                if schema_path
+                else None
+            )
 
         fallback_spec = dict(spec)
         if fallback_path:
@@ -152,10 +156,9 @@ class PromptFactoryAgent(LLMRoleAgent):
         fb_prompt = self._factory.build_prompt(fallback_spec)
         fb_system = (
             f"You are {spec.get('role', 'an AI assistant')}. "
-            "The previous output did not meet the JSON schema. "
-            "Now provide a concise result focusing on key fields in valid JSON. "
-            "You may leave unknown fields empty or as 'Not determined' but must return a JSON object with the expected keys. "
-            "Do not include citations or sources."
+            "The previous output did not meet the required JSON schema. "
+            "Return a minimal JSON object matching the schema. Include at least one paragraph in the 'summary' field. "
+            "Brief bullet points are acceptable for other fields, and it's fine to leave fields or sources empty."
         )
         fb_user = fb_prompt.get("user", "")
 

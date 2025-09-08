@@ -41,3 +41,6 @@ Generated on 2025-08-28T20:12:06.613328 UTC.
 - **Reflection**: dr_rd/schemas/reflection_agent.json (INFERRED)
 - **Prototyping Test Lab Manager**: dr_rd/schemas/prototyping_test_lab_manager_agent.json (INFERRED)
 - **Optical Systems Engineer**: dr_rd/schemas/optical_systems_engineer_agent.json (INFERRED)
+- **CTO (Fallback)**: dr_rd/schemas/cto_v2_fallback.json
+- **Regulatory (Fallback)**: dr_rd/schemas/regulatory_v2_fallback.json
+- **Marketing (Fallback)**: dr_rd/schemas/marketing_v2_fallback.json
