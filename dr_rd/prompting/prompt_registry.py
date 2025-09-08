@@ -97,9 +97,13 @@ registry.register(
             "materials, regulatory/IP, finance, marketing, and QA/testing.\n"
             "Required JSON keys:\n"
             "- tasks\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
             '{"tasks": [{"id": "T01", "title": "<TASK_TITLE>", "summary": "", "description": "", "role": "CTO"}]}\n'
+            "Incorrect Example:\n"
+            '{"tasks": [{"id": "T01", "title": "- item1\\n- item2", "summary": "", "description": "", "role": "CTO"}]}\n'
+            "Explanation: markdown-style bullets inside string fields break the JSON schema.\n"
             'If required information is missing, return {"error":"MISSING_INFO","needs":[]} instead of empty fields.'
         ),
         user_template=(
@@ -158,19 +162,18 @@ registry.register(
             "- **summary** (string)\n"
             "- **findings** (string)\n"
             "- **risks** (array)\n"
-            "- **next_steps** (array)\n"
+            "- **next_steps** (string)\n"
             "- **sources** (array)\n"
             "- **role** (string)\n"
             "- **task** (string)\n\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
+            '`sources` must be a list of objects with `id`, `title`, and optional `url`. Do not use plain strings or markdown links in `sources`. Example: "sources": [{"id": "Spec2024", "title": "Design Spec", "url": "https://example.com/spec"}]\n'
             "All listed keys must appear and no other keys are allowed. Use empty strings/arrays or 'Not determined' when data is unavailable.\n"
-            "**If the schema expects a string but you have a list, join items with semicolons into a single string.**\n"
-            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). Each field’s value must conform to the expected type without extra formatting. If the schema expects a string but you have multiple items, join them with semicolons.\n"
             "Example:\n"
-            '{"role": "CTO", "task": "<TASK_TITLE>", "summary": "", '
-            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            '{"role": "CTO", "task": "<TASK_TITLE>", "summary": "", "findings": "", "risks": [], "next_steps": "", "sources": []}\n'
             "Incorrect Example:\n"
-            "{'role': 'CTO', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': ['compA','compB'], 'risks': [], 'next_steps': [], 'sources': []}\n"
-            "Explanation: this is invalid because markdown-style bullets and arrays in place of strings break the JSON schema.\n"
+            "{'role': 'CTO', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': ['compA','compB'], 'risks': [], 'next_steps': "", 'sources': ['[spec](https://example.com)']}\n"
+            "Explanation: markdown-style bullets, arrays instead of strings, and plain strings in `sources` break the JSON schema.\n"
             "If the task is to design a system architecture, break your description into key components (e.g., optics, control loops, signal processing, data pipeline) and address each one in turn. This way, your **findings** can clearly call out each subsystem and its rationale. All required JSON fields must be filled; use \"Not determined\" only as a last resort after multiple attempts.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
@@ -201,20 +204,17 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
-            "Each item in `sources` must be an object with `id`, `title`, and optional `url` fields. Do not use plain strings or markdown links in `sources`. For example, use {'id': 'Doe2024', 'title': 'Quantum Ethics Whitepaper', 'url': 'https://example.com/ethics.pdf'}. Avoid markdown syntax like [title](url).\n"
-            "Incorrect Example:\n"
-            '{"sources": ["[yjolt.org](https://yjolt.org/blog/establishing-legal-ethical-framework-quantum-technology?utm_source=openai)"]}\n'
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
+            '`sources` must be a list of objects with `id`, `title`, and optional `url`. Do not use plain strings or markdown links in `sources`. Example: "sources": [{"id": "Doe2024", "title": "Quantum Ethics Whitepaper", "url": "https://example.com/ethics.pdf"}]\n'
             "**LIST EACH RISK AS A SEPARATE ITEM IN `risks`. DO NOT COMBINE MULTIPLE RISKS INTO ONE PARAGRAPH.**\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Context: Relevant regulations may involve biomedical devices (FDA requirements), import/export controls (e.g., ITAR), and product safety (ISO/IEC standards). Include at least one applicable standard or regulation in your analysis. All required JSON fields must appear; use \"Not determined\" only if information is truly unavailable after multiple attempts.\n"
             "Example:\n"
-            '{"role": "Regulatory", "task": "<TASK_TITLE>", "summary": "", '
-            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            '{"role": "Regulatory", "task": "<TASK_TITLE>", "summary": "", "findings": "", "risks": [], "next_steps": "", "sources": []}\n'
             "Incorrect Example:\n"
-            "{'role': 'Regulatory', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': ['regA','regB'], 'risks': [], 'next_steps': [], 'sources': []}\n"
-            "Explanation: this is invalid because markdown-style bullets and arrays in place of strings break the JSON schema.\n"
-            "Return only the JSON keys defined in the schema. **If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Arrays such as `risks` and `next_steps` should contain concise strings without internal formatting.** Do not include any other keys.\n"
-            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). Each field’s value must conform to the expected type without extra formatting. If the schema expects a string but you have multiple items, join them with semicolons.\n"
+            "{'role': 'Regulatory', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': ['regA','regB'], 'risks': [], 'next_steps': '', 'sources': ['[yjolt.org](https://yjolt.org/blog/establishing-legal-ethical-framework-quantum-technology?utm_source=openai)']}\n"
+            "Explanation: markdown-style bullets, arrays instead of strings, and markdown links in `sources` break the JSON schema.\n"
+            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Arrays such as `risks` should contain concise strings without internal formatting. Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -249,17 +249,19 @@ registry.register(
             "- **npv** (number)\n"
             "- **simulations** (object)\n"
             "- **assumptions** (array)\n\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
             "`sources` must be a list of strings representing citations or URLs. Example: \"sources\": [\"https://example.com/funding-analysis\"]\n"
             "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
-            "Incorrect Example: {\"sources\": [\"https://example.com\", {}]} — `{}` breaks the schema.\n"
             "**DO NOT OMIT `total_cost` or `contribution_margin` in `unit_economics`. ENSURE `npv` IS A NUMBER (not a placeholder string).**\n"
             "All listed keys must appear and no other keys are allowed. Use empty strings/arrays or 'Not determined' when data is unavailable.\n"
-            "**If the schema expects a string but you have a list, join items with semicolons into a single string.**\n"
             "Example:\n"
             '{"role": "Finance", "task": "<TASK_TITLE>", "summary": "", '
             '"findings": "", "risks": [], "next_steps": [], "sources": [], '
             '"unit_economics": {"total_revenue": 0, "total_cost": 0, "gross_margin": 0, "contribution_margin": 0}, "npv": 0, '
             '"simulations": {"mean": 0, "std_dev": 0, "p5": 0, "p95": 0}, "assumptions": []}\n'
+            "Incorrect Example:\n"
+            "{'role': 'Finance', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': '', 'risks': [], 'next_steps': [], 'sources': ['https://example.com', {}], 'unit_economics': {'total_revenue': 0, 'total_cost': 0, 'gross_margin': 0, 'contribution_margin': 0}, 'npv': 0, 'simulations': {'mean': 0, 'std_dev': 0, 'p5': 0, 'p95': 0}, 'assumptions': []}\n"
+            "Explanation: markdown-style bullets and objects in `sources` break the JSON schema.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -290,20 +292,18 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
-            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
             "`sources` must be a list of strings representing citations or URLs. Example: \"sources\": [\"https://example.com/market-report\"]\n"
             "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
-            "Incorrect Example: {\"sources\": [{}, \"https://example.com/market\"]} — `{}` breaks the schema.\n"
+            "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Be concise and factual—avoid repetition or marketing buzzwords. Include a short list of 5–7 key market points covering Total Addressable Market (TAM), Ideal Customer Profile (ICP), channels, pricing strategy, and key assumptions.\n"
-            "Format these points as separate sentences within a single semicolon-separated string or as individual items in the `risks` or `next_steps` arrays; never use markdown bullets or newline-separated lists. No '-' or '*' bullet characters should appear in any JSON field.\n"
+            "Format these points as separate sentences within a single semicolon-separated string or as individual items in the `risks` or `next_steps` arrays; never use markdown bullets or newline-separated lists.\n"
             "Example:\n"
-            '{"role": "Marketing Analyst", "task": "<TASK_TITLE>", "summary": "", '
-            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            '{"role": "Marketing Analyst", "task": "<TASK_TITLE>", "summary": "", "findings": "", "risks": [], "next_steps": "", "sources": []}\n'
             "Incorrect Example:\n"
-            "{'role': 'Marketing Analyst', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': ['pointA','pointB'], 'risks': [], 'next_steps': [], 'sources': []}\n"
-            "Explanation: this is invalid because markdown-style bullets and arrays in place of strings break the JSON schema.\n"
-            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Arrays such as `risks` and `next_steps` should contain concise strings without internal formatting. Do not include any other keys.\n"
-            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). Each field’s value must conform to the expected type without extra formatting. If the schema expects a string but you have multiple items, join them with semicolons.\n"
+            "{'role': 'Marketing Analyst', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': '', 'risks': [], 'next_steps': "", 'sources': ['https://example.com/market', {}]}\n"
+            "Explanation: markdown-style bullets and objects in `sources` break the JSON schema.\n"
+            "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Arrays such as `risks` should contain concise strings without internal formatting. Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -333,10 +333,15 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
+            "`sources` must be a list of strings representing patent IDs or URLs. Example: \"sources\": [\"US123456A\"]\n"
+            "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "IP Analyst", "task": "<TASK_TITLE>", "summary": "", '
-            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            '{"role": "IP Analyst", "task": "<TASK_TITLE>", "summary": "", "findings": "", "risks": [], "next_steps": "", "sources": []}\n'
+            "Incorrect Example:\n"
+            "{'role': 'IP Analyst', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': '', 'risks': [], 'next_steps': '', 'sources': ['US123', {}]}\n"
+            "Explanation: markdown-style bullets and objects in `sources` break the JSON schema.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -366,10 +371,15 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
+            "`sources` must be a list of strings representing citations or URLs. Example: \"sources\": [\"https://example.com/patent\"]\n"
+            "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Patent", "task": "<TASK_TITLE>", "summary": "", '
-            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            '{"role": "Patent", "task": "<TASK_TITLE>", "summary": "", "findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            "Incorrect Example:\n"
+            "{'role': 'Patent', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': '', 'risks': [], 'next_steps': [], 'sources': ['https://example.com', {}]}\n"
+            "Explanation: markdown-style bullets and objects in `sources` break the JSON schema.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -400,11 +410,14 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
+            '`sources` must be a list of objects with `id`, `title`, and optional `url`. Do not use plain strings or markdown links in `sources`. Example: "sources": [{"id": "Paper2024", "title": "Study on X", "url": "https://example.com/paper"}]\n'
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Research Scientist", "task": "<TASK_TITLE>", "summary": "", '
-            '"findings": [{"claim": "", "evidence": ""}], "gaps": "", '
-            '"risks": [], "next_steps": [], "sources": [{"id": "", "title": ""}]}\n'
+            '{"role": "Research Scientist", "task": "<TASK_TITLE>", "summary": "", "findings": [{"claim": "", "evidence": ""}], "gaps": "", "risks": "", "next_steps": "", "sources": [{"id": "", "title": ""}]}\n'
+            "Incorrect Example:\n"
+            "{'role': 'Research Scientist', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': [], 'gaps': '', 'risks': '', 'next_steps': '', 'sources': ['[paper](https://example.com)']}\n"
+            "Explanation: markdown-style bullets, empty `findings`, and plain strings in `sources` break the JSON schema.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -435,10 +448,14 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
+            '`sources` must be a list of objects with `id`, `title`, and optional `url`. Do not use plain strings or markdown links in `sources`. Example: "sources": [{"id": "RoleStudy", "title": "Team Roles", "url": "https://example.com/roles"}]\n'
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "HRM", "task": "<TASK_TITLE>", "summary": "", "findings": "", '
-            '"risks": [], "next_steps": [], "sources": []}\n'
+            '{"role": "HRM", "task": "<TASK_TITLE>", "summary": "", "findings": "", "risks": [], "next_steps": "", "sources": []}\n'
+            "Incorrect Example:\n"
+            "{'role': 'HRM', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': '', 'risks': [], 'next_steps': '', 'sources': ['[link](https://example.com)']}\n"
+            "Explanation: markdown-style bullets and plain strings in `sources` break the JSON schema.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -471,11 +488,15 @@ registry.register(
             "- role\n"
             "- task\n\n"
             "**`properties` MUST BE A LIST OF OBJECTS (each with `name`, `property`, `value`, `units`, `source`) — NOT AN ARRAY OF PLAIN STRINGS.**\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
+            "`sources` must be a list of strings representing citations or URLs. Example: \"sources\": [\"https://example.com/material-data\"]\n"
+            "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "", '
-            '"findings": "", "properties": [{"name": "X", "property": "Y", "value": 0, "units": "", "source": ""}], "tradeoffs": [], '
-            '"risks": [], "next_steps": [], "sources": []}\n'
+            '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "", "findings": "", "properties": [{"name": "X", "property": "Y", "value": 0, "units": "", "source": ""}], "tradeoffs": [], "risks": [], "next_steps": [], "sources": []}\n'
+            "Incorrect Example:\n"
+            "{'role': 'Materials Engineer', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': '', 'properties': [], 'tradeoffs': [], 'risks': [], 'next_steps': [], 'sources': [{}]}\n"
+            "Explanation: markdown-style bullets and objects in `sources` break the JSON schema.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -507,10 +528,15 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
+            "`sources` must be a list of strings representing citations or URLs. Example: \"sources\": [\"https://example.com/reference\"]\n"
+            "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "Dynamic Specialist", "task": "<TASK_TITLE>", "summary": "", '
-            '"findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            '{"role": "Dynamic Specialist", "task": "<TASK_TITLE>", "summary": "", "findings": "", "risks": [], "next_steps": [], "sources": []}\n'
+            "Incorrect Example:\n"
+            "{'role': 'Dynamic Specialist', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': '', 'risks': [], 'next_steps': [], 'sources': [{}]}\n"
+            "Explanation: markdown-style bullets and objects in `sources` break the JSON schema.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
@@ -545,10 +571,15 @@ registry.register(
             "- sources\n"
             "- role\n"
             "- task\n\n"
+            "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists). If a field expects a string but you have multiple items, join them with semicolons in a single string.\n"
+            "`sources` must be a list of strings representing citations or URLs. Example: \"sources\": [\"https://example.com/test-plan\"]\n"
+            "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"role": "QA", "task": "<TASK_TITLE>", "summary": "", "findings": "", '
-            '"defects": [], "coverage": "", "risks": [], "next_steps": [], "sources": []}\n'
+            '{"role": "QA", "task": "<TASK_TITLE>", "summary": "", "findings": "", "defects": [], "coverage": "", "risks": [], "next_steps": [], "sources": []}\n'
+            "Incorrect Example:\n"
+            "{'role': 'QA', 'task': '<TASK_TITLE>', 'summary': '- item1\\n- item2', 'findings': '', 'defects': [], 'coverage': '', 'risks': [], 'next_steps': [], 'sources': ['https://example.com', {}]}\n"
+            "Explanation: markdown-style bullets and objects in `sources` break the JSON schema.\n"
             "Return only the JSON keys defined in the schema. If you would otherwise emit a list where the schema expects a string, compress it into a single string (e.g., join with semicolons). Do not include any other keys.\n"
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
@@ -579,7 +610,12 @@ registry.register(
             "budget with proper data').  If all outputs are complete, respond "
             "with the exact string 'no further tasks'.  Always return either a "
             "JSON array of follow-up task strings or the literal string 'no "
-            "further tasks'."
+            "further tasks'. Do not use markdown formatting in any task string (no '-' or '*' bullets and no multi-line lists). Join multiple items with semicolons or return separate array elements.\n"
+            "Example:\n"
+            '["[Finance]: Recalculate budget"]\n'
+            "Incorrect Example:\n"
+            "['- [Finance]: Recalculate budget\\n- [Marketing]: Revise pitch']\n"
+            "Explanation: markdown-style bullets and multi-line strings break the expected JSON array format."
         ),
         user_template=(
             "Project Idea: {{ idea | default('') }}\n\n"
