@@ -13,7 +13,7 @@ from dr_rd.prompting.prompt_factory import PromptFactory
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 from utils.logging import logger
 from utils.json_fixers import attempt_auto_fix
-from utils.agent_json import sanitize_sources
+from utils.agent_json import clean_json_payload
 
 
 class AgentRunResult(str):
@@ -117,8 +117,7 @@ class PromptFactoryAgent(LLMRoleAgent):
         try:
             data = json.loads(raw)
             if schema is not None:
-                if (schema.get("properties") or {}).get("sources") is not None:
-                    data = sanitize_sources(data, schema)
+                data = clean_json_payload(data, schema)
                 data = coerce_types(data, schema)
                 data = strip_additional_properties(data, schema)
                 jsonschema.validate(data, schema)
@@ -133,8 +132,7 @@ class PromptFactoryAgent(LLMRoleAgent):
                         placeholder = make_empty_payload(schema)
                         placeholder.update(data)
                         data = placeholder
-                    if (schema.get("properties") or {}).get("sources") is not None:
-                        data = sanitize_sources(data, schema)
+                    data = clean_json_payload(data, schema)
                     data = coerce_types(data, schema)
                     data = strip_additional_properties(data, schema)
                     jsonschema.validate(data, schema)
@@ -194,8 +192,7 @@ class PromptFactoryAgent(LLMRoleAgent):
         try:
             data = json.loads(raw)
             if fallback_schema is not None:
-                if (fallback_schema.get("properties") or {}).get("sources") is not None:
-                    data = sanitize_sources(data, fallback_schema)
+                data = clean_json_payload(data, fallback_schema)
                 data = coerce_types(data, fallback_schema)
                 data = strip_additional_properties(data, fallback_schema)
                 jsonschema.validate(data, fallback_schema)
