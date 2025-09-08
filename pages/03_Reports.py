@@ -8,6 +8,8 @@ from zipfile import ZipFile
 
 import streamlit as st
 
+st.set_page_config(page_title="Reports")
+
 from app.ui import empty_states
 from app.ui import safety as ui_safety
 from app.ui.a11y import aria_live_region, inject, main_start

@@ -1,4 +1,4 @@
-"""Trace page."""
+"""Results page."""
 
 from __future__ import annotations
 
@@ -7,6 +7,8 @@ from datetime import datetime
 from urllib.parse import urlencode
 
 import streamlit as st
+
+st.set_page_config(page_title="Results")
 
 from app.ui import empty_states
 from app.ui.a11y import aria_live_region, inject, main_start
@@ -90,8 +92,8 @@ if params.get("view") != "trace":
     st.query_params["view"] = "trace"
 scopes = vinfo.get("scopes", [])
 
-st.title(t("trace_title"))
-st.caption(t("trace_caption"))
+st.title("Results")
+st.caption("Inspect run traces and outputs.")
 
 if runs:
     labels = {
