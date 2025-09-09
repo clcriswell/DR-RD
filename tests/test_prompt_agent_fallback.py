@@ -75,7 +75,7 @@ def test_schema_parse_failure_triggers_fallback(monkeypatch):
     outputs = iter(
         [
             '{"role": "CTO", "task": "X", "summary": "- point1\n- point2"}',
-            '{"role":"CTO","task":"X","summary":"Feasibility ok.","findings":"","risks":[],"next_steps":"","sources":[]}',
+            '{"role":"CTO","task":"X","summary":"Feasibility ok.","findings":"","risks":[],"next_steps":[],"sources":[]}',
         ]
     )
 

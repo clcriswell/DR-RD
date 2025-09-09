@@ -21,7 +21,10 @@
       }
     },
     "next_steps": {
-      "type": ["string", "null"]
+      "type": ["array", "null"],
+      "items": {
+        "type": "string"
+      }
     },
     "sources": {
       "type": ["array", "null"],

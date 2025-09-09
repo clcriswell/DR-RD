@@ -9,9 +9,10 @@ def _fake_act(self, system_prompt, user_prompt, **kwargs):
     return json.dumps({
         "role": "x",
         "task": "",
+        "summary": "",
         "findings": "",
-        "risks": "",
-        "next_steps": "",
+        "risks": [],
+        "next_steps": [],
         "sources": []
     })
 
@@ -24,9 +25,11 @@ def test_agent_calls_tool(monkeypatch):
         return {"ok": True}
 
     monkeypatch.setattr(tool_router, "call_tool", fake_call)
+    monkeypatch.setitem(tool_router.TOOL_CONFIG, "CODE_IO", {"enabled": True})
+    monkeypatch.setitem(tool_router._REGISTRY, "read_repo", (lambda *a, **k: None, "CODE_IO"))
     monkeypatch.setattr(LLMRoleAgent, "act", _fake_act, raising=False)
 
-    agent = CTOAgent("gpt")
+    agent = ResearchScientistAgent("gpt")
     task = {
         "title": "t",
         "description": "d",
@@ -43,6 +46,8 @@ def test_agent_handles_disabled_tool(monkeypatch):
         raise ValueError("Tool read_repo disabled")
 
     monkeypatch.setattr(tool_router, "call_tool", fake_call)
+    monkeypatch.setitem(tool_router.TOOL_CONFIG, "CODE_IO", {"enabled": True})
+    monkeypatch.setitem(tool_router._REGISTRY, "read_repo", (lambda *a, **k: None, "CODE_IO"))
     monkeypatch.setattr(LLMRoleAgent, "act", _fake_act, raising=False)
 
     agent = ResearchScientistAgent("gpt")

@@ -41,10 +41,16 @@
       "type": "string"
     },
     "risks": {
-      "type": "string"
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "next_steps": {
-      "type": "string"
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "sources": {
       "type": "array",

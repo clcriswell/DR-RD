@@ -53,7 +53,7 @@ def test_marketing_converts_dict_sources(monkeypatch):
             "summary": "",
             "findings": "",
             "risks": [],
-            "next_steps": "",
+            "next_steps": [],
             "sources": [{"url": "https://abc.com"}],
         }
     )

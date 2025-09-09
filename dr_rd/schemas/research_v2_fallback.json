@@ -22,8 +22,14 @@
       }
     },
     "gaps": { "type": ["string", "null"] },
-    "risks": { "type": ["string", "null"] },
-    "next_steps": { "type": ["string", "null"] },
+    "risks": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "next_steps": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
     "sources": {
       "type": ["array", "null"],
       "items": {
