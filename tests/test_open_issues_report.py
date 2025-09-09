@@ -20,8 +20,8 @@ def test_open_issues_section_in_report():
         "role": "CTO",
         "task": "t",
         "findings": "Not determined",
-        "risks": "Not determined",
-        "next_steps": "Not determined",
+        "risks": ["Not determined"],
+        "next_steps": ["Not determined"],
         "sources": [],
     }
     st.session_state["open_issues"] = [

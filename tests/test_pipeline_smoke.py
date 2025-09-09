@@ -25,12 +25,12 @@ def test_pipeline_smoke(monkeypatch):
     roles = list(SCHEMAS)
     outputs = iter([
         "not json",
-        '{"role":"CTO","task":"t","summary":"Feasibility ok.","findings":"","risks":[],"next_steps":"","sources":[]}',
-        '{"role":"Marketing Analyst","task":"t","summary":"Market analysis could not be fully completed due to limited data","findings":"","risks":[],"next_steps":"","sources":[],}',
-        '{"role":"Research Scientist","task":"t","summary":"rs","findings":"","risks":[],"next_steps":"","sources":[]}',
-        '{"role":"Regulatory","task":"t","summary":"reg","findings":"","risks":[],"next_steps":"","sources":[]}',
-        '{"role":"Finance","task":"t","summary":"fin","findings":"","risks":[],"next_steps":"","sources":[]}',
-        '{"role":"IP Analyst","task":"t","summary":"ip","findings":"","risks":[],"next_steps":"","sources":[]}',
+        '{"role":"CTO","task":"t","summary":"Feasibility ok.","findings":"","risks":[],"next_steps":[],"sources":[]}',
+        '{"role":"Marketing Analyst","task":"t","summary":"Market analysis could not be fully completed due to limited data","findings":"","risks":[],"next_steps":[],"sources":[],}',
+        '{"role":"Research Scientist","task":"t","summary":"rs","findings":"","risks":[],"next_steps":[],"sources":[]}',
+        '{"role":"Regulatory","task":"t","summary":"reg","findings":"","risks":[],"next_steps":[],"sources":[]}',
+        '{"role":"Finance","task":"t","summary":"fin","findings":"","risks":[],"next_steps":[],"sources":[]}',
+        '{"role":"IP Analyst","task":"t","summary":"ip","findings":"","risks":[],"next_steps":[],"sources":[]}',
     ])
 
     def fake_act(self, system, user, **kwargs):  # type: ignore[override]

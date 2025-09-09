@@ -30,7 +30,10 @@
       }
     },
     "next_steps": {
-      "type": "string"
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "role": {
       "type": "string"

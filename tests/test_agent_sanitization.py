@@ -62,7 +62,7 @@ def test_clean_payload_sources_object_mode_and_types():
         "properties": {
             "summary": {"type": "string"},
             "tags": {"type": "array", "items": {"type": "string"}},
-            "next_steps": {"type": "string"},
+            "next_steps": {"type": "array", "items": {"type": "string"}},
             "sources": {
                 "type": "array",
                 "items": {
@@ -96,7 +96,7 @@ def test_clean_payload_sources_object_mode_and_types():
     assert cleaned == {
         "summary": "first; second",
         "tags": ["alpha", "beta", "gamma"],
-        "next_steps": "Not determined",
+        "next_steps": [],
         "sources": [
             {"id": "paper", "title": "Paper", "url": "http://a.com"},
             {"id": "http://b.com", "title": "http://b.com", "url": "http://b.com"},
@@ -118,7 +118,7 @@ def test_cto_agent_no_tool_result():
                     "summary": "",
                     "findings": "",
                     "risks": [],
-                    "next_steps": "",
+                    "next_steps": [],
                     "sources": [],
                 }
             )

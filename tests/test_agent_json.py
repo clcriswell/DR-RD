@@ -127,7 +127,7 @@ def test_tool_result_removed():
             "summary": {"type": "string"},
             "findings": {"type": "string"},
             "risks": {"type": "array", "items": {"type": "string"}},
-            "next_steps": {"type": "string"},
+            "next_steps": {"type": "array", "items": {"type": "string"}},
             "sources": {"type": "array", "items": {"type": "string"}},
         },
         "required": [
@@ -147,7 +147,7 @@ def test_tool_result_removed():
         "summary": "s",
         "findings": "f",
         "risks": [],
-        "next_steps": "n",
+        "next_steps": ["n"],
         "sources": [],
         "tool_result": {"x": 1},
     }
@@ -167,6 +167,6 @@ def test_missing_field_padding_marketing():
     cleaned = clean_json_payload(payload, schema)
     jsonschema.validate(cleaned, schema)
     assert cleaned["findings"] == "Not determined"
-    assert cleaned["next_steps"] == "Not determined"
+    assert cleaned["next_steps"] == []
     assert cleaned["risks"] == []
     assert cleaned["sources"] == []

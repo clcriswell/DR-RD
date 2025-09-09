@@ -30,5 +30,5 @@ def test_missing_keys_autofilled(monkeypatch):
     assert data["summary"] == "Feasibility looks okay."
     assert data["findings"] == "Not determined"
     assert data["risks"] == []
-    assert data["next_steps"] == "Not determined"
+    assert data["next_steps"] == []
     assert data["sources"] == []

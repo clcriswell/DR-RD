@@ -105,8 +105,8 @@ def test_open_issues_in_prompt(mock_complete, monkeypatch):
             json.dumps(
                 {
                     "findings": "Not determined",
-                    "risks": "Not determined",
-                    "next_steps": "Not determined",
+                    "risks": ["Not determined"],
+                    "next_steps": ["Not determined"],
                 }
             )
         ]
@@ -117,7 +117,7 @@ def test_open_issues_in_prompt(mock_complete, monkeypatch):
     compose_final_proposal("idea", {})
     _, prompt = mock_complete.call_args[0]
     assert "### Research" in prompt
-    assert "[No data provided]" in prompt
+    assert "Not determined" in prompt
     assert "Open Issues" not in prompt
 
 
@@ -132,8 +132,8 @@ def test_final_report_fallback(mock_complete):
             json.dumps(
                 {
                     "findings": "Not determined",
-                    "risks": "Not determined",
-                    "next_steps": "Not determined",
+                    "risks": ["Not determined"],
+                    "next_steps": ["Not determined"],
                 }
             )
         ]
