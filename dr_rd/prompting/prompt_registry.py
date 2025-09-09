@@ -492,6 +492,7 @@ registry.register(
             "`sources` must be a list of strings representing citations or URLs. Example: \"sources\": [\"https://example.com/material-data\"]\n"
             "Do not include objects or empty dictionaries in `sources`; invalid entries will be ignored.\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
+            "Do not use placeholder names like 'Material A' or fake sources like 'example.com'. Provide actual material names and credible sources. Each properties item must include real values with units and verifiable citations.\n"
             "Example:\n"
             '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "", "findings": "", "properties": [{"name": "X", "property": "Y", "value": 0, "units": "", "source": ""}], "tradeoffs": [], "risks": [], "next_steps": [], "sources": []}\n'
             "Incorrect Example:\n"

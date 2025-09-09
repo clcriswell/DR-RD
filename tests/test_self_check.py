@@ -23,7 +23,10 @@ def test_self_check_retry_success(monkeypatch):
     bad_output = "No JSON here"
     fixed, meta = validate_and_retry("Research Scientist", {"title": "t"}, bad_output, retry_fn)
     assert json.loads(fixed)["role"] == "Research Scientist"
-    assert meta == {"retried": True, "valid_json": True, "missing_keys": []}
+    assert meta["retried"] is True
+    assert meta["valid_json"] is True
+    assert meta["missing_keys"] == []
+    assert meta["placeholder_failure"] is False
     assert calls["count"] == 1
 
 
@@ -36,7 +39,10 @@ def test_self_check_retry_failure(monkeypatch):
     bad_output = "No JSON here"
     fixed, meta = validate_and_retry("Research Scientist", {"title": "t"}, bad_output, retry_fn)
     assert fixed["findings"] == "Not determined"
-    assert meta == {"retried": True, "valid_json": False, "missing_keys": []}
+    assert meta["retried"] is True
+    assert meta["valid_json"] is False
+    assert meta["missing_keys"] == []
+    assert meta["placeholder_failure"] is False
 
 
 def test_self_check_retry_dict_output(monkeypatch):
@@ -57,7 +63,10 @@ def test_self_check_retry_dict_output(monkeypatch):
     bad_output = "No JSON here"
     fixed, meta = validate_and_retry("Research Scientist", {"title": "t"}, bad_output, retry_fn)
     assert json.loads(fixed)["role"] == "Research Scientist"
-    assert meta == {"retried": True, "valid_json": True, "missing_keys": []}
+    assert meta["retried"] is True
+    assert meta["valid_json"] is True
+    assert meta["missing_keys"] == []
+    assert meta["placeholder_failure"] is False
     assert calls["count"] == 1
 
 

@@ -25,10 +25,11 @@ def test_missing_fields_placeholder(monkeypatch):
         raise ValueError("Missing required fields in PromptAgent inputs: task")
 
     monkeypatch.setattr(orchestrator, "invoke_agent_safely", fake_invoke)
+    monkeypatch.delitem(orchestrator.AGENT_REGISTRY, "Reflection", raising=False)
     st.session_state.clear()
     agents = {"CTO": object()}
     tasks = [{"id": "T1", "title": "A", "description": "B", "role": "CTO"}]
     answers = execute_plan("idea", tasks, agents=agents, run_id="r1")
-    out = json.loads(answers["CTO"][0])
+    out = json.loads(answers["CTO"])
     assert out["summary"] == "Not determined"
     assert out["task"] == "A"
