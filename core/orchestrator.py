@@ -864,6 +864,71 @@ def execute_plan(
                 run_id=run_id,
                 support_id=routed.get("support_id"),
             )
+            obj = text if isinstance(text, (dict, list)) else extract_json_block(text)
+            payload = obj or {}
+            if isinstance(payload, dict):
+                payload.pop("combined_context", None)
+            if role == "QA" and _qa_all_placeholder(payload):
+                if role_retries.get("QA", 0) < 1:
+                    collector.append_event(handle, "retry", {"attempt": 2})
+                    collector.append_event(handle, "call", {"attempt": 2})
+                    model = select_model("agent", ui_model, agent_name="QA")
+                    agent = AgentCls(model)
+                    agents[role] = agent
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_start",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                        }
+                    )
+                    try:
+                        retry_out = agent.run(
+                            qa_brief,
+                            pseudo.get("requirements", []),
+                            pseudo.get("tests", []),
+                            pseudo.get("defects", []),
+                            idea=pseudo.get("idea", ""),
+                            context=pseudo.get("context_data", ""),
+                        )
+                    except Exception as e:
+                        _append(
+                            {
+                                "phase": "executor",
+                                "event": "agent_end",
+                                "role": role,
+                                "task_id": routed.get("id"),
+                                "ok": False,
+                                "error": str(e),
+                            }
+                        )
+                        raise RuntimeError(f"agent {role} failed") from e
+                    _append(
+                        {
+                            "phase": "executor",
+                            "event": "agent_end",
+                            "role": role,
+                            "task_id": routed.get("id"),
+                            "ok": True,
+                        }
+                    )
+                    _check()
+                    text, meta = validate_and_retry(
+                        role,
+                        routed,
+                        retry_out,
+                        _retry_fn,
+                        run_id=run_id,
+                        support_id=routed.get("support_id"),
+                    )
+                    obj = text if isinstance(text, (dict, list)) else extract_json_block(text)
+                    payload = obj or {}
+                    if isinstance(payload, dict):
+                        payload.pop("combined_context", None)
+                if _qa_all_placeholder(payload):
+                    role_retries[role] = role_retries.get(role, 0) + 1
+                    run_state["has_failures"] = True
             collector.append_event(
                 handle,
                 "validate",
@@ -873,10 +938,6 @@ def execute_plan(
                 text if isinstance(text, str) else json.dumps(text, ensure_ascii=False)
             )
             alias_maps[role] = routed.get("alias_map", {})
-            obj = text if isinstance(text, (dict, list)) else extract_json_block(text)
-            payload = obj or {}
-            if isinstance(payload, dict):
-                payload.pop("combined_context", None)
             role_to_findings[role] = payload
             norm = _normalize_evidence_payload(payload)
             artifact_payload = (
@@ -987,7 +1048,91 @@ def execute_plan(
                     "tokens_out": norm.get("tokens_out", 0),
                     "cost_usd": norm.get("cost", 0.0),
                 },
+        )
+
+    def _run_reflection(require_incomplete: bool = False) -> list[dict[str, str]]:
+        nonlocal reflection_attempts
+        if (
+            not ff.REFLECTION_ENABLED
+            or reflection_attempts >= ff.REFLECTION_MAX_ATTEMPTS
+            or not role_to_findings
+        ):
+            return []
+        if require_incomplete:
+            incomplete = False
+            for r, v in role_to_findings.items():
+                if r == "QA" and _qa_all_placeholder(v):
+                    incomplete = True
+                    break
+                if r != "QA" and _has_placeholder(v):
+                    incomplete = True
+                    break
+            if not incomplete:
+                return []
+        reflection_cls = AGENT_REGISTRY.get("Reflection")
+        if not reflection_cls:
+            return []
+        reflection_agent = agents.get("Reflection") or reflection_cls(
+            select_model("agent", ui_model, agent_name="Reflection")
+        )
+        agents["Reflection"] = reflection_agent
+        ref_task = {
+            "role": "Reflection",
+            "title": "Review",
+            "description": json.dumps(role_to_findings),
+            "context": json.dumps(role_to_findings),
+        }
+        _append(
+            {
+                "phase": "executor",
+                "event": "agent_start",
+                "role": "Reflection",
+                "task_id": ref_task.get("id"),
+            }
+        )
+        try:
+            pseudo_r, _ = pseudonymize_for_model(
+                {"context": ref_task.get("context", idea), "task": ref_task}
             )
+            ref_out = invoke_agent_safely(
+                reflection_agent,
+                pseudo_r.get("task", {}),
+                meta={"context": pseudo_r.get("context")},
+                run_id=run_id,
+            )
+            _append(
+                {
+                    "phase": "executor",
+                    "event": "agent_end",
+                    "role": "Reflection",
+                    "task_id": ref_task.get("id"),
+                    "ok": True,
+                }
+            )
+        except Exception as e:
+            _append(
+                {
+                    "phase": "executor",
+                    "event": "agent_end",
+                    "role": "Reflection",
+                    "task_id": ref_task.get("id"),
+                    "ok": False,
+                    "error": str(e),
+                }
+            )
+            safe_exc(logger, idea, "invoke_agent[Reflection]", e)
+            raise RuntimeError("Reflection agent failed") from e
+        ref_text = ref_out if isinstance(ref_out, str) else json.dumps(ref_out)
+        follow_ups: list = []
+        if "no further tasks" not in ref_text.lower():
+            try:
+                follow_ups = json.loads(extract_json_block(ref_text) or ref_text)
+            except Exception:
+                follow_ups = []
+            if not isinstance(follow_ups, list):
+                follow_ups = []
+        reflection_attempts += 1
+        return follow_ups
 
     norm_tasks = list(tasks)
     try:
@@ -1017,7 +1162,6 @@ def execute_plan(
     eval_round = 0
     evaluations: list[dict] = []
     reflection_attempts = 0
-    reflection_done = False
     role_retries: dict[str, int] = defaultdict(int)
     run_state: dict[str, Any] = {}
     while True:
@@ -1053,76 +1197,7 @@ def execute_plan(
                 _run_task(t)
                 _check()
 
-        follow_ups: list[dict[str, str]] = []
-        if (
-            ff.REFLECTION_ENABLED
-            and not reflection_done
-            and role_to_findings
-            and reflection_attempts < ff.REFLECTION_MAX_ATTEMPTS
-        ):
-            reflection_cls = AGENT_REGISTRY.get("Reflection")
-            if reflection_cls:
-                reflection_agent = agents.get("Reflection") or reflection_cls(
-                    select_model("agent", ui_model, agent_name="Reflection")
-                )
-                agents["Reflection"] = reflection_agent
-                ref_task = {
-                    "role": "Reflection",
-                    "title": "Review",
-                    "description": json.dumps(role_to_findings),
-                    "context": json.dumps(role_to_findings),
-                }
-                _append(
-                    {
-                        "phase": "executor",
-                        "event": "agent_start",
-                        "role": "Reflection",
-                        "task_id": ref_task.get("id"),
-                    }
-                )
-                try:
-                    pseudo_r, _ = pseudonymize_for_model(
-                        {"context": ref_task.get("context", idea), "task": ref_task}
-                    )
-                    ref_out = invoke_agent_safely(
-                        reflection_agent,
-                        pseudo_r.get("task", {}),
-                        meta={"context": pseudo_r.get("context")},
-                        run_id=run_id,
-                    )
-                    _append(
-                        {
-                            "phase": "executor",
-                            "event": "agent_end",
-                            "role": "Reflection",
-                            "task_id": ref_task.get("id"),
-                            "ok": True,
-                        }
-                    )
-                except Exception as e:
-                    _append(
-                        {
-                            "phase": "executor",
-                            "event": "agent_end",
-                            "role": "Reflection",
-                            "task_id": ref_task.get("id"),
-                            "ok": False,
-                            "error": str(e),
-                        }
-                    )
-                    safe_exc(logger, idea, "invoke_agent[Reflection]", e)
-                    raise RuntimeError("Reflection agent failed") from e
-                ref_text = ref_out if isinstance(ref_out, str) else json.dumps(ref_out)
-                if "no further tasks" not in ref_text.lower():
-                    try:
-                        follow_ups = json.loads(extract_json_block(ref_text) or ref_text)
-                    except Exception:
-                        follow_ups = []
-                    if not isinstance(follow_ups, list):
-                        follow_ups = []
-                reflection_attempts += 1
-                reflection_done = True
-
+        follow_ups: list[dict[str, str]] = _run_reflection()
         for ft in follow_ups:
             if isinstance(ft, str):
                 m = re.match(r"\[(?P<role>[^]]+)\]:\s*(?P<title>.*)", ft)
@@ -1140,6 +1215,28 @@ def execute_plan(
             if rname:
                 role_retries[rname] = role_retries.get(rname, 0) + 1
             _check()
+
+        def _qa_all_placeholder(payload: Any) -> bool:
+            if not isinstance(payload, dict):
+                return False
+            keys = [
+                "summary",
+                "findings",
+                "defects",
+                "coverage",
+                "risks",
+                "next_steps",
+                "sources",
+            ]
+            for k in keys:
+                v = payload.get(k)
+                if isinstance(v, str) and v.strip() not in ("", "Not determined"):
+                    return False
+                if isinstance(v, list) and any(
+                    (isinstance(x, str) and x.strip()) for x in v
+                ):
+                    return False
+            return True
 
         def _has_placeholder(obj: Any) -> bool:
             if isinstance(obj, str):
@@ -1165,6 +1262,35 @@ def execute_plan(
             qt["context_data"] = json.dumps(role_to_findings)
             _run_task(qt)
             _check()
+
+        follow_ups = _run_reflection(require_incomplete=True)
+        for ft in follow_ups:
+            if isinstance(ft, str):
+                m = re.match(r"\[(?P<role>[^]]+)\]:\s*(?P<title>.*)", ft)
+                role_hint = m.group("role") if m else None
+                title = m.group("title") if m else ft
+                task = {"role": role_hint, "title": title, "description": title}
+            elif isinstance(ft, dict):
+                task = ft
+            else:
+                continue
+            rname = task.get("role")
+            if rname and role_retries.get(rname, 0) >= 1:
+                continue
+            _run_task(task)
+            if rname:
+                role_retries[rname] = role_retries.get(rname, 0) + 1
+            _check()
+
+        for role, count in role_retries.items():
+            if count >= 1:
+                payload = role_to_findings.get(role)
+                if _has_placeholder(payload):
+                    note = f"{role} analysis could not be completed after two attempts."
+                    open_issues.append(
+                        {"title": note, "role": role, "task_id": "", "result": payload}
+                    )
+                    run_state["has_failures"] = True
 
         if not ff.EVALUATION_ENABLED:
             break

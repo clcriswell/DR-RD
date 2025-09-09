@@ -136,7 +136,7 @@ TOT_MAX_DEPTH: int = int(os.getenv("TOT_MAX_DEPTH", "2"))
 
 # Reflection parameters
 REFLECTION_PATIENCE: int = int(os.getenv("REFLECTION_PATIENCE", "2"))
-REFLECTION_MAX_ATTEMPTS: int = int(os.getenv("REFLECTION_MAX_ATTEMPTS", "1"))
+REFLECTION_MAX_ATTEMPTS: int = int(os.getenv("REFLECTION_MAX_ATTEMPTS", "2"))
 
 
 def get_env_defaults() -> dict:
