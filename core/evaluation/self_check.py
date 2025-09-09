@@ -3,10 +3,10 @@ import logging
 import re
 from pathlib import Path
 from typing import Callable, Tuple
-import re
 
 import jsonschema
 from jsonschema import ValidationError
+from dr_rd.evaluators.placeholder_check import evaluate as placeholder_evaluate
 
 from utils import trace_writer
 from utils.agent_json import extract_json_block
@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 REQUIRED_KEYS = ["role", "task", "findings", "risks", "next_steps", "sources"]
 
 _SCHEMA_CACHE: dict[str, dict | None] = {}
+
+PLACEHOLDER_RETRY_MSG = (
+    "Your previous answer used placeholder content (e.g., 'Material A', 'example.com'). "
+    "Please provide real materials and sources."
+)
 
 
 def _load_schema(role: str) -> dict | None:
@@ -110,7 +115,7 @@ def validate_and_retry(
                 data[k] = _replace_todo(v)
         return data
 
-    def _check(text: object) -> tuple[bool, str, list[str]]:
+    def _check(text: object) -> tuple[bool, str, list[str], bool]:
         obj = text if isinstance(text, (dict, list)) else extract_json_block(text)
         candidate = obj if obj is not None else text
         if not isinstance(candidate, str):
@@ -119,11 +124,11 @@ def validate_and_retry(
             data = parse_json_loose(candidate)
         except Exception as e:
             errors.append(str(e))
-            return False, candidate, []
+            return False, candidate, [], False
         missing = _missing_keys(data)
         if missing:
             errors.append(f"missing_keys:{missing}")
-            return False, json.dumps(data, ensure_ascii=False), missing
+            return False, json.dumps(data, ensure_ascii=False), missing, False
         schema = _load_schema(agent_name)
         if schema:
             validator = jsonschema.Draft7Validator(schema)
@@ -131,12 +136,75 @@ def validate_and_retry(
             if schema_errors:
                 for e in schema_errors:
                     errors.append(f"schema:{e.message}")
-                return False, json.dumps(data, ensure_ascii=False), []
+                return False, json.dumps(data, ensure_ascii=False), [], False
         data = _replace_todo(data)
-        return True, json.dumps(data, ensure_ascii=False), []
+        ok, reason = placeholder_evaluate(data)
+        if not ok:
+            errors.append(f"placeholder:{reason}")
+            return False, json.dumps(data, ensure_ascii=False), [], True
+        return True, json.dumps(data, ensure_ascii=False), [], False
 
     missing_keys: list[str] = []
-    valid, raw_text, missing_keys = _check(raw_text)
+    placeholder_fail = False
+    valid, raw_text, missing_keys, placeholder_fail = _check(raw_text)
+    if not valid and placeholder_fail:
+        retried = True
+        reminder = PLACEHOLDER_RETRY_MSG
+        try:
+            if run_id:
+                trace_writer.append_step(
+                    run_id,
+                    {
+                        "phase": "executor",
+                        "event": "retry_prompt",
+                        "role": agent_name,
+                        "task_id": task.get("id"),
+                        "prompt": reminder,
+                    },
+                )
+        except Exception:
+            pass
+        logger.info("retry_prompt", extra={"role": agent_name, "prompt": reminder})
+        try:
+            second = retry_fn(reminder)
+        except Exception as e:  # pragma: no cover - retry best effort
+            logger.warning("Retry failed for %s: %s", agent_name, e)
+            second = raw_text
+        if not isinstance(second, str):
+            second = json.dumps(second, ensure_ascii=False)
+        valid, raw_text, missing_keys, placeholder_fail = _check(second)
+        if not valid and placeholder_fail:
+            meta = {
+                "retried": True,
+                "valid_json": False,
+                "missing_keys": missing_keys,
+                "escalated": False,
+                "placeholder_failure": True,
+            }
+            try:
+                if run_id:
+                    trace_writer.append_step(
+                        run_id,
+                        {
+                            "phase": "executor",
+                            "event": "validation_error",
+                            "role": agent_name,
+                            "task_id": task.get("id"),
+                            "valid_json": False,
+                            "errors": errors,
+                            "escalated": False,
+                            "missing_keys": missing_keys,
+                        },
+                    )
+            except Exception:
+                pass
+            placeholder = {k: "Not determined" for k in REQUIRED_KEYS}
+            try:
+                log_self_check(run_id, support_id, {"valid_json": False, "errors": errors}, head)
+            except Exception:
+                pass
+            return placeholder, meta
+
     if not valid:
         retried = True
         issues: list[str] = []
@@ -235,8 +303,8 @@ def validate_and_retry(
             second = raw_text
         if not isinstance(second, str):
             second = json.dumps(second, ensure_ascii=False)
-        valid, raw_text, missing_keys = _check(second)
-        if not valid:
+        valid, raw_text, missing_keys, placeholder_fail = _check(second)
+        if not valid and not placeholder_fail:
             final_reminder = (
                 "Final attempt: Summarize your output in one paragraph; "
                 "convert any lists to semicolon-separated strings so the JSON schema is satisfied."
@@ -267,7 +335,7 @@ def validate_and_retry(
                 third = raw_text
             if not isinstance(third, str):
                 third = json.dumps(third, ensure_ascii=False)
-            valid, raw_text, missing_keys = _check(third)
+            valid, raw_text, missing_keys, placeholder_fail = _check(third)
             if not valid:
                 escalated = True
 
@@ -277,6 +345,7 @@ def validate_and_retry(
         "role": agent_name,
         "task": task.get("title"),
         "escalated": escalated,
+        "placeholder_failure": placeholder_fail,
     }
     logger.info("self_check", extra=info)
     if not valid:
@@ -285,6 +354,7 @@ def validate_and_retry(
             "valid_json": False,
             "missing_keys": missing_keys,
             "escalated": escalated,
+            "placeholder_failure": placeholder_fail,
         }
         try:
             if run_id:
@@ -315,5 +385,6 @@ def validate_and_retry(
         "valid_json": True,
         "missing_keys": missing_keys,
         "escalated": escalated,
+        "placeholder_failure": False,
     }
     return raw_text, meta

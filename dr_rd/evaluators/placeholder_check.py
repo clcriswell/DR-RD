@@ -1,17 +1,41 @@
 from __future__ import annotations
 
 import json
-from typing import Tuple, Any
+import re
+from typing import Any, Tuple
 
 
-def _has_placeholder(obj: Any) -> bool:
+_MATERIAL_RE = re.compile(r"\bMaterial [A-Z]\b")
+_JOURNAL_RE = re.compile(r"\b(?:Research )?(Journal|Study) [A-Z]\b")
+
+
+def _detect_placeholder(obj: Any) -> str | None:
     if isinstance(obj, str):
-        return obj.strip() == "" or obj.strip() == "Not determined"
+        s = obj.strip()
+        if s == "" or s == "Not determined":
+            return "empty"
+        if _MATERIAL_RE.search(s):
+            return "material_name"
+        if "example.com" in s:
+            return "fake_url"
+        if _JOURNAL_RE.search(s):
+            return "generic_source"
+        return None
     if isinstance(obj, list):
-        return any(_has_placeholder(v) for v in obj)
+        for v in obj:
+            reason = _detect_placeholder(v)
+            if reason:
+                return reason
+        return None
     if isinstance(obj, dict):
-        return any(_has_placeholder(v) for v in obj.values()) or obj == {}
-    return obj in (None, "")
+        for v in obj.values():
+            reason = _detect_placeholder(v)
+            if reason:
+                return reason
+        if obj == {}:
+            return "empty"
+        return None
+    return "empty" if obj in (None, "") else None
 
 
 def evaluate(payload: Any) -> Tuple[bool, str]:
@@ -21,8 +45,9 @@ def evaluate(payload: Any) -> Tuple[bool, str]:
             data = json.loads(payload)
     except Exception:
         data = payload
-    if _has_placeholder(data):
-        return False, "placeholder detected"
+    reason = _detect_placeholder(data)
+    if reason:
+        return False, reason
     return True, ""
 
 

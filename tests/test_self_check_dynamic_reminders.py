@@ -53,7 +53,10 @@ def test_missing_keys_multiple(monkeypatch):
     )
     assert "missing 'total_cost'" in captured["reminder"]
     assert "missing 'contribution_margin'" in captured["reminder"]
-    assert meta == {"retried": True, "valid_json": True, "missing_keys": []}
+    assert meta["retried"] is True
+    assert meta["valid_json"] is True
+    assert meta["missing_keys"] == []
+    assert meta["placeholder_failure"] is False
 
 
 # Type mismatch errors and corresponding hints
@@ -67,7 +70,7 @@ def test_type_mismatch_numeric(monkeypatch):
     captured = {}
 
     def retry_fn(reminder: str) -> str:
-        captured["reminder"] = reminder
+        captured.setdefault("reminder", reminder)
         return json.dumps(bad)
 
     validate_and_retry("Finance", {"title": "t"}, json.dumps(bad), retry_fn)
@@ -83,7 +86,7 @@ def test_type_mismatch_array(monkeypatch):
     captured = {}
 
     def retry_fn(reminder: str) -> str:
-        captured["reminder"] = reminder
+        captured.setdefault("reminder", reminder)
         return json.dumps(bad)
 
     validate_and_retry("Finance", {"title": "t"}, json.dumps(bad), retry_fn)
@@ -112,7 +115,10 @@ def test_combined_errors(monkeypatch):
     assert "missing 'total_cost'" in captured["reminder"]
     assert "used a list where a single string was required" in captured["reminder"]
     assert " and " in captured["reminder"]
-    assert meta == {"retried": True, "valid_json": True, "missing_keys": []}
+    assert meta["retried"] is True
+    assert meta["valid_json"] is True
+    assert meta["missing_keys"] == []
+    assert meta["placeholder_failure"] is False
 
 
 # Logging/trace output for retry attempts
@@ -162,5 +168,8 @@ def test_retry_success_after_type_fix(monkeypatch):
     _, meta = validate_and_retry(
         "Finance", {"title": "t"}, json.dumps(bad), retry_fn
     )
-    assert meta == {"retried": True, "valid_json": True, "missing_keys": []}
+    assert meta["retried"] is True
+    assert meta["valid_json"] is True
+    assert meta["missing_keys"] == []
+    assert meta["placeholder_failure"] is False
     assert "numeric field" in captured["reminder"]

@@ -14,7 +14,7 @@ import config.feature_flags as ff
 from core.agents.evaluation_agent import EvaluationAgent
 from core.agents.runtime import invoke_agent_safely
 from core.agents.unified_registry import AGENT_REGISTRY
-from core.evaluation.self_check import validate_and_retry
+from core.evaluation.self_check import PLACEHOLDER_RETRY_MSG, validate_and_retry
 from core.llm import complete, select_model
 from core.llm_client import responses_json_schema_for
 from core.observability import (
@@ -868,6 +868,53 @@ def execute_plan(
             payload = obj or {}
             if isinstance(payload, dict):
                 payload.pop("combined_context", None)
+            if meta.get("placeholder_failure"):
+                if role_retries.get(role, 0) < 1:
+                    collector.append_event(handle, "retry", {"attempt": 2})
+                    collector.append_event(handle, "call", {"attempt": 2})
+                    retry_out = _retry_fn(PLACEHOLDER_RETRY_MSG)
+                    _check()
+                    text, meta = validate_and_retry(
+                        role,
+                        routed,
+                        retry_out,
+                        _retry_fn,
+                        run_id=run_id,
+                        support_id=routed.get("support_id"),
+                    )
+                    obj = text if isinstance(text, (dict, list)) else extract_json_block(text)
+                    payload = obj or {}
+                    if isinstance(payload, dict):
+                        payload.pop("combined_context", None)
+                if meta.get("placeholder_failure"):
+                    role_retries[role] = role_retries.get(role, 0) + 1
+                    open_issues.append(
+                        {
+                            "title": f"{role} output contains placeholder content; needs real data.",
+                            "role": role,
+                            "task_id": "",
+                            "result": payload,
+                        }
+                    )
+                    logger.warning(
+                        "placeholder_output", extra={"role": role, "run_id": run_id}
+                    )
+                    follow_ups = _run_reflection()
+                    for ft in follow_ups:
+                        if isinstance(ft, str):
+                            m = re.match(r"\[(?P<role>[^]]+)\]:\s*(?P<title>.*)", ft)
+                            role_hint = m.group("role") if m else None
+                            title = m.group("title") if m else ft
+                            task = {"role": role_hint, "title": title, "description": title}
+                        elif isinstance(ft, dict):
+                            task = ft
+                        else:
+                            continue
+                        rname = task.get("role")
+                        _run_task(task)
+                        if rname:
+                            role_retries[rname] = role_retries.get(rname, 0) + 1
+                        _check()
             if role == "QA" and _qa_all_placeholder(payload):
                 if role_retries.get("QA", 0) < 1:
                     collector.append_event(handle, "retry", {"attempt": 2})
@@ -980,7 +1027,7 @@ def execute_plan(
                     payload.get(k) in ("TODO", "Not determined")
                     for k in ("findings", "risks", "next_steps")
                 )
-            if not meta.get("valid_json") or is_placeholder:
+            if (not meta.get("valid_json") and not meta.get("placeholder_failure")) or is_placeholder:
                 open_issues.append(
                     {
                         "title": routed.get("title", ""),
