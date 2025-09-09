@@ -1,5 +1,6 @@
 import logging
 import os
+
 from core.privacy import redact_for_logging
 
 logger = logging.getLogger("drrd")
@@ -45,7 +46,9 @@ def log_self_check(run_id: str | None, support_id: str | None, result: dict, raw
     )
 
 
-def log_dynamic_agent_failure(run_id: str | None, support_id: str | None, reason: str, raw_head: str) -> None:
+def log_dynamic_agent_failure(
+    run_id: str | None, support_id: str | None, reason: str, raw_head: str
+) -> None:
     logger.warning(
         "dynamic_agent_failure run_id=%s support_id=%s reason=%s head=%r",
         run_id,
@@ -53,3 +56,16 @@ def log_dynamic_agent_failure(run_id: str | None, support_id: str | None, reason
         reason,
         _preview(raw_head),
     )
+
+
+def log_placeholder_warning(
+    run_id: str | None, role: str, task_id: str | None = "", note: str = ""
+) -> None:
+    from utils.logging import logger
+
+    rid = run_id or ""
+    tid = task_id or ""
+    msg = f"agent_output_placeholder role={role} run_id={rid} task={tid}"
+    if note:
+        msg += f" note={note}"
+    logger.warning(msg)

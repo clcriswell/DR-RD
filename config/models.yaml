@@ -45,6 +45,7 @@ routing:
     "Research Scientist": {exec: {preferred: [anthropic/claude-3-5-sonnet, openai/gpt-4o]}}
     "Regulatory":        {exec: {preferred: [openai/gpt-4.1-mini], backups: [google/gemini-1.5-pro]}}
     "IP Analyst":        {exec: {preferred: [openai/gpt-4o], backups: [anthropic/claude-3-5-sonnet]}}
+    "QA":                {exec: {preferred: [openai/gpt-4o], backups: [openai/gpt-4.1-mini]}}
 
 slos:
   target_latency_ms: {plan: 2000, exec: 3500, synth: 2500}

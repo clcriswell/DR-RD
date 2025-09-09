@@ -1,12 +1,12 @@
 import json
 import os
 import re
+from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
-from collections import defaultdict
 
 import streamlit as st
 
@@ -28,15 +28,15 @@ from core.roles import normalize_role
 from core.router import route_task
 from core.schemas import Plan, ScopeNote
 from dr_rd.agents.dynamic_agent import EmptyModelOutput
-from dr_rd.prompting.prompt_registry import RetrievalPolicy, registry
 from dr_rd.prompting.prompt_factory import JINJA_ENV
+from dr_rd.prompting.prompt_registry import RetrievalPolicy, registry
 from memory.decision_log import log_decision
 from orchestrators.executor import execute as exec_artifacts
 from utils import checkpoints, otel, trace_writer
 from utils import safety as safety_utils
 from utils.agent_json import extract_json_block, extract_json_strict
 from utils.cancellation import CancellationToken
-from utils.logging import logger, safe_exc
+from utils.logging import log_placeholder_warning, logger, safe_exc
 from utils.paths import ensure_run_dirs, write_text
 from utils.stream_events import Event
 from utils.telemetry import (
@@ -624,13 +624,9 @@ def execute_plan(
                         "next_steps": [],
                         "sources": [],
                         "role": role,
-                        "task": routed.get("title")
-                        or routed.get("description")
-                        or "unknown",
+                        "task": routed.get("title") or routed.get("description") or "unknown",
                     }
-                    answers.setdefault(role, []).append(
-                        json.dumps(placeholder, ensure_ascii=False)
-                    )
+                    answers.setdefault(role, []).append(json.dumps(placeholder, ensure_ascii=False))
                     role_to_findings[role] = placeholder
                     alias_maps[role] = routed.get("alias_map", {})
                     collector.finalize_item(handle, "", placeholder, 0, 0, 0.0, [], [])
@@ -854,7 +850,6 @@ def execute_plan(
                 routed["alias_map"] = retry_task.get("alias_map", {})
                 return result
 
-
             _check()
             text, meta = validate_and_retry(
                 role,
@@ -896,9 +891,7 @@ def execute_plan(
                             "result": payload,
                         }
                     )
-                    logger.warning(
-                        "placeholder_output", extra={"role": role, "run_id": run_id}
-                    )
+                    log_placeholder_warning(run_id, role, task_id="", note="placeholder result")
                     follow_ups = _run_reflection()
                     for ft in follow_ups:
                         if isinstance(ft, str):
@@ -1027,7 +1020,9 @@ def execute_plan(
                     payload.get(k) in ("TODO", "Not determined")
                     for k in ("findings", "risks", "next_steps")
                 )
-            if (not meta.get("valid_json") and not meta.get("placeholder_failure")) or is_placeholder:
+            if (
+                not meta.get("valid_json") and not meta.get("placeholder_failure")
+            ) or is_placeholder:
                 open_issues.append(
                     {
                         "title": routed.get("title", ""),
@@ -1095,7 +1090,7 @@ def execute_plan(
                     "tokens_out": norm.get("tokens_out", 0),
                     "cost_usd": norm.get("cost", 0.0),
                 },
-        )
+            )
 
     def _run_reflection(require_incomplete: bool = False) -> list[dict[str, str]]:
         nonlocal reflection_attempts
@@ -1279,9 +1274,7 @@ def execute_plan(
                 v = payload.get(k)
                 if isinstance(v, str) and v.strip() not in ("", "Not determined"):
                     return False
-                if isinstance(v, list) and any(
-                    (isinstance(x, str) and x.strip()) for x in v
-                ):
+                if isinstance(v, list) and any((isinstance(x, str) and x.strip()) for x in v):
                     return False
             return True
 
@@ -1299,6 +1292,16 @@ def execute_plan(
                 payload = role_to_findings.get(role)
                 if _has_placeholder(payload):
                     note = f"{role} analysis could not be completed after two attempts."
+                    log_placeholder_warning(
+                        run_id, role, task_id="", note="post-retry placeholder result"
+                    )
+                    if role == "QA":
+                        log_placeholder_warning(
+                            run_id,
+                            "QA",
+                            task_id="",
+                            note="QA remained placeholder after two attempts",
+                        )
                     open_issues.append(
                         {"title": note, "role": role, "task_id": "", "result": payload}
                     )
@@ -1334,6 +1337,16 @@ def execute_plan(
                 payload = role_to_findings.get(role)
                 if _has_placeholder(payload):
                     note = f"{role} analysis could not be completed after two attempts."
+                    log_placeholder_warning(
+                        run_id, role, task_id="", note="post-retry placeholder result"
+                    )
+                    if role == "QA":
+                        log_placeholder_warning(
+                            run_id,
+                            "QA",
+                            task_id="",
+                            note="QA remained placeholder after two attempts",
+                        )
                     open_issues.append(
                         {"title": note, "role": role, "task_id": "", "result": payload}
                     )
@@ -1623,6 +1636,7 @@ def compose_final_proposal(
     run_id = st.session_state.get("run_id")
     if run_id:
         from utils.paths import write_text
+
         path_report = write_text(run_id, "report", "md", final_markdown)
         try:
             with open(path_report, "r+", encoding="utf-8") as fh:

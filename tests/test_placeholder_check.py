@@ -9,8 +9,20 @@ def test_placeholder_patterns_fail():
 
 
 def test_realistic_strings_pass():
-    data = {
-        "name": "Aluminum",
-        "source": "https://doi.org/10.1000/xyz"
-    }
+    data = {"name": "Aluminum", "source": "https://doi.org/10.1000/xyz"}
     assert evaluate(data)[0] is True
+
+
+def test_materials_payload_placeholder_fails():
+    payload = {
+        "properties": [
+            {
+                "name": "Material A",
+                "property": "density",
+                "value": 1,
+                "units": "g/cm3",
+                "source": "https://example.com/x",
+            }
+        ]
+    }
+    assert evaluate(payload)[0] is False

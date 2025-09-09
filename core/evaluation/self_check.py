@@ -5,13 +5,12 @@ from pathlib import Path
 from typing import Callable, Tuple
 
 import jsonschema
-from jsonschema import ValidationError
-from dr_rd.evaluators.placeholder_check import evaluate as placeholder_evaluate
 
+from dr_rd.evaluators.placeholder_check import evaluate as placeholder_evaluate
 from utils import trace_writer
 from utils.agent_json import extract_json_block
 from utils.json_safety import parse_json_loose
-from utils.logging import log_self_check
+from utils.logging import log_placeholder_warning, log_self_check
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ _SCHEMA_CACHE: dict[str, dict | None] = {}
 
 PLACEHOLDER_RETRY_MSG = (
     "Your previous answer used placeholder content (e.g., 'Material A', 'example.com'). "
-    "Please provide real materials and sources."
+    "Do not use placeholders; please provide real materials and sources."
 )
 
 
@@ -199,6 +198,9 @@ def validate_and_retry(
             except Exception:
                 pass
             placeholder = {k: "Not determined" for k in REQUIRED_KEYS}
+            log_placeholder_warning(
+                run_id, agent_name, task.get("id"), note="self_check fabricated placeholder"
+            )
             try:
                 log_self_check(run_id, support_id, {"valid_json": False, "errors": errors}, head)
             except Exception:
@@ -272,8 +274,7 @@ def validate_and_retry(
             joined = " and ".join(issues)
             fix = "these issues" if len(issues) > 1 else "this issue"
             reminder = (
-                f"Reminder: Your last output was {joined}. "
-                f"Fix {fix} and return a valid JSON."
+                f"Reminder: Your last output was {joined}. " f"Fix {fix} and return a valid JSON."
             )
         else:
             reminder = (
@@ -374,6 +375,9 @@ def validate_and_retry(
         except Exception:
             pass
         placeholder = {k: "Not determined" for k in REQUIRED_KEYS}
+        log_placeholder_warning(
+            run_id, agent_name, task.get("id"), note="self_check fabricated placeholder"
+        )
         try:
             log_self_check(run_id, support_id, {"valid_json": False, "errors": errors}, head)
         except Exception:
