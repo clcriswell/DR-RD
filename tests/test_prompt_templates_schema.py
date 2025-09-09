@@ -1,3 +1,5 @@
+import json
+
 from dr_rd.prompting.prompt_registry import registry
 
 
@@ -33,3 +35,10 @@ def test_dynamic_and_qa_templates():
     assert "findings" in dyn.system and dyn.io_schema_ref.endswith("generic_v2.json")
     assert qa.io_schema_ref.endswith("qa_v2.json")
     assert "JSON summary" in qa.user_template
+
+
+def test_qa_schema_uses_arrays():
+    with open("dr_rd/schemas/qa_v2.json", encoding="utf-8") as fh:
+        schema = json.load(fh)
+    assert schema["properties"]["risks"]["type"] == "array"
+    assert schema["properties"]["next_steps"]["type"] == "array"
