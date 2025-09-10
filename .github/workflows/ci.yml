@@ -70,3 +70,22 @@ jobs:
           name: sbom-${{ matrix.python }}
           path: sbom
           if-no-files-found: ignore
+
+  tests-lint:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.lock.txt -r dev-requirements.lock.txt
+      - run: pytest -q
+      - run: mypy dr_rd
+      - run: ruff dr_rd
+      - run: gitleaks detect --source .
