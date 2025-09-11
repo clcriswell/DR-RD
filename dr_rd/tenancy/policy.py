@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import os
-from typing import Iterable, Set
+from typing import Iterable
 
 from .models import TenantContext
 
@@ -13,13 +12,7 @@ AUDITOR = "AUDITOR"
 CONFIG = "CONFIG"
 
 
-def _superuser() -> bool:
-    return os.getenv("DRRD_SUPERUSER_MODE") == "1"
-
-
 def _has_role(ctx: TenantContext, roles: Iterable[str]) -> bool:
-    if _superuser():
-        return True
     principal = ctx.principal if ctx else None
     if principal is None or principal.disabled:
         return False

@@ -15,8 +15,8 @@ def test_permission_matrix():
     assert policy.can_manage_keys(_ctx(["OWNER"]))
 
 
-def test_superuser(monkeypatch):
+def test_env_superuser_ignored(monkeypatch):
     ctx = _ctx([])
     assert not policy.can_manage_keys(ctx)
     monkeypatch.setenv("DRRD_SUPERUSER_MODE", "1")
-    assert policy.can_manage_keys(ctx)
+    assert not policy.can_manage_keys(ctx)
