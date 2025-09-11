@@ -16,7 +16,6 @@ def build_resolved_config_snapshot(cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Return a redacted configuration snapshot for logging."""
     models = cfg.get("models", {}) if isinstance(cfg.get("models"), dict) else {}
     snapshot: Dict[str, Any] = {
-        "mode": cfg.get("mode"),
         "planner_model": models.get("plan"),
         "exec_model": models.get("exec"),
         "synth_model": models.get("synth"),

@@ -6,6 +6,9 @@ def test_batch_run(tmp_path, monkeypatch):
     def fake_generate(idea, **kwargs):
         if idea == "timeout":
             raise TimeoutError("deadline reached")
+        import streamlit as st
+
+        st.session_state["plan_tasks"] = ["t"]
         return []
 
     def fake_execute(idea, tasks, **kwargs):
@@ -20,8 +23,8 @@ def test_batch_run(tmp_path, monkeypatch):
 
     jsonl_path = tmp_path / "items.jsonl"
     jsonl_path.write_text("\n".join([
-        json.dumps({"idea": "ok", "mode": "demo"}),
-        json.dumps({"idea": "timeout", "mode": "demo"}),
+        json.dumps({"idea": "ok"}),
+        json.dumps({"idea": "timeout"}),
     ]))
     out_dir = tmp_path / "runs"
     monkeypatch.chdir(tmp_path)

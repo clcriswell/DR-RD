@@ -35,6 +35,7 @@ def run(
         paths_mod.RUNS_ROOT = Path(out_dir)
     rid = run_id or new_run_id()
     cfg = dict(cfg)
+    cfg.pop("mode", None)  # legacy modes removed
     if budget_usd is not None:
         cfg["budget_limit_usd"] = float(budget_usd)
         cfg["enforce_budget"] = True
@@ -46,11 +47,9 @@ def run(
     locked = to_lockfile(cfg)
     write_text(rid, "run_config", "lock.json", json.dumps(locked))
     write_text(rid, "env", "snapshot.json", json.dumps(capture_env()))
-    create_run_meta(rid, mode=cfg.get("mode", "standard"), idea_preview=cfg.get("idea", "")[:120])
+    create_run_meta(rid, mode="standard", idea_preview=cfg.get("idea", "")[:120])
     if telemetry_enabled:
-        telemetry.log_event(
-            {"event": "run_created", "run_id": rid, "mode": cfg.get("mode", "standard")}
-        )
+        telemetry.log_event({"event": "run_created", "run_id": rid, "mode": "standard"})
     kwargs = to_orchestrator_kwargs(locked)
     deadline_ts = time.time() + float(deadline_sec) if deadline_sec else None
     status = "error"
@@ -85,7 +84,6 @@ def main(argv: list[str] | None = None) -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--config", help="Path to JSON config")
     group.add_argument("--lockfile", help="Path to run_config.lock.json")
-    parser.add_argument("--profile", help="Apply named profile first")
     parser.add_argument("--deadline-sec", type=float, default=None)
     parser.add_argument("--budget-usd", type=float, default=None)
     parser.add_argument("--max-tokens", type=int, default=None)
@@ -94,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-telemetry", action="store_true")
     args = parser.parse_args(argv)
 
-    cfg = load_config(args.config, args.lockfile, args.profile)
+    cfg = load_config(args.config, args.lockfile, None)
     meta, totals = run(
         cfg,
         run_id=args.run_id,
@@ -104,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         budget_usd=args.budget_usd,
         max_tokens=args.max_tokens,
     )
-    print_summary(meta, totals, profile=args.profile)
+    print_summary(meta, totals, profile=None)
     return exit_code(meta.get("status", "error"))
 
 
