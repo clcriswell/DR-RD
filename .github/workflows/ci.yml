@@ -84,7 +84,9 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
       - name: Install dependencies
-        run: pip install -r requirements.lock.txt -r dev-requirements.lock.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock.txt -r dev-requirements.lock.txt
       - run: pytest -q
       - run: mypy dr_rd
       - run: ruff dr_rd
