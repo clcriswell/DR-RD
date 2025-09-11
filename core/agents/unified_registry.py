@@ -10,7 +10,6 @@ from core.agents.cto_agent import CTOAgent
 from core.agents.dynamic_agent_wrapper import DynamicAgentWrapper
 from core.agents.evaluation_agent import EvaluationAgent
 from core.agents.finance_agent import FinanceAgent
-from core.agents.finance_specialist_agent import FinanceSpecialistAgent
 from core.agents.hrm_agent import HRMAgent
 from core.agents.invoke import resolve_invoker
 from core.agents.ip_analyst_agent import IPAnalystAgent
@@ -49,7 +48,6 @@ AGENT_REGISTRY: Dict[str, Type[BaseAgent]] = {
     "Regulatory Specialist": RegulatorySpecialistAgent,
     "Evaluation": EvaluationAgent,
     "QA": QAAgent,
-    "Finance Specialist": FinanceSpecialistAgent,
     "Simulation": SimulationAgent,
     "Dynamic Specialist": DynamicAgentWrapper,
 }

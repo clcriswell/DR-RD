@@ -41,7 +41,7 @@ def run_demo() -> List[Dict[str, Any]]:
         off,
     )
     fin = _safe_call(
-        "Finance Specialist",
+        "Finance",
         "Finance demo",
         "Unit economics",
         {
