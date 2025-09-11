@@ -43,7 +43,6 @@ ROLE_NAMES = {
     "Chief Scientist",
     "Regulatory Specialist",
     "Evaluation",
-    "Finance Specialist",
     "Simulation",
     "Reflection",
     "Mechanical Systems Lead",
