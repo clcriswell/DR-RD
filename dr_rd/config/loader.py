@@ -28,11 +28,24 @@ def _merge(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     return a
 
 
-def load_config(name: str, ctx: Optional[TenantContext] = None, profile: Optional[str] = None) -> Dict[str, Any]:
-    """Load a configuration file applying overlays in the proper order."""
+def load_config(
+    name: str,
+    ctx: Optional[TenantContext] = None,
+    profile: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Load a configuration file applying overlays in the proper order.
+
+    Only the ``standard`` profile is recognized.  Supplying any other profile
+    results in a :class:`ValueError`.
+    """
+    if profile and profile != "standard":  # legacy profiles removed
+        raise ValueError("only 'standard' profile is supported")
+
     config = _load_yaml(BASE_CONFIG_DIR / f"{name}.yaml")
-    if profile:
-        config = _merge(config, _load_yaml(BASE_CONFIG_DIR / "profiles" / profile / f"{name}.yaml"))
+    if profile == "standard":
+        config = _merge(
+            config, _load_yaml(BASE_CONFIG_DIR / "profiles" / profile / f"{name}.yaml")
+        )
     if ctx:
         overlay = TENANT_CONFIG_DIR / ctx.org_id / (ctx.workspace_id or "_") / f"{name}.yaml"
         config = _merge(config, _load_yaml(overlay))

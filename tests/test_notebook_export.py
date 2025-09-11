@@ -4,7 +4,7 @@ from utils.notebook_export import build_notebook
 
 
 def test_build_notebook_basic(tmp_path):
-    meta = {"run_id": "r1", "started_at": 0, "completed_at": 1, "status": "ok", "mode": "test"}
+    meta = {"run_id": "r1", "started_at": 0, "completed_at": 1, "status": "ok", "mode": "standard"}
     lock = {"provider": "openai", "model": "gpt"}
     rows = [
         {

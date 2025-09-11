@@ -5,7 +5,7 @@ def test_build_html_report():
     run_id = "run1"
     meta = {
         "idea_preview": "<idea & demo>",
-        "mode": "test",
+        "mode": "standard",
         "started_at": 0,
         "completed_at": 1,
     }

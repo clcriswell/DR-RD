@@ -10,7 +10,7 @@ def test_build_markdown_report(tmp_path):
     meta = {
         "run_id": run_id,
         "idea_preview": "test idea",
-        "mode": "test",
+        "mode": "standard",
         "started_at": 0,
         "completed_at": 1,
     }
