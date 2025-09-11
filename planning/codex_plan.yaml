@@ -1,50 +1,52 @@
 tasks:
-- id: T1
-  group: synthesizer-integration
-  description: "Integrate the Synthesizer agent fully into the final output generation pipeline instead of using a direct LLM call in `compose_final_proposal`."
+- id: T1  
+  group: synthesizer-integration  
+  description: "Integrate the Synthesizer agent fully into the final output generation pipeline instead of using a direct LLM call in `compose_final_proposal`."  
   acceptance_criteria:
-    - "The final report generation uses `SynthesizerAgent` to produce a JSON output per `synthesizer_v1.json`, which is then converted to markdown for display."
-    - "All relevant sources and safety metadata are included in the Synthesizer’s JSON output and appear in the final report (citations, contradictions, confidence flags as applicable)."
-    - "No free-form LLM calls produce user-facing content without first passing through a JSON schema validation."
-  test_coverage: "Add a unit test for the synthesis stage that forces a final compilation on sample agent outputs and asserts the result conforms to the Synthesizer schema (e.g., contains `summary`, `key_points`, `sources` fields). Verify that disabling/enabling schema enforcement toggles the behavior."
-  labels: ["architecture", "output-format", "enhancement"]
+    - "The final report generation uses the `SynthesizerAgent` to produce a JSON output per the `synthesizer_v1.json` schema, which is then programmatically converted to the Markdown report for display."  
+    - "All relevant content from agent outputs (e.g. cross-domain findings, cited sources, risk flags) is included in the Synthesizer’s JSON output and carried into the final report. For example, if intermediate agents provided source links or safety metadata, those appear in the final combined JSON and in the output Markdown (in a Sources or Safety section)."  
+    - "No free-form LLM calls produce user-facing content without schema validation. The final proposal step should be as reliably structured as the prior steps (removing any chance of hallucinated sections or format errors in the final output)."  
+  test_coverage: "Add a unit test for the final synthesis stage that simulates combining a set of agent outputs. It should call `compose_final_proposal` with sample agent results (stub the LLM response to ensure deterministic output) and assert that the returned Markdown contains all expected sections (Summary, Key Points, Findings, Risks, Next Steps, Sources). The test should also verify that when schema enforcement is toggled off or on, the behavior changes accordingly (to confirm the SynthesizerAgent schema is truly in effect)."  
+  labels: ["architecture", "output-format", "enhancement"]  
 
-- id: T2
-  group: planner-fields
-  description: "Ensure all fields produced by the Planner and agents are either utilized or removed for consistency (especially `constraints`, `assumptions`, and risk registers in Planner output)."
+- id: T2  
+  group: planner-fields  
+  description: "Ensure all fields produced by the Planner (and passed to agents) are either utilized in outputs or removed if unnecessary, to maintain consistency. In particular, handle Planner fields like `constraints`, `assumptions`, and the `risk_register` (from policy-aware mode) so that no important information is lost."  
   acceptance_criteria:
-    - "Planner output fields like `constraints`, `assumptions`, and `metrics` are passed through to downstream steps or explicitly excluded from the schema if not needed."
-    - "If policy-aware planning is enabled, the Planner’s `risk_register` is mapped into the standard `risks` field of the plan or otherwise handled so that risk information surfaces in the final report."
-    - "The final synthesized report includes any key assumptions or constraints (if provided by Planner) or the schema/playbook is updated to clarify their absence."
-  test_coverage: "Extend the planning unit test to include a scenario with non-empty `constraints`/`assumptions`. Verify via an integration test that these fields, when present, either appear in the final output or are intentionally dropped. Include a test for policy-aware mode where `risk_register` is set, ensuring those risks propagate to the output or are logged."
-  labels: ["schema", "consistency", "enhancement"]
+    - "Planner output fields such as `constraints`, `assumptions`, and `metrics` are propagated to later stages or explicitly pruned. If these fields are relevant to the final plan, they should appear in an agent prompt or the final report; if not, the Planner should omit them or the Orchestrator should ignore them without leaving dangling data."  
+    - "When policy-aware planning is enabled (e.g. `POLICY_AWARE_PLANNING=True`), the Planner’s `risk_register` entries are incorporated into the overall risk analysis. For example, they could be merged into the `risks` section of the final report or distributed to relevant agents (Regulatory/QA) so that policy risks are addressed. There should be no scenario where the Planner flags risks that completely vanish from the results."  
+    - "Key assumptions or constraints that the user provided (or the Planner inferred) are either included in the final output (e.g. listed under a **Constraints/Assumptions** section) or the system documentation is updated to clarify that those inputs are not part of the output. In other words, the final deliverable should align with user inputs – no critical input should be ignored silently."  
+  test_coverage: "Extend unit tests for the planning process by providing an idea with explicit constraints/assumptions and enabling policy-aware mode. Verify via an integration test that if the Planner returns non-empty `constraints` or `assumptions`, they either appear in the final Markdown (under a corresponding heading) or are deliberately omitted with justification. Similarly, simulate `POLICY_AWARE_PLANNING` on with a dummy risk classification and ensure that those risk items either surface in the final `risks` list or are explicitly logged/handed off. This test ensures no Planner fields are arbitrarily dropped."  
+  labels: ["schema", "consistency", "enhancement"]  
 
-- id: T3
-  group: agent-role-audit
-  description: "Audit and rationalize the agent role definitions to eliminate any dead or duplicate roles (e.g. unify Finance vs. Finance Specialist, ensure Mechanical Systems Lead is reachable or remove it)."
+- id: T3  
+  group: agent-role-audit  
+  description: "Audit and rationalize the agent role definitions to eliminate any dead or duplicate roles. Unify roles that overlap and ensure every defined agent can be invoked by some Planner output or routing rule."  
   acceptance_criteria:
-    - "Every agent in `AGENT_REGISTRY` is actually invoked by the router under some conditions (keywords or explicit Planner assignments). Roles that cannot be reached are removed or merged into similar roles."
-    - "Duplicate or overlapping roles are consolidated. (For example, if `FinanceAgent` and `FinanceSpecialistAgent` serve the same purpose, choose one implementation and update routing synonyms accordingly.)"
-    - "Router keyword mappings (`core.router.KEYWORDS`/`ALIASES`) are updated so that new or previously unlinked roles (Mechanical Systems, etc.) can be triggered by appropriate task keywords."
-  test_coverage: "Write a test that simulates planner output tasks for each role in the registry (including edge roles like Mechanical Systems Lead) and confirms the router returns a valid agent class for each. Also add an assertion that no roles in the registry remain unmapped. This protects against future dead code in the roster."
-  labels: ["architecture", "refactor"]
+    - "Every agent in `AGENT_REGISTRY` is reachable via the router. If an agent is never selected by any keyword or planner role assignment, it should either be removed or merged with a similar role. For instance, if both `FinanceAgent` and `FinanceSpecialistAgent` exist but the Planner never distinguishes between them, consolidate to one Finance role to avoid confusion."  
+    - "All router keyword mappings and role synonyms are up-to-date for the current roster. E.g., if a **Mechanical Systems Lead** agent exists, ensure keywords like 'mechanical' or 'mechanics' map to that role (and test that the router returns it). No agent should require a Planner output phrased exactly a certain way if synonyms can cover common variations (like 'HR Manager' vs 'HRM')."  
+    - "The codebase is free of unused legacy agent classes. Any agent that was part of earlier prototypes (e.g. very domain-specific ones that are not planned by the current system) should be removed to reduce maintenance overhead, unless there is a clear plan to use it. The final registry should reflect the actual roles the system plans for or routes to."  
+  test_coverage: "Develop a parametrized test that iterates over each role in the unified registry and attempts to route a dummy task to it (via `core.router.route_task` or similar). For roles that have keyword triggers, feed a matching keyword and assert the router returns the corresponding class. For roles that might only be invoked by explicit naming (like 'Chief Scientist'), simulate a Planner output with that role and verify the Orchestrator can instantiate the agent. The test should fail if any registry entry cannot be reached through either mechanism. This ensures no agent is forgotten. Additionally, run a coverage check that no references to removed agents linger in docs or code."  
+  labels: ["architecture", "refactor"]  
 
-- id: T4
-  group: e2e-smoke-test
-  description: "Add an end-to-end smoke test for the full Planner→Agents→Synthesizer pipeline on a simple input, using a stubbed LLM to verify overall integration.")
+- id: T4  
+  group: e2e-smoke-test  
+  description: "Add an end-to-end smoke test for the full Planner→Agents→Synthesizer pipeline on a simple input, using a stubbed LLM to verify overall integration."  
   acceptance_criteria:
-    - "A new integration test (or script in `tests/`) can run a full cycle given a sample idea (with RAG/search off for determinism), and produce a final report without errors."
-    - "The smoke test uses either a very cheap model setting or a monkey-patched LLM interface to simulate responses quickly, focusing on flow correctness rather than LLM quality."
-    - "This test asserts that each stage yields the expected JSON structure (plan has tasks list, each agent yields required fields, final synth yields a combined summary). Any deviation (e.g., missing fields, invalid JSON) should fail the test, catching integration regressions."
-  test_coverage: "Implement the above integration test possibly by intercepting calls to `core.llm.complete` to return canned JSON for each agent. Ensure that the orchestrator can handle the sequence and that the final output contains sections corresponding to each agent’s findings. The test should cover at least one task per agent type (or a representative subset) to exercise the router and agent invocation thoroughly."
-  labels: ["testing", "integration"]
+    - "A new integration test (in `tests/` or as an end-to-end script) can run a full cycle given a sample idea (with network calls and long LLM responses disabled or mocked for determinism) and produce a final report without errors. This test should simulate a user input through planning, execution of a few agent tasks (using stub outputs), and final synthesis."  
+    - "The smoke test should complete on a developer machine or CI in a short time (a few seconds per stage at most), indicating that it’s using a low-cost model or mocked responses rather than calling a live API for a large model. It’s purely to test flow correctness, not LLM quality."  
+    - "The final output from the test run should contain all expected sections and no placeholders. For example, if the stubbed agents returned some dummy findings and sources, the final composed Markdown should include those findings and a Sources section. Any failure to produce a section (or presence of 'Not determined' where real content should be) should cause the test to fail, catching integration issues."  
+  test_coverage: "Implement the above end-to-end test by monkey-patching the LLM completion function to return predetermined JSON snippets for each agent call. For instance, patch `core.llm.complete` so that when Planner is called it returns a fixed plan JSON, and when agents are called they return fixed findings JSON. Then run `run_dev_cycle` or the orchestrator functions to generate a report. Assert that the report is well-formed (contains Summary/Findings/etc.) and that no stage threw an exception. This will guard against regression in how components connect together."  
+  labels: ["testing", "integration"]  
 
-- id: T5
-  group: mode-cleanup
-  description: "Remove deprecated mode flags and update documentation to reflect the unified Standard mode operation."
+- id: T5  
+  group: mode-cleanup  
+  description: "Remove deprecated mode flags and update documentation to reflect the unified Standard mode operation."  
   acceptance_criteria:
-    - "All references to legacy modes (\"test\", \"deep\" profiles or `DRRD_MODE` env var) are removed from the codebase or replaced with Standard where applicable, as they are no longer in use."
-    - "Configuration files and feature flags are cleaned up: e.g., eliminate or ignore `DISABLE_IMAGES_BY_DEFAULT` maps for old modes, consolidate any duplicate config sections that stem from past mode distinctions."
-    - "Project documentation (README, USER_GUIDE, etc.) no longer mentions multiple modes and clearly describes the single-mode configuration with toggles (RAG, live search, budget profiles)."
-  test_coverage: "Run static analysis or grep in tests to ensure no branch logic remains for old modes. If any conditional tests for 'test' vs 'deep' are found, remove or update them. Additionally, a config load test can assert that only 'standard' profile is recognized. Documentation changes are not directly testable, but the absence of outdated terms in docs can be verified via a grep in the documentation files as part of review."
-  labels: ["cleanup", "documentation"]
+    - "All references to legacy modes (like a 'test' or 'deep' mode) are removed from the codebase. Environment variables such as `DRRD_MODE` or any conditional logic checking for multiple modes should be completely gone or replaced with the single-mode equivalent. The application should clearly operate in one mode, with variability coming only from feature toggles and profiles."  
+    - "Configuration files and feature flag definitions are cleaned up. For example, any flag like `DISABLE_IMAGES_BY_DEFAULT` (a relic of mode switching) is eliminated if no longer relevant, and any code branching on old mode distinctions is refactored. The `feature_flags.py` should reflect only current flags that matter (like `ENABLE_IMAGES` as a simple boolean, etc.)."  
+    - "Project documentation (README, user guide) is updated to remove mentions of multiple modes. It should describe the current behavior: one primary mode with optional RAG and other feature toggles. Any outdated screenshots or descriptions of toggling between “Test” and “Deep” are replaced with the new paradigm. Readers of the docs should not be confused by legacy terminology."  
+  test_coverage: "Perform a grep or static analysis in the repository for keywords like 'TEST_MODE', 'deep model', or any config entries related to old modes. This can be automated as a sanity check in CI (for instance, a small script in a test that asserts those terms are not present in the code). Additionally, consider adding a quick unit test on config loading to assert that only 'standard' is accepted as a profile (e.g., calling `load_config` with a bogus profile should raise a ValueError). Documentation changes can be reviewed manually, but you can enforce that no references to removed flags remain by scanning the docs as well."  
+  labels: ["cleanup", "documentation"]  
+
+
