@@ -11,6 +11,22 @@ def to_markdown(report: Dict) -> str:
         lines.append(f"## {sec['heading']}")
         lines.append(sec.get("body_md", ""))
         lines.append("")
+    planner = report.get("metadata", {}).get("planner", {})
+    constraints = planner.get("constraints") or []
+    assumptions = planner.get("assumptions") or []
+    if constraints or assumptions:
+        lines.append("## Constraints / Assumptions")
+        for c in constraints:
+            lines.append(f"- {c}")
+        for a in assumptions:
+            lines.append(f"- {a}")
+        lines.append("")
+    risks = planner.get("risks") or []
+    if risks:
+        lines.append("## Risks")
+        for r in risks:
+            lines.append(f"- {r}")
+        lines.append("")
     if report.get("sources"):
         lines.append("## Sources")
         for i, s in enumerate(report["sources"], 1):

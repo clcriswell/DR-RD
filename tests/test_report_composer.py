@@ -50,3 +50,24 @@ def test_compose_maps_risk_register_to_risks():
     planner_meta = report["metadata"]["planner"]
     assert planner_meta["risk_register"] == risk_reg
     assert planner_meta["risks"] == ["policy"]
+
+
+def test_markdown_includes_planner_fields():
+    risk_reg = [
+        {"class": "policy", "likelihood": "low", "mitigation": "sanitize"}
+    ]
+    spec = {
+        "report_id": "r1",
+        "title": "T",
+        "planner": {
+            "constraints": ["C1"],
+            "assumptions": ["A1"],
+            "risk_register": risk_reg,
+        },
+    }
+    report = compose(spec, {"agents": [], "synth": {"executive_summary": ""}})
+    md = to_markdown(report)
+    assert "## Constraints / Assumptions" in md
+    assert "- C1" in md and "- A1" in md
+    assert "## Risks" in md
+    assert "- policy" in md
