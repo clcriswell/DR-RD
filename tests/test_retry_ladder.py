@@ -72,7 +72,19 @@ def test_retry_ladder_emits_placeholder(monkeypatch, caplog):
 
     # E2E synth step consumes placeholder without crashing
     monkeypatch.setattr(
-        orchestrator, "complete", lambda *a, **k: type("R", (), {"content": "ok"})()
+        "core.agents.synthesizer_agent.compose_final_proposal",
+        lambda *a, **k: json.dumps(
+            {
+                "summary": "ok",
+                "key_points": [],
+                "role": "Synthesizer",
+                "task": "compose final report",
+                "findings": "",
+                "risks": [],
+                "next_steps": [],
+                "sources": [],
+            }
+        ),
     )
     final = orchestrator.compose_final_proposal("idea", answers)
-    assert final.startswith("ok")
+    assert "ok" in final

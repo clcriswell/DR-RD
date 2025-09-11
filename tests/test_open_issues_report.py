@@ -5,7 +5,7 @@ import streamlit as st
 from core.orchestrator import compose_final_proposal
 
 
-def test_open_issues_section_in_report():
+def test_open_issues_section_in_report(monkeypatch):
     st.session_state.clear()
     valid = {
         "role": "CTO",
@@ -27,6 +27,21 @@ def test_open_issues_section_in_report():
     st.session_state["open_issues"] = [
         {"task_id": "T1", "role": "CTO", "result": placeholder, "title": "t"}
     ]
+    monkeypatch.setattr(
+        "core.agents.synthesizer_agent.compose_final_proposal",
+        lambda *a, **k: json.dumps(
+            {
+                "summary": "done",
+                "key_points": [],
+                "role": "Synthesizer",
+                "task": "compose final report",
+                "findings": "",
+                "risks": [],
+                "next_steps": [],
+                "sources": [],
+            }
+        ),
+    )
     report = compose_final_proposal("idea", {"CTO": json.dumps(valid)})
     assert "## Gaps and Unresolved Issues" in report
     assert "CTO analysis could not be completed." in report
