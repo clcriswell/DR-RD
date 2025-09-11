@@ -25,3 +25,28 @@ def test_compose_and_export(tmp_path):
     html = to_html(report)
     assert "# T" in md
     assert "<html" in html
+
+
+def test_compose_includes_planner_fields():
+    spec = {
+        "report_id": "r1",
+        "title": "T",
+        "planner": {"constraints": ["C1"], "assumptions": ["A1"]},
+    }
+    artifacts = {"agents": [], "synth": {"executive_summary": ""}}
+    report = compose(spec, artifacts)
+    planner_meta = report["metadata"]["planner"]
+    assert planner_meta["constraints"] == ["C1"]
+    assert planner_meta["assumptions"] == ["A1"]
+
+
+def test_compose_maps_risk_register_to_risks():
+    risk_reg = [
+        {"class": "policy", "likelihood": "low", "mitigation": "sanitize"}
+    ]
+    spec = {"report_id": "r1", "title": "T", "planner": {"risk_register": risk_reg}}
+    artifacts = {"agents": [], "synth": {"executive_summary": ""}}
+    report = compose(spec, artifacts)
+    planner_meta = report["metadata"]["planner"]
+    assert planner_meta["risk_register"] == risk_reg
+    assert planner_meta["risks"] == ["policy"]

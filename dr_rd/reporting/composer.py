@@ -1,29 +1,33 @@
 from __future__ import annotations
 
-import json
 import time
-from pathlib import Path
-from typing import Dict, List
+from typing import Any
 
-from .citations import bundle_citations, merge_agent_sources, normalize_sources
 from dr_rd.kb.models import KBSource
 
+from .citations import bundle_citations, normalize_sources
 
-def compose(spec: Dict, artifacts: Dict) -> Dict:
+
+def compose(spec: dict[str, Any], artifacts: dict[str, Any]) -> dict[str, Any]:
     """Build a report object from agent artifacts and a plan spec."""
     agents = artifacts.get("agents", [])
     synth = artifacts.get("synth", {})
-    sections_data: List[tuple[str, List[KBSource]]] = []
-    all_sources: List[KBSource] = []
+    sections_data: list[tuple[str, list[KBSource]]] = []
     for a in agents:
         body = a.get("body", "")
         sources = normalize_sources(a.get("sources", []))
         sections_data.append((body, sources))
-        all_sources.extend(sources)
     processed_sections, bundled_sources = bundle_citations(sections_data)
     sections = []
     for a, body in zip(agents, processed_sections):
         sections.append({"heading": a.get("title", a.get("role", "")), "body_md": body})
+    planner_meta = spec.get("planner", {}).copy()
+    risk_reg = planner_meta.get("risk_register")
+    if isinstance(risk_reg, list):
+        planner_meta.setdefault("risks", [])
+        planner_meta["risks"].extend(
+            [r.get("class", str(r)) if isinstance(r, dict) else str(r) for r in risk_reg]
+        )
     report = {
         "report_id": spec.get("report_id", "r1"),
         "title": spec.get("title", "Report"),
@@ -31,7 +35,7 @@ def compose(spec: Dict, artifacts: Dict) -> Dict:
         "sections": sections,
         "sources": [s.__dict__ for s in bundled_sources],
         "metadata": {
-            "planner": spec.get("planner", {}),
+            "planner": planner_meta,
             "roles_used": [a.get("role") for a in agents],
             "flags": spec.get("flags", {}),
         },
