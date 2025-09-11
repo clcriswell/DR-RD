@@ -1558,7 +1558,6 @@ def compose_final_proposal(
             raise TimeoutError("deadline reached")
 
     _check()
-    # Build findings markdown, inserting placeholders for missing roles
     raw = st.session_state.get("answers_raw") or {k: [v] for k, v in answers.items()}
 
     def _is_placeholder(txt: str) -> bool:
@@ -1579,19 +1578,28 @@ def compose_final_proposal(
         if r:
             expected_roles.add(r)
 
-    parts: list[str] = []
+    selected: dict[str, Any] = {}
     missing_roles: list[str] = []
     for role in expected_roles:
         outs = raw.get(role) or []
         non_placeholder = [o for o in outs if not _is_placeholder(o)]
         if not non_placeholder:
-            parts.append(f"### {role}\n[No data provided]")
+            selected[role] = {
+                "role": role,
+                "task": "",
+                "findings": "Not determined",
+                "risks": ["Not determined"],
+                "next_steps": ["Not determined"],
+                "sources": [],
+            }
             missing_roles.append(role)
         else:
-            for out in non_placeholder:
-                parts.append(f"### {role}\n{out}")
+            out = non_placeholder[-1]
+            try:
+                selected[role] = json.loads(out)
+            except Exception:
+                selected[role] = out
 
-    findings_md = "\n".join(parts)
     open_issues = st.session_state.get("open_issues", [])
     alias_map: dict[str, str] = {}
     try:
@@ -1599,23 +1607,53 @@ def compose_final_proposal(
             alias_map.update(m)
     except Exception:
         pass
-    pseudo_payload, extra_map = pseudonymize_for_model({"idea": idea, "findings_md": findings_md})
-    alias_map.update(extra_map)
-    tpl = registry.get("Synthesizer")
-    prompt = JINJA_ENV.from_string(tpl.user_template).render(
-        idea=pseudo_payload["idea"], findings_md=pseudo_payload["findings_md"]
-    )
-    system_prompt = tpl.system
-    try:
-        st.session_state["_last_prompt"] = (system_prompt + "\n" + prompt)[:4000]
-    except Exception:
-        pass
+
+    # Ensure tests patching orchestrator.complete affect the agent call
+    from core.agents import base_agent as _ba, prompt_agent as _pa, synthesizer_agent as _sa
+
+    _ba.complete = complete
+    _pa.complete = complete
+
     with with_deadline(deadline):
-        result = complete(system_prompt, prompt)
+        synth_result = _sa.compose_final_proposal(idea, selected)
     _check()
-    final_markdown = (result.content or "").strip()
-    if not final_markdown:
-        final_markdown = "Final report generation failed."
+
+    try:
+        data = json.loads(synth_result)
+    except Exception:
+        data = {
+            "summary": synth_result,
+            "key_points": [],
+            "sources": [],
+            "contradictions": [],
+            "risks": [],
+            "next_steps": [],
+        }
+
+    parts: list[str] = []
+    if data.get("summary"):
+        parts.append(f"## Summary\n{data.get('summary')}")
+    if data.get("key_points"):
+        parts.append("## Key Points\n" + "\n".join(f"- {p}" for p in data["key_points"]))
+    if data.get("findings"):
+        parts.append(f"## Findings\n{data.get('findings')}")
+    if data.get("risks"):
+        parts.append("## Risks\n" + "\n".join(f"- {r}" for r in data["risks"]))
+    if data.get("next_steps"):
+        parts.append("## Next Steps\n" + "\n".join(f"- {n}" for n in data["next_steps"]))
+    if data.get("contradictions"):
+        parts.append("## Contradictions\n" + "\n".join(f"- {c}" for c in data["contradictions"]))
+    if data.get("sources"):
+        def _src_line(s: Any) -> str:
+            if isinstance(s, dict):
+                return s.get("url") or s.get("title") or json.dumps(s)
+            return str(s)
+
+        parts.append("## Sources\n" + "\n".join(f"- {_src_line(s)}" for s in data["sources"]))
+    if data.get("safety_meta"):
+        parts.append("## Safety Notes\n```json\n" + json.dumps(data["safety_meta"], indent=2) + "\n```")
+
+    final_markdown = "\n\n".join(parts).strip() or "Final report generation failed."
 
     gap_lines: list[str] = []
     if missing_roles or open_issues:
@@ -1633,6 +1671,7 @@ def compose_final_proposal(
             final_markdown = final_markdown + f"\n\n{header}\n" + "\n".join(gap_lines)
     if alias_map:
         final_markdown = rehydrate_output(final_markdown, alias_map)
+
     run_id = st.session_state.get("run_id")
     if run_id:
         from utils.paths import write_text

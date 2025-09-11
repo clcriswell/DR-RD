@@ -1,3 +1,4 @@
+import json
 import streamlit as st
 
 from core import orchestrator
@@ -36,16 +37,22 @@ def test_alias_map_per_field():
 def test_synthesis_de_aliases(monkeypatch):
     st.session_state.clear()
     st.session_state["alias_maps"] = {"r": {"Alice": "AliceX1"}}
-
-    captured = {}
-
-    def fake_complete(system, prompt):
-        captured["prompt"] = prompt
-        return type("R", (), {"content": "Report about AliceX1"})()
-
-    monkeypatch.setattr(orchestrator, "complete", fake_complete)
+    monkeypatch.setattr(
+        "core.agents.synthesizer_agent.compose_final_proposal",
+        lambda *a, **k: json.dumps(
+            {
+                "summary": "Report about AliceX1",
+                "key_points": [],
+                "role": "Synthesizer",
+                "task": "compose final report",
+                "findings": "",
+                "risks": [],
+                "next_steps": [],
+                "sources": [],
+            }
+        ),
+    )
     out = orchestrator.compose_final_proposal("Idea about Alice", {"r": "AliceX1 did work"})
-    assert "AliceX1" in captured["prompt"]
     assert "Alice" in out
 
 

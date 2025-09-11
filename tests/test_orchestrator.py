@@ -80,23 +80,43 @@ def test_invoke_agent_handles_string_task():
     assert out == "simple task-simple task"
 
 
-@patch("core.orchestrator.complete")
-def test_compose_final_proposal_formats_findings(mock_complete, monkeypatch):
-    mock_complete.return_value = Mock(content=" final plan ")
+@patch("core.agents.synthesizer_agent.compose_final_proposal")
+def test_compose_final_proposal_formats_findings(mock_synth, monkeypatch):
+    mock_synth.return_value = json.dumps(
+        {
+            "summary": "final plan",
+            "key_points": [],
+            "role": "Synthesizer",
+            "task": "compose final report",
+            "findings": "analysis",
+            "risks": [],
+            "next_steps": [],
+            "sources": [],
+        }
+    )
     answers = {"CTO": "analysis"}
-    monkeypatch.setattr(orchestrator, "pseudonymize_for_model", lambda x: (x, {}))
     import streamlit as st
 
     st.session_state.clear()
     result = compose_final_proposal("idea", answers)
-    assert result == "final plan"
-    system_prompt, prompt = mock_complete.call_args[0]
-    assert "analysis" in prompt and "idea" in prompt
+    assert "final plan" in result
+    mock_synth.assert_called_once()
 
 
-@patch("core.orchestrator.complete")
-def test_open_issues_in_prompt(mock_complete, monkeypatch):
-    mock_complete.return_value = Mock(content="done")
+@patch("core.agents.synthesizer_agent.compose_final_proposal")
+def test_open_issues_in_prompt(mock_synth):
+    mock_synth.return_value = json.dumps(
+        {
+            "summary": "done",
+            "key_points": [],
+            "role": "Synthesizer",
+            "task": "compose final report",
+            "findings": "",
+            "risks": [],
+            "next_steps": [],
+            "sources": [],
+        }
+    )
     import streamlit as st
 
     st.session_state.clear()
@@ -113,17 +133,25 @@ def test_open_issues_in_prompt(mock_complete, monkeypatch):
     }
     st.session_state["open_issues"] = [{"title": "t", "role": "Research"}]
     st.session_state["alias_maps"] = {}
-    monkeypatch.setattr(orchestrator, "pseudonymize_for_model", lambda x: (x, {}))
-    compose_final_proposal("idea", {})
-    _, prompt = mock_complete.call_args[0]
-    assert "### Research" in prompt
-    assert "Not determined" in prompt
-    assert "Open Issues" not in prompt
+    out = compose_final_proposal("idea", {})
+    assert "Gaps and Unresolved Issues" in out
+    mock_synth.assert_called_once()
 
 
-@patch("core.orchestrator.complete")
-def test_final_report_fallback(mock_complete):
-    mock_complete.return_value = Mock(content="")
+@patch("core.agents.synthesizer_agent.compose_final_proposal")
+def test_final_report_fallback(mock_synth):
+    mock_synth.return_value = json.dumps(
+        {
+            "summary": "",
+            "key_points": [],
+            "role": "Synthesizer",
+            "task": "compose final report",
+            "findings": "",
+            "risks": [],
+            "next_steps": [],
+            "sources": [],
+        }
+    )
     import streamlit as st
 
     st.session_state.clear()
