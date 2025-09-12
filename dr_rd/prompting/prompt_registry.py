@@ -123,26 +123,14 @@ registry.register(
         task_key=None,
         system="You are a multi-disciplinary R&D lead.",
         user_template=(
-            "**Goal**: “{{ idea | default('') }}”\n\n"
+            "Goal: {{ idea | default('') }}\n\n"
             "We have gathered the following domain findings (some may include "
-            'loop-refined addenda separated by "--- *(Loop-refined)* ---"):\n\n'
+            'loop-refined addenda separated by "--- *(Loop-refined)* ---")\n\n'
             "{{ materials | default('') }}\n\n"
-            "Write a comprehensive final report that brings together the "
-            "project concept, researched data, and a build guide. Use clear "
-            "Markdown with these sections:\n\n"
-            "- ## Executive Summary\n"
-            "- ## Key Results\n"
-            "- ## Problem & Value\n"
-            "- ## Research Findings\n"
-            "- ## Risks & Unknowns\n"
-            "- ## Architecture & Interfaces\n"
-            "- ## Regulatory & Compliance\n"
-            "- ## IP & Prior Art\n"
-            "- ## Market & GTM\n"
-            "- ## Cost Overview\n"
-            "- ## Gaps and Unresolved Issues\n"
-            "- ## Next Steps\n\n"
-            "Summarize the most important findings in 'Key Results'."
+            "Produce a final project analysis as JSON following the schema "
+            "fields: summary, key_points, contradictions, confidence, "
+            "sources, citations_json, role, task, findings, risks, and "
+            "next_steps. Return only valid JSON with no markdown."
         ),
         io_schema_ref="dr_rd/schemas/synthesizer_agent.json",
         retrieval_policy=RetrievalPolicy.NONE,
