@@ -20,7 +20,11 @@ class SynthesizerAgent(PromptFactoryAgent):
                 if val.get("retrieval_plan") and not val.get("sources"):
                     missing_sources.append(key)
                 for src in val.get("sources", []):
-                    url = src.get("url", "")
+                    # src may be a dict or a direct URL string
+                    if isinstance(src, dict):
+                        url = src.get("url", "")
+                    else:
+                        url = src  # assume string is already a URL
                     canon = url.split("#")[0].rstrip("/")
                     if canon in seen:
                         continue
