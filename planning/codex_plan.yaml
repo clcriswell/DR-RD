@@ -1,14 +1,40 @@
 tasks:
-- id: T6  
-  group: report-polish  
-  description: "Polish the final report and trace output formatting to fix placeholder and null values (ensure the idea, task names, and metrics are presented clearly to the user)."  
-  acceptance_criteria:
-    - "The **Idea** in the report overview is displayed in a clean, user-friendly format. If no constraints or toggles were provided, it should simply show the idea (and possibly a note like 'Constraints: None') instead of a raw Python tuple/dict. The internal representation `('idea', {}, set())` should be eliminated from user-facing output."  
-    - "The **Trace summary table** in the report is fully populated with real data. Each step’s `phase` and `name` columns show the proper labels (e.g. 'executor' phase with the task name like 'Materials Selection for Quantum Components', and 'synthesizer' phase with 'Final Synthesis' or similar). No cell should display `None` or remain blank if information is available."  
-    - "All metrics in the report (steps count, token usage, cost) reflect actual values. If the run consumed tokens/cost, those numbers are shown instead of 0. If certain metrics are not applicable, the report should omit them or explicitly state 'N/A' rather than showing incorrect zeros. The linkage between the CostTracker (or `api_calls`) and the report is fixed so that token and cost totals update correctly."  
-    - "No placeholder aliases (like 'QuantumEntanglementMicroscopeDevice') or internal debug strings appear anywhere in the final Markdown report or trace. All such placeholders must be rehydrated or removed. Likewise, any sections meant to list content (e.g. sources, safety notes, etc.) should either display the relevant entries or be omitted if empty – without leaving section headers with empty content."  
-  test_coverage: "Add/extend a unit test for the report generation. Simulate a run by populating `st.session_state` with a sample intake (idea, constraints, toggles) and a set of fake task results, including a dummy CostTracker with non-zero token counts. Invoke the final report composition (e.g. via `core.orchestrator` or `core.final.composer.write_final_bundle`) and parse the output Markdown. Assert that the 'Idea' line contains only the input idea text (and any constraints in readable form), that each planned task name appears in the trace summary table, and that token/cost metrics match the dummy data provided. The test should fail if any `None` or placeholder patterns are present in the output. Additionally, verify through this test (or a separate one) that when cost tracking is enabled and records exist (e.g. via a fake OpenAI response log), the reported token count and cost are non-zero in the output."  
-  labels: ["output-format", "bug", "usability"]  
+  - id: TSK-006  
+    group: refactor  
+    title: Consolidate Overlapping Agents (Finance Roles)  
+    acceptance_criteria:  
+      - The redundant finance agent class is removed or merged so that only one Finance role is in use (e.g. `FinanceAgent` handles all finance-related tasks).  
+      - No references to an unused “Finance Specialist” role remain in the code or registry. The `AGENT_REGISTRY` should have a single entry for Finance, and any Planner outputs or alias mappings for "Finance Specialist" are standardized to "Finance".  
+      - All agents listed in `AGENT_REGISTRY` are reachable via planner output triggers (no orphan roles). The registry validation passes without errors and no agent classes are unused.  
+    tests:  
+      - Add or update a test to ensure that every role in `AGENT_REGISTRY` can be invoked. For example, iterate over each role and simulate a routing (`route_task`) with a matching task; assert that a valid agent instance is returned (not the Dynamic Specialist). This will catch any roles that fail to route.  
+      - Specifically test that a Planner task labeled with "Finance Specialist" (or containing finance keywords) routes to the FinanceAgent. For instance, create a dummy task `{"role": "Finance Specialist", ...}` and verify `choose_agent_for_task` or `route_task` resolves it to the Finance agent class (instead of falling back to Dynamic Specialist).  
+      - Run the full test suite and ensure that any references to `FinanceSpecialistAgent` have been removed or updated, and that no tests expect a separate FinanceSpecialist path. All tests should pass with only the unified FinanceAgent in place.  
+
+  - id: TSK-007  
+    group: chore  
+    title: Update/Remove Legacy Final Prompt Template  
+    acceptance_criteria:  
+      - The outdated final report prompt template (which lists sections like "Regulatory & Compliance", "IP & Prior Art", etc.) is removed or updated to reflect the current JSON-driven final output format. No deprecated section headings remain in the code or documentation.  
+      - All internal documentation and comments referencing the old final report format are revised to avoid confusion. The codebase should consistently reflect that the final report is generated via the SynthesizerAgent JSON schema, not by assembling static markdown sections.  
+      - The application’s behavior remains correct after removal: generating a final report via the SynthesizerAgent still produces all required sections (Summary, Key Points, Findings, etc.) as defined by the schema.  
+    tests:  
+      - Perform a project-wide search (or add a linting test) to confirm that strings from the legacy prompt (e.g., "## Regulatory & Compliance", "## IP & Prior Art") no longer exist in the repository. This ensures no vestigial references to the old format.  
+      - Run the full test suite to ensure that no tests are broken by the prompt template removal. In particular, the end-to-end smoke test (`test_final_synthesis_stage` and others) should continue to pass, producing the expected final report sections.  
+      - Optionally, add a focused unit test for `PromptRegistry` that asserts `registry.get("Synthesizer")` is either absent or, if present, its template matches the new schema format (i.e. does not contain outdated headings).  
+
+  - id: TSK-008  
+    group: feat  
+    title: Utilize Planner Task Grouping Metadata in Output  
+    acceptance_criteria:  
+      - If the Planner assigns a `group` or category to tasks (e.g. tasks have a `"group"` field in the plan JSON), the system uses this information to organize the output. In the Streamlit UI and/or final report, tasks that share a group are presented together with a clear group label or heading.  
+      - The grouping should improve readability: for example, tasks with `group: "Preliminary Research"` might be listed under a "Preliminary Research" section or prefix. The final report or UI should visually cluster grouped tasks instead of mixing them arbitrarily.  
+      - The implementation should handle grouped vs. ungrouped tasks gracefully (if no group info is present, output remains as-is; if groups are present, they are reflected in an intuitive way without duplicating content).  
+    tests:  
+      - Extend an integration test or create a new one to simulate a planning outcome with grouped tasks. For example, craft a dummy `plan.json` or intercept Planner output to insert group labels (e.g., two tasks with `"group": "Phase 1"`, and one task with `"group": "Phase 2"`). Then run the execution and synthesis pipeline (with maybe stubbed agent outputs) and inspect the final report or trace. Verify that the tasks are clustered by "Phase 1" and "Phase 2" in the output (e.g., the final markdown could contain headings or contiguous sections for each phase).  
+      - Alternatively, add a unit test for the report composition logic that directly feeds in grouped tasks and checks the formatting. For instance, use the `dr_rd.reporting.composer` or a similar utility to generate a report from a spec that includes grouped tasks, and assert that the resulting markdown has group headings or labels in the appropriate places.  
+      - Manually run a Streamlit session with a scenario where grouping is expected (if possible, by enabling any Planner grouping logic or forcing group fields) and visually confirm that the UI delineates the groups. (This manual step ensures the feature works end-to-end; it can be documented rather than automated if UI testing is not easily automated.)  
+
 
 
 
