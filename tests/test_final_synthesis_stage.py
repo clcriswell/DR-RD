@@ -44,7 +44,7 @@ def test_compose_final_proposal_schema_enforcement(monkeypatch):
         spec = {
             "role": "Synthesizer",
             "task": "compose final report",
-            "inputs": {"idea": idea, "findings_md": materials},
+            "inputs": {"idea": idea, "materials": materials},
             "io_schema_ref": "dr_rd/schemas/synthesizer_v1.json",
             "retrieval_policy": RetrievalPolicy.NONE,
             "capabilities": "summary composer",
