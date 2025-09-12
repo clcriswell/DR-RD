@@ -126,7 +126,7 @@ registry.register(
             "**Goal**: “{{ idea | default('') }}”\n\n"
             "We have gathered the following domain findings (some may include "
             'loop-refined addenda separated by "--- *(Loop-refined)* ---"):\n\n'
-            "{{ findings_md | default('') }}\n\n"
+            "{{ materials | default('') }}\n\n"
             "Write a comprehensive final report that brings together the "
             "project concept, researched data, and a build guide. Use clear "
             "Markdown with these sections:\n\n"
