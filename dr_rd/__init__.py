@@ -13,5 +13,12 @@ def get_version() -> str:
 
 __version__ = get_version()
 
+# Ensure legacy planner outputs like "Finance Specialist" resolve to the
+# unified Finance role.
+from core import roles as _core_roles  # noqa: E402
+
+_core_roles.CANON.setdefault("finance specialist", "Finance")
+_core_roles.CANONICAL.setdefault("Finance Specialist", "Finance")
+
 __all__ = ["__version__", "get_version"]
 
