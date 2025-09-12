@@ -20,7 +20,13 @@ def compose(spec: dict[str, Any], artifacts: dict[str, Any]) -> dict[str, Any]:
     processed_sections, bundled_sources = bundle_citations(sections_data)
     sections = []
     for a, body in zip(agents, processed_sections):
-        sections.append({"heading": a.get("title", a.get("role", "")), "body_md": body})
+        sections.append(
+            {
+                "heading": a.get("title", a.get("role", "")),
+                "body_md": body,
+                "group": a.get("group"),
+            }
+        )
     planner_meta = spec.get("planner", {}).copy()
     risk_reg = planner_meta.get("risk_register")
     if isinstance(risk_reg, list):

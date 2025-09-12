@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 import html
-import json
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 def to_markdown(report: Dict) -> str:
     lines: List[str] = [f"# {report['title']}", "", report.get("executive_summary", ""), ""]
-    for sec in report.get("sections", []):
-        lines.append(f"## {sec['heading']}")
+    sections = report.get("sections", [])
+    grouped_mode = any(s.get("group") for s in sections)
+    current_group: Optional[str] = None
+    for sec in sections:
+        group = sec.get("group")
+        if grouped_mode and group:
+            if group != current_group:
+                lines.append(f"## {group}")
+                lines.append("")
+                current_group = group
+            lines.append(f"### {sec['heading']}")
+        else:
+            lines.append(f"## {sec['heading']}")
         lines.append(sec.get("body_md", ""))
         lines.append("")
     planner = report.get("metadata", {}).get("planner", {})
