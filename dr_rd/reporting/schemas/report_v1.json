@@ -13,7 +13,8 @@
         "required": ["heading", "body_md"],
         "properties": {
           "heading": {"type": "string"},
-          "body_md": {"type": "string"}
+          "body_md": {"type": "string"},
+          "group": {"type": ["string", "null"]}
         }
       }
     },
