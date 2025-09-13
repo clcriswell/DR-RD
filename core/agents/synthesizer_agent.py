@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from core.agents.prompt_agent import PromptFactoryAgent
+from core.agents.confidence import normalize_confidence
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 from core.llm import select_model
 from dr_rd.telemetry import metrics
@@ -45,6 +46,8 @@ class SynthesizerAgent(PromptFactoryAgent):
         if sources or safety or missing_sources:
             import json
             data = json.loads(result)
+            # Always normalize confidence to a numeric value for downstream math
+            data["confidence"] = normalize_confidence(data.get("confidence", 1.0))
             if sources:
                 data.setdefault("sources", [])
                 for src in sources:

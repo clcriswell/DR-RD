@@ -14,6 +14,7 @@ from dr_rd.prompting.prompt_registry import RetrievalPolicy
 from utils.logging import logger
 from utils.json_fixers import attempt_auto_fix
 from utils.agent_json import clean_json_payload
+from core.agents.confidence import normalize_confidence
 
 
 class AgentRunResult(str):
@@ -122,6 +123,9 @@ class PromptFactoryAgent(LLMRoleAgent):
                 data = clean_json_payload(data, schema)
                 data = coerce_types(data, schema)
                 data = strip_additional_properties(data, schema)
+                if "confidence" in data:
+                    # Convert textual descriptors like "High" to numeric scores
+                    data["confidence"] = normalize_confidence(data["confidence"])
                 jsonschema.validate(data, schema)
             valid = True
         except Exception as e:
@@ -137,6 +141,9 @@ class PromptFactoryAgent(LLMRoleAgent):
                     data = clean_json_payload(data, schema)
                     data = coerce_types(data, schema)
                     data = strip_additional_properties(data, schema)
+                    if "confidence" in data:
+                        # Ensure confidence is numeric before validation
+                        data["confidence"] = normalize_confidence(data["confidence"])
                     jsonschema.validate(data, schema)
                 valid = True
                 logger.info(
@@ -197,6 +204,9 @@ class PromptFactoryAgent(LLMRoleAgent):
                 data = clean_json_payload(data, fallback_schema)
                 data = coerce_types(data, fallback_schema)
                 data = strip_additional_properties(data, fallback_schema)
+                if "confidence" in data:
+                    # Normalize textual confidence before final validation
+                    data["confidence"] = normalize_confidence(data["confidence"])
                 jsonschema.validate(data, fallback_schema)
             valid = True
         except Exception as e:
