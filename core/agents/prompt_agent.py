@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from typing import Any, Dict
 
 import jsonschema
 
@@ -91,6 +91,63 @@ def make_empty_payload(schema: dict) -> dict[str, Any]:
 
     props = schema.get("properties", {}) or {}
     return {key: _empty(prop) for key, prop in props.items()}
+
+
+def _ensure_string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if isinstance(value, (list, tuple, set)):
+        items: list[str] = []
+        for entry in value:
+            text = entry.strip() if isinstance(entry, str) else str(entry).strip()
+            if text:
+                items.append(text)
+        return items
+    if isinstance(value, dict):
+        cleaned = {k: v for k, v in value.items() if v not in (None, "", [], {})}
+        if not cleaned:
+            return []
+        return [json.dumps(cleaned, ensure_ascii=False, sort_keys=True)]
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def prepare_prompt_inputs(task: Any, extra: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    description = ""
+    task_inputs: list[str] = []
+    task_outputs: list[str] = []
+    task_constraints: list[str] = []
+    plan_task: Dict[str, Any] | None = None
+
+    if isinstance(task, dict):
+        plan_task = dict(task)
+        description = str(task.get("description") or task.get("summary") or "").strip()
+        if not description:
+            description = str(task.get("title") or "").strip()
+        task_inputs = _ensure_string_list(task.get("inputs"))
+        task_outputs = _ensure_string_list(task.get("outputs"))
+        task_constraints = _ensure_string_list(task.get("constraints"))
+    else:
+        description = str(task or "").strip()
+
+    payload: Dict[str, Any] = {
+        "task_description": description or str(task or "").strip() or "Not provided",
+        "task_inputs": task_inputs,
+        "task_outputs": task_outputs,
+        "task_constraints": task_constraints,
+    }
+
+    if plan_task is not None:
+        payload["plan_task"] = plan_task
+        payload.setdefault("task_details", plan_task)
+
+    if extra:
+        payload.update(extra)
+
+    return payload
 
 
 class PromptFactoryAgent(LLMRoleAgent):

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 import json
 
-from core.agents.prompt_agent import PromptFactoryAgent
+from core.agents.prompt_agent import PromptFactoryAgent, prepare_prompt_inputs
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 from core.llm import select_model
 from config import feature_flags
@@ -12,10 +12,12 @@ from core.safety_gate import preflight
 
 class PlannerAgent(PromptFactoryAgent):
     def act(self, idea: str, task: Any = None, **kwargs) -> str:
+        text = str(task or "")
+        inputs = prepare_prompt_inputs(task)
         spec = {
             "role": "Planner",
-            "task": str(task or ""),
-            "inputs": {"idea": idea, "task": str(task or "")},
+            "task": text,
+            "inputs": inputs,
             "io_schema_ref": "dr_rd/schemas/planner_v1.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "task planning",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from core.agents.prompt_agent import PromptFactoryAgent
+from core.agents.prompt_agent import PromptFactoryAgent, prepare_prompt_inputs
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 
 COMPLIANCE_KEYWORDS = ["compliance", "cfr", "docket", "regulations.gov"]
@@ -18,13 +18,11 @@ class RegulatoryAgent(PromptFactoryAgent):
         policy = RetrievalPolicy.LIGHT
         if any(k in text.lower() for k in COMPLIANCE_KEYWORDS):
             policy = RetrievalPolicy.AGGRESSIVE
+        base_task = task.get("description", "") if isinstance(task, dict) else str(task or "")
         spec = {
             "role": "Regulatory",
-            "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
-            "inputs": {
-                "idea": idea,
-                "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
-            },
+            "task": base_task,
+            "inputs": prepare_prompt_inputs(task),
             "io_schema_ref": "dr_rd/schemas/regulatory_v2.json",
             "retrieval_policy": policy,
             "capabilities": "compliance analysis",

@@ -11,7 +11,11 @@ from jsonschema import validate
 from core.llm import complete
 from core.tool_router import allow_tools, call_tool
 from dr_rd.prompting import PromptFactory, RetrievalPolicy
-from core.agents.prompt_agent import coerce_types, strip_additional_properties
+from core.agents.prompt_agent import (
+    coerce_types,
+    strip_additional_properties,
+    prepare_prompt_inputs,
+)
 
 
 class QAAgent:
@@ -43,17 +47,19 @@ class QAAgent:
         )
         coverage = call_tool(self.ROLE, "compute_test_coverage", {"matrix": matrix})
         stats = call_tool(self.ROLE, "classify_defects", {"defects": defects})
-        spec = {
-            "role": self.ROLE,
-            "task": task_txt,
-            "inputs": {
-                "idea": idea,
-                "task": task_txt,
+        inputs = prepare_prompt_inputs(task)
+        inputs.update(
+            {
                 "context": context,
                 "matrix": matrix,
                 "coverage": coverage,
                 "defects": stats,
-            },
+            }
+        )
+        spec = {
+            "role": self.ROLE,
+            "task": task_txt,
+            "inputs": inputs,
             "io_schema_ref": self.IO_SCHEMA,
             "retrieval_policy": RetrievalPolicy.NONE,
         }
