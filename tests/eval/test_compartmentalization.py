@@ -1,6 +1,7 @@
 import copy
 import json
 from pathlib import Path
+from typing import Any, Callable
 
 import jsonschema
 import pytest
@@ -12,13 +13,20 @@ from dr_rd.evaluators import compartment_check
 from core.agents.prompt_agent import PromptFactoryAgent
 from core.agents.cto_agent import CTOAgent
 from core.agents.finance_agent import FinanceAgent
+from core.agents.finance_specialist_agent import FinanceSpecialistAgent
 from core.agents.hrm_agent import HRMAgent
 from core.agents.ip_analyst_agent import IPAnalystAgent
 from core.agents.marketing_agent import MarketingAgent
 from core.agents.materials_engineer_agent import MaterialsEngineerAgent
 from core.agents.patent_agent import PatentAgent
+from core.agents.planner_agent import PlannerAgent
+from core.agents.reflection_agent import ReflectionAgent
 from core.agents.regulatory_agent import RegulatoryAgent
+from core.agents.regulatory_specialist_agent import RegulatorySpecialistAgent
 from core.agents.research_scientist_agent import ResearchScientistAgent
+from core.agents.synthesizer_agent import SynthesizerAgent
+from core.agents.chief_scientist_agent import ChiefScientistAgent
+from core.agents.mechanical_systems_lead_agent import MechanicalSystemsLeadAgent
 from core.agents.qa_agent import QAAgent
 
 
@@ -248,6 +256,48 @@ def test_prompt_factory_agents_forward_task_scope(monkeypatch):
         assert "idea" not in inputs
 
 
+def test_scope_hook_integration(monkeypatch):
+    captured: list[dict] = []
+
+    def _capture(self, spec: dict, **kwargs):
+        captured.append(copy.deepcopy(spec))
+        return "{}"
+
+    monkeypatch.setattr(PromptFactoryAgent, "run_with_spec", _capture)
+    monkeypatch.setattr("core.agents.planner_agent.preflight", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        "core.agents.planner_agent.feature_flags",
+        type("Flags", (), {"POLICY_AWARE_PLANNING": False})(),
+        raising=False,
+    )
+
+    idea = "Compartmentalized initiative"
+    plan_task = _sample_plan_task()
+    for _role, agent_cls, runner in PROMPT_AGENT_CASES:
+        agent = agent_cls("test-model")
+        runner(agent, idea, plan_task)
+
+    synth_payload = {"CTO": {"summary": "ok", "findings": "", "risks": [], "next_steps": [], "sources": []}}
+    reflection_payload = {"summary": "Not determined"}
+    additional_cases: list[tuple[type, Callable[[Any], None]]] = [
+        (PlannerAgent, lambda agent: agent.act(idea, plan_task)),
+        (ChiefScientistAgent, lambda agent: agent.act(idea, plan_task)),
+        (MechanicalSystemsLeadAgent, lambda agent: agent.act(idea, plan_task)),
+        (RegulatorySpecialistAgent, lambda agent: agent.act(idea, plan_task)),
+        (SynthesizerAgent, lambda agent: agent.act(idea, synth_payload)),
+        (ReflectionAgent, lambda agent: agent.act(idea, reflection_payload)),
+    ]
+
+    for agent_cls, invoke in additional_cases:
+        agent = agent_cls("test-model")
+        invoke(agent)
+
+    assert len(captured) == len(PROMPT_AGENT_CASES) + len(additional_cases)
+    for spec in captured:
+        hooks = spec.get("evaluation_hooks") or []
+        assert "compartment_check" in hooks
+
+
 def test_qa_agent_injects_task_scope(monkeypatch):
     captured: dict[str, dict] = {}
 
@@ -293,6 +343,42 @@ def test_qa_agent_injects_task_scope(monkeypatch):
     assert inputs.get("task_outputs") == ["Risk register", "Open questions"]
     assert inputs.get("task_constraints") == ["Stay within compliance scope"]
     assert "idea" not in inputs
+    hooks = captured["spec"].get("evaluation_hooks", [])
+    assert "compartment_check" in hooks
+
+
+def test_finance_specialist_includes_scope_hook(monkeypatch):
+    captured: dict[str, dict] = {}
+
+    def fake_build(self, spec: dict):
+        captured["spec"] = copy.deepcopy(spec)
+        return {
+            "system": "",
+            "user": "",
+            "llm_hints": {},
+            "io_schema_ref": FinanceSpecialistAgent.IO_SCHEMA,
+        }
+
+    monkeypatch.setattr(PromptFactory, "build_prompt", fake_build)
+    monkeypatch.setattr("core.agents.finance_specialist_agent.allow_tools", lambda *_args, **_kwargs: None)
+
+    def fake_call_tool(*_args, **_kwargs):
+        return {}
+
+    monkeypatch.setattr("core.agents.finance_specialist_agent.call_tool", fake_call_tool)
+
+    class DummyResponse:
+        def __init__(self, content: str):
+            self.content = content
+
+    monkeypatch.setattr("core.agents.finance_specialist_agent.complete", lambda *args, **kwargs: DummyResponse("{}"))
+    monkeypatch.setattr("core.agents.finance_specialist_agent.validate", lambda *args, **kwargs: None)
+
+    agent = FinanceSpecialistAgent("test-model")
+    agent.run("Assess budget", [], [], {"mean": 0, "std": 1})
+
+    hooks = captured["spec"].get("evaluation_hooks", [])
+    assert "compartment_check" in hooks
 
 
 def test_scope_leak_detection():

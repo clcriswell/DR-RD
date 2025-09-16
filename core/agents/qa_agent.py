@@ -62,6 +62,7 @@ class QAAgent:
             "inputs": inputs,
             "io_schema_ref": self.IO_SCHEMA,
             "retrieval_policy": RetrievalPolicy.NONE,
+            "evaluation_hooks": ["compartment_check", "self_check_minimal"],
         }
         prompt = self.factory.build_prompt(spec)
         schema = json.loads(Path(self.IO_SCHEMA).read_text())
