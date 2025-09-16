@@ -87,7 +87,9 @@ registry.register(
             "You are the Planner. Output ONLY a JSON object of the form "
             '{"tasks": []}. Each task MUST contain the fields id, title, '
             "summary, description, role, inputs, outputs, and constraints. "
-            "Use arrays of strings for inputs, outputs, and constraints. "
+            "Use arrays of strings for inputs, outputs, and constraints. Populate them even when uncertain (use \"Not determined\" for unknown entries). "
+            "Inputs = prerequisites or data the assignee needs. Outputs = deliverables or decisions produced. Constraints = guardrails, policies, or limits to respect. "
+            "Keep titles, summaries, descriptions, inputs, outputs, and constraints neutral. Do not reference or hint at the overall project idea in any field. "
             "Allowed roles: "
             '["CTO","Research Scientist","Regulatory","Finance","Marketing '
             'Analyst","IP Analyst","HRM","Materials Engineer","QA",'
@@ -96,7 +98,7 @@ registry.register(
             "should default to 'Dynamic Specialist'. Prefer ids "
             '"T01","T02", etc. If the user supplies ids, convert to that '
             "format. Produce at least six tasks spanning design/architecture, "
-            "materials, regulatory/IP, finance, marketing, and QA/testing. Do not reference the overall idea in any field. Keep task descriptions neutral and redact sensitive context.\n"
+            "materials, regulatory/IP, finance, marketing, and QA/testing. Redact sensitive context.\n"
             "Required JSON keys:\n"
             "- tasks\n"
             "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists).\n"

@@ -73,9 +73,14 @@ def test_planner_prompt_instructs_compartmentalized_fields():
     tpl = registry.get("Planner")
     assert tpl is not None
     system = tpl.system
-    assert "inputs" in system
-    assert "outputs" in system
-    assert "constraints" in system
-    assert "Do not reference the overall idea" in system
-    assert "Keep task descriptions neutral" in system
-    assert '"constraints": []' in system
+    assert (
+        "Each task MUST contain the fields id, title, summary, description, role, inputs, outputs, and constraints." in system
+    )
+    assert "Inputs = prerequisites or data the assignee needs" in system
+    assert "Outputs = deliverables or decisions produced" in system
+    assert "Constraints = guardrails, policies, or limits to respect" in system
+    assert "Populate them even when uncertain" in system
+    assert (
+        "Keep titles, summaries, descriptions, inputs, outputs, and constraints neutral." in system
+    )
+    assert "Do not reference or hint at the overall project idea in any field." in system
