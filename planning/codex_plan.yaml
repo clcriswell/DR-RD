@@ -1,64 +1,76 @@
-groups:
-- slug: "planner-interface"
-  title: "Planner Schema & Task Interface Isolation"
-  tasks:
-    - id: PL1
-      description: "Extend the Planner output schema to define module interfaces and enforce task isolation. Add new fields **description**, **role**, **inputs**, **outputs**, **constraints** to each task in `dr_rd/schemas/planner_v1.json` (include them in `properties` and update `required` keys). Each planned task should have a brief neutral description and an explicit role assignment, plus interface specs for that module."
-    - id: PL2
-      description: "Update the Planner prompt template in `prompt_registry.py` to reflect the new schema fields. Include **description**, **role**, **inputs**, **outputs**, **constraints** in the expected JSON. Remove any mention of the full idea from the Planner’s own instructions, ensuring it writes task descriptions in generic terms (no product names or high-level idea details)."
-    - id: PL3
-      description: "Modify the Planner logic if needed so that it populates the new fields. For each task it generates: assign an appropriate **role** (e.g. “Mechanical Systems Lead”, “Research Scientist”, etc.), provide a neutral **description** focusing on that module, and outline expected **inputs**, **outputs**, and any **constraints**. Ensure these fields are present (use empty strings or \"Not determined\" if necessary, rather than leaking the idea)."
-  acceptance: |
-    - Planner outputs a JSON plan where each task object contains `id`, `title`, `summary`, `description`, `role`, `inputs`, `outputs`, and `constraints` fields (with no extra keys). 
-    - All tasks are phrased generically, with **no direct mention of the overall product idea** in `title`, `summary`, or `description`.
-    - The updated `planner_v1.json` schema validates the new fields, and existing Planner unit tests still pass.
-  tests: 
-    - "Use `core.agents.run_planner` in a test to generate a plan for a known idea (e.g. a \"smart toaster coffee-maker\"). Assert that each task in the returned JSON has the new fields and that none of the task descriptions contain the words \"toaster\" or \"coffee\" (or other idea-specific terms)."
-  pr: "planner-interface"
+tasks:
+- id: PL1
+  group: "planner-interface"
+  description: "Extend the Planner output schema in planner_v1.json to include inputs, outputs, and constraints. Ensure each task has description, role, inputs, outputs, constraints fields."
+  acceptance_criteria:
+    - "Planner output JSON validates against updated schema with new fields."
+    - "Descriptions are neutral with no reference to the overall idea."
+    - "Roles are assigned correctly per task."
+    - "Empty or 'Not determined' is used instead of leaking the idea."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_planner_schema"
+  labels: ["planner", "schema", "compartmentalization"]
 
-- slug: "prompt-isolation"
-  title: "Agent Prompt Isolation & Context Injection"
-  tasks:
-    - id: AG1
-      description: "Remove full idea context from all agent prompt templates in `dr_rd/prompting/prompt_registry.py`. For each domain agent (CTO, Regulatory, Finance, Marketing, IP, HRM, Materials, QA, Simulation, etc.), **delete the line that begins with \"Idea:\"** in the `user_template`. Retain the \"Task:\" line. Incorporate the Planner-provided interface details: add new lines for **Inputs** and **Constraints** in the prompt template, using `{{ inputs }}` and `{{ constraints }}` placeholders. For example, after the Task line, include `Inputs: {{ inputs | default('None') }}` and `Constraints: {{ constraints | default('None') }}`. This way each agent only sees its module’s info and requirements."
-    - id: AG2
-      description: "Update all agent classes in `core/agents/*.py` (e.g., `CTOAgent`, `RegulatoryAgent`, `FinanceAgent`, etc.) to support the new prompt fields. When building the `spec` for `PromptFactoryAgent.run_with_spec`, include the planner task’s interface in the inputs. For instance, use `task.get('description', '')` for the task description (instead of the full idea) and add `inputs: task.get('inputs', '')` and `constraints: task.get('constraints', '')` in the `inputs` dict passed to `run_with_spec`. Ensure each agent’s `spec` no longer passes the original idea into the prompt (the `idea` can still be accepted by the function but should not be used in `inputs` for prompt rendering)."
-  acceptance: |
-    - No agent prompt includes an "Idea" line or any reference to the full project vision. Each agent’s prompt now begins with the module-specific **Task** (and associated Inputs/Constraints if provided).
-    - The code in each agent class passes the task’s own description, inputs, and constraints to the prompt template. All agent unit tests or integration tests continue to pass, indicating no regression.
-    - In a controlled test scenario, when running an agent on a task, the agent’s output should not contain information outside its scope (e.g. the CTO’s output should not suddenly mention marketing details, given none were provided).
-  tests:
-    - "In `tests/eval/test_compartmentalization.py`, add a scenario where a dummy task is fed to an agent (e.g., simulate calling one agent’s `act()` with a task dict that includes a known idea piece in its description or constraints). Verify that the generated prompt does **not** include the idea, and the output JSON stays on-topic. (This may be indirectly verified by checking the agent’s output text for absence of banned keywords.)"
-  pr: "prompt-isolation"
+- id: PL2
+  group: "planner-interface"
+  description: "Update Planner prompt template in prompt_registry.py to require new fields. Instructions must forbid leaking overall idea and enforce neutral phrasing."
+  acceptance_criteria:
+    - "Planner prompt instructs neutral phrasing and interface fields."
+    - "Generated tasks include inputs, outputs, constraints consistently."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_planner_prompt"
+  labels: ["planner", "prompts", "compartmentalization"]
 
-- slug: "scope-validation"
-  title: "Isolation Validation Hook & Enforcement"
-  tasks:
-    - id: VH1
-      description: "Implement a new evaluation hook **`compartment_check`** to automatically detect scope leaks in agent outputs. Create `dr_rd/evaluators/compartment_check.py` with an `evaluate(output, ctx)` function. This function should scan an agent’s output for any **out-of-scope content** – e.g., mentions of the overall product or other modules that were not in the task prompt. A simple approach: compare the output text against the original idea or look for forbidden keywords. If a violation is detected, the function can return a low score (or flag) indicating the issue. If everything is in scope, return a neutral/high score. Also register this hook in `dr_rd/evaluators/__init__.py` so it’s available by name."
-    - id: VH2
-      description: "Integrate the new `compartment_check` hook into the agent execution pipeline. Add **\"compartment_check\"** to the `evaluation_hooks` list for all domain agent PromptTemplates or agent specs (alongside any existing hooks like `self_check_minimal`, `reg_citation_check`, etc.). This ensures that after each agent produces output, the system runs the compartment check. If the hook finds a violation, decide on enforcement: for now, it could just log the issue or reduce confidence. (Full automated retry/redaction can be future work, but at minimum the hook should note the problem.)"
-    - id: VH3
-      description: "Add a unit test to verify the validation hook catches a leak. In `tests/eval/test_compartmentalization.py`, create a test case where you deliberately construct an agent output that includes a forbidden reference (e.g., the full product name or another task’s detail). Simulate passing this output through the `compartment_check.evaluate()` function. Assert that it returns a failing indication (e.g., 0.0 or a specific flag) signaling the scope breach. Also test a compliant output to ensure it does not raise a flag."
-  acceptance: |
-    - The `compartment_check` evaluator is properly registered and executed for each agent output. It reliably identifies when an agent’s JSON output includes out-of-scope information (for example, referencing the overall product or another domain’s details).
-    - When a violation is detected in testing, the hook’s effect is observable (e.g., returns a score of 0 or adds a note in logs). No false positives occur for in-scope content.
-    - The included unit test `test_compartmentalization.py::test_scope_leak_detection` passes, demonstrating that the hook differentiates between compliant and non-compliant agent outputs.
-  tests:
-    - "Extend `tests/eval/test_compartmentalization.py` with a `test_scope_leak_detection` function. Create a fake agent output JSON (as a Python dict or string) that intentionally contains a keyword from the original idea (or mentions another module’s domain). Pass it to `compartment_check.evaluate()` and assert the result indicates a failure. Also test an output without such leakage to ensure the hook does not erroneously fail."
-  pr: "scope-validation"
+- id: AG1
+  group: "prompt-isolation"
+  description: "Remove full idea context from all agent prompt templates. Inject only task description, inputs, outputs, constraints into prompts."
+  acceptance_criteria:
+    - "No prompt includes an 'Idea:' line."
+    - "Agents only receive description, inputs, outputs, constraints."
+    - "Agent prompts validated to stay in scope."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_agent_prompt_isolation"
+  labels: ["agents", "prompts", "compartmentalization"]
 
-- slug: "synth-integration"
-  title: "Synthesizer Consistency Checks & Contradiction Flagging"
-  tasks:
-    - id: SY1
-      description: "Augment the Synthesizer agent to detect interface mismatches and contradictions between module outputs. In `core/agents/synthesizer_agent.py`, after assembling the final output, add logic to review the collected agent results (`answers`). For example, if any agent output contains placeholders like \"Not determined\" or lacks expected info, append a note to the **`contradictions`** field of the Synthesizer’s JSON result. Similarly, if you can identify any outright conflict between modules (e.g., one agent assumes something that another’s output contradicts), flag it. Reduce the overall `confidence` score accordingly when adding a contradiction entry (similar to how missing sources are handled)."
-    - id: SY2
-      description: "Update or add tests to verify the Synthesizer’s new behavior. For instance, in `tests/eval/test_compartmentalization.py`, write a `test_integration_contradiction` case. Simulate a set of agent outputs where one contains a \"Not determined\" value (or some inconsistent data). Feed these into the Synthesizer (e.g., by calling `compose_final_proposal(idea, answers)` with a crafted `answers` dict). Assert that the returned final JSON includes a `contradictions` list mentioning the issue (and that the `confidence` is lowered)."
-  acceptance: |
-    - The Synthesizer output now explicitly flags integration problems in its `contradictions` field. For example, if a module output had unresolved placeholders or assumptions that weren’t met, the final JSON contains an entry in `contradictions` describing it.
-    - The `confidence` field in the final output is reduced when contradictions are present (e.g., set to a lower value like 0.5 or 0.7 as appropriate).
-    - Automated tests confirm this behavior: when provided with inconsistent module outputs, the Synthesizer’s result JSON is observed to contain the expected `contradictions` note and a lowered confidence, and when module outputs are consistent, `contradictions` remains empty.
-  tests:
-    - "Add `test_integration_contradiction` in `tests/eval/test_compartmentalization.py`. Create dummy outputs for two agents (e.g., one expects an input that another agent failed to provide, or one says 'Not determined'). Execute the Synthesizer with these and verify the final JSON contains a contradiction entry (e.g., \"Module X output contained unresolved placeholder\") and that `confidence` is adjusted downward."
-  pr: "synth-integration"
+- id: AG2
+  group: "prompt-isolation"
+  description: "Update agent classes in core/agents to pass new fields into PromptFactory. Do not include idea field in inputs."
+  acceptance_criteria:
+    - "Agent spec dicts include description, inputs, constraints."
+    - "No agent spec includes the global idea."
+    - "All agent integration tests pass."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_agent_class_inputs"
+  labels: ["agents", "code", "compartmentalization"]
+
+- id: VH1
+  group: "scope-validation"
+  description: "Implement compartment_check evaluator in dr_rd/evaluators/compartment_check.py to detect scope leaks."
+  acceptance_criteria:
+    - "Hook flags out-of-scope mentions of idea or other modules."
+    - "Hook registered in evaluators/__init__.py."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_scope_leak_detection"
+  labels: ["validation", "evaluator", "compartmentalization"]
+
+- id: VH2
+  group: "scope-validation"
+  description: "Integrate compartment_check into evaluation_hooks for all agent prompt templates."
+  acceptance_criteria:
+    - "compartment_check runs automatically after each agent output."
+    - "Violations logged or reduce confidence."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_scope_hook_integration"
+  labels: ["validation", "hooks", "compartmentalization"]
+
+- id: SY1
+  group: "synth-integration"
+  description: "Update synthesizer_agent.py to check for contradictions and unresolved placeholders in module outputs."
+  acceptance_criteria:
+    - "Synthesizer adds contradiction entries when conflicts or 'Not determined' values appear."
+    - "Confidence reduced when contradictions exist."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_integration_contradiction"
+  labels: ["synthesizer", "integration", "compartmentalization"]
+
+- id: SY2
+  group: "synth-integration"
+  description: "Add tests for synthesizer contradiction detection."
+  acceptance_criteria:
+    - "Unit tests simulate inconsistent module outputs."
+    - "Synthesizer JSON contains contradictions and adjusted confidence."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_synth_contradictions"
+  labels: ["synthesizer", "tests", "compartmentalization"]
