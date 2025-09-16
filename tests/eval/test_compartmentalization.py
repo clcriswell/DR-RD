@@ -7,6 +7,7 @@ import pytest
 from jinja2 import Environment, meta
 
 from dr_rd.prompting import PromptFactory, registry
+from dr_rd.evaluators import compartment_check
 
 from core.agents.prompt_agent import PromptFactoryAgent
 from core.agents.cto_agent import CTOAgent
@@ -292,3 +293,21 @@ def test_qa_agent_injects_task_scope(monkeypatch):
     assert inputs.get("task_outputs") == ["Risk register", "Open questions"]
     assert inputs.get("task_constraints") == ["Stay within compliance scope"]
     assert "idea" not in inputs
+
+
+def test_scope_leak_detection():
+    ok, reason = compartment_check("Idea: reveal confidential project")
+    assert ok is False
+    assert reason == "idea_reference"
+
+    cross_scope_payload = {
+        "summary": "Coordinate with the CTO and Marketing Analyst on the broader rollout plan.",
+        "findings": "All good.",
+    }
+    ok, reason = compartment_check(cross_scope_payload)
+    assert ok is False
+    assert reason == "cross_role_reference"
+
+    ok, reason = compartment_check({"analysis": "Focus on the assigned subsystem deliverable only."})
+    assert ok is True
+    assert reason == ""
