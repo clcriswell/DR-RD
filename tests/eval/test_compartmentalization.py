@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 
@@ -6,6 +7,18 @@ import pytest
 from jinja2 import Environment, meta
 
 from dr_rd.prompting import PromptFactory, registry
+
+from core.agents.prompt_agent import PromptFactoryAgent
+from core.agents.cto_agent import CTOAgent
+from core.agents.finance_agent import FinanceAgent
+from core.agents.hrm_agent import HRMAgent
+from core.agents.ip_analyst_agent import IPAnalystAgent
+from core.agents.marketing_agent import MarketingAgent
+from core.agents.materials_engineer_agent import MaterialsEngineerAgent
+from core.agents.patent_agent import PatentAgent
+from core.agents.regulatory_agent import RegulatoryAgent
+from core.agents.research_scientist_agent import ResearchScientistAgent
+from core.agents.qa_agent import QAAgent
 
 
 ISOLATED_AGENT_ROLES = [
@@ -145,3 +158,137 @@ def test_prompt_factory_renders_isolated_task_context():
     assert "Existing electronics specification" in user
     assert "Firmware architecture outline" in user
     assert "Meet IEC 62304" in user
+
+
+PROMPT_AGENT_CASES = [
+    (
+        "CTO",
+        CTOAgent,
+        lambda agent, idea, payload: agent.act(idea, payload),
+    ),
+    (
+        "Regulatory",
+        RegulatoryAgent,
+        lambda agent, idea, payload: agent.act(idea, payload),
+    ),
+    (
+        "Finance",
+        FinanceAgent,
+        lambda agent, idea, payload: agent.act(idea, payload),
+    ),
+    (
+        "Marketing Analyst",
+        MarketingAgent,
+        lambda agent, idea, payload: agent.act(idea, payload),
+    ),
+    (
+        "IP Analyst",
+        IPAnalystAgent,
+        lambda agent, idea, payload: agent.act(idea, payload),
+    ),
+    (
+        "Patent",
+        PatentAgent,
+        lambda agent, idea, payload: agent.act(idea, payload),
+    ),
+    (
+        "Research Scientist",
+        ResearchScientistAgent,
+        lambda agent, idea, payload: agent.act(idea, payload),
+    ),
+    (
+        "HRM",
+        HRMAgent,
+        lambda agent, idea, payload: agent.act(idea, payload),
+    ),
+    (
+        "Materials Engineer",
+        MaterialsEngineerAgent,
+        lambda agent, idea, payload: agent(payload, meta={"context": idea}),
+    ),
+]
+
+
+def _sample_plan_task() -> dict:
+    return {
+        "id": "T-01",
+        "title": "Assess subsystem",
+        "summary": "Review the subsystem design",
+        "description": "Review subsystem interfaces and document open questions.",
+        "role": "Research Scientist",
+        "inputs": ["Subsystem interface spec", "Design review notes"],
+        "outputs": ["Risk register", "Open questions"],
+        "constraints": ["Stay within compliance scope"],
+    }
+
+
+def test_prompt_factory_agents_forward_task_scope(monkeypatch):
+    captured: list[dict] = []
+
+    def _capture(self, spec: dict, **kwargs):
+        captured.append({"spec": copy.deepcopy(spec), "cls": type(self)})
+        return "{}"
+
+    monkeypatch.setattr(PromptFactoryAgent, "run_with_spec", _capture)
+
+    idea = "Confidential concept"
+    for role, agent_cls, runner in PROMPT_AGENT_CASES:
+        agent = agent_cls("test-model")
+        runner(agent, idea, _sample_plan_task())
+
+    assert len(captured) == len(PROMPT_AGENT_CASES)
+    for entry in captured:
+        spec = entry["spec"]
+        inputs = spec.get("inputs", {})
+        assert inputs.get("task_description") == "Review subsystem interfaces and document open questions."
+        assert inputs.get("task_inputs") == ["Subsystem interface spec", "Design review notes"]
+        assert inputs.get("task_outputs") == ["Risk register", "Open questions"]
+        assert inputs.get("task_constraints") == ["Stay within compliance scope"]
+        assert "idea" not in inputs
+
+
+def test_qa_agent_injects_task_scope(monkeypatch):
+    captured: dict[str, dict] = {}
+
+    def fake_build(self, spec: dict):
+        captured["spec"] = copy.deepcopy(spec)
+        return {"system": "", "user": "", "llm_hints": {}, "io_schema_ref": QAAgent.IO_SCHEMA}
+
+    monkeypatch.setattr(PromptFactory, "build_prompt", fake_build)
+    monkeypatch.setattr("core.agents.qa_agent.allow_tools", lambda role, tools: None)
+
+    def fake_call_tool(*args, **kwargs):
+        return {"ok": True}
+
+    monkeypatch.setattr("core.agents.qa_agent.call_tool", fake_call_tool)
+
+    class DummyResponse:
+        def __init__(self, content: str):
+            self.content = content
+
+    def fake_complete(*args, **kwargs):
+        payload = {
+            "role": "QA",
+            "task": "",
+            "summary": "",
+            "findings": "",
+            "risks": [],
+            "next_steps": [],
+            "sources": [],
+            "defects": [],
+            "coverage": "",
+        }
+        return DummyResponse(json.dumps(payload))
+
+    monkeypatch.setattr("core.agents.qa_agent.complete", fake_complete)
+
+    agent = QAAgent("test-model")
+    task = _sample_plan_task()
+    agent.run(task, requirements=[], tests=[], defects=[], idea="Secret", context="Context")
+
+    inputs = captured["spec"]["inputs"]
+    assert inputs.get("task_description") == "Review subsystem interfaces and document open questions."
+    assert inputs.get("task_inputs") == ["Subsystem interface spec", "Design review notes"]
+    assert inputs.get("task_outputs") == ["Risk register", "Open questions"]
+    assert inputs.get("task_constraints") == ["Stay within compliance scope"]
+    assert "idea" not in inputs

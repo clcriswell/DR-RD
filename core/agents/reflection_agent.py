@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from core.agents.prompt_agent import PromptFactoryAgent
+from core.agents.prompt_agent import PromptFactoryAgent, prepare_prompt_inputs
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 
 
@@ -28,10 +28,12 @@ class ReflectionAgent(PromptFactoryAgent):
         if not any(_has_placeholder(v) for v in data.values()):
             return "no further tasks"
 
+        inputs = prepare_prompt_inputs(task)
+        inputs.setdefault("task_payload", task_str)
         spec = {
             "role": "Reflection",
             "task": task_str,
-            "inputs": {"idea": idea, "task": task_str},
+            "inputs": inputs,
             "io_schema_ref": "dr_rd/schemas/reflection_v1.json",
             "retrieval_policy": RetrievalPolicy.NONE,
             "capabilities": "self critique",

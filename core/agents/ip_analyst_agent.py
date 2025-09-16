@@ -6,7 +6,7 @@ from typing import Any
 import yaml
 
 from config import feature_flags
-from core.agents.prompt_agent import PromptFactoryAgent
+from core.agents.prompt_agent import PromptFactoryAgent, prepare_prompt_inputs
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 
 
@@ -16,13 +16,11 @@ class IPAnalystAgent(PromptFactoryAgent):
         with open(budgets_path, encoding="utf-8") as fh:
             budgets = yaml.safe_load(fh) or {}
         top_k = budgets.get(feature_flags.BUDGET_PROFILE, {}).get("exec", {}).get("top_k", 5)
+        text = task.get("description", "") if isinstance(task, dict) else str(task or "")
         spec = {
             "role": "IP Analyst",
-            "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
-            "inputs": {
-                "idea": idea,
-                "task": task.get("description", "") if isinstance(task, dict) else str(task or ""),
-            },
+            "task": text,
+            "inputs": prepare_prompt_inputs(task),
             "io_schema_ref": "dr_rd/schemas/ip_analyst_v2.json",
             "retrieval_policy": RetrievalPolicy.AGGRESSIVE,
             "top_k": top_k,

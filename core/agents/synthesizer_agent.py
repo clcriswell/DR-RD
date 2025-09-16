@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from core.agents.prompt_agent import PromptFactoryAgent
+from core.agents.prompt_agent import PromptFactoryAgent, prepare_prompt_inputs
 from core.agents.confidence import normalize_confidence
 from dr_rd.prompting.prompt_registry import RetrievalPolicy
 from core.llm import select_model
@@ -33,10 +33,17 @@ class SynthesizerAgent(PromptFactoryAgent):
                     sources.append(src)
                 if "safety_meta" in val:
                     safety.append(val["safety_meta"])
+        task_scope = {
+            "description": "compose final report",
+            "inputs": list(answers.keys()),
+            "outputs": ["Final synthesis"],
+            "constraints": [],
+        }
+        inputs = prepare_prompt_inputs(task_scope, {"materials": materials})
         spec = {
             "role": "Synthesizer",
             "task": "compose final report",
-            "inputs": {"idea": idea, "materials": materials},
+            "inputs": inputs,
             "io_schema_ref": "dr_rd/schemas/synthesizer_v1.json",
             "retrieval_policy": RetrievalPolicy.NONE,
             "capabilities": "summary composer",
