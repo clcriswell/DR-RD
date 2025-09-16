@@ -170,8 +170,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "Provide technical architecture and risk guidance. Summarize with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/cto_v2.json",
@@ -210,8 +212,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "Provide a thorough regulatory analysis including compliance steps and relevant standards. Summarize with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/regulatory_v2.json",
@@ -257,8 +261,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "Provide budget estimates and financial risk analysis. Include unit_economics, npv, simulations, assumptions, risks, next_steps, and sources in the JSON summary. Return `sources` as a list of citation URLs (strings)."
         ),
         io_schema_ref="dr_rd/schemas/finance_v2.json",
@@ -299,8 +305,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "Provide marketing analysis and conclude with summary, findings, next_steps, and sources in JSON. Return `sources` as a list of citation URLs (strings)."
         ),
         io_schema_ref="dr_rd/schemas/marketing_v2.json",
@@ -337,8 +345,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "Provide IP analysis and conclude with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/ip_analyst_v2.json",
@@ -375,8 +385,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "Provide a patentability analysis and summarize findings, risks, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/generic_v2.json",
@@ -413,8 +425,11 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\nTask: {{ task | default('unknown') }}\nProvide detailed scientific analysis "
-            "with findings, gaps, risks, next_steps, and sources in JSON. Lists such as findings must be arrays and fields like risks and next_steps cannot be blank.\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
+            "Provide detailed scientific analysis with findings, gaps, risks, next_steps, and sources in JSON. Lists such as findings must be arrays and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
             '{"role": "Research Scientist", "task": "<TASK_TITLE>", "summary": "", "findings": [{"claim": "", "evidence": ""}], "gaps": "", "risks": [], "next_steps": [], "sources": [{"id": "", "title": ""}]}'
         ),
@@ -451,8 +466,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "Identify the expert roles required and summarize with summary, findings, next_steps, and sources in JSON."
         ),
         io_schema_ref="dr_rd/schemas/hrm_v2.json",
@@ -493,8 +510,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "Provide material selection and feasibility analysis, including summary, properties, tradeoffs, risks, next_steps, and sources in JSON. Lists such as properties and tradeoffs must be arrays and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
             '{"role": "Materials Engineer", "task": "<TASK_TITLE>", "summary": "", "findings": "", "properties": [{"name": "Aluminum 6061", "property": "Yield Strength", "value": 276, "units": "MPa", "source": "https://www.matweb.com/"}], "tradeoffs": [], "risks": [], "next_steps": [], "sources": []}'
@@ -533,8 +552,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "Provide a concise analysis and recommendations. Lists must be arrays where appropriate and fields like risks and next_steps cannot be blank.\n"
             "Example:\n"
             '{"role": "Dynamic Specialist", "task": "<TASK_TITLE>", "summary": "", "findings": "", "risks": [], "next_steps": [], "sources": []}'
@@ -570,9 +591,10 @@ registry.register(
             "Only output JSON, no extra explanation or prose outside JSON."
         ),
         user_template=(
-            "Idea: {{ idea | default('') }}\n"
-            "Task: {{ task | default('unknown') }}\n"
-            "Combined design and requirements context: {{ context | default('') }}\n"
+            "Task description: {{ task_description }}\n"
+            "Inputs: {{ task_inputs | join('; ') }}\n"
+            "Outputs: {{ task_outputs | join('; ') }}\n"
+            "Constraints: {{ task_constraints | join('; ') }}\n\n"
             "List any detected defects and missing requirements. Provide a concise assessment and conclude with the JSON summary."
         ),
         io_schema_ref="dr_rd/schemas/qa_v2.json",
