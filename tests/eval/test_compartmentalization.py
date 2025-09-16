@@ -298,6 +298,46 @@ def test_scope_hook_integration(monkeypatch):
         assert "compartment_check" in hooks
 
 
+def test_integration_contradiction(monkeypatch):
+    def fake_run(self, spec: dict, **kwargs):
+        payload = {
+            "summary": "Base summary",
+            "key_points": [],
+            "role": "Synthesizer",
+            "task": "compose final report",
+            "findings": "",
+            "risks": [],
+            "next_steps": [],
+            "sources": [],
+            "confidence": 1.0,
+        }
+        return json.dumps(payload)
+
+    monkeypatch.setattr(PromptFactoryAgent, "run_with_spec", fake_run)
+
+    answers = {
+        "CTO": {
+            "decision": "Proceed",
+            "summary": "Subsystem ready for integration",
+            "sources": ["http://example.com/design"],
+        },
+        "Regulatory": {
+            "decision": "Hold",
+            "summary": "Subsystem requires additional review",
+        },
+        "QA": {"summary": "Not determined"},
+    }
+
+    agent = SynthesizerAgent("test-model")
+    result = agent.act("Idea", answers)
+    data = json.loads(result)
+
+    contradictions = data.get("contradictions", [])
+    assert any("decision" in msg and "CTO" in msg and "Regulatory" in msg for msg in contradictions)
+    assert any("QA" in msg and "Not determined" in msg for msg in contradictions)
+    assert data.get("confidence", 1.0) < 1.0
+
+
 def test_qa_agent_injects_task_scope(monkeypatch):
     captured: dict[str, dict] = {}
 
