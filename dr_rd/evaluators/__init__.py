@@ -2,6 +2,7 @@
 
 from extensions.registry import EvaluatorRegistry
 
+from .compartment_check import evaluate as compartment_check
 from .compliance import ComplianceEvaluator
 from .cost import CostEvaluator
 from .feasibility import FeasibilityEvaluator
@@ -54,6 +55,7 @@ __all__ = [
     "reg_citation_check",
     "patent_overlap_check",
     "placeholder_check",
+    "compartment_check",
     "feasibility_ev",
     "clarity_ev",
     "coherence_ev",
