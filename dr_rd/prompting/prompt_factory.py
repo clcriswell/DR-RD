@@ -31,6 +31,77 @@ PLACEHOLDER_TOKEN_RE = re.compile(r"\[(PERSON|ORG|ADDRESS|IP|DEVICE)_\d+\]")
 JINJA_ENV = Environment()
 
 
+def _ensure_string_list(value: Any) -> list[str]:
+    """Convert different value types into a list of non-empty strings."""
+
+    if value is None:
+        return []
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if isinstance(value, (list, tuple, set)):
+        items = []
+        for entry in value:
+            if isinstance(entry, str):
+                text = entry.strip()
+            else:
+                text = str(entry).strip()
+            if text:
+                items.append(text)
+        return items
+    if isinstance(value, dict):
+        cleaned = {k: v for k, v in value.items() if v not in (None, "", [], {})}
+        if not cleaned:
+            return []
+        return [json.dumps(cleaned, ensure_ascii=False, sort_keys=True)]
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _normalize_task_scope(spec: dict[str, Any], inputs: dict[str, Any]) -> None:
+    """Ensure task description and scope lists are present for prompt templates."""
+
+    if not isinstance(inputs, dict):
+        return
+
+    task_entry = spec.get("task")
+    plan_task: dict[str, Any] | None = None
+    for key in ("plan_task", "task_payload", "task_details"):
+        candidate = inputs.get(key) or spec.get(key)
+        if isinstance(candidate, dict):
+            plan_task = candidate
+            break
+
+    description = inputs.get("task_description")
+    if not description:
+        if isinstance(plan_task, dict):
+            description = plan_task.get("description")
+        if not description and isinstance(task_entry, dict):
+            description = task_entry.get("description")
+        if not description:
+            description = inputs.get("task") or task_entry
+    if isinstance(description, (list, dict)):
+        description = json.dumps(description, ensure_ascii=False, sort_keys=True)
+    description_text = (description or "").strip()
+    inputs["task_description"] = description_text or "Not provided"
+
+    def _resolve_list(key: str, payload_key: str) -> list[str]:
+        raw = inputs.get(key)
+        if not raw and isinstance(plan_task, dict):
+            raw = plan_task.get(payload_key)
+        if not raw and isinstance(task_entry, dict):
+            raw = task_entry.get(payload_key)
+        return _ensure_string_list(raw)
+
+    task_inputs = _resolve_list("task_inputs", "inputs")
+    task_outputs = _resolve_list("task_outputs", "outputs")
+    task_constraints = _resolve_list("task_constraints", "constraints")
+
+    inputs["task_inputs"] = task_inputs or ["Not provided"]
+    inputs["task_outputs"] = task_outputs or ["Not provided"]
+    inputs["task_constraints"] = task_constraints or ["Not provided"]
+
+
 class PromptFactory:
     """Build prompts from templates and runtime spec."""
 
@@ -41,8 +112,11 @@ class PromptFactory:
         role = spec.get("role")
         task_key = spec.get("task_key")
         inputs = spec.get("inputs") or {}
+        if not isinstance(inputs, dict):
+            inputs = {}
         if isinstance(inputs.get("idea"), (dict, list)):
             inputs["idea"] = ""
+        _normalize_task_scope(spec, inputs)
         template = self.registry.get(role, task_key)
 
         if template:

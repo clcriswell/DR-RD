@@ -3,8 +3,24 @@ from pathlib import Path
 
 import jsonschema
 import pytest
+from jinja2 import Environment, meta
 
-from dr_rd.prompting import registry
+from dr_rd.prompting import PromptFactory, registry
+
+
+ISOLATED_AGENT_ROLES = [
+    "CTO",
+    "Regulatory",
+    "Finance",
+    "Marketing Analyst",
+    "IP Analyst",
+    "Patent",
+    "Research Scientist",
+    "HRM",
+    "Materials Engineer",
+    "Dynamic Specialist",
+    "QA",
+]
 
 
 @pytest.fixture(scope="module")
@@ -84,3 +100,48 @@ def test_planner_prompt_instructs_compartmentalized_fields():
         "Keep titles, summaries, descriptions, inputs, outputs, and constraints neutral." in system
     )
     assert "Do not reference or hint at the overall project idea in any field." in system
+
+
+def _placeholders_for_template(template: str) -> set[str]:
+    env = Environment()
+    return meta.find_undeclared_variables(env.parse(template or ""))
+
+
+def test_agent_prompt_templates_isolate_context():
+    for role in ISOLATED_AGENT_ROLES:
+        tpl = registry.get(role)
+        assert tpl is not None
+        assert "Idea:" not in tpl.system
+        assert "Idea:" not in (tpl.user_template or "")
+        placeholders = _placeholders_for_template(tpl.user_template or "")
+        assert placeholders == {
+            "task_description",
+            "task_inputs",
+            "task_outputs",
+            "task_constraints",
+        }
+
+
+def test_prompt_factory_renders_isolated_task_context():
+    pf = PromptFactory()
+    spec = {
+        "role": "CTO",
+        "task": "Design the control firmware",
+        "inputs": {
+            "task_description": "Design the control firmware",
+            "task_inputs": [
+                "Existing electronics specification",
+                "Safety requirements",
+            ],
+            "task_outputs": ["Firmware architecture outline"],
+            "task_constraints": ["Meet IEC 62304"],
+        },
+        "io_schema_ref": "dr_rd/schemas/cto_v2.json",
+    }
+    prompt = pf.build_prompt(spec)
+    user = prompt["user"]
+    assert "Idea:" not in user
+    assert "Design the control firmware" in user
+    assert "Existing electronics specification" in user
+    assert "Firmware architecture outline" in user
+    assert "Meet IEC 62304" in user
