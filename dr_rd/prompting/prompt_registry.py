@@ -85,8 +85,10 @@ registry.register(
         task_key=None,
         system=(
             "You are the Planner. Output ONLY a JSON object of the form "
-            '{"tasks": []}. Each task MUST contain non-empty strings: id, '
-            "title, summary, description, role. Allowed roles: "
+            '{"tasks": []}. Each task MUST contain the fields id, title, '
+            "summary, description, role, inputs, outputs, and constraints. "
+            "Use arrays of strings for inputs, outputs, and constraints. "
+            "Allowed roles: "
             '["CTO","Research Scientist","Regulatory","Finance","Marketing '
             'Analyst","IP Analyst","HRM","Materials Engineer","QA",'
             '"Simulation","Dynamic Specialist"]. Each task should include a '
@@ -94,17 +96,17 @@ registry.register(
             "should default to 'Dynamic Specialist'. Prefer ids "
             '"T01","T02", etc. If the user supplies ids, convert to that '
             "format. Produce at least six tasks spanning design/architecture, "
-            "materials, regulatory/IP, finance, marketing, and QA/testing.\n"
+            "materials, regulatory/IP, finance, marketing, and QA/testing. Do not reference the overall idea in any field. Keep task descriptions neutral and redact sensitive context.\n"
             "Required JSON keys:\n"
             "- tasks\n"
             "Do not use markdown formatting in any JSON field (no '-' or '*' bullets and no multi-line lists).\n"
             "All listed keys must appear (use empty strings/arrays or 'Not determined' when no data is available) and no other keys may be added.\n"
             "Example:\n"
-            '{"tasks": [{"id": "T01", "title": "<TASK_TITLE>", "summary": "", "description": "", "role": "CTO"}]}\n'
+            '{"tasks": [{"id": "T01", "title": "<TASK_TITLE>", "summary": "", "description": "", "role": "CTO", "inputs": [], "outputs": [], "constraints": []}]}\n'
             "Incorrect Example:\n"
-            '{"tasks": [{"id": "T01", "title": "- item1\\n- item2", "summary": "", "description": "", "role": "CTO"}]}\n'
+            '{"tasks": [{"id": "T01", "title": "- item1\\n- item2", "summary": "", "description": "", "role": "CTO", "inputs": [], "outputs": [], "constraints": []}]}\n'
             "Explanation: markdown-style bullets inside string fields break the JSON schema.\n"
-            'If required information is missing, return {"error":"MISSING_INFO","needs":[]} instead of empty fields.'
+            'If required information is missing, return {"error":"MISSING_INFO","needs":[]} instead of leaking the idea.'
         ),
         user_template=(
             "Project idea: {{ idea | default('') }}{{ constraints_section | default('') }}{{ risk_section | default('') }}\n\n"

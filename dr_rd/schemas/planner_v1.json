@@ -19,12 +19,41 @@
           },
           "summary": {
             "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "constraints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "id",
           "title",
-          "summary"
+          "summary",
+          "description",
+          "role",
+          "inputs",
+          "outputs",
+          "constraints"
         ],
         "additionalProperties": false
       }
