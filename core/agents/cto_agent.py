@@ -23,7 +23,7 @@ class CTOAgent(PromptFactoryAgent):
             "io_schema_ref": "dr_rd/schemas/cto_v2.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "technical strategy",
-            "evaluation_hooks": ["self_check_minimal"],
+            "evaluation_hooks": ["compartment_check", "self_check_minimal"],
         }
         result = super().run_with_spec(spec, **kwargs)
         return result

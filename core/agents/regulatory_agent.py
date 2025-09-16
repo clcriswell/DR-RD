@@ -26,7 +26,7 @@ class RegulatoryAgent(PromptFactoryAgent):
             "io_schema_ref": "dr_rd/schemas/regulatory_v2.json",
             "retrieval_policy": policy,
             "capabilities": "compliance analysis",
-            "evaluation_hooks": ["reg_citation_check"],
+            "evaluation_hooks": ["compartment_check", "reg_citation_check"],
         }
         return super().run_with_spec(spec, **kwargs)
 

@@ -37,7 +37,7 @@ class ReflectionAgent(PromptFactoryAgent):
             "io_schema_ref": "dr_rd/schemas/reflection_v1.json",
             "retrieval_policy": RetrievalPolicy.NONE,
             "capabilities": "self critique",
-            "evaluation_hooks": ["self_check_minimal", "placeholder_check"],
+            "evaluation_hooks": ["compartment_check", "self_check_minimal", "placeholder_check"],
         }
         return super().run_with_spec(spec, **kwargs)
 

@@ -18,7 +18,7 @@ class MaterialsEngineerAgent(PromptFactoryAgent):
             "io_schema_ref": "dr_rd/schemas/materials_engineer_v2.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "materials selection",
-            "evaluation_hooks": ["self_check_minimal"],
+            "evaluation_hooks": ["compartment_check", "self_check_minimal"],
         }
         return super().run_with_spec(spec, model=model)
 

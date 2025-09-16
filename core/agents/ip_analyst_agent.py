@@ -25,7 +25,7 @@ class IPAnalystAgent(PromptFactoryAgent):
             "retrieval_policy": RetrievalPolicy.AGGRESSIVE,
             "top_k": top_k,
             "capabilities": "prior art search",
-            "evaluation_hooks": ["patent_overlap_check"],
+            "evaluation_hooks": ["compartment_check", "patent_overlap_check"],
         }
         return super().run_with_spec(spec, **kwargs)
 
