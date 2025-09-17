@@ -8,6 +8,7 @@ import pytest
 from jinja2 import Environment, meta
 
 from dr_rd.prompting import PromptFactory, registry
+from dr_rd.prompting.sanitizers import neutralize_project_terms
 from dr_rd.evaluators import compartment_check
 
 from core.agents.prompt_agent import PromptFactoryAgent
@@ -166,6 +167,36 @@ def test_planner_prompt_instructs_compartmentalized_fields():
         "Keep titles, summaries, descriptions, inputs, outputs, and constraints neutral." in system
     )
     assert "Do not reference or hint at the overall project idea in any field." in system
+    assert "Replace any idea-specific names with neutral terms like 'the system'." in system
+
+
+def test_planner_prompt_masks_project_name():
+    pf = PromptFactory()
+    spec = {
+        "role": "Planner",
+        "task": "Outline execution phases",
+        "inputs": {
+            "idea": "ChronoGlide Drone Pro: Rapid-response UAV for mountain rescue",
+            "constraints_section": "",
+            "risk_section": "",
+        },
+        "io_schema_ref": "dr_rd/schemas/planner_v1.json",
+    }
+    prompt = pf.build_prompt(spec)
+    user = prompt["user"]
+    assert "ChronoGlide" not in user
+    assert "Drone Pro" not in user
+    assert "the system" in user
+    assert "Project idea" in user
+
+
+def test_neutralize_project_terms_replaces_named_entities():
+    text = "Launch the NebulaLink Beacon Series for remote monitoring"
+    neutral, replaced = neutralize_project_terms(text)
+    assert "NebulaLink" not in neutral
+    assert "Beacon Series" not in neutral
+    assert neutral.startswith("Launch the system")
+    assert any("NebulaLink" in item for item in replaced)
 
 
 def _placeholders_for_template(template: str) -> set[str]:

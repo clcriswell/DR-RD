@@ -12,6 +12,7 @@ from jinja2 import Environment, meta
 
 from dr_rd.examples import safety_filters
 from dr_rd.prompting import example_selectors
+from dr_rd.prompting.sanitizers import apply_planner_neutralization
 
 from .prompt_registry import (
     RETRIEVAL_POLICY_META,
@@ -116,6 +117,8 @@ class PromptFactory:
             inputs = {}
         if isinstance(inputs.get("idea"), (dict, list)):
             inputs["idea"] = ""
+        if role == "Planner":
+            apply_planner_neutralization(inputs)
         _normalize_task_scope(spec, inputs)
         template = self.registry.get(role, task_key)
 

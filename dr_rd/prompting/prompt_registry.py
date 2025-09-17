@@ -89,7 +89,7 @@ registry.register(
             "summary, description, role, inputs, outputs, and constraints. "
             "Use arrays of strings for inputs, outputs, and constraints. Populate them even when uncertain (use \"Not determined\" for unknown entries). "
             "Inputs = prerequisites or data the assignee needs. Outputs = deliverables or decisions produced. Constraints = guardrails, policies, or limits to respect. "
-            "Keep titles, summaries, descriptions, inputs, outputs, and constraints neutral. Do not reference or hint at the overall project idea in any field. "
+            "Keep titles, summaries, descriptions, inputs, outputs, and constraints neutral. Do not reference or hint at the overall project idea in any field. Replace any idea-specific names with neutral terms like 'the system'. "
             "Allowed roles: "
             '["CTO","Research Scientist","Regulatory","Finance","Marketing '
             'Analyst","IP Analyst","HRM","Materials Engineer","QA",'
@@ -124,7 +124,9 @@ registry.register(
             'If required information is missing, return {"error":"MISSING_INFO","needs":[]} instead of leaking the idea.'
         ),
         user_template=(
-            "Project idea: {{ idea | default('') }}{{ constraints_section | default('') }}{{ risk_section | default('') }}\n\n"
+            "Project idea (neutralized): {{ idea | default('') }}{{ constraints_section | default('') }}{{ risk_section | default('') }}\n"
+            "{% if idea_alias %}Always refer to the project as '{{ idea_alias }}' and keep every field generic. {% endif %}\n"
+            "Specific names have been removed; do not attempt to recover them.\n\n"
             "Follow the planner schema exactly and return only the JSON object. No extra text."
         ),
         io_schema_ref="dr_rd/schemas/planner_v1.json",
