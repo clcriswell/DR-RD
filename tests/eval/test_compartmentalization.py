@@ -79,6 +79,36 @@ def test_planner_schema_requires_extended_task_fields(planner_schema):
     jsonschema.validate(plan, planner_schema)
 
 
+def test_planner_schema_rejects_missing_plan_metadata(planner_schema):
+    plan = {
+        "plan_id": "plan-001",
+        "tasks": [
+            {
+                "id": "T01",
+                "title": "Scoping",
+                "summary": "Scope technical work",
+                "description": "Outline architecture milestones.",
+                "role": "CTO",
+                "inputs": ["Not determined"],
+                "outputs": ["Architecture outline"],
+                "constraints": ["Budget cap"],
+            }
+        ],
+        "constraints": "Budget cap",
+        "assumptions": "",
+        "metrics": "",
+        "next_steps": "Continue",
+        "role": "Planner",
+        "task": "Organize",
+        "findings": "Neutral summary",
+        "risks": ["Timeline"],
+        "sources": ["Internal"],
+    }
+    plan.pop("plan_id")
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(plan, planner_schema)
+
+
 def test_planner_schema_rejects_missing_extended_fields(planner_schema):
     plan = {
         "plan_id": "plan-001",
@@ -114,6 +144,20 @@ def test_planner_prompt_instructs_compartmentalized_fields():
     assert (
         "Each task MUST contain the fields id, title, summary, description, role, inputs, outputs, and constraints." in system
     )
+    assert "Required top-level JSON keys" in system
+    for key in (
+        "plan_id",
+        "role",
+        "task",
+        "findings",
+        "constraints",
+        "assumptions",
+        "metrics",
+        "next_steps",
+        "risks",
+        "sources",
+    ):
+        assert key in system
     assert "Inputs = prerequisites or data the assignee needs" in system
     assert "Outputs = deliverables or decisions produced" in system
     assert "Constraints = guardrails, policies, or limits to respect" in system
