@@ -244,6 +244,41 @@ def test_prompt_factory_renders_isolated_task_context():
     assert "Meet IEC 62304" in user
 
 
+def test_reflection_prompt_excludes_project_idea():
+    tpl = registry.get("Reflection")
+    assert tpl is not None
+    template_user = tpl.user_template or ""
+    assert "Project Idea" not in template_user
+    assert "{{ idea" not in template_user
+
+    pf = PromptFactory()
+    task_payload = {
+        "summary": "Not determined",
+        "findings": "",
+        "risks": [],
+    }
+    spec = {
+        "role": "Reflection",
+        "task": json.dumps(task_payload),
+        "inputs": {
+            "task_payload": json.dumps(task_payload),
+            "task_description": "Not determined",
+            "task_inputs": ["Not determined"],
+            "task_outputs": ["Not determined"],
+            "task_constraints": ["Not determined"],
+            "idea": "NebulaLink Beacon Series",
+        },
+        "io_schema_ref": "dr_rd/schemas/reflection_v1.json",
+    }
+
+    prompt = pf.build_prompt(spec)
+    user = prompt["user"]
+    assert "Project Idea" not in user
+    assert "NebulaLink" not in user
+    assert "Existing outputs" in user
+    assert "Not determined" in user
+
+
 PROMPT_AGENT_CASES = [
     (
         "CTO",
