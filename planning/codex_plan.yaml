@@ -1,76 +1,28 @@
 tasks:
-- id: PL1
+- id: PL3
   group: "planner-interface"
-  description: "Extend the Planner output schema in planner_v1.json to include inputs, outputs, and constraints. Ensure each task has description, role, inputs, outputs, constraints fields."
+  description: "Ensure Planner outputs a complete plan JSON including required metadata (e.g. plan_id, role, summary) so that the schema validation passes."
   acceptance_criteria:
-    - "Planner output JSON validates against updated schema with new fields."
-    - "Descriptions are neutral with no reference to the overall idea."
-    - "Roles are assigned correctly per task."
-    - "Empty or 'Not determined' is used instead of leaking the idea."
-  test_coverage: "tests/eval/test_compartmentalization.py::test_planner_schema"
+    - "Planner JSON output includes top-level keys (plan_id, role, etc.) as defined in planner_v1.json schema."
+    - "Planner output passes schema validation on first attempt without manual fixes."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_planner_schema_requires_extended_task_fields"
   labels: ["planner", "schema", "compartmentalization"]
 
-- id: PL2
+- id: PL4
   group: "planner-interface"
-  description: "Update Planner prompt template in prompt_registry.py to require new fields. Instructions must forbid leaking overall idea and enforce neutral phrasing."
+  description: "Refine Planner prompt and logic to eliminate any reference to the overall idea or product name in task titles/descriptions (use neutral terms like 'the system')."
   acceptance_criteria:
-    - "Planner prompt instructs neutral phrasing and interface fields."
-    - "Generated tasks include inputs, outputs, constraints consistently."
-  test_coverage: "tests/eval/test_compartmentalization.py::test_planner_prompt"
-  labels: ["planner", "prompts", "compartmentalization"]
+    - "No task description or title contains the original project name or specific product term."
+    - "Planner obeys the 'do not hint at overall project' rule in generated outputs (verified via search for idea keywords in tasks)."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_planner_no_scope_leak"
+  labels: ["planner", "prompting", "compartmentalization"]
 
-- id: AG1
+- id: AG3
   group: "prompt-isolation"
-  description: "Remove full idea context from all agent prompt templates. Inject only task description, inputs, outputs, constraints into prompts."
+  description: "Compartmentalize the Reflection agent's prompt by removing the global idea context; it should base follow-up tasks only on existing outputs and detected gaps."
   acceptance_criteria:
-    - "No prompt includes an 'Idea:' line."
-    - "Agents only receive description, inputs, outputs, constraints."
-    - "Agent prompts validated to stay in scope."
-  test_coverage: "tests/eval/test_compartmentalization.py::test_agent_prompt_isolation"
-  labels: ["agents", "prompts", "compartmentalization"]
-
-- id: AG2
-  group: "prompt-isolation"
-  description: "Update agent classes in core/agents to pass new fields into PromptFactory. Do not include idea field in inputs."
-  acceptance_criteria:
-    - "Agent spec dicts include description, inputs, constraints."
-    - "No agent spec includes the global idea."
-    - "All agent integration tests pass."
-  test_coverage: "tests/eval/test_compartmentalization.py::test_agent_class_inputs"
-  labels: ["agents", "code", "compartmentalization"]
-
-- id: VH1
-  group: "scope-validation"
-  description: "Implement compartment_check evaluator in dr_rd/evaluators/compartment_check.py to detect scope leaks."
-  acceptance_criteria:
-    - "Hook flags out-of-scope mentions of idea or other modules."
-    - "Hook registered in evaluators/__init__.py."
-  test_coverage: "tests/eval/test_compartmentalization.py::test_scope_leak_detection"
-  labels: ["validation", "evaluator", "compartmentalization"]
-
-- id: VH2
-  group: "scope-validation"
-  description: "Integrate compartment_check into evaluation_hooks for all agent prompt templates."
-  acceptance_criteria:
-    - "compartment_check runs automatically after each agent output."
-    - "Violations logged or reduce confidence."
-  test_coverage: "tests/eval/test_compartmentalization.py::test_scope_hook_integration"
-  labels: ["validation", "hooks", "compartmentalization"]
-
-- id: SY1
-  group: "synth-integration"
-  description: "Update synthesizer_agent.py to check for contradictions and unresolved placeholders in module outputs."
-  acceptance_criteria:
-    - "Synthesizer adds contradiction entries when conflicts or 'Not determined' values appear."
-    - "Confidence reduced when contradictions exist."
-  test_coverage: "tests/eval/test_compartmentalization.py::test_integration_contradiction"
-  labels: ["synthesizer", "integration", "compartmentalization"]
-
-- id: SY2
-  group: "synth-integration"
-  description: "Add tests for synthesizer contradiction detection."
-  acceptance_criteria:
-    - "Unit tests simulate inconsistent module outputs."
-    - "Synthesizer JSON contains contradictions and adjusted confidence."
-  test_coverage: "tests/eval/test_compartmentalization.py::test_synth_contradictions"
-  labels: ["synthesizer", "tests", "compartmentalization"]
+    - "Reflection agent prompt no longer includes any 'Project Idea' section – it uses only the collated outputs as input."
+    - "Follow-up task suggestions are generated solely from analysis of agent outputs and placeholders (idea not visible to Reflection)."
+  test_coverage: "tests/eval/test_compartmentalization.py::test_reflection_prompt_isolation"
+  labels: ["reflection", "prompts", "compartmentalization"]
+  
