@@ -634,6 +634,7 @@ registry.register(
             "with the exact string 'no further tasks'.  Always return either a "
             "JSON array of follow-up task strings or the literal string 'no "
             "further tasks'. Do not use markdown formatting in any task string (no '-' or '*' bullets and no multi-line lists). Join multiple items with semicolons or return separate array elements.\n"
+            "You do not have access to the original project idea; base your assessment strictly on the outputs shown. Do not request or reference the idea.\n"
             "Example:\n"
             '["[Finance]: Recalculate budget"]\n'
             "Incorrect Example:\n"
@@ -641,9 +642,8 @@ registry.register(
             "Explanation: markdown-style bullets and multi-line strings break the expected JSON array format."
         ),
         user_template=(
-            "Project Idea: {{ idea | default('') }}\n\n"
-            "Existing outputs:\n{{ task | default('unknown') }}\n\n"
-            "Analyse these outputs and recommend follow-up tasks for any missing or placeholder data."
+            "Existing outputs (JSON):\n{{ task_payload }}\n\n"
+            "Analyse these outputs only and recommend follow-up tasks for any missing or placeholder data."
         ),
         io_schema_ref="dr_rd/schemas/reflection_agent.json",
         retrieval_policy=RetrievalPolicy.NONE,
