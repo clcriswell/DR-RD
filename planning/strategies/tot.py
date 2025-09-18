@@ -82,26 +82,41 @@ class ToTPlannerStrategy(BasePlannerStrategy):
     ) -> List[List[Dict[str, Any]]]:
         """Generate new plan branches for the given depth."""
 
+        def _make_option(role: str, task: str) -> Dict[str, Any]:
+            return {
+                "role": role,
+                "task": task,
+                "title": task,
+                "summary": task,
+                "description": task,
+            }
+
         if depth == 0:
             options = [
-                {"role": "AI R&D Coordinator", "task": "Clarify requirements with stakeholders"},
-                {"role": "AI R&D Coordinator", "task": "Assess feasibility of core technologies"},
-                {"role": "AI R&D Coordinator", "task": "Survey prior art and existing solutions"},
+                _make_option(
+                    "AI R&D Coordinator", "Clarify requirements with stakeholders"
+                ),
+                _make_option(
+                    "AI R&D Coordinator", "Assess feasibility of core technologies"
+                ),
+                _make_option(
+                    "AI R&D Coordinator", "Survey prior art and existing solutions"
+                ),
             ]
         else:
             options = [
-                {
-                    "role": "Systems Integration & Validation Engineer",
-                    "task": "Prototype critical subsystems",
-                },
-                {
-                    "role": "Data Scientist / Analytics Engineer",
-                    "task": "Validate performance against requirements",
-                },
-                {
-                    "role": "Project Manager / Principal Investigator",
-                    "task": "Review project milestones",
-                },
+                _make_option(
+                    "Systems Integration & Validation Engineer",
+                    "Prototype critical subsystems",
+                ),
+                _make_option(
+                    "Data Scientist / Analytics Engineer",
+                    "Validate performance against requirements",
+                ),
+                _make_option(
+                    "Project Manager / Principal Investigator",
+                    "Review project milestones",
+                ),
             ]
 
         branches = []

@@ -77,8 +77,9 @@ def _coerce_and_fill(data: dict | list) -> dict:
     """Coerce planner output into a normalized task object.
 
     ``data`` may be a list or dict.  Tasks are cleaned and missing fields filled
-    without dropping entries unless ``title`` or ``summary`` are blank after
-    stripping.  Any additional keys on task objects are preserved.
+    without dropping entries unless ``title``, ``summary`` and ``description``
+    are blank after stripping.  Any additional keys on task objects are
+    preserved.
     """
 
     if isinstance(data, list):
@@ -94,12 +95,20 @@ def _coerce_and_fill(data: dict | list) -> dict:
         if not isinstance(t, dict):
             continue
         tid = str(t.get("id") or f"T{i:02d}")
-        title = (t.get("title") or "").strip()
-        summary = (t.get("summary") or t.get("description") or "").strip()
-        description = (t.get("description") or t.get("summary") or "").strip()
+        title = (t.get("title") or t.get("name") or t.get("task") or "").strip()
+        summary = (
+            t.get("summary")
+            or t.get("description")
+            or t.get("goal")
+            or t.get("task")
+            or ""
+        ).strip()
+        description = (
+            t.get("description") or t.get("summary") or t.get("task") or ""
+        ).strip()
         role_raw = t.get("role")
         role = normalize_role(role_raw) or "Dynamic Specialist"
-        if title == "" or summary == "":
+        if title == "" and summary == "" and description == "":
             continue
         nt = dict(t)
         nt.update(

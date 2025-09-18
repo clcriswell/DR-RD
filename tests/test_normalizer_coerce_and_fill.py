@@ -34,3 +34,23 @@ def test_normalizer_zero_failfast(tmp_path):
     assert str(exc.value) == "planner.normalization_zero"
     assert list(log_dir.glob("planner_payload_*.json"))
 
+
+def test_normalizer_tot_task_field_fallback():
+    data = {
+        "tasks": [
+            {"role": "AI R&D Coordinator", "task": "Clarify requirements with stakeholders"}
+        ]
+    }
+
+    norm = _coerce_and_fill(data)
+    assert norm["_raw_count"] == 1
+    assert len(norm["tasks"]) == 1
+
+    task = norm["tasks"][0]
+    assert task["id"] == "T01"
+    assert task["title"] == "Clarify requirements with stakeholders"
+    assert task["summary"] == "Clarify requirements with stakeholders"
+    assert task["description"] == "Clarify requirements with stakeholders"
+
+    Plan.model_validate(norm, strict=True)
+
