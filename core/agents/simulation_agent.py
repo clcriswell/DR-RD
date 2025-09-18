@@ -8,6 +8,16 @@ from dr_rd.simulation import sim_core
 from dr_rd.simulation.interfaces import SimulationSpec
 
 
+def _coerce_inputs(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, list):
+        return {"items": list(value)}
+    if value is None:
+        return {}
+    return {"value": value}
+
+
 def determine_sim_type(role: str, design_spec: str) -> str:
     role = role.lower()
     if "mechanical" in role or "motion" in role:
@@ -30,7 +40,7 @@ class SimulationAgent(LLMRoleAgent):
         spec = SimulationSpec(
             id=str(task.get("id", "sim")),
             domain=domain,
-            inputs=task.get("inputs", {}),
+            inputs=_coerce_inputs(task.get("inputs")),
             budget_hint=task.get("budget_hint"),
             seed=task.get("seed"),
             notes=task.get("notes"),

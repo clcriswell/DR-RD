@@ -17,6 +17,16 @@ STORE_PATH = CFG_DIR / "kb.jsonl"
 INDEX_PATH = CFG_DIR / "kb_index.jsonl"
 
 
+def _coerce_inputs(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, list):
+        return {"items": list(value)}
+    if value is None:
+        return {}
+    return {"value": value}
+
+
 def _read_all() -> List[KBRecord]:
     if not STORE_PATH.exists():
         return []
@@ -86,7 +96,7 @@ def kb_maybe_persist(agent_output: Dict[str, Any], route_meta: Dict[str, Any], p
         agent_role=route_meta.get("role", ""),
         task_title=route_meta.get("title", ""),
         task_desc=route_meta.get("description", ""),
-        inputs=route_meta.get("inputs", {}),
+        inputs=_coerce_inputs(route_meta.get("inputs")),
         output_json=agent_output,
         sources=sources,
         ts=float(route_meta.get("ts") or 0.0),
