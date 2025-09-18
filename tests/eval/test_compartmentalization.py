@@ -247,6 +247,30 @@ def test_planner_prompt_masks_project_name():
     assert "Project idea" in user
 
 
+def test_planner_llm_hints_are_deterministic():
+    pf = PromptFactory()
+    spec = {
+        "role": "Planner",
+        "task": "Outline execution phases",
+        "inputs": {
+            "idea": "Project ChronoGlide",
+            "constraints_section": "",
+            "risk_section": "",
+        },
+        "io_schema_ref": "dr_rd/schemas/planner_v1.json",
+    }
+
+    prompt = pf.build_prompt(spec)
+    hints = prompt.get("llm_hints", {})
+
+    assert hints.get("temperature") is not None
+    assert hints["temperature"] == pytest.approx(0.0)
+    assert hints.get("top_p") is not None
+    assert hints["top_p"] <= 0.2
+    assert hints.get("presence_penalty") == pytest.approx(0.0)
+    assert hints.get("frequency_penalty") == pytest.approx(0.0)
+
+
 def test_planner_no_idea_leak(monkeypatch, planner_schema):
     payload = {
         "plan_id": "PLAN-123",
@@ -309,6 +333,61 @@ def test_planner_no_idea_leak(monkeypatch, planner_schema):
         joined = " ".join(values)
         assert all(term not in joined for term in sensitive_terms)
         assert "the system" in joined
+
+
+def test_planner_auto_retry_success(monkeypatch, planner_schema):
+    success_payload = {
+        "plan_id": "PLAN-001",
+        "role": "Planner",
+        "task": "Outline execution phases",
+        "findings": "Baseline",
+        "constraints": "",
+        "assumptions": "",
+        "metrics": "",
+        "next_steps": "Roadmap",
+        "risks": ["Schedule"],
+        "sources": ["Internal"],
+        "tasks": [
+            {
+                "id": "T01",
+                "title": "Define milestones",
+                "summary": "Set neutral milestones",
+                "description": "Draft milestones for the system rollout",
+                "role": "CTO",
+                "inputs": ["Planning brief"],
+                "outputs": ["Milestone chart"],
+                "constraints": ["Budget cap"],
+            }
+        ],
+    }
+
+    class DummyResult:
+        def __init__(self, text: str) -> None:
+            self.content = text
+            self.raw = {}
+
+    call_counter = {"count": 0}
+
+    def fake_complete(system_prompt: str, user_prompt: str, **kwargs: Any) -> DummyResult:
+        call_counter["count"] += 1
+        if call_counter["count"] == 1:
+            return DummyResult("not valid json")
+        return DummyResult(json.dumps(success_payload))
+
+    monkeypatch.setattr("core.agents.base_agent.complete", fake_complete)
+    monkeypatch.setattr(feature_flags, "POLICY_AWARE_PLANNING", False)
+    monkeypatch.setattr(feature_flags, "SAFETY_ENABLED", False)
+    monkeypatch.setattr(feature_flags, "FILTERS_STRICT_MODE", False)
+
+    agent = PlannerAgent("Planner", "test-model")
+    result = agent.act("Nebula concept", "Outline execution phases")
+    plan = json.loads(result)
+
+    assert call_counter["count"] == 2
+    jsonschema.validate(plan, planner_schema)
+    assert plan["plan_id"] == "PLAN-001"
+    assert plan["tasks"]
+    assert plan["tasks"][0]["id"] == "T01"
 
 def test_neutralize_project_terms_replaces_named_entities():
     text = "Launch the NebulaLink Beacon Series for remote monitoring"
