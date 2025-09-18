@@ -22,7 +22,7 @@ class ResearchScientistAgent(PromptFactoryAgent):
         spec = {
             "role": "Research Scientist",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/research_v2.json",
             "retrieval_policy": RetrievalPolicy.AGGRESSIVE,
             "capabilities": "evidence gathering",

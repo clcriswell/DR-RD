@@ -109,7 +109,7 @@ class SynthesizerAgent(PromptFactoryAgent):
             "outputs": ["Final synthesis"],
             "constraints": [],
         }
-        inputs = prepare_prompt_inputs(task_scope, {"materials": materials})
+        inputs = prepare_prompt_inputs(task_scope, {"materials": materials}, idea=idea)
         spec = {
             "role": "Synthesizer",
             "task": "compose final report",

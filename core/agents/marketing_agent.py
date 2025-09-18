@@ -12,7 +12,7 @@ class MarketingAgent(PromptFactoryAgent):
         spec = {
             "role": "Marketing Analyst",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/marketing_v2.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "market analysis",

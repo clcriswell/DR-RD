@@ -19,7 +19,7 @@ class CTOAgent(PromptFactoryAgent):
         spec = {
             "role": "CTO",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/cto_v2.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "technical strategy",

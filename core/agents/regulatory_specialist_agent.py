@@ -12,7 +12,7 @@ class RegulatorySpecialistAgent(PromptFactoryAgent):
         spec = {
             "role": "Regulatory Specialist",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/regulatory_specialist_v1.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "compliance review",
