@@ -119,6 +119,8 @@ class PromptFactory:
             inputs["idea"] = ""
         if role == "Planner":
             apply_planner_neutralization(inputs)
+            inputs.setdefault("constraints_section", "")
+            inputs.setdefault("risk_section", "")
         _normalize_task_scope(spec, inputs)
         template = self.registry.get(role, task_key)
 
