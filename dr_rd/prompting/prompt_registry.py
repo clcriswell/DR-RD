@@ -131,6 +131,12 @@ registry.register(
         ),
         io_schema_ref="dr_rd/schemas/planner_v1.json",
         retrieval_policy=RetrievalPolicy.LIGHT,
+        provider_hints={
+            "temperature": 0.0,
+            "top_p": 0.1,
+            "presence_penalty": 0.0,
+            "frequency_penalty": 0.0,
+        },
     )
 )
 
