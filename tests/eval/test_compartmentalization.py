@@ -11,6 +11,7 @@ from dr_rd.prompting import PromptFactory, registry
 from dr_rd.prompting.sanitizers import neutralize_project_terms
 from dr_rd.evaluators import compartment_check
 
+from config import feature_flags
 from core.agents.prompt_agent import PromptFactoryAgent
 from core.agents.cto_agent import CTOAgent
 from core.agents.finance_agent import FinanceAgent
@@ -136,6 +137,62 @@ def test_planner_schema_rejects_missing_extended_fields(planner_schema):
     }
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(plan, planner_schema)
+
+
+def test_planner_schema_complete(monkeypatch, planner_schema):
+    payload = {
+        "tasks": [
+            {
+                "id": "T01",
+                "title": "Scoping",
+                "summary": "Scope technical work",
+                "description": "Outline architecture milestones.",
+                "role": "CTO",
+                "inputs": ["Design brief"],
+                "outputs": ["Architecture outline"],
+                "constraints": ["Budget cap"],
+            }
+        ]
+    }
+
+    class DummyResult:
+        def __init__(self, text: str) -> None:
+            self.content = text
+            self.raw = {}
+
+    call_counter = {"count": 0}
+
+    def fake_complete(system_prompt: str, user_prompt: str, **kwargs: Any) -> DummyResult:
+        call_counter["count"] += 1
+        return DummyResult(json.dumps(payload))
+
+    monkeypatch.setattr("core.agents.base_agent.complete", fake_complete)
+    monkeypatch.setattr(feature_flags, "POLICY_AWARE_PLANNING", False)
+    monkeypatch.setattr(feature_flags, "SAFETY_ENABLED", False)
+    monkeypatch.setattr(feature_flags, "FILTERS_STRICT_MODE", False)
+
+    agent = PlannerAgent("Planner", "test-model")
+    result = agent.act("Nebula concept", "Outline execution phases")
+    plan = json.loads(result)
+
+    assert call_counter["count"] == 1
+    assert isinstance(plan, dict)
+    for key in planner_schema["properties"].keys():
+        assert key in plan
+
+    assert isinstance(plan["plan_id"], str)
+    assert isinstance(plan["role"], str)
+    assert isinstance(plan["task"], str)
+    assert isinstance(plan["findings"], str)
+    assert isinstance(plan["risks"], list)
+    assert isinstance(plan["sources"], list)
+
+    assert plan["tasks"] and isinstance(plan["tasks"], list)
+    for task in plan["tasks"]:
+        for field in ("id", "title", "summary", "description", "role", "inputs", "outputs", "constraints"):
+            assert field in task
+
+    jsonschema.validate(plan, planner_schema)
 
 
 def test_planner_prompt_instructs_compartmentalized_fields():
