@@ -117,6 +117,12 @@ def _normalize_task_scope(spec: dict[str, Any], inputs: dict[str, Any]) -> None:
     if not isinstance(inputs, dict):
         return
 
+    role = spec.get("role")
+    if role == "Reflection":
+        for key in list(inputs.keys()):
+            if isinstance(key, str) and key.startswith("idea"):
+                inputs.pop(key, None)
+
     task_entry = spec.get("task")
     plan_task: dict[str, Any] | None = None
     for key in ("plan_task", "task_payload", "task_details"):

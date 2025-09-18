@@ -12,7 +12,7 @@ from dr_rd.prompting.sanitizers import neutralize_project_terms
 from dr_rd.evaluators import compartment_check
 
 from config import feature_flags
-from core.agents.prompt_agent import PromptFactoryAgent
+from core.agents.prompt_agent import PromptFactoryAgent, prepare_prompt_inputs
 from core.agents.cto_agent import CTOAgent
 from core.agents.finance_agent import FinanceAgent
 from core.agents.finance_specialist_agent import FinanceSpecialistAgent
@@ -397,6 +397,30 @@ def test_reflection_prompt_excludes_project_idea():
     assert "NebulaLink" not in user
     assert "Existing outputs" in user
     assert "Not determined" in user
+
+
+def test_reflection_prompt_factory_strips_idea_context():
+    pf = PromptFactory()
+    payload = {
+        "CTO": {"summary": "Not determined", "findings": "", "risks": []},
+        "Regulatory": {"summary": "Pending", "findings": "", "risks": []},
+    }
+    task_str = json.dumps(payload)
+    inputs = prepare_prompt_inputs(payload, idea="NebulaLink Beacon Series")
+    inputs["task_payload"] = task_str
+    spec = {
+        "role": "Reflection",
+        "task": task_str,
+        "inputs": inputs,
+        "io_schema_ref": "dr_rd/schemas/reflection_v1.json",
+    }
+
+    prompt = pf.build_prompt(spec)
+
+    assert "idea" not in spec["inputs"]
+    serialized_prompt = json.dumps(prompt)
+    assert "NebulaLink" not in serialized_prompt
+    assert "Beacon Series" not in serialized_prompt
 
 
 PROMPT_AGENT_CASES = [
