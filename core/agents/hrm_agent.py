@@ -12,7 +12,7 @@ class HRMAgent(PromptFactoryAgent):
         spec = {
             "role": "HRM",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/hrm_v2.json",
             "retrieval_policy": RetrievalPolicy.NONE,
             "capabilities": "role mapping",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import jsonschema
 
@@ -115,7 +115,11 @@ def _ensure_string_list(value: Any) -> list[str]:
     return [text] if text else []
 
 
-def prepare_prompt_inputs(task: Any, extra: Dict[str, Any] | None = None) -> Dict[str, Any]:
+def prepare_prompt_inputs(
+    task: Any,
+    extra: Dict[str, Any] | None = None,
+    idea: Optional[str] = None,
+) -> Dict[str, Any]:
     description = ""
     task_inputs: list[str] = []
     task_outputs: list[str] = []
@@ -143,6 +147,9 @@ def prepare_prompt_inputs(task: Any, extra: Dict[str, Any] | None = None) -> Dic
     if plan_task is not None:
         payload["plan_task"] = plan_task
         payload.setdefault("task_details", plan_task)
+
+    if idea:
+        payload["idea"] = idea
 
     if extra:
         payload.update(extra)

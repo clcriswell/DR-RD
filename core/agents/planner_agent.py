@@ -13,7 +13,7 @@ from core.safety_gate import preflight
 class PlannerAgent(PromptFactoryAgent):
     def act(self, idea: str, task: Any = None, **kwargs) -> str:
         text = str(task or "")
-        inputs = prepare_prompt_inputs(task)
+        inputs = prepare_prompt_inputs(task, idea=idea)
         spec = {
             "role": "Planner",
             "task": text,

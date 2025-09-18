@@ -20,7 +20,7 @@ class IPAnalystAgent(PromptFactoryAgent):
         spec = {
             "role": "IP Analyst",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/ip_analyst_v2.json",
             "retrieval_policy": RetrievalPolicy.AGGRESSIVE,
             "top_k": top_k,

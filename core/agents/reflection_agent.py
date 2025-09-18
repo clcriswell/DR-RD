@@ -28,7 +28,7 @@ class ReflectionAgent(PromptFactoryAgent):
         if not any(_has_placeholder(v) for v in data.values()):
             return "no further tasks"
 
-        inputs = prepare_prompt_inputs(task)
+        inputs = prepare_prompt_inputs(task, idea=idea)
         inputs.setdefault("task_payload", task_str)
         spec = {
             "role": "Reflection",

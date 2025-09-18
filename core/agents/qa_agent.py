@@ -47,7 +47,7 @@ class QAAgent:
         )
         coverage = call_tool(self.ROLE, "compute_test_coverage", {"matrix": matrix})
         stats = call_tool(self.ROLE, "classify_defects", {"defects": defects})
-        inputs = prepare_prompt_inputs(task)
+        inputs = prepare_prompt_inputs(task, idea=idea)
         inputs.update(
             {
                 "context": context,

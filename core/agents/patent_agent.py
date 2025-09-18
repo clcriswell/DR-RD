@@ -14,7 +14,7 @@ class PatentAgent(PromptFactoryAgent):
         spec = {
             "role": "Patent",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/generic_v2.json",
             "retrieval_policy": RetrievalPolicy.AGGRESSIVE,
             "capabilities": "patent analysis",

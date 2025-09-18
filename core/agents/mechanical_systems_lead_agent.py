@@ -12,7 +12,7 @@ class MechanicalSystemsLeadAgent(PromptFactoryAgent):
         spec = {
             "role": "Mechanical Systems Lead",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/mechanical_systems_lead_v1.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "mechanical design",

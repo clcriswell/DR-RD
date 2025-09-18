@@ -12,7 +12,7 @@ class ChiefScientistAgent(PromptFactoryAgent):
         spec = {
             "role": "Chief Scientist",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/chief_scientist_v1.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "integrate findings",

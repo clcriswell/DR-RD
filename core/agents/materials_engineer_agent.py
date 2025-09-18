@@ -10,11 +10,12 @@ class MaterialsEngineerAgent(PromptFactoryAgent):
     """Prompt-based agent for materials tasks with a simple call signature."""
 
     def __call__(self, task: Any, model: str | None = None, meta: dict | None = None) -> str:
+        idea = task.get("idea", "") if isinstance(task, dict) else ""
         text = task.get("description", "") if isinstance(task, dict) else str(task or "")
         spec = {
             "role": "Materials Engineer",
             "task": text,
-            "inputs": prepare_prompt_inputs(task),
+            "inputs": prepare_prompt_inputs(task, idea=idea),
             "io_schema_ref": "dr_rd/schemas/materials_engineer_v2.json",
             "retrieval_policy": RetrievalPolicy.LIGHT,
             "capabilities": "materials selection",
