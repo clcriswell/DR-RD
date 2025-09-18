@@ -2,12 +2,22 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, Iterable
+from typing import Any, Dict, Iterable
 
 from dr_rd.kb import store
 from dr_rd.kb.models import KBRecord, KBSource
 from dr_rd.reporting import compose
 from dr_rd.reporting.exporters import to_html, to_markdown
+
+
+def _coerce_inputs(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, list):
+        return {"items": list(value)}
+    if value is None:
+        return {}
+    return {"value": value}
 
 
 def kb_ingest(agent_role: str, task: Dict, output_json: Dict, route_meta: Dict, spans: Iterable[Dict]) -> None:
@@ -18,7 +28,7 @@ def kb_ingest(agent_role: str, task: Dict, output_json: Dict, route_meta: Dict, 
         "agent_role": agent_role,
         "task_title": task.get("title", ""),
         "task_desc": task.get("description", ""),
-        "inputs": task.get("inputs", {}),
+        "inputs": _coerce_inputs(task.get("inputs")),
         "output_json": output_json,
         "sources": output_json.get("sources", []),
         "ts": route_meta.get("ts", 0.0),

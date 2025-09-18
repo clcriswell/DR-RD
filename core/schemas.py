@@ -32,7 +32,9 @@ class Task(BaseModel):
         min_length=1, validation_alias=AliasChoices("description", "detail", "details")
     )
     role: str = Field(min_length=1)
-    inputs: dict[str, Any] | None = None
+    inputs: dict[str, Any] | list[str] | None = None
+    outputs: list[str] = Field(default_factory=list)
+    constraints: list[str] = Field(default_factory=list)
     dependencies: list[str] = Field(default_factory=list)
     stop_rules: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
