@@ -754,19 +754,51 @@ def test_finance_specialist_includes_scope_hook(monkeypatch):
     assert "compartment_check" in hooks
 
 
-def test_scope_leak_detection():
-    ok, reason = compartment_check("Idea: reveal confidential project")
+def test_compartment_check_flags_scope_violation():
+    config = {
+        "idea": "ChronoGlide Drone Pro: Rapid-response UAV for mountain rescue",
+        "role_names": ["CTO", "Marketing Analyst", "Planner"],
+        "current_role": "Materials Engineer",
+    }
+
+    idea_payload = {
+        "analysis": "The ChronoGlide Drone Pro branding should remain hidden from downstream teams.",
+        "summary": "Maintain compartmentalized briefing materials.",
+    }
+
+    ok, reason, details = compartment_check(idea_payload, config)
     assert ok is False
     assert reason == "idea_reference"
+    assert details["action"] == "revise"
+    assert details["matches"]
+    assert any(match["reason"] == "idea_reference" for match in details["matches"])
+    assert any(
+        "ChronoGlide" in match.get("snippet", "")
+        for match in details["matches"]
+        if match["reason"] == "idea_reference"
+    )
 
     cross_scope_payload = {
-        "summary": "Coordinate with the CTO and Marketing Analyst on the broader rollout plan.",
-        "findings": "All good.",
+        "summary": "Coordinate with the CTO on the device integration before handing off to other teams.",
+        "findings": "No blockers identified.",
     }
-    ok, reason = compartment_check(cross_scope_payload)
+
+    redact_config = dict(config)
+    redact_config["on_violation"] = "redact"
+
+    ok, reason, details = compartment_check(cross_scope_payload, redact_config)
     assert ok is False
     assert reason == "cross_role_reference"
+    assert details["action"] == "redact"
+    assert any(match["reason"] == "cross_role_reference" for match in details["matches"])
+    sanitized = details.get("sanitized")
+    assert isinstance(sanitized, dict)
+    assert "[REDACTED_SCOPE]" in sanitized["summary"]
+    assert "CTO" not in sanitized["summary"]
 
-    ok, reason = compartment_check({"analysis": "Focus on the assigned subsystem deliverable only."})
+    ok, reason, details = compartment_check(
+        {"analysis": "Focus on the assigned subsystem deliverable only."}, config
+    )
     assert ok is True
     assert reason == ""
+    assert details["matches"] == []
