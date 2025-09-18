@@ -247,6 +247,69 @@ def test_planner_prompt_masks_project_name():
     assert "Project idea" in user
 
 
+def test_planner_no_idea_leak(monkeypatch, planner_schema):
+    payload = {
+        "plan_id": "PLAN-123",
+        "role": "Planner",
+        "task": "Outline execution phases",
+        "findings": "Baseline",
+        "constraints": "",
+        "assumptions": "",
+        "metrics": "",
+        "next_steps": "",
+        "risks": [],
+        "sources": [],
+        "tasks": [
+            {
+                "id": "T01",
+                "title": "ChronoGlide Drone Pro feasibility",
+                "summary": "Assess ChronoGlide Drone Pro viability",
+                "description": "Design the ChronoGlide Drone Pro control stack",
+                "role": "CTO",
+                "inputs": ["ChronoGlide Drone Pro concept deck"],
+                "outputs": ["ChronoGlide Drone Pro architecture outline"],
+                "constraints": ["ChronoGlide Drone Pro budget"],
+            }
+        ],
+    }
+
+    class DummyResult:
+        def __init__(self, text: str) -> None:
+            self.content = text
+            self.raw = {}
+
+    def fake_complete(system_prompt: str, user_prompt: str, **kwargs: Any) -> DummyResult:
+        return DummyResult(json.dumps(payload))
+
+    monkeypatch.setattr("core.agents.base_agent.complete", fake_complete)
+    monkeypatch.setattr(feature_flags, "POLICY_AWARE_PLANNING", False)
+    monkeypatch.setattr(feature_flags, "SAFETY_ENABLED", False)
+    monkeypatch.setattr(feature_flags, "FILTERS_STRICT_MODE", False)
+
+    agent = PlannerAgent("Planner", "test-model")
+    result = agent.act(
+        "ChronoGlide Drone Pro: Rapid-response UAV for mountain rescue",
+        "Outline execution phases",
+    )
+    plan = json.loads(result)
+
+    jsonschema.validate(plan, planner_schema)
+
+    sensitive_terms = ["ChronoGlide", "Drone Pro"]
+    task = plan["tasks"][0]
+    for field in ("title", "summary", "description"):
+        value = task[field]
+        assert isinstance(value, str)
+        assert all(term not in value for term in sensitive_terms)
+        assert "the system" in value
+
+    for field in ("inputs", "outputs", "constraints"):
+        values = task[field]
+        assert isinstance(values, list)
+        joined = " ".join(values)
+        assert all(term not in joined for term in sensitive_terms)
+        assert "the system" in joined
+
 def test_neutralize_project_terms_replaces_named_entities():
     text = "Launch the NebulaLink Beacon Series for remote monitoring"
     neutral, replaced = neutralize_project_terms(text)

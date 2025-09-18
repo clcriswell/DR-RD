@@ -7,12 +7,18 @@ import re
 from pathlib import Path
 from typing import Any
 
+import importlib
+
 import yaml
 from jinja2 import Environment, meta
 
 from dr_rd.examples import safety_filters
 from dr_rd.prompting import example_selectors
-from dr_rd.prompting.sanitizers import apply_planner_neutralization
+from dr_rd.prompting.sanitizers import (
+    NEUTRAL_ALIAS,
+    apply_planner_neutralization,
+    sanitize_planner_response,
+)
 
 from .prompt_registry import (
     RETRIEVAL_POLICY_META,
@@ -30,6 +36,52 @@ RAG_CFG = (
 )
 PLACEHOLDER_TOKEN_RE = re.compile(r"\[(PERSON|ORG|ADDRESS|IP|DEVICE)_\d+\]")
 JINJA_ENV = Environment()
+
+_PLANNER_POSTPROCESSOR_INSTALLED = False
+
+
+def _ensure_planner_postprocessor() -> None:
+    global _PLANNER_POSTPROCESSOR_INSTALLED
+    if _PLANNER_POSTPROCESSOR_INSTALLED:
+        return
+
+    try:
+        prompt_module = importlib.import_module("core.agents.prompt_agent")
+    except Exception:
+        return
+
+    original = getattr(prompt_module.PromptFactoryAgent, "run_with_spec", None)
+    if original is None:
+        return
+
+    if getattr(original, "__planner_neutralizer__", False):
+        _PLANNER_POSTPROCESSOR_INSTALLED = True
+        return
+
+    AgentRunResult = getattr(prompt_module, "AgentRunResult")
+
+    def _wrapped(self, spec: dict[str, Any], **kwargs):  # type: ignore[override]
+        result = original(self, spec, **kwargs)
+        role = spec.get("role") if isinstance(spec, dict) else None
+        if role != "Planner":
+            return result
+
+        inputs = spec.get("inputs") if isinstance(spec, dict) else None
+        inputs = inputs if isinstance(inputs, dict) else {}
+        alias_value = inputs.get("idea_alias") or NEUTRAL_ALIAS
+        alias = alias_value if isinstance(alias_value, str) else str(alias_value)
+        forbidden = _ensure_string_list(inputs.get("idea_forbidden_terms"))
+
+        sanitized = sanitize_planner_response(str(result), forbidden, alias)
+        if sanitized == str(result):
+            return result
+
+        fallback_used = getattr(result, "fallback_used", False)
+        return AgentRunResult(sanitized, fallback_used=fallback_used)
+
+    setattr(_wrapped, "__planner_neutralizer__", True)
+    prompt_module.PromptFactoryAgent.run_with_spec = _wrapped  # type: ignore[assignment]
+    _PLANNER_POSTPROCESSOR_INSTALLED = True
 
 
 def _ensure_string_list(value: Any) -> list[str]:
@@ -110,6 +162,7 @@ class PromptFactory:
         self.registry = registry or default_registry
 
     def build_prompt(self, spec: dict[str, Any]) -> dict[str, Any]:
+        _ensure_planner_postprocessor()
         role = spec.get("role")
         task_key = spec.get("task_key")
         inputs = spec.get("inputs") or {}
