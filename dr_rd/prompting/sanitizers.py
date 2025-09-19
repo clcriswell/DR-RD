@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, MutableMapping
 from typing import Any
+
+from dr_rd.prompting.planner_specificity import ensure_plan_task_specificity
 
 NEUTRAL_ALIAS = "the system"
 
@@ -177,10 +179,14 @@ def sanitize_planner_plan(
     alias: str = NEUTRAL_ALIAS,
 ) -> tuple[Any, bool]:
     terms = _expand_forbidden_terms(forbidden_terms, alias)
-    if not terms:
-        return plan, False
-
     changed = False
+
+    if isinstance(plan, MutableMapping):
+        if ensure_plan_task_specificity(plan):
+            changed = True
+
+    if not terms:
+        return plan, changed
 
     def _walk(value: Any) -> Any:
         nonlocal changed
@@ -191,7 +197,7 @@ def sanitize_planner_plan(
             return sanitized
         if isinstance(value, list):
             return [_walk(item) for item in value]
-        if isinstance(value, dict):
+        if isinstance(value, MutableMapping):
             return {key: _walk(val) for key, val in value.items()}
         return value
 

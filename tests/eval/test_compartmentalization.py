@@ -8,6 +8,7 @@ import pytest
 from jinja2 import Environment, meta
 
 from dr_rd.prompting import PromptFactory, registry
+from dr_rd.prompting.planner_specificity import task_contains_concrete_detail
 from dr_rd.prompting.sanitizers import neutralize_project_terms
 from dr_rd.evaluators import compartment_check
 
@@ -193,6 +194,167 @@ def test_planner_schema_complete(monkeypatch, planner_schema):
             assert field in task
 
     jsonschema.validate(plan, planner_schema)
+
+
+def test_planner_task_sufficiency(monkeypatch, planner_schema):
+    payload = {
+        "plan_id": "PLAN-900",
+        "role": "Planner",
+        "task": "Outline execution phases",
+        "findings": "Baseline",
+        "constraints": "",
+        "assumptions": "",
+        "metrics": "",
+        "next_steps": "",
+        "risks": [],
+        "sources": [],
+        "tasks": [
+            {
+                "id": "T01",
+                "title": "Architecture work-up",
+                "summary": "Outline major subsystems",
+                "description": "Draft the system architecture",
+                "role": "CTO",
+                "inputs": ["Concept brief"],
+                "outputs": ["Architecture outline"],
+                "constraints": ["Keep design modular"],
+            },
+            {
+                "id": "T02",
+                "title": "Lab validation plan",
+                "summary": "Design core experiments",
+                "description": "Frame early research tasks",
+                "role": "Research Scientist",
+                "inputs": ["System hypothesis"],
+                "outputs": ["Experiment matrix"],
+                "constraints": ["Neutral scope"],
+            },
+            {
+                "id": "T03",
+                "title": "Compliance outline",
+                "summary": "List regulatory checkpoints",
+                "description": "Identify certification path",
+                "role": "Regulatory",
+                "inputs": ["Governance brief"],
+                "outputs": ["Compliance checklist"],
+                "constraints": ["Policy alignment"],
+            },
+            {
+                "id": "T04",
+                "title": "Financial modelling",
+                "summary": "Build initial budget",
+                "description": "Estimate costs and runway",
+                "role": "Finance",
+                "inputs": ["Cost assumptions"],
+                "outputs": ["Budget model"],
+                "constraints": ["Stay within guardrails"],
+            },
+            {
+                "id": "T05",
+                "title": "Market sizing",
+                "summary": "Assess opportunity",
+                "description": "Segment audience",
+                "role": "Marketing Analyst",
+                "inputs": ["Market research"],
+                "outputs": ["Segmentation brief"],
+                "constraints": ["Neutral messaging"],
+            },
+            {
+                "id": "T06",
+                "title": "Prior art scan",
+                "summary": "Survey existing filings",
+                "description": "Collect comparable patents",
+                "role": "IP Analyst",
+                "inputs": ["Search terms"],
+                "outputs": ["Prior art summary"],
+                "constraints": ["Generic references"],
+            },
+            {
+                "id": "T07",
+                "title": "Hiring plan",
+                "summary": "Plan team growth",
+                "description": "Map staffing requirements",
+                "role": "HRM",
+                "inputs": ["Org design brief"],
+                "outputs": ["Hiring roadmap"],
+                "constraints": ["Confidential"],
+            },
+            {
+                "id": "T08",
+                "title": "Materials evaluation",
+                "summary": "Review candidate materials",
+                "description": "Assess structural options",
+                "role": "Materials Engineer",
+                "inputs": ["Performance targets"],
+                "outputs": ["Material shortlist"],
+                "constraints": ["Neutral documentation"],
+            },
+            {
+                "id": "T09",
+                "title": "Verification plan",
+                "summary": "Outline system tests",
+                "description": "Define QA approach",
+                "role": "QA",
+                "inputs": ["Acceptance criteria"],
+                "outputs": ["Test plan"],
+                "constraints": ["No idea references"],
+            },
+            {
+                "id": "T10",
+                "title": "Simulation prep",
+                "summary": "Set up models",
+                "description": "Plan simulation activities",
+                "role": "Simulation",
+                "inputs": ["System parameters"],
+                "outputs": ["Simulation roadmap"],
+                "constraints": ["Model neutrality"],
+            },
+            {
+                "id": "T11",
+                "title": "Iterative planning",
+                "summary": "Define feedback loops",
+                "description": "Coordinate next steps",
+                "role": "Dynamic Specialist",
+                "inputs": ["Team updates"],
+                "outputs": ["Iteration plan"],
+                "constraints": ["Neutral communication"],
+            },
+            {
+                "id": "T12",
+                "title": "Provisional filing",
+                "summary": "Outline patent strategy",
+                "description": "Draft filing components",
+                "role": "Patent",
+                "inputs": ["Innovation notes"],
+                "outputs": ["Draft structure"],
+                "constraints": ["Generic legal language"],
+            },
+        ],
+    }
+
+    class DummyResult:
+        def __init__(self, text: str) -> None:
+            self.content = text
+            self.raw: dict[str, Any] = {}
+
+    def fake_complete(system_prompt: str, user_prompt: str, **kwargs: Any) -> DummyResult:
+        return DummyResult(json.dumps(payload))
+
+    monkeypatch.setattr("core.agents.base_agent.complete", fake_complete)
+    monkeypatch.setattr(feature_flags, "POLICY_AWARE_PLANNING", False)
+    monkeypatch.setattr(feature_flags, "SAFETY_ENABLED", False)
+    monkeypatch.setattr(feature_flags, "FILTERS_STRICT_MODE", False)
+
+    agent = PlannerAgent("Planner", "test-model")
+    result = agent.act("High altitude rescue platform", "Outline execution phases")
+    plan = json.loads(result)
+
+    jsonschema.validate(plan, planner_schema)
+    assert plan["tasks"]
+    assert len(plan["tasks"]) == len(payload["tasks"])
+
+    for task in plan["tasks"]:
+        assert task_contains_concrete_detail(task), f"Task {task.get('id')} lacks actionable detail"
 
 
 def test_planner_prompt_instructs_compartmentalized_fields():
