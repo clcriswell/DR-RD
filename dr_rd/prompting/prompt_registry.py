@@ -94,7 +94,13 @@ registry.register(
             '["CTO","Research Scientist","Regulatory","Finance","Marketing '
             'Analyst","IP Analyst","HRM","Materials Engineer","QA",'
             '"Simulation","Dynamic Specialist"]. Each task should include a '
-            "brief description in 1–3 sentences and a role. Unknown domains "
+            "brief description in 1–3 sentences and a role. Every task must "
+            "also provide at least one concrete parameter, quantitative target, "
+            "industry standard, or measurable constraint the assignee can act "
+            "on (e.g., latency ≤ 10 ms, ISO 13485 clause alignment, ≥ 90% "
+            "coverage, onboarding within 45 days). If specific values are "
+            "unknown, instruct the assignee to define a measurement plan and "
+            "supply a placeholder threshold instead of generic text. Unknown domains "
             "should default to 'Dynamic Specialist'. Prefer ids "
             '"T01","T02", etc. If the user supplies ids, convert to that '
             "format. Produce at least six tasks spanning design/architecture, "
