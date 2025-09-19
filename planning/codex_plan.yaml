@@ -1,69 +1,10 @@
 tasks:
-- id: PL3  
-  group: "planner-interface"  
-  description: "Ensure Planner outputs a complete plan JSON including required metadata (e.g. plan_id, role, summary) so that schema validation passes."  
-  acceptance_criteria:  
-    - "Planner JSON output includes all top-level keys defined in the schema (plan_id, role, task, findings, constraints, assumptions, metrics, next_steps, risks, sources, tasks) on the first attempt."  
-    - "No planner.validation_failed errors occur – the plan is schema-valid without manual fixes or retries."  
-  test_coverage: "tests/eval/test_compartmentalization.py::test_planner_schema_complete"  
-  labels: ["planner", "schema", "compartmentalization"]  
-
-- id: PL4  
-  group: "planner-interface"  
-  description: "Refine Planner prompt and logic to eliminate any reference to the overall idea or product name in task titles/descriptions (use strictly neutral terms like 'the system' or 'the device')."  
-  acceptance_criteria:  
-    - "No task description or title contains the original project name, codename, or any specific end-product term."  
-    - "All tasks use generic language for the invention (e.g. 'the system', 'the module') – verified by searching Planner output for any user idea keywords or proper nouns."  
-    - "If the model accidentally includes an idea-specific term, a post-processing step replaces or flags it before agent prompts are generated."  
-  test_coverage: "tests/eval/test_compartmentalization.py::test_planner_no_idea_leak"  
-  labels: ["planner", "prompting", "compartmentalization"]  
-
-- id: AG3  
-  group: "prompt-isolation"  
-  description: "Compartmentalize the Reflection agent’s prompt by removing the global idea context; the Reflection agent should base any follow-up task suggestions only on the agents’ outputs and detected gaps."  
-  acceptance_criteria:  
-    - "The Reflection agent’s prompt no longer includes the full project idea text – it only sees the collated JSON outputs of domain agents (and possibly a generic instruction), with no direct mention of the original Goal."  
-    - "Any follow-up tasks proposed by Reflection are derived strictly from missing info or placeholders in prior outputs, not from knowledge of the overall project."  
-    - "Manual review or test of ReflectionAgent.prompt confirms no `idea` or high-level project terms are present."  
-  test_coverage: "tests/eval/test_compartmentalization.py::test_reflection_prompt_isolation"  
-  labels: ["reflection", "prompts", "compartmentalization"]  
-
-- id: PL5  
-  group: "planner-interface"  
-  description: "Improve Planner output reliability by adjusting generation settings and adding a fallback so that a valid plan JSON is produced on the first try."  
-  acceptance_criteria:  
-    - "Set the Planner’s model parameters (e.g. temperature) to a more deterministic value for schema output. The default run uses these settings – verified via config or logs."  
-    - "Implement a one-shot automatic retry or auto-correction: if the Planner’s first output is missing required keys or is invalid JSON, the system immediately regenerates or fixes it. The pipeline should not abort due to a Planner format error."  
-    - "In testing, simulate a Planner omission of a field and confirm the orchestrator triggers a successful second attempt (or fills in defaults) resulting in a complete plan."  
-  test_coverage: "tests/eval/test_compartmentalization.py::test_planner_auto_retry_success"  
-  labels: ["planner", "reliability", "schema"]  
-
-- id: AG4  
-  group: "prompt-isolation"  
-  description: "Add validation tests to ensure no domain agent prompt includes global idea context or cross-module information."  
-  acceptance_criteria:  
-    - "For each agent role in the registry (except Planner/Synthesizer), the built prompt contains only the task-specific fields (description, inputs, outputs, constraints) and **no** line prefaced by 'Idea:' or any mention of the overall project."  
-    - "Automated test covers a sample of agents (CTO, Regulatory, etc.), constructing their prompt via PromptFactory and asserting the absence of any original idea keywords."  
-    - "All agent prompt templates remain compliant with compartmentalization rules in future revisions (the test will catch any regression where an idea slip-in might occur)."  
-  test_coverage: "tests/prompting/test_prompt_isolation.py::test_no_idea_in_agent_prompts"  
-  labels: ["agents", "prompting", "isolation"]  
-
-- id: EV1  
-  group: "evaluator-hooks"  
-  description: "Augment the compartment_check evaluator to automatically detect and flag any out-of-scope content in agent outputs (with a mechanism to handle violations)."  
-  acceptance_criteria:  
-    - "The compartment_check evaluation hook scans each agent’s JSON output for any mention of the overall project name or other agents/roles. Define explicit patterns or keywords based on the user’s idea and role names to look for (e.g. the idea codename, words like 'overall project', or other role titles)."  
-    - "If an agent output contains forbidden context (e.g. mentions the hidden project or suggests inter-agent coordination), compartment_check returns a failure flag with a specific reason code (`idea_reference`, `cross_role_reference`, etc.) and the orchestrator either auto-redacts that portion or prompts the agent to revise its answer."  
-    - "Demonstrate in a unit test by injecting a dummy agent output containing a phrase like 'coordinate with the CTO on the device' and verify that compartment_check catches it and marks it as a violation (and that the system would not use that output as-is). Future runs with such leakage should log a warning or trigger a correction cycle instead of silently proceeding."  
-  test_coverage: "tests/eval/test_compartmentalization.py::test_compartment_check_flags_scope_violation"  
-  labels: ["evaluation", "compartmentalization", "validation"]  
-
-- id: EV2  
-  group: "evaluator-hooks"  
-  description: "Validate Synthesizer contradiction handling with targeted tests and ensure final reports reflect any module inconsistencies appropriately."  
-  acceptance_criteria:  
-    - "Extend unit tests for the Synthesizer to cover conflict scenarios: e.g., feed it a set of dummy module outputs that contain a direct contradiction or a 'Not determined' placeholder, and confirm the Synthesizer’s result JSON includes a well-formed `contradictions` entry describing the issue."  
-    - "Ensure that when contradictions are present, the Synthesizer’s `confidence` field in the output is lowered (<= 0.6). Conversely, when no contradictions are present, confidence remains at the default high value (e.g. 1.0). The test should assert both behaviors."  
-    - "Verify through these tests (and a sample multi-agent run, if possible) that all identified mismatches or gaps would be surfaced to the user in the final combined report under the `contradictions` section, per the design. This guarantees the integration check is functioning as a last safeguard."  
-  test_coverage: "tests/eval/test_synthesizer_integration.py::test_contradictions_detection_and_confidence"  
-  labels: ["synthesizer", "evaluation", "consistency"]  
+  - id: PL6  
+    group: "planner-interface"  
+    description: "Enhance Planner task specs to ensure every module prompt is sufficiently detailed (while still compartmentalized). In particular, include concrete parameters or quantitative constraints for each task where applicable, per the concept deconstruction guidelines."  
+    acceptance_criteria:  
+      - "Each planned task description includes at least one specific technical detail (e.g. a numeric requirement, a standard/code reference, or a performance target) relevant to that module, provided in the inputs, outputs, or constraints fields."  
+      - "No task descriptions are overly generic. Tasks should not consist solely of vague phrases like 'the project' or 'the module' without additional context. All tasks must be phrased in functional terms with clear module-specific goals (per guidelines):contentReference[oaicite:49]{index=49}."  
+      - "Add a unit test (e.g. `test_planner_task_sufficiency`) that feeds a sample multi-faceted idea into the Planner and asserts that each resulting task contains a concrete parameter or constraint. The test should fail if any task comes back with only generic text and no actionable detail."  
+    test_coverage: "tests/eval/test_compartmentalization.py::test_planner_task_sufficiency"  
+    labels: ["planner", "prompting", "compartmentalization", "sufficiency"]  
