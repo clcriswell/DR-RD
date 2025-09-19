@@ -34,6 +34,10 @@ def compose(spec: dict[str, Any], artifacts: dict[str, Any]) -> dict[str, Any]:
         planner_meta["risks"].extend(
             [r.get("class", str(r)) if isinstance(r, dict) else str(r) for r in risk_reg]
         )
+    contradictions = synth.get("contradictions")
+    if not isinstance(contradictions, list):
+        contradictions = []
+
     report = {
         "report_id": spec.get("report_id", "r1"),
         "title": spec.get("title", "Report"),
@@ -47,4 +51,10 @@ def compose(spec: dict[str, Any], artifacts: dict[str, Any]) -> dict[str, Any]:
         },
         "generated_ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
+    report["contradictions"] = contradictions
+
+    confidence = synth.get("confidence")
+    if isinstance(confidence, (int, float)):
+        report["confidence"] = float(confidence)
+
     return report
