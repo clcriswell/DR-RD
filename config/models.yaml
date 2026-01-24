@@ -3,13 +3,13 @@ providers:
     endpoint_env: OPENAI_API_BASE
     api_key_env: OPENAI_API_KEY
     models:
-      - name: gpt-4.1-mini
+      - name: gpt-5.2
         purpose: [plan, exec, synth]
         ctx: 128000
         speed_class: fast
         price_per_1k_in: 0.150
         price_per_1k_out: 0.600
-      - name: gpt-4o
+      - name: gpt-5.2
         purpose: [exec, vision]
         ctx: 128000
         speed_class: fast
@@ -38,14 +38,14 @@ providers:
 
 routing:
   defaults:
-    plan: {preferred: [openai/gpt-4.1-mini], backups: [anthropic/claude-3-5-sonnet]}
-    exec: {preferred: [openai/gpt-4.1-mini, openai/gpt-4o], backups: [google/gemini-1.5-pro]}
-    synth: {preferred: [openai/gpt-4.1-mini], backups: [anthropic/claude-3-5-sonnet]}
+    plan: {preferred: [openai/gpt-5.2], backups: [anthropic/claude-3-5-sonnet]}
+    exec: {preferred: [openai/gpt-5.2, openai/gpt-5.2], backups: [google/gemini-1.5-pro]}
+    synth: {preferred: [openai/gpt-5.2], backups: [anthropic/claude-3-5-sonnet]}
   role_overrides:
-    "Research Scientist": {exec: {preferred: [anthropic/claude-3-5-sonnet, openai/gpt-4o]}}
-    "Regulatory":        {exec: {preferred: [openai/gpt-4.1-mini], backups: [google/gemini-1.5-pro]}}
-    "IP Analyst":        {exec: {preferred: [openai/gpt-4o], backups: [anthropic/claude-3-5-sonnet]}}
-    "QA":                {exec: {preferred: [openai/gpt-4o], backups: [openai/gpt-4.1-mini]}}
+    "Research Scientist": {exec: {preferred: [anthropic/claude-3-5-sonnet, openai/gpt-5.2]}}
+    "Regulatory":        {exec: {preferred: [openai/gpt-5.2], backups: [google/gemini-1.5-pro]}}
+    "IP Analyst":        {exec: {preferred: [openai/gpt-2.5], backups: [anthropic/claude-3-5-sonnet]}}
+    "QA":                {exec: {preferred: [openai/gpt-5.2], backups: [openai/gpt-5.2]}}
 
 slos:
   target_latency_ms: {plan: 2000, exec: 3500, synth: 2500}
