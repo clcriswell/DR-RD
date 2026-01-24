@@ -5,12 +5,12 @@ from pathlib import Path
 import yaml
 
 DEFAULTS = {
-    "PLANNER": "gpt-4o-mini",
-    "RESEARCHER": "gpt-4o-mini",
-    "EVALUATOR": "gpt-4o-mini",
-    "SYNTHESIZER": "gpt-4o-mini",
-    "FINAL_SYNTH": "gpt-4o-mini",
-    "BRAIN_MODE_LOOP": "gpt-4o-mini",
+    "PLANNER": "gpt-5.2",
+    "RESEARCHER": "gpt-5.2",
+    "EVALUATOR": "gpt-5.2",
+    "SYNTHESIZER": "gpt-5.2",
+    "FINAL_SYNTH": "gpt-5.2",
+    "BRAIN_MODE_LOOP": "gpt-5.2",
 }
 
 def _load_prices() -> dict:
@@ -34,7 +34,7 @@ def _cheap_default(prices: dict) -> str:
             return float(inp) + float(out)
         return float(p)
 
-    return min(prices, key=lambda k: _cost(prices[k])) if prices else "gpt-5"
+    return min(prices, key=lambda k: _cost(prices[k])) if prices else "gpt-5.2"
 
 
 @dataclass
@@ -57,7 +57,7 @@ def pick_model(stage: str, role: str | None, mode: str, prices: dict | None = No
     model = DEFAULTS.get(stage.upper())
     if model:
         return model
-    return DEFAULTS.get("RESEARCHER", "gpt-5")
+    return DEFAULTS.get("RESEARCHER", "gpt-5.2")
 
 
 def pick_model_for_stage(stage: str, role: str | None = None, prices: dict | None = None) -> str:
