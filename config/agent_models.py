@@ -3,7 +3,7 @@
 
 AGENT_MODEL_MAP = {
     "Planner": "gpt-5.2",
-    "CTO": "gpt-5.2",
+    "CTO": "gpt-5.0",
     "Research": "gpt-5.2",
     "Research Scientist": "gpt-5.2",
     "Mechanical Systems Lead": "gpt-5.2",
