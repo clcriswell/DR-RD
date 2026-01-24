@@ -1,7 +1,7 @@
 standard: &standard
   target_cost_usd: 2.50
   enforce_caps: false
-  models: { plan: gpt-4o-mini, exec: gpt-4o-mini, synth: gpt-4o-mini }
+  models: { plan: gpt-5.2, exec: gpt-5.2, synth: gpt-5.2 }
   k_search: 6
   max_loops: 5
   stage_weights: { plan: 0.20, exec: 0.50, synth: 0.30 }
